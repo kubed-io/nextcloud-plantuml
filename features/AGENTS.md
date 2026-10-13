@@ -37,6 +37,16 @@ trip through a real server, and it is the one thing an admin wants to see.
 A cell names what KIND of value it is (`the test server`) rather than the value,
 because the real URL comes from the environment the workflow built.
 
+THE STEPS DRIVE THE OCC TWINS. `plantuml:set-url` is the card's field and
+`plantuml:test-connection` is its button: both call the same `ServerConfig` and
+`RenderService::version()` the card does, so the CLI and the card cannot disagree.
+The check renders PlantUML's `version` diagram as text and reads the version off
+it, which only a PlantUML server can answer.
+
+A URL with no http(s) scheme or host is refused: the card's save fails with
+Nextcloud's generic message and logs the reason, Test connection then says
+`Server URL is not set`, and `occ plantuml:set-url` prints the reason itself.
+
 ### An admin enters a server address that cannot render
 
 THE MESSAGE HAS TO NAME THE PROBLEM. There are exactly three, they have three
@@ -47,6 +57,11 @@ different fixes, and the health check says which one it found:
 | nothing | `Server URL is not set` | type one |
 | a host that does not answer | `Server is unreachable` | network, port, typo |
 | a web server that is not PlantUML | `Server is not a PlantUML server` | wrong URL |
+
+Each kind of input is a real one. An empty cell deletes `server_url`. The
+unreachable host is `127.0.0.1:9`, where nothing listens. The server that is not
+PlantUML is Nextcloud itself: it answers the `/txt` POST, with a status or a page
+that carries no PlantUML version.
 
 The three are one outline because each row is the same rule — "the check names
 what is wrong" — over a different input. The same three words are the whole error
@@ -88,8 +103,19 @@ drawn exactly what you can read. A path to a file that is not a diagram is refus
 rather than rendered, because PlantUML would happily draw an error image for a
 text file and a 200 for `notes.txt` would teach the caller nothing.
 
-The two `@api` scenarios are the harness-reachable half of this file; the click is
-a browser behaviour and waits for a browser leg.
+"Not a diagram" is the file's detected mimetype, `text/x-plantuml`, so these
+scenarios rest on the file type `lifecycle.feature` registers. A path that does
+not resolve, or climbs out of the caller's folder, is the same 404: the route never
+says whether a file it will not draw exists.
+
+A diagram the server answers is a 200 SVG with the file's ETag, and a 304 when the
+caller already holds that ETag. A diagram with a mistake in it is still a 200:
+PlantUML draws the error into the image. Only a server problem is not an image — a
+503 whose body names it in the shared vocabulary.
+
+The two `@api` scenarios are the harness-reachable half of this file, asked over
+HTTP as the admin. The click is `@blocked`: it is a browser behaviour and waits for
+a browser leg.
 
 ## diagrams/edit
 

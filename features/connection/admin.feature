@@ -1,7 +1,5 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#connectionadmin
 
-# @unbuilt throughout — the app is specified ahead of its code; nothing in lib/ yet.
-@unbuilt
 Feature: The admin connects the app to a PlantUML server
   As a Nextcloud admin
   I want to point the app at my PlantUML server and check that it answers

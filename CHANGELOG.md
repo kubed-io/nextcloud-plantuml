@@ -14,5 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Admin settings: point the app at a PlantUML server and test the connection; `occ plantuml:set-url`, `test-connection` and `show-config`.
+- A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`; diagram text renders through `POST /apps/plantuml/render`.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon.
 

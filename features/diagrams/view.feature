@@ -1,7 +1,5 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#diagramsview
 
-# @unbuilt throughout — the app is specified ahead of its code; nothing in lib/ yet.
-@unbuilt
 Feature: Looking at a diagram file
   As a Nextcloud user
   I want a diagram file to show me its diagram
@@ -13,7 +11,8 @@ Feature: Looking at a diagram file
 
     # ── RULE: a diagram file opens as a picture ───────────────────────────────
 
-  @ui @gesture
+  # @blocked — no browser.
+  @ui @gesture @blocked
   Scenario: Clicking a diagram file opens its diagram
     When I click "Order flow.puml" in the Files app
     Then the image viewer opens on the diagram

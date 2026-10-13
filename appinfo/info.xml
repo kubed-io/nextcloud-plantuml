@@ -41,9 +41,17 @@ This is a community integration and is not affiliated with or endorsed by the Pl
   <dependencies>
     <nextcloud min-version="32" max-version="34"/>
   </dependencies>
-  <!-- <settings> and <commands> arrive with the tasks that add them. They must
-       not be present empty: InfoParser reads an empty element as "" and
-       array_key_exists() on it takes down occ app:list for every app. -->
+  <!-- No element below may be present empty: InfoParser reads an empty element
+       as "" and array_key_exists() on it takes down occ app:list for every app. -->
+  <settings>
+    <admin>OCA\PlantUml\Settings\AdminTest</admin>
+    <admin-section>OCA\PlantUml\Settings\AdminSection</admin-section>
+  </settings>
+  <commands>
+    <command>OCA\PlantUml\Command\SetUrl</command>
+    <command>OCA\PlantUml\Command\TestConnection</command>
+    <command>OCA\PlantUml\Command\ShowConfig</command>
+  </commands>
   <repair-steps>
     <install>
       <step>OCA\PlantUml\Migration\RegisterMimetype</step>

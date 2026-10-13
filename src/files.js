@@ -10,8 +10,8 @@
  *  - "Diagram" in the + New menu, which writes an empty "New diagram.puml" and
  *    opens the editor on it; naming it is Nextcloud's own rename.
  *
- * Without a server URL there is nothing to draw, so "Edit diagram" and + New
- * hide; "Open with text editor" and the Viewer (which then says "not set") stay.
+ * Without a server URL only "Edit diagram" hides. A .puml is plain text, so
+ * + New and "Open with text editor" need no server, and the Viewer says "not set".
  * The mechanics are nextcloud-grafana's src/files.js.
  */
 import { registerFileAction, addNewFileMenuEntry, getUniqueName, NewMenuEntryCategory } from '@nextcloud/files'
@@ -19,7 +19,7 @@ import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextc
 import { loadState } from '@nextcloud/initial-state'
 import { translate as t } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
-import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, isDiagram } from './files-helpers.js'
+import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, canEditDiagram, canOpenAsText } from './files-helpers.js'
 import component from './viewer-component.js'
 // Menu glyphs are fill="currentColor" files under img/icons/, inlined by Vite
 // (?raw), because Nextcloud themes menu icons to the surface they land on.
@@ -46,13 +46,11 @@ function openEditor(node) {
   }
 }
 
-const oneDiagram = ({ nodes }) => nodes?.length === 1 && isDiagram(nodes[0])
-
 registerFileAction({
   id: 'plantuml-edit',
   displayName: () => t(APP_ID, 'Edit diagram'),
   iconSvgInline: () => pencilIcon,
-  enabled: (context) => serverConfigured && oneDiagram(context),
+  enabled: ({ nodes }) => canEditDiagram(nodes, serverConfigured),
   async exec({ nodes }) {
     openEditor(nodes[0])
     return null
@@ -64,7 +62,7 @@ registerFileAction({
   id: 'plantuml-text',
   displayName: () => t(APP_ID, 'Open with text editor'),
   iconSvgInline: () => textIcon,
-  enabled: oneDiagram,
+  enabled: ({ nodes }) => canOpenAsText(nodes),
   // Text's handler gets the real mime, so a .puml opens in its plain editor.
   // Viewer stable34 src/services/Viewer.js:351 `openWith(handlerId, options = {})`.
   async exec({ nodes }) {
@@ -79,7 +77,6 @@ addNewFileMenuEntry({
   displayName: t(APP_ID, 'Diagram'),
   category: NewMenuEntryCategory.CreateNew,
   iconSvgInline: plantumlIcon,
-  enabled: () => serverConfigured,
   async handler(context, content) {
     const name = getUniqueName(t(APP_ID, 'New diagram') + '.puml', (content || []).map((n) => n.basename))
     const dir = context.path === '/' ? '' : context.path

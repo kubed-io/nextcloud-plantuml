@@ -30,7 +30,9 @@ export default {
     async showProblem() {
       try {
         const res = await fetch(renderUrl(this.filename), { credentials: 'same-origin' })
-        this.problem = (await res.text()).split('\n')[0].trim() || res.statusText || String(res.status)
+        if (!res.ok) {
+          this.problem = (await res.text()).split('\n')[0].trim() || res.statusText || String(res.status)
+        }
       } catch (e) {
         this.problem = e.message
       }

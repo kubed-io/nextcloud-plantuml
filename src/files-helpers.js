@@ -19,6 +19,16 @@ export function isDiagram(node) {
   return node?.mime === MIMETYPE
 }
 
+/** "Open with text editor": one node, and it is a diagram. */
+export function canOpenAsText(nodes) {
+  return nodes?.length === 1 && isDiagram(nodes[0])
+}
+
+/** "Edit diagram": as above, and a server to draw the right pane. */
+export function canEditDiagram(nodes, serverConfigured) {
+  return serverConfigured && canOpenAsText(nodes)
+}
+
 /**
  * The render route for a diagram file, by its path in the user's folder.
  *

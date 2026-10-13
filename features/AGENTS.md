@@ -157,7 +157,7 @@ the same gesture: nobody creates a diagram in order to not edit it.
 
 Choosing **Diagram** writes `New diagram.puml` (`New diagram (1).puml` when that
 is taken) and opens the editor; the name is given with Nextcloud's own rename.
-The entry hides while no server is set.
+It needs no server: a `.puml` is plain text, and the editor says what is wrong.
 
 ## readme/render
 

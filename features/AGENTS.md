@@ -137,6 +137,18 @@ is ours rather than Text's.
 SAVING IS THE ONLY THING THAT TOUCHES THE FILE. The live preview sends text to
 the server, never to the file; the file changes when the user says so.
 
+A SAVE NEVER OVERWRITES SOMEONE ELSE'S CHANGE. The editor reads the file over
+WebDAV with its ETag and writes it back with `If-Match`; a file changed in the
+meantime answers 412, the top bar says "Someone else changed this file", and the
+file stays as the other person left it. There is no merge: collaboration is what
+Text's editor offers and this one gave up for highlighting.
+
+The right pane redraws 300 ms after typing stops. When the server cannot draw,
+the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)
+where the diagram was, and the source stays editable. The "Saving writes the
+source back to the file" outcome is a WebDAV read, but reaching it takes a
+keystroke and a click in the overlay, so it waits for a browser leg too.
+
 THE PLAIN-TEXT OPENER IS TEXT'S OWN EDITOR, offered beside ours because some
 people want the raw file and Nextcloud already has an editor for that.
 

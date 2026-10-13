@@ -192,7 +192,10 @@ critical path.
 
 ## The design (Penpot, file "NXT PlantUML")
 
-Three pages, one per surface, drawn on 2026-10-13 against Nextcloud 34's light theme
+Every board is exported as a PNG under [`docs/design/`](../../design/README.md), so the
+Penpot file is not needed to read this section.
+
+Four pages, one per surface, drawn on 2026-10-13 against Nextcloud 34's light theme
 (50px primary header, 300px navigation, 44px controls, 8px element radius and pill
 buttons, Noto Sans). Each page has its own prototype flow; links change state within a
 page and never cross one.

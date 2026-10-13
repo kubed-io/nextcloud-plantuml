@@ -14,8 +14,6 @@ export const MIMETYPE = 'text/x-plantuml'
 /** What + New → Diagram writes: an empty diagram, ready to write in. */
 export const NEW_DIAGRAM_CONTENT = '@startuml\n\n@enduml\n'
 
-const EXTENSION = '.puml'
-
 /** True when a Files node is a diagram file. */
 export function isDiagram(node) {
   return node?.mime === MIMETYPE
@@ -29,21 +27,4 @@ export function isDiagram(node) {
  */
 export function renderUrl(path) {
   return OC.generateUrl(`/apps/${APP_ID}/render`) + '?path=' + encodeURIComponent(path)
-}
-
-/**
- * `<base>.puml`, or `<base> (2).puml`, `(3)`… when the folder already holds it.
- * A `.puml` the user typed is not doubled.
- *
- * @param {string[]} existing  Basenames already in the folder.
- * @param {string} base        The name the user gave.
- * @return {string}
- */
-export function uniqueDiagramName(existing, base) {
-  const stem = base.toLowerCase().endsWith(EXTENSION) ? base.slice(0, -EXTENSION.length) : base
-  let name = stem + EXTENSION
-  for (let n = 2; existing.includes(name); n++) {
-    name = `${stem} (${n})${EXTENSION}`
-  }
-  return name
 }

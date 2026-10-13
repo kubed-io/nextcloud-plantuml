@@ -7,21 +7,20 @@
  *  - the Viewer handler for text/x-plantuml, which makes a plain click open the
  *    diagram in Nextcloud's image lightbox (the menu's "View", named by Nextcloud);
  *  - "Edit diagram" and "Open with text editor", for one diagram at a time;
- *  - "Diagram" in the + New menu, which writes an empty diagram and opens the
- *    editor on it.
+ *  - "Diagram" in the + New menu, which writes an empty "New diagram.puml" and
+ *    opens the editor on it; naming it is Nextcloud's own rename.
  *
  * Without a server URL there is nothing to draw, so "Edit diagram" and + New
  * hide; "Open with text editor" and the Viewer (which then says "not set") stay.
  * The mechanics are nextcloud-grafana's src/files.js.
  */
-import { registerFileAction, addNewFileMenuEntry, NewMenuEntryCategory } from '@nextcloud/files'
+import { registerFileAction, addNewFileMenuEntry, getUniqueName, NewMenuEntryCategory } from '@nextcloud/files'
 import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextcloud/files/dav'
 import { loadState } from '@nextcloud/initial-state'
 import { translate as t } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
-import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, isDiagram, uniqueDiagramName } from './files-helpers.js'
+import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, isDiagram } from './files-helpers.js'
 import component from './viewer-component.js'
-import { openTextEditor } from './text-editor-modal.js'
 // Menu glyphs are fill="currentColor" files under img/icons/, inlined by Vite
 // (?raw), because Nextcloud themes menu icons to the surface they land on.
 import pencilIcon from '../img/icons/pencil.svg?raw'
@@ -66,20 +65,14 @@ registerFileAction({
   displayName: () => t(APP_ID, 'Open with text editor'),
   iconSvgInline: () => textIcon,
   enabled: oneDiagram,
-  // null = silent (the overlay is the feedback); false = an error toast.
+  // Text's handler gets the real mime, so a .puml opens in its plain editor.
+  // Viewer stable34 src/services/Viewer.js:351 `openWith(handlerId, options = {})`.
   async exec({ nodes }) {
-    return (await openTextEditor(nodes[0])) ? null : false
+    window.OCA.Viewer.openWith('text', { path: nodes[0].path })
+    return null
   },
   order: 2,
 })
-
-/** The name for a new diagram, or '' when the user cancels. */
-function askName() {
-  if (!window.OC?.dialogs?.prompt) return Promise.resolve(t(APP_ID, 'New diagram'))
-  return new Promise((resolve) => {
-    window.OC.dialogs.prompt('', t(APP_ID, 'New diagram'), (ok, value) => resolve(ok ? String(value ?? '').trim() : ''), true)
-  })
-}
 
 addNewFileMenuEntry({
   id: 'plantuml-new',
@@ -88,9 +81,7 @@ addNewFileMenuEntry({
   iconSvgInline: plantumlIcon,
   enabled: () => serverConfigured,
   async handler(context, content) {
-    const base = await askName()
-    if (!base) return
-    const name = uniqueDiagramName((content || []).map((n) => n.basename), base)
+    const name = getUniqueName(t(APP_ID, 'New diagram') + '.puml', (content || []).map((n) => n.basename))
     const dir = context.path === '/' ? '' : context.path
     const davPath = `${getRootPath()}${dir}/${name}`
     try {

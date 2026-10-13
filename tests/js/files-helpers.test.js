@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, isDiagram, renderUrl, uniqueDiagramName } from '../../src/files-helpers.js'
+import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, isDiagram, renderUrl } from '../../src/files-helpers.js'
 
 describe('files-helpers', () => {
   it('names the app', () => {
@@ -32,20 +32,5 @@ describe('renderUrl', () => {
   it('asks the render route for the file by its encoded path', () => {
     expect(renderUrl('Diagrams/Order flow.puml'))
       .toBe('/index.php/apps/plantuml/render?path=Diagrams%2FOrder%20flow.puml')
-  })
-})
-
-describe('uniqueDiagramName', () => {
-  it('adds the extension to a free name', () => {
-    expect(uniqueDiagramName([], 'Checkout')).toBe('Checkout.puml')
-  })
-
-  it('numbers a name that is taken, starting at 2', () => {
-    expect(uniqueDiagramName(['Checkout.puml'], 'Checkout')).toBe('Checkout (2).puml')
-    expect(uniqueDiagramName(['Checkout.puml', 'Checkout (2).puml'], 'Checkout')).toBe('Checkout (3).puml')
-  })
-
-  it('does not double an extension the user typed', () => {
-    expect(uniqueDiagramName([], 'Checkout.puml')).toBe('Checkout.puml')
   })
 })

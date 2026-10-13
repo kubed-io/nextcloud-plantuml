@@ -155,9 +155,9 @@ rather than nothing, so the file opens ready to write in and the right pane has
 something to draw from the first keystroke. The editor opening on it is part of
 the same gesture: nobody creates a diagram in order to not edit it.
 
-Choosing **Diagram** asks for the name. A name the folder already holds becomes
-`<name> (2).puml`, and a `.puml` typed into the name is not doubled. The entry
-hides while no server is set.
+Choosing **Diagram** writes `New diagram.puml` (`New diagram (1).puml` when that
+is taken) and opens the editor; the name is given with Nextcloud's own rename.
+The entry hides while no server is set.
 
 ## readme/render
 

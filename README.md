@@ -17,8 +17,8 @@ Point the app at a PlantUML server. Every `.puml` in your Nextcloud is now a dia
 
 ```
 Diagrams/
-├── README.md            ← its ```plantuml fence and ![](Order flow.puml) are drawn
-├── Order flow.puml      ← click: the diagram. Right-click: edit it, source beside picture
+├── README.md            ← its ```plantuml fence and ![](<Order flow.puml>) are drawn
+├── Order flow.puml      ← click: the diagram. Its menu: edit it, source beside picture
 └── Checkout.puml
 ```
 
@@ -38,7 +38,7 @@ A URL does the same. Ask the app for the image of a file by its path and you get
 
 ## ✍️ Edit it, and watch it change
 
-**Edit diagram** opens the source on the left and the diagram on the right, redrawing as you type. PlantUML keywords, arrows and messages are highlighted; **Save** writes the file; and if someone else saved it while you were typing, you're told rather than overwritten.
+**Edit diagram** opens the source on the left and the diagram on the right, redrawing as you type. PlantUML keywords, arrows and messages are highlighted; **Save** writes the file; and if someone else saved it while you were typing, you're told rather than overwritten. **Ctrl/Cmd+S** saves too, and closing with unsaved changes asks first.
 
 Prefer plain text? **Open with text editor** gives you Nextcloud's own editor on the source, as it would for any text file.
 
@@ -61,20 +61,24 @@ Customer -> Shop : place order
 @enduml
 ```
 
-![Order flow](Order flow.puml)
+![Order flow](<Order flow.puml>)
 ````
 
 The fence renders where it stands. The image tag renders the file beside the README, so one `.puml` can be the diagram in the viewer, the thing you edit, *and* the picture in the README, with nothing to keep in sync. The fence tag is `plantuml`, the one every other tool agrees on.
+
+A file name with a space needs `<Order flow.puml>` as above, or `Order%20flow.puml`; Markdown ends a bare link at the space.
 
 📖 [`readme/render.feature`](features/readme/render.feature)
 
 ---
 
-## 🛠 Setup, in two moves
+## 🛠 Setup, in three moves
 
 **1. Run a PlantUML server.** The official [`plantuml/plantuml-server`](https://hub.docker.com/r/plantuml/plantuml-server) image is all it takes; it needs no account and holds no state. Its own `PLANTUML_SECURITY_PROFILE` decides what diagrams may `!include`, and that's the server's setting, not this app's.
 
-**2. Point the app at it.** Admin settings → PlantUML → the server URL, then **Test connection**, which reports the PlantUML version the server is running — or says which of the three things is wrong: not set, unreachable, or not a PlantUML server.
+**2. Point the app at it.** Admin settings → PlantUML → the server URL.
+
+**3. Test it.** **Test connection** reports the PlantUML version the server is running — or says which of the three things is wrong: not set, unreachable, or not a PlantUML server. Then upload a `.puml` and click it.
 
 🔌 [`connection/admin.feature`](features/connection/admin.feature)
 

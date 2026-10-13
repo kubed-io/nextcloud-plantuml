@@ -48,7 +48,40 @@ namespace OCP\AppFramework\Bootstrap {
 	}
 }
 
+namespace OCP\AppFramework\Services {
+	// LoadFilesScriptListener hands the Files bundle `server_configured` through
+	// it. Declaration-only: the listener's test mocks it.
+	if (!interface_exists(IInitialState::class, false)) {
+		interface IInitialState {
+			public function provideInitialState(string $key, $data): void;
+		}
+	}
+}
+
 namespace OCP {
+	// LoadFilesScriptListener loads the bundles with Util::addScript(). The real
+	// class reaches into the server for translations, so this one only records the
+	// path it would emit, `<app>/js/<file>`, for the test to read back.
+	// resetScripts() is the stub's own, so each test starts from an empty page.
+	if (!class_exists(Util::class, false)) {
+		class Util {
+			/** @var list<string> */
+			private static array $scripts = [];
+
+			public static function addScript(string $application, ?string $file = null, string $afterAppId = 'core', bool $prepend = false): void {
+				self::$scripts[] = "$application/js/$file";
+			}
+
+			/** @return list<string> */
+			public static function getScripts(): array {
+				return self::$scripts;
+			}
+
+			public static function resetScripts(): void {
+				self::$scripts = [];
+			}
+		}
+	}
 	// InstanceSettings and SetUrl read/write the base URL through AppConfig.
 	// Declaration-only: both tests mock it.
 	if (!interface_exists(IAppConfig::class, false)) {

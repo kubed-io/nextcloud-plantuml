@@ -95,6 +95,11 @@ A DIAGRAM FILE OPENS AS A PICTURE, in Nextcloud's own image viewer, because that
 is where every other picture opens. The click is the whole gesture; there is no
 "render" button.
 
+The Viewer opens it because the app registers a Viewer handler for
+`text/x-plantuml`; the menu's "View" entry is the Viewer's own. With no server
+set the Viewer still opens, and shows the route's one line — `not set` — where
+the picture would be.
+
 ### Asking for a diagram file by its path
 
 THE ENDPOINT TAKES A PATH, NEVER TEXT, and resolves it inside the caller's own
@@ -135,6 +140,10 @@ the server, never to the file; the file changes when the user says so.
 THE PLAIN-TEXT OPENER IS TEXT'S OWN EDITOR, offered beside ours because some
 people want the raw file and Nextcloud already has an editor for that.
 
+Both are menu entries on one diagram, never on a multi-selection. "Edit diagram"
+hides while no server is set, since its right pane would have nothing to draw;
+"Open with text editor" needs no server and stays.
+
 ## diagrams/create
 
 `features/diagrams/create.feature`
@@ -145,6 +154,10 @@ A NEW DIAGRAM HOLDS AN EMPTY DIAGRAM — `@startuml`, a blank line, `@enduml` �
 rather than nothing, so the file opens ready to write in and the right pane has
 something to draw from the first keystroke. The editor opening on it is part of
 the same gesture: nobody creates a diagram in order to not edit it.
+
+Choosing **Diagram** writes `New diagram.puml` (`New diagram (1).puml` when that
+is taken) and opens the editor; the name is given with Nextcloud's own rename.
+It needs no server: a `.puml` is plain text, and the editor says what is wrong.
 
 ## readme/render
 

@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- A `.puml` opens as its diagram in the image viewer; right-click offers **Edit diagram** and **Open with text editor**; **+ New → Diagram** starts one.
 - Admin settings: point the app at a PlantUML server and test the connection; `occ plantuml:set-url`, `test-connection` and `show-config`.
 - A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`; diagram text renders through `POST /apps/plantuml/render`.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon.

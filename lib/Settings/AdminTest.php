@@ -25,7 +25,7 @@ final class AdminTest implements IDelegatedSettings {
 		// Through Util so they carry the CSP nonce; inline script is blocked.
 		Util::addScript(Application::APP_ID, 'admin-test');
 		Util::addStyle(Application::APP_ID, 'admin-test');
-		return new TemplateResponse(Application::APP_ID, 'admin_test', [], 'blank');
+		return new TemplateResponse(Application::APP_ID, 'admin_test', [], TemplateResponse::RENDER_AS_BLANK);
 	}
 
 	#[\Override]

@@ -12,3 +12,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `.puml` and `.plantuml` files are their own file type, with the app's icon.
+

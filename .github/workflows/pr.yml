@@ -46,6 +46,6 @@ jobs:
     # release workflow consumes that section as the release notes, so every PR
     # has to contribute something to it.
     - name: Make sure Changelog is updated
-      uses: tarides/changelog-check-action@v3
+      uses: tarides/changelog-check-action@v4
       with:
         changelog: CHANGELOG.md

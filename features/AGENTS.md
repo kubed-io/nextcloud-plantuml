@@ -37,6 +37,12 @@ trip through a real server, and it is the one thing an admin wants to see.
 A cell names what KIND of value it is (`the test server`) rather than the value,
 because the real URL comes from the environment the workflow built.
 
+THE STEPS DRIVE THE OCC TWINS. `plantuml:set-url` is the card's field and
+`plantuml:test-connection` is its button: both call the same `ServerConfig` and
+`RenderService::version()` the card does, so the CLI and the card cannot disagree.
+The check renders PlantUML's `version` diagram as text and reads the version off
+it, which only a PlantUML server can answer.
+
 ### An admin enters a server address that cannot render
 
 THE MESSAGE HAS TO NAME THE PROBLEM. There are exactly three, they have three
@@ -47,6 +53,11 @@ different fixes, and the health check says which one it found:
 | nothing | `Server URL is not set` | type one |
 | a host that does not answer | `Server is unreachable` | network, port, typo |
 | a web server that is not PlantUML | `Server is not a PlantUML server` | wrong URL |
+
+Each kind of input is a real one. An empty cell deletes `server_url`. The
+unreachable host is `127.0.0.1:9`, where nothing listens. The server that is not
+PlantUML is Nextcloud itself: it answers the `/txt` POST, with a status or a page
+that carries no PlantUML version.
 
 The three are one outline because each row is the same rule — "the check names
 what is wrong" — over a different input. The same three words are the whole error

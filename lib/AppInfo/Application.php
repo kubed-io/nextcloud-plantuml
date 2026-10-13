@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\PlantUml\AppInfo;
 
+use OCA\PlantUml\Settings\InstanceSettings;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -28,6 +29,7 @@ final class Application extends App implements IBootstrap {
 
 	#[\Override]
 	public function register(IRegistrationContext $context): void {
+		$context->registerDeclarativeSettings(InstanceSettings::class);
 	}
 
 	#[\Override]

@@ -35,4 +35,9 @@ require_once __DIR__ . '/ocp-stubs.php';
 // type-checked against and the one its test constructs are literally the same.
 require_once __DIR__ . '/external-stubs.php';
 
+// Anything the stubs above do not declare loads from nextcloud/ocp itself, so a
+// controller test asserts on Nextcloud's real response classes rather than on a
+// copy of them. Registered after the stubs, which therefore still win.
+(require __DIR__ . '/../vendor/autoload.php')->addPsr4('OCP\\', __DIR__ . '/../vendor/nextcloud/ocp/OCP/');
+
 \DG\BypassFinals::enable();

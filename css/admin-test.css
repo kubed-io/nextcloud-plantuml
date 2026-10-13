@@ -1,0 +1,33 @@
+/* SPDX-FileCopyrightText: 2026 kubed-io
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Sits under the declarative card as if it were part of it. */
+.plantuml-test.section {
+	padding-top: 0;
+}
+
+.plantuml-test__result {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 16px;
+}
+
+.plantuml-test__result[hidden] {
+	display: none;
+}
+
+.plantuml-test__icon {
+	display: none;
+	flex-shrink: 0;
+}
+
+.plantuml-test__result--success .plantuml-test__icon--success {
+	display: block;
+	color: var(--color-success, #46ba61);
+}
+
+.plantuml-test__result--error .plantuml-test__icon--error {
+	display: block;
+	color: var(--color-error, #e9322d);
+}

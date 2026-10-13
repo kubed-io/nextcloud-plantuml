@@ -16,16 +16,36 @@
  * The README is the one Text's own RichWorkspace.vue asks for: GET
  * `ocs/v2.php/apps/text/workspace?path=<dir>`, whose `file.path` is the file
  * the workspace shows, Text's translated "Readme.md" and `.Readme.md` included,
- * and no 404 per name tried. `dir` is the Files URL's `?dir=`.
+ * and no 404 per name tried. `dir` is the Files URL's `?dir=`. The lookup is
+ * kept while the folder stays the same, since Text draws the README twice per
+ * folder open and again on focus.
  */
 import { getRequestToken } from '@nextcloud/auth'
 import { generateOcsUrl } from '@nextcloud/router'
 import { loadFile } from './editor/save.js'
 import { findFences, findImages } from './readme/markdown.js'
-import { attach, pending } from './readme/workspace.js'
+import { attach, lock, pending } from './readme/workspace.js'
 
-async function readme() {
+/** The current folder's README lookup: `{dir, found: Promise}`. */
+let cached = null
+
+function readme() {
   const dir = new URLSearchParams(window.location.search).get('dir') || '/'
+  if (cached?.dir !== dir) {
+    const entry = { dir, found: lookup(dir) }
+    // A lookup that failed is not kept: the next render of this folder asks again.
+    entry.found.then((found) => {
+      if (found === null && cached === entry) {
+        cached = null
+      }
+    })
+    cached = entry
+  }
+  return cached.found.then((found) => found ?? { dir, fences: [], images: [] })
+}
+
+/** @return {Promise<{dir, fences, images}|null>} null when the README cannot be read */
+async function lookup(dir) {
   try {
     const response = await fetch(`${generateOcsUrl('apps/text/workspace')}?${new URLSearchParams({ path: dir, format: 'json' })}`, {
       credentials: 'same-origin',
@@ -39,7 +59,7 @@ async function readme() {
   } catch {
     // Fall through: a .puml image needs only its own path.
   }
-  return { dir, fences: [], images: [] }
+  return null
 }
 
 let running = false
@@ -54,10 +74,12 @@ async function run() {
   try {
     do {
       again = false
-      const views = [...document.querySelectorAll('#rich-workspace .ProseMirror')].filter(pending)
-      if (views.length > 0) {
+      const views = [...document.querySelectorAll('#rich-workspace .ProseMirror')]
+      views.forEach(lock)
+      const unseen = views.filter(pending)
+      if (unseen.length > 0) {
         const found = await readme()
-        views.forEach((view) => attach(view, found))
+        unseen.forEach((view) => attach(view, found))
       }
     } while (again)
   } finally {
@@ -67,12 +89,13 @@ async function run() {
 
 function observe() {
   // Never disconnected: Text re-renders the workspace on focus and on every folder change.
+  // contenteditable is watched so lock() can undo Text resetting it on a drawn fence.
   new MutationObserver((mutations) => {
     const workspace = document.getElementById('rich-workspace')
     if (workspace && mutations.some(({ target }) => workspace.contains(target) || target.contains(workspace))) {
       run()
     }
-  }).observe(document.body, { childList: true, subtree: true })
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['contenteditable'] })
   run()
 }
 

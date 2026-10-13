@@ -25,7 +25,12 @@
  *
  * Text's elements are hidden with an inline display:none and never removed:
  * Vue and ProseMirror own them, and both ignore a style they did not bind and a
- * child added outside a node's content.
+ * child added outside a node's content. A hidden fence's source is still in the
+ * editable workspace's document, so its <pre> and <code> are made
+ * non-editable, and lock() puts that back if Text's binding resets it.
+ *
+ * Text draws each README twice per folder open (the preview, then the editor
+ * that replaces it), so fence renders are cached by source.
  */
 import { getRequestToken } from '@nextcloud/auth'
 import { translate as t } from '@nextcloud/l10n'
@@ -33,6 +38,11 @@ import { APP_ID, renderUrl } from '../files-helpers.js'
 
 const BLOCKS = '.code-block'
 const FIGURES = 'figure[data-component="image-view"]'
+const DRAWN_SOURCE = '.code-block[data-plantuml="done"] pre, .code-block[data-plantuml="done"] pre code'
+const CACHED_RENDERS = 64
+
+/** source → its SVG, or null when the server could not draw it. Oldest out first. */
+const renders = new Map()
 
 /** Elements already looked at. Text draws fresh ones each time it re-renders. */
 const seen = new WeakSet()
@@ -42,6 +52,16 @@ export function pending(root) {
   return [...root.querySelectorAll(`${BLOCKS}, ${FIGURES}`)].some((el) => !seen.has(el))
 }
 
+/** Keeps every drawn fence's hidden source out of reach of the caret. */
+export function lock(root) {
+  for (const el of root.querySelectorAll(DRAWN_SOURCE)) {
+    // Setting an unchanged value still queues a mutation, which would re-run the observer.
+    if (el.getAttribute('contenteditable') !== 'false') {
+      el.setAttribute('contenteditable', 'false')
+    }
+  }
+}
+
 /**
  * @param {Element} root one rendered README
  * @param {{dir: string, fences: Array<{lang: string, source: string}>, images: Array<{alt: string, src: string}>}} readme
@@ -49,6 +69,7 @@ export function pending(root) {
  * @return {Promise<void>} settles when every fence has been drawn or left alone
  */
 export async function attach(root, { dir, fences, images }) {
+  lock(root)
   const drawing = []
   root.querySelectorAll(BLOCKS).forEach((block, index) => {
     if (seen.has(block)) {
@@ -73,8 +94,7 @@ export async function attach(root, { dir, fences, images }) {
   await Promise.all(drawing)
 }
 
-async function drawFence(block, source) {
-  let url
+async function render(source) {
   try {
     const response = await fetch(OC.generateUrl(`/apps/${APP_ID}/render`), {
       method: 'POST',
@@ -82,22 +102,46 @@ async function drawFence(block, source) {
       headers: { 'Content-Type': 'application/json', requesttoken: getRequestToken() ?? '' },
       body: JSON.stringify({ source }),
     })
-    // A server problem leaves Text's code block showing the source.
-    if (!response.ok) {
-      return
-    }
-    url = URL.createObjectURL(await response.blob())
+    return response.ok ? await response.blob() : null
   } catch {
+    return null
+  }
+}
+
+function cachedRender(source) {
+  if (!renders.has(source)) {
+    const svg = render(source).then((blob) => {
+      // A failure is not kept: the next re-render asks the server again.
+      if (blob === null) {
+        renders.delete(source)
+      }
+      return blob
+    })
+    renders.set(source, svg)
+    if (renders.size > CACHED_RENDERS) {
+      renders.delete(renders.keys().next().value)
+    }
+  }
+  return renders.get(source)
+}
+
+async function drawFence(block, source) {
+  const svg = await cachedRender(source)
+  // A server problem leaves Text's code block showing the source.
+  if (svg === null) {
     return
   }
+  const url = URL.createObjectURL(svg)
   const img = diagram(url, t(APP_ID, 'Diagram'))
   img.addEventListener('load', () => URL.revokeObjectURL(url), { once: true })
+  img.addEventListener('error', () => URL.revokeObjectURL(url), { once: true })
   for (const child of block.children) {
     child.style.display = 'none'
   }
   block.style.background = 'none'
   block.append(swallowClicks(img))
   block.dataset.plantuml = 'done'
+  lock(block)
 }
 
 function drawImage(figure, path, alt) {

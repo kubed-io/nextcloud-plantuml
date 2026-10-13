@@ -7,7 +7,10 @@
 // state (its preload of the WebDAV URL errors), so it holds the broken-image
 // icon, never an <img>.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { attach } from '../../src/readme/workspace.js'
+
+// workspace.js caches renders for the page's life; each test loads a fresh copy.
+let attach
+let lock
 
 const ORDER = '@startuml\nCustomer -> Shop: place order\n@enduml'
 const CHARGE = '@startuml\nShop -> Payment: charge\n@enduml'
@@ -54,6 +57,8 @@ function workspace({ first = ORDER } = {}) {
   return root
 }
 
+/** A root with its README, as attach() takes them. */
+const withReadme = ([root, list]) => [root, { dir: '/Diagrams', fences: list, images: [] }]
 const blocks = (root) => [...root.querySelectorAll('.code-block')]
 const figures = (root) => [...root.querySelectorAll('figure[data-component="image-view"]')]
 /** What a reader sees: the elements no inline display:none hides. */
@@ -64,7 +69,9 @@ function svg() {
 }
 
 describe('attach', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules()
+    ;({ attach, lock } = await import('../../src/readme/workspace.js'))
     vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
     vi.stubGlobal('fetch', vi.fn(async () => svg()))
     URL.createObjectURL = vi.fn(() => 'blob:diagram')
@@ -175,5 +182,72 @@ describe('attach', () => {
 
     expect(blocks(root)[0].outerHTML).toBe(before)
     expect(fetch).toHaveBeenCalledTimes(1)
+  })
+  it('asks the server once per fence when Text draws the README again', async () => {
+    // Text shows its preview, then swaps in the editor: fresh elements, same README.
+    await attach(workspace(), { dir: '/Diagrams', fences, images })
+    const again = workspace()
+    await attach(again, { dir: '/Diagrams', fences, images })
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(again.querySelectorAll('.code-block img.plantuml-diagram')).toHaveLength(2)
+  })
+
+  it('keeps the last 64 renders', async () => {
+    const many = (from, to) => {
+      const root = document.createElement('div')
+      const list = []
+      for (let i = from; i < to; i++) {
+        root.insertAdjacentHTML('beforeend', codeBlock('code', `A -> B: ${i}`))
+        list.push({ lang: 'plantuml', source: `A -> B: ${i}`, index: list.length })
+      }
+      return [root, list]
+    }
+    await attach(...withReadme(many(0, 65)))
+    fetch.mockClear()
+
+    await attach(...withReadme(many(0, 1)))
+    await attach(...withReadme(many(64, 65)))
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ source: 'A -> B: 0' })
+  })
+
+  it('asks again for a fence the server could not draw', async () => {
+    fetch.mockImplementationOnce(async () => new Response('{"problem":"unreachable"}', { status: 503 }))
+    await attach(workspace(), { dir: '/Diagrams', fences, images })
+    const again = workspace()
+    await attach(again, { dir: '/Diagrams', fences, images })
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(blocks(again)[0].dataset.plantuml).toBe('done')
+  })
+
+  it('takes a drawn fence\'s hidden source out of editing, and keeps it out', async () => {
+    const root = workspace()
+    await attach(root, { dir: '/Diagrams', fences, images })
+    const code = blocks(root)[0].querySelector('pre code')
+
+    expect(code.getAttribute('contenteditable')).toBe('false')
+    expect(code.parentElement.getAttribute('contenteditable')).toBe('false')
+    expect(blocks(root)[1].querySelector('pre code').hasAttribute('contenteditable')).toBe(false)
+
+    // Text's NodeViewContent binds contenteditable and may set it back.
+    code.setAttribute('contenteditable', 'true')
+    lock(root)
+    expect(code.getAttribute('contenteditable')).toBe('false')
+  })
+
+  it('lets go of a drawn fence\'s blob once the image has loaded or failed', async () => {
+    const root = workspace()
+    await attach(root, { dir: '/Diagrams', fences, images })
+    const [first, second] = root.querySelectorAll('.code-block img.plantuml-diagram')
+
+    first.dispatchEvent(new Event('load'))
+    second.dispatchEvent(new Event('error'))
+    first.dispatchEvent(new Event('load'))
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2)
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:diagram')
   })
 })

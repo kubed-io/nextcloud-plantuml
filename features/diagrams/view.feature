@@ -1,0 +1,33 @@
+# Notes, decisions and history for this feature: ../AGENTS.md#diagramsview
+
+# @unbuilt throughout — the app is specified ahead of its code; nothing in lib/ yet.
+@unbuilt
+Feature: Looking at a diagram file
+  As a Nextcloud user
+  I want a diagram file to show me its diagram
+  So that a folder of diagrams reads as pictures, not as source
+
+  Background:
+    Given the app is connected to a PlantUML server
+    And a diagram file "Order flow.puml" in "Diagrams"
+
+    # ── RULE: a diagram file opens as a picture ───────────────────────────────
+
+  @ui @gesture
+  Scenario: Clicking a diagram file opens its diagram
+    When I click "Order flow.puml" in the Files app
+    Then the image viewer opens on the diagram
+
+    # ── RULE: a client can ask for the picture by the file's path ─────────────
+    # notes: ../AGENTS.md#asking-for-a-diagram-file-by-its-path
+
+  @api
+  Scenario: Asking for a diagram file by its path returns its diagram
+    When I request the image of "Diagrams/Order flow.puml"
+    Then I receive the diagram as an SVG image
+
+  @api
+  Scenario: Asking for a file that is not a diagram is refused
+    Given a file "notes.txt" in "Diagrams"
+    When I request the image of "Diagrams/notes.txt"
+    Then the request is refused

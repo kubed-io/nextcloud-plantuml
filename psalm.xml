@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--
+	SPDX-FileCopyrightText: 2026 kubed-io
+	SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<!--
+	findUnusedCode stays off, as in the sibling apps: Psalm analyses `lib` only
+	and cannot see how a Nextcloud app is entered, so every constructor the DI
+	container calls and every Command and Controller named in info.xml or
+	routes.php reads as dead. The dead code that matters — step definitions
+	nothing reaches — is caught by tests/integration/bin/check-step-definitions.sh.
+-->
+<psalm
+	errorLevel="6"
+	resolveFromConfigFile="true"
+	findUnusedBaselineEntry="false"
+	findUnusedCode="false"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="https://getpsalm.org/schema/config"
+	xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+	errorBaseline="tests/psalm-baseline.xml">
+	<projectFiles>
+		<directory name="lib" />
+		<ignoreFiles>
+			<directory name="vendor" />
+		</ignoreFiles>
+	</projectFiles>
+	<!-- nextcloud/ocp gives Psalm the OCP\* symbols; only that package, to stay fast. -->
+	<extraFiles>
+		<directory name="vendor/nextcloud/ocp" />
+	</extraFiles>
+	<!-- Server-app classes that exist in a real Nextcloud but ship in neither
+	     nextcloud/ocp nor Composer: the Files LoadAdditionalScriptsEvent and the
+	     mimetype file builder the repair step uses. -->
+	<stubs>
+		<file name="tests/external-stubs.php" />
+	</stubs>
+	<issueHandlers>
+		<!-- The private OC internals the mimetype repair step reaches for
+		     (server root, config dir). Not shipped in nextcloud/ocp. -->
+		<UndefinedClass>
+			<errorLevel type="suppress">
+				<referencedClass name="OC" />
+			</errorLevel>
+		</UndefinedClass>
+		<!-- MissingDependency has no <referencedClass> in Psalm 6; every instance
+		     is OCP\Files\IRootFolder's private base class, missing from the stubs. -->
+		<MissingDependency errorLevel="suppress" />
+	</issueHandlers>
+</psalm>

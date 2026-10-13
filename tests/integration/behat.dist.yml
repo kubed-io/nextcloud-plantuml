@@ -1,0 +1,57 @@
+# Behat config for the plantuml integration suite.
+#
+# Behat is the Nextcloud-native integration framework (see nextcloud/deck). It
+# drives a running Nextcloud over HTTP and occ, and a running PlantUML server,
+# and asserts what the user ends up with — the real wiring the unit suite
+# mocks out.
+#
+# Output: Behat's built-in junit formatter writes JUnit XML to junit/, which the
+# integration workflow feeds to the same reporter the unit suite uses.
+#
+# Env the FeatureContext reads (set by the workflow / local runner):
+#   NC_BASE_URL, NC_ADMIN_USER, NC_ADMIN_PASS, PLANTUML_URL, OCC
+
+default:
+  # FOUR STATUS TAGS, AND ONLY ONE OF THEM IS A BACKLOG (features/README.md):
+  #
+  #   @todo      the code exists; only the test is missing. `behat --tags @todo`
+  #              is the work queue.
+  #   @unbuilt   a spec awaiting code.
+  #   @blocked   real behaviour this harness cannot reach (no browser, no app
+  #              removal).
+  #   @decision  records a deliberate absence. There is no operation, ever.
+  #
+  # All four are excluded from the run. A status tag is a claim somebody made
+  # once and nothing re-checks it: change one only on a PR that runs the
+  # scenario. The filter names all four even while @decision is empty, so a
+  # re-triage is a tag edit and never a config change.
+  gherkin:
+    filters:
+      tags: '~@todo&&~@unbuilt&&~@blocked&&~@decision'
+
+  # THE SUITE AXIS IS THE PATH, AND IT IS A PARTITION. Three legs, each a slice
+  # of features/, listed file by file so bin/check-suites.sh can prove that every
+  # feature file is in exactly one — a file in no suite never runs and every leg
+  # still reports green. .github/workflows/integration.yml names the same three.
+  suites:
+    admin:
+      paths:
+      - '%paths.base%/../../features/connection/admin.feature'
+      - '%paths.base%/../../features/lifecycle.feature'
+      contexts: &contexts
+      - OCA\PlantUml\Tests\Integration\FeatureContext
+    diagrams:
+      paths:
+      - '%paths.base%/../../features/diagrams/view.feature'
+      - '%paths.base%/../../features/diagrams/edit.feature'
+      - '%paths.base%/../../features/diagrams/create.feature'
+      contexts: *contexts
+    readme:
+      paths:
+      - '%paths.base%/../../features/readme/render.feature'
+      contexts: *contexts
+
+  formatters:
+    pretty: true
+    junit:
+      output_path: '%paths.base%/junit'

@@ -1,0 +1,457 @@
+name: 🔗 Integration
+
+# Integration tests — prove the real wiring the unit suite mocks out, on a live
+# Nextcloud + a live PlantUML server. Framework: **Behat**, the Nextcloud-native
+# integration framework, run from tests/integration/, mirroring
+# kubed-io/nextcloud-penpot, kubed-io/nextcloud-grafana and kubed-io/nextcloud-n8n.
+# Behat's BUILT-IN junit formatter emits JUnit XML, which the same EnricoMi
+# reporter the unit suite uses turns into a sticky PR comment.
+#
+# SUITE NAMES: tests/integration/behat.dist.yml IS THE AUTHORITY. The `suite`
+# matrix below must list exactly the suites it defines — one leg per suite — and
+# `bin/check-suites.sh` (quality workflow) asserts that the two lists match and
+# that the suites partition features/. Edit behat.dist.yml first, then this file.
+# The partition is by PATH, not by tag:
+#
+#   admin     connection/*.feature + lifecycle.feature   (occ, admin)
+#   diagrams  diagrams/*.feature                         (DAV, the render route)
+#   readme    readme/*.feature                           (@ui today — a browser leg later)
+#
+# SCOPE: behat.dist.yml holds the leg list and the live counts. Deliberately NOT
+# repeated here — a count in a second file is a count nobody thinks to update.
+# `behat --tags @todo` is the queue; behat.dist.yml says what the other three
+# status tags mean. Today every scenario is @unbuilt: the app is specified ahead
+# of its code, so every leg is an empty, reporting leg (next paragraph).
+#
+# A ZERO-SCENARIO LEG IS STILL A REPORTING LEG, which is what keeps the guards
+# below honest: Behat fires its suite events even when the filter matches nothing,
+# so the junit formatter writes <testsuite tests="0"/>, the upload's
+# if-no-files-found still has a file, and "Every leg is present" still counts every
+# leg (it compares directories against files rather than against a fixed number).
+# So this stays green on an empty suite WITHOUT either guard being loosened — they
+# remain armed for the silent-overwrite bug they were built for.
+#
+# WHY A REAL PLANTUML SERVER AND NOT A STUB. This suite is the ONLY place the
+# wire shape is asserted: `POST <server>/<format>` with the source as the body,
+# the SVG that comes back, the 405/404 a non-PlantUML server answers, and the
+# `version` diagram rendered as text. The unit suite classifies those responses
+# from fixtures; only a live container proves the fixtures are what the server
+# actually sends. It is one container, no database, no auth and no token — the
+# admin names a URL and that is the whole credential model.
+
+on:
+  pull_request:
+    branches:
+    - main
+    paths:
+    - .github/workflows/integration.yml
+    - appinfo/**
+    - lib/**
+    - templates/**
+    - features/**
+    - tests/integration/**
+    - composer.json
+  push:
+    branches:
+    - main
+    paths:
+    - .github/workflows/integration.yml
+    - appinfo/**
+    - lib/**
+    - templates/**
+    - features/**
+    - tests/integration/**
+    - composer.json
+
+permissions:
+  contents: read
+  # Behat results → sticky PR comment + check run (EnricoMi), like the unit suite.
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+# Static values here so `run:` steps are pure bash reading $VARS — never inline
+# GitHub templating (see CONTRIBUTING.md "Workflow authoring conventions").
+#
+# Two servers, two ports: Nextcloud's php built-in server takes 8080 on the
+# runner, so the PlantUML sidecar (which listens on 8080 INSIDE its container) is
+# published on 8081. Both are localhost from Nextcloud's point of view.
+env:
+  APP_ID: plantuml
+  NC_ADMIN_USER: admin
+  NC_ADMIN_PASS: admin
+  NC_BASE_URL: http://localhost:8080
+  PLANTUML_URL: http://localhost:8081
+
+jobs:
+
+  # WHICH NEXTCLOUDS THIS RUN COVERS, decided by what triggered it.
+  #
+  # A PR runs the CEILING ONLY. That is where the work is aimed and where a real
+  # break shows up, and it keeps review cheap. `main` runs every major in info.xml's
+  # range — floor, middle and ceiling — so the whole claim is executed on every merge
+  # instead of once per push to every branch.
+  #
+  # The bet, stated plainly so it can be revisited: a change that works on the newest
+  # Nextcloud and breaks an older one is RARE, and when it happens it is a bug found
+  # after merge rather than a regression shipped — `main` is the gate before a
+  # release, not the PR. If that stops being true, move the range back onto the PR
+  # and pay the legs.
+  #
+  # Computed here rather than with an `if` on the matrix, because a matrix cannot be
+  # conditioned in place — a job has to hand it over as JSON.
+  versions:
+    name: Which Nextclouds
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+    - name: Pick the server versions for this trigger
+      id: pick
+      env:
+        # Bound, not interpolated into the script — see the env: note at the top.
+        EVENT: ${{ github.event_name }}
+      run: |
+        if [ "$EVENT" = "pull_request" ]; then
+          matrix='["stable34"]'
+        else
+          matrix='["stable32", "stable33", "stable34"]'
+        fi
+        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+        echo "Nextcloud versions for this $EVENT run: $matrix" >> "$GITHUB_STEP_SUMMARY"
+
+  integration:
+    name: Integration ${{ matrix.suite }} (${{ matrix.server-versions }})
+    runs-on: ubuntu-latest
+    needs: versions
+
+    # ── ONE AXIS THAT DIVIDES, AND A VERSION AXIS THAT REPEATS ───────────────
+    #
+    #   suite            DIVIDES the scenarios. Three legs each run a slice, in
+    #                    parallel, so wall time drops.
+    #   server-versions  REPEATS them, and is decided by the trigger (above): one
+    #                    Nextcloud on a PR, the whole advertised range on main.
+    #
+    # THERE IS NO BACKEND AXIS. A .puml is an ordinary file wherever it sits, so
+    # the suite has no storage kind to run across.
+    #
+    # WHY THE SUITE AXIS IS FILENAME-BASED, not tag-based: a tag partition LEAKS —
+    # a scenario carrying no channel tag would match no leg and silently stop
+    # running, and every leg would still be green. A path partition cannot leak:
+    # `ls features/**/*.feature` minus the union must be empty, and
+    # `bin/check-suites.sh` (quality workflow) checks exactly that.
+    #
+    # fail-fast: false is load-bearing. With it on, one flaky leg cancels the
+    # others and you lose the signal from the legs that were fine.
+    strategy:
+      fail-fast: false
+      matrix:
+        # A VERSION WE ADVERTISE AND NEVER EXECUTE IS A CLAIM, NOT A FACT — and
+        # "33" is not one thing: a sibling app hit behaviour that differs between
+        # 33.0.4 and 33.0.8, which cost hours because CI and the live instance sat
+        # on different patch releases. Which versions run is decided by the
+        # `versions` job above. SQLite is the fast integration path.
+        server-versions: ${{ fromJSON(needs.versions.outputs.matrix) }}
+        # Must match the suites in tests/integration/behat.dist.yml (see header).
+        suite: [admin, diagrams, readme]
+        # (no exclusions: one leg per suite)
+
+    services:
+      # ── PlantUML server ──────────────────────────────────────────────────
+      # One container, no database, no auth. It renders whatever is POSTed to
+      # /<format> and answers `GET /` with its own web UI once Jetty is up. The
+      # cold start is long for what it is — ~80s before the first 200 — which is
+      # why readiness is a generous poll (the "Wait for PlantUML" step) and NOT
+      # a Docker health check: the jetty image carries no curl or wget for a
+      # --health-cmd to call.
+      #
+      # The tag is a PlantUML release, so bumping it changes what the `version`
+      # diagram says. The admin health check reads that string back; it is the
+      # one place a server version is visible to a user.
+      plantuml:
+        image: plantuml/plantuml-server:jetty-v1.2026.8
+        ports:
+        - 8081:8080
+
+    steps:
+    # ── Provision: install everything up front, before any action runs ───────
+    - name: Checkout server
+      uses: actions/checkout@v7
+      with:
+        repository: nextcloud/server
+        ref: ${{ matrix.server-versions }}
+        submodules: true
+
+    - name: Checkout app into apps/
+      uses: actions/checkout@v7
+      with:
+        path: apps/${{ env.APP_ID }}
+
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        # Match the production pod / the rest of our CI.
+        php-version: '8.4'
+        extensions: mbstring, iconv, fileinfo, intl, sqlite, pdo_sqlite, gd, zip, curl, xml
+        coverage: none
+        tools: composer:v2
+
+    - name: Install Behat deps
+      working-directory: apps/${{ env.APP_ID }}/tests/integration
+      run: composer install --prefer-dist --no-progress
+
+    - name: Install Nextcloud (SQLite)
+      run: |
+        mkdir -p data
+        ./occ maintenance:install \
+          --database=sqlite \
+          --admin-user="$NC_ADMIN_USER" \
+          --admin-pass="$NC_ADMIN_PASS"
+        ./occ config:system:set trusted_domains 1 --value=localhost
+        # The gesture and api channels reach NC over HTTP at localhost:8080, so
+        # that host:port must be trusted too. Same arrangement as the siblings.
+        ./occ config:system:set trusted_domains 2 --value=localhost:8080
+        # Nextcloud's SSRF guard refuses outbound requests to local addresses,
+        # so the app cannot reach the PlantUML service container at
+        # localhost:8081 without this. The client reports it precisely — "Host
+        # localhost violates local access rules".
+        #
+        # This mirrors real deployments rather than being a CI-only hack: a
+        # homelab reaches its PlantUML server at an in-cluster address, so the
+        # same setting is needed there (SECURITY.md).
+        ./occ config:system:set allow_local_remote_servers --value=true --type=boolean
+        # INFO, not the default WARN. The render routes answer a 503 naming the
+        # problem and log the cause; at WARN a run that answered the wrong
+        # problem successfully leaves no trace at all. The failure-path log dump
+        # below is only as useful as the level allows.
+        ./occ config:system:set loglevel --value=1 --type=integer
+
+    # ── Serve: the occ-only scenarios need no HTTP, but the DAV and api ones do.
+    # Creating, editing and saving a .puml are file outcomes asserted over WebDAV,
+    # and the render route is asserted with a raw request — nothing in `occ`
+    # performs either. PHP's built-in server is enough for DAV and for the app's
+    # own routes: no nginx, no fpm. Ported from the siblings, where this has been
+    # carrying much deeper suites.
+    - name: Start Nextcloud (php built-in server)
+      run: |
+        php -S localhost:8080 -t "$GITHUB_WORKSPACE" >/tmp/nc-web.log 2>&1 &
+        echo "NC_WEB_PID=$!" >> "$GITHUB_ENV"
+        for i in $(seq 1 30); do
+          if curl -fsS -o /dev/null "$NC_BASE_URL/status.php"; then echo "NC web up"; exit 0; fi
+          sleep 2
+        done
+        echo "NC web server did not come up" >&2; cat /tmp/nc-web.log >&2; exit 1
+
+    # ── Act: everything provisioned — now do the work ────────────────────────
+    # Jetty takes ~80s to answer its first request on a cold runner, so the
+    # container is "started" well before anything can render.
+    #
+    # WE POLL `GET /` FOR A 200. That is the one endpoint the image documents as
+    # a readiness signal, and a 200 there means the servlet is serving — which is
+    # what the very next thing (a render) needs. The deadline is 4 minutes: ~3×
+    # the measured cold start, so a slow runner is a slow step and not a red one.
+    #
+    # github-script rather than bash: a real deadline that a slow response
+    # cannot overrun (bash's `sleep 1` loop drifts by the request duration), and
+    # errors while the container is still booting are caught rather than
+    # tripping `set -e`.
+    - name: Wait for PlantUML
+      uses: actions/github-script@v9
+      env:
+        PLANTUML_URL: ${{ env.PLANTUML_URL }}
+      with:
+        script: |
+          const url = `${process.env.PLANTUML_URL}/`;
+          const started = Date.now();
+          const deadline = started + 240_000;
+          let attempts = 0;
+
+          while (Date.now() < deadline) {
+            attempts++;
+            try {
+              const res = await fetch(url);
+              if (res.ok) {
+                const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+                core.info(`PlantUML is serving after ${elapsed}s (${attempts} attempt(s))`);
+                return;
+              }
+            } catch {
+              // Connection refused while Jetty is still starting.
+            }
+            await new Promise(r => setTimeout(r, 3000));
+          }
+
+          const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+          core.setFailed(`PlantUML did not answer ${url} within ${elapsed}s (${attempts} attempts)`);
+
+    # Behat runs from the integration dir; OCC points back at the server root so
+    # `occ` resolves. Formatters (pretty → stdout, junit → junit/) are configured
+    # in behat.dist.yml, so no --format flags are needed here.
+    #
+    # --strict: an UNDEFINED step must fail the job. Behat's default is to exit 0
+    # on undefined steps, so a scenario whose step definitions do not exist is
+    # reported as "undefined" and the run still succeeds — the job goes green and
+    # only the JUnit reporter's check goes red, pointing at no scenario in
+    # particular. That happened in a sibling: a stray `@todo` tag bound to the
+    # following scenario instead of the comment block it appeared to head,
+    # silently excluding one scenario and leaving four running undefined. With
+    # ~@todo filtering, an undefined step means a scenario was left untagged,
+    # which is always a mistake worth failing on.
+    - name: Run Behat
+      working-directory: apps/${{ env.APP_ID }}/tests/integration
+      env:
+        OCC: php ${{ github.workspace }}/occ
+        NC_BASE_URL: ${{ env.NC_BASE_URL }}
+        NC_ADMIN_USER: ${{ env.NC_ADMIN_USER }}
+        NC_ADMIN_PASS: ${{ env.NC_ADMIN_PASS }}
+        PLANTUML_URL: ${{ env.PLANTUML_URL }}
+        # Bound here rather than interpolated into `run:` — a `${{ }}` inside a
+        # shell script is substituted BEFORE the shell sees it, which mixes
+        # templating with logic and is an injection seam. Read as plain $VARs.
+        SUITE: ${{ matrix.suite }}
+      # The status filter is repeated from behat.dist.yml because a CLI --tags
+      # REPLACES the config filter rather than adding to it. bin/check-suites.sh
+      # asserts the two lists are identical, so they cannot drift apart silently.
+      run: |
+        set +e
+        vendor/bin/behat --config behat.dist.yml --strict \
+          --suite="$SUITE" \
+          --tags="~@todo&&~@unbuilt&&~@blocked&&~@decision"
+        status=$?
+        set -e
+
+        # `--strict` FAILS A RUN THAT MATCHED NO SCENARIOS. Every leg is empty
+        # today (the whole spec is @unbuilt), so this exemption is what makes the
+        # workflow green at all. Read off Behat 3.32 rather than guessed:
+        #
+        #   TestResults::NO_TESTS            = -100
+        #   TestResults::getResultCode()     seeds with NO_TESTS and max()es over
+        #                                    an empty array, so it returns -100
+        #   StrictInterpretation::isFailure() = !$result->isPassed()
+        #   isPassed()                       = (PASSED === -100) === false
+        #
+        # → exit 1. Under the default SoftInterpretation the test is
+        # `FAILED <= $code`, and -100 is not, which is why this only bites with
+        # --strict. `--allow-no-tests` does NOT help: it only guards the
+        # WrongPathsException branch, which needs paths on the command line, and
+        # this selects with --suite.
+        #
+        # DROPPING --strict IS THE WRONG FIX. It is the only thing that turns an
+        # undefined step into a failure, and Behat exits 0 on undefined steps by
+        # default. So keep it, and narrow the exemption to exactly the case that
+        # is legitimate: Behat wrote a report and the report contains nothing.
+        #
+        # Read off the JUnit XML rather than Behat's human output, because "No
+        # scenarios" is prose that can be reworded and <testcase> is a contract.
+        # SELF-HEALING: the moment a leg's first scenario goes live, testcases > 0
+        # and the real exit code governs again, with no edit here.
+        if [ "$status" -ne 0 ]; then
+          cases=$(grep -o '<testcase ' junit/*.xml 2>/dev/null | wc -l)
+          bad=$(grep -oE '<(failure|error)[ >/]' junit/*.xml 2>/dev/null | wc -l)
+          if [ "$cases" -eq 0 ] && [ "$bad" -eq 0 ]; then
+            echo "::notice::Behat matched no scenarios in suite '$SUITE' — every scenario carries a status tag. --strict maps an empty run to exit 1; the report is empty and clean, so this is a pass."
+            status=0
+          else
+            echo "::error::Behat failed with $cases testcase(s) and $bad failure/error marker(s) in the report."
+          fi
+        fi
+        exit $status
+
+    # ── Diagnostics: what did the SERVER think? ──────────────────────────────
+    # A failing Behat scenario reports what the ASSERTION saw and nothing about
+    # why. The render routes answer one of three fixed problems and log the real
+    # cause (the HTTP status, the connect error) underneath, so the reason is in
+    # nextcloud.log and would otherwise be thrown away with the runner.
+    - name: Nextcloud log (on failure)
+      if: failure()
+      run: |
+        echo "── plantuml lines ──"
+        grep -a '"app":"plantuml"' data/nextcloud.log 2>/dev/null | tail -80 || echo "(none)"
+        echo "── last 30 lines, any app ──"
+        tail -30 data/nextcloud.log 2>/dev/null || echo "(no log)"
+      working-directory: ${{ github.workspace }}
+
+    # ONE RESULT FOR THE WHOLE RUN, NOT THREE. Each leg only UPLOADS its JUnit
+    # XML; the publish job below collects them and reports once. Publishing per
+    # leg produced one check and one PR comment update per leg for one test run,
+    # which buries the answer to "did the suite pass?" under the mechanics of how
+    # it was split.
+    #
+    # `if: always()` so a failing leg still contributes its results — a leg that
+    # fails is exactly the one whose report you want.
+    - name: Upload JUnit results
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        # Unique per leg: artifacts with the same name collide.
+        name: junit-${{ matrix.server-versions }}-${{ matrix.suite }}
+        path: apps/${{ env.APP_ID }}/tests/integration/junit/*.xml
+        retention-days: 7
+        if-no-files-found: error
+
+  # ── one report for the whole matrix ────────────────────────────────────────
+  # This is the action's own documented matrix pattern, and it needs NO XML
+  # merging: `files` is a glob and the action aggregates across every file it
+  # matches. It also distinguishes TESTS from RUNS, which is exactly right here —
+  # a scenario run on three Nextclouds is one test with three runs, not three
+  # tests.
+  publish-integration-results:
+    name: Integration results
+    needs: integration
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+      contents: read
+
+    steps:
+    # NO `merge-multiple`, AND THAT IS THE WHOLE FIX.
+    #
+    # Behat names its report after the SUITE, not the leg — every leg writes
+    # `<suite>.xml`. `merge-multiple: true` flattens every artifact into one
+    # directory, so `admin` on stable33 and `admin` on stable34 both land on
+    # `admin.xml` and the second download silently overwrites the first. A
+    # sibling measured it on the run that introduced this job: 7 artifacts in,
+    # 4 files out, 173 tests reported as 97.
+    #
+    # Worse than losing half the results, WHICH half is download-order dependent.
+    # That run reported a green total while one leg was red — a green report over
+    # a red matrix, which is the one failure mode a reporter must never have.
+    #
+    # Left off, each artifact lands in `junit/<artifact-name>/`, the names are
+    # unique by construction, and the glob below picks up every leg.
+    - name: Download every leg's results
+      uses: actions/download-artifact@v8
+      with:
+        path: junit
+        pattern: junit-*
+
+    # The guard, because the failure above was SILENT — the report looked healthy
+    # and simply described a different, smaller run. One leg uploads exactly one
+    # suite report, so any collision shows up as fewer files than directories.
+    - name: Every leg is present
+      run: |
+        dirs=$(find junit -mindepth 1 -maxdepth 1 -type d | wc -l)
+        files=$(find junit -name '*.xml' | wc -l)
+        echo "legs: $dirs, reports: $files"
+        find junit -name '*.xml' | sort
+        if [ "$dirs" -eq 0 ]; then echo "::error::no leg uploaded a report"; exit 1; fi
+        if [ "$dirs" -ne "$files" ]; then
+          echo "::error::$dirs legs but $files reports — results are being overwritten"
+          exit 1
+        fi
+
+    - name: Publish integration results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      with:
+        check_name: Integration test results
+        files: junit/**/*.xml
+        comment_mode: always
+        # The legs already fail the workflow on a failing scenario; this job
+        # exists to REPORT, so it must not turn a reporting hiccup into a second
+        # red X for the same failure.
+        action_fail: false

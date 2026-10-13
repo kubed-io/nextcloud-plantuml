@@ -48,8 +48,9 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
 2026-10-13.
 
 1. **The folder README is Text's "workspace".** `WorkspaceService` finds `Readme.md`,
-   `README.md`, `readme.md` or `.Readme.md`; `RichWorkspace.vue` renders it with
-   `RichTextReader`, Text's read-only editor. Code fences go through
+   `README.md`, `readme.md` or `.Readme.md`; `RichWorkspace.vue` shows it first with
+   `RichTextReader` and then, once ready, with Text's full editor, which is the view that
+   lasts (found during the build; the observer therefore sees two renders per folder). Code fences go through
    `CodeBlockView.vue`, whose one renderable language is hard-coded:
    `supportPreview() { return ['mermaid'].includes(this.type) }`. There is no
    registration call, event or markdown-it slot; `window.OCA.Text` exposes only
@@ -78,8 +79,11 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
 6. **The PlantUML server renders from a POST body.** `POST <server>/<format>` with the
    diagram text as the body returns the image. A `version` diagram rendered as `/txt`
    names the server's PlantUML version. A server that is not PlantUML answers 405 or 404;
-   an unreachable host fails to connect. A syntax error is drawn into the image, never a
-   failed request.
+   an unreachable host fails to connect. A syntax error is drawn into the image and
+   answered with **HTTP 400** plus an `X-PlantUML-Diagram-Error` header (verified against
+   1.2026.8 during the build), so the app decides "is this a render?" by the body's
+   `image/*` Content-Type, whatever the status; a non-image body at any status is `not a
+   PlantUML server`.
 7. **The fence is `plantuml`.** GitLab, Kroki, Asciidoctor, pandoc, Docsify and Joplin
    accept only that tag; every tool that accepts another also accepts it. GitHub Linguist
    registers PlantUML with extensions `.puml`, `.iuml`, `.plantuml` and no aliases. `puml`
@@ -175,7 +179,7 @@ critical path.
 | Admin health check | error, "not set" | error, "unreachable" / "not a PlantUML server" | n/a |
 | Viewer | one-line message, "not set" | one-line message naming the problem | PlantUML's error image |
 | Editor right pane | the message, source still editable | the message, source still editable | PlantUML's error image |
-| Endpoints | 503 "not set" | 503 naming the problem | 200, PlantUML's error image |
+| Endpoints | 503 "not set" | 503 naming the problem | PlantUML's error image, passed through with the server's 400 |
 | README | fence stays a code block, image stays broken | same | PlantUML's error image |
 
 ### Security

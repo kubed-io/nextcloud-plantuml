@@ -59,8 +59,14 @@ final class InstanceSettings implements IDeclarativeSettingsFormWithHandlers {
 
 	#[\Override]
 	public function setValue(string $fieldId, mixed $value, IUser $user): void {
-		if ($fieldId === ServerConfig::KEY_URL) {
-			$this->server->setUrl(is_string($value) ? $value : '');
+		if ($fieldId !== ServerConfig::KEY_URL) {
+			return;
 		}
+		$url = is_string($value) ? trim($value) : '';
+		if ($url === '') {
+			$this->server->clear();
+			return;
+		}
+		$this->server->setUrl($url);
 	}
 }

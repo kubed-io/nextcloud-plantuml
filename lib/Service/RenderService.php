@@ -36,14 +36,14 @@ final class RenderService {
 	/** @throws RenderException */
 	public function render(string $source): Rendered {
 		$response = $this->post('svg', $source);
-		// A mistake in the diagram is drawn into the image and answered with a
-		// 400; it is the user's picture to see, not a server problem.
-		$drawnError = $response->getHeader('X-PlantUML-Diagram-Error') !== '';
-		if ($response->getStatusCode() >= 400 && !$drawnError) {
-			throw $this->notPlantUml('svg answered HTTP ' . $response->getStatusCode());
-		}
+		// An image is a render whatever the status: PlantUML answers a mistake in
+		// the diagram with a 400 and the error drawn in. Anything that is not an
+		// image, a 200 page from a catch-all web server included, is not PlantUML.
 		$contentType = $response->getHeader('Content-Type');
-		return new Rendered((string)$response->getBody(), $contentType !== '' ? $contentType : 'image/svg+xml');
+		if (!str_starts_with(strtolower($contentType), 'image/')) {
+			throw $this->notPlantUml(sprintf('svg answered HTTP %d %s', $response->getStatusCode(), $contentType));
+		}
+		return new Rendered((string)$response->getBody(), $contentType);
 	}
 
 	/**

@@ -33,6 +33,11 @@ final class ServerConfig {
 		return $this->getUrl() !== '';
 	}
 
+	/** Unset the URL; every render then answers "not set". */
+	public function clear(): void {
+		$this->config->deleteKey(Application::APP_ID, self::KEY_URL);
+	}
+
 	/**
 	 * Only the shape is checked: whether a PlantUML server answers there is the
 	 * health check's question, and the URL may be set before the server is up.

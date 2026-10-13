@@ -27,6 +27,11 @@ final class InstanceSettingsTest extends TestCase {
 		$config->method('getValueString')->willReturnCallback(
 			fn (string $app, string $key, string $default = ''): string => $this->stored["$app/$key"] ?? $default,
 		);
+		$config->method('deleteKey')->willReturnCallback(
+			function (string $app, string $key): void {
+				unset($this->stored["$app/$key"]);
+			},
+		);
 		$config->method('setValueString')->willReturnCallback(
 			function (string $app, string $key, string $value): bool {
 				$this->stored["$app/$key"] = $value;
@@ -61,5 +66,16 @@ final class InstanceSettingsTest extends TestCase {
 
 		self::assertSame('https://p.example.com', $this->stored['plantuml/server_url']);
 		self::assertSame('https://p.example.com', $this->settings->getValue('server_url', $admin));
+	}
+
+	/** Emptying the field and saving unsets the URL, rather than failing the save. */
+	public function testAnEmptySubmitClearsTheUrl(): void {
+		$admin = $this->createStub(IUser::class);
+		$this->stored['plantuml/server_url'] = 'https://p.example.com';
+
+		$this->settings->setValue('server_url', '  ', $admin);
+
+		self::assertArrayNotHasKey('plantuml/server_url', $this->stored);
+		self::assertSame('', $this->settings->getValue('server_url', $admin));
 	}
 }

@@ -43,6 +43,22 @@ final class ServerConfigTest extends TestCase {
 		self::assertTrue($server->isSet());
 	}
 
+	public function testClearDeletesTheKey(): void {
+		$config = $this->createMock(IAppConfig::class);
+		$config->expects(self::once())->method('deleteKey')->with('plantuml', 'server_url');
+		$config->expects(self::never())->method('setValueString');
+
+		(new ServerConfig($config))->clear();
+	}
+
+	public function testEmptyIsNotAUrl(): void {
+		$config = $this->createMock(IAppConfig::class);
+		$config->expects(self::never())->method('setValueString');
+
+		$this->expectException(\InvalidArgumentException::class);
+		(new ServerConfig($config))->setUrl('');
+	}
+
 	public function testRejectsUrlWithoutScheme(): void {
 		$config = $this->createMock(IAppConfig::class);
 		$config->expects(self::never())->method('setValueString');

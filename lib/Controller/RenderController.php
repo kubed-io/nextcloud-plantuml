@@ -50,7 +50,7 @@ final class RenderController extends Controller {
 	/** No CSRF token on an `<img src>`; the path rule is what keeps this safe. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	public function byPath(string $path): Response {
+	public function byPath(string $path = ''): Response {
 		$user = $this->userSession->getUser();
 		if ($user === null) {
 			return new Response(Http::STATUS_NOT_FOUND);
@@ -79,7 +79,11 @@ final class RenderController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	public function bySource(string $source): Response {
+	public function bySource(string $source = ''): Response {
+		// Nothing to draw is the caller's mistake, not a server problem.
+		if (trim($source) === '') {
+			return new Response(Http::STATUS_BAD_REQUEST);
+		}
 		try {
 			return $this->image($this->render->render($source));
 		} catch (RenderException $e) {

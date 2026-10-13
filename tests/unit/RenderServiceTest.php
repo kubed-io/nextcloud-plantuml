@@ -134,6 +134,20 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame('image/svg+xml', $rendered->contentType);
 	}
 
+	/** A catch-all web server answering any POST with a page is not PlantUML. */
+	public function testHtmlAnswerToSvgIsNotPlantuml(): void {
+		$service = $this->service($this->clientAnswering($this->response(200, '<html></html>', ['Content-Type' => 'text/html'])));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->render(self::SOURCE)));
+	}
+
+	/** The image is what makes it a render, header or not. */
+	public function testImageAnswerWith400IsRendered(): void {
+		$service = $this->service($this->clientAnswering($this->response(400, '<svg/>', ['Content-Type' => 'image/svg+xml'])));
+
+		self::assertSame('<svg/>', $service->render(self::SOURCE)->body);
+	}
+
 	public function testVersionParsesTxt(): void {
 		$client = $this->createMock(IClient::class);
 		$client->expects(self::once())

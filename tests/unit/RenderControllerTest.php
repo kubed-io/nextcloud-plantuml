@@ -20,6 +20,7 @@ use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
+use OCP\Files\NotPermittedException;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -82,6 +83,20 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(404, $response->getStatus());
 	}
 
+	/** Core refuses a path that climbs out with `..` as NotPermitted, not NotFound. */
+	public function testPathClimbingOutIs404(): void {
+		$response = $this->controller($this->renderingNothing(), new NotPermittedException('Invalid path'))->byPath('../../admin/files/x.puml');
+
+		self::assertSame(404, $response->getStatus());
+	}
+
+	public function testMissingPathIs404(): void {
+		// No ?path= at all: the default resolves to the user folder itself, a folder.
+		$response = $this->controller($this->renderingNothing(), $this->createStub(Folder::class))->byPath();
+
+		self::assertSame(404, $response->getStatus());
+	}
+
 	public function testFolderIs404(): void {
 		$response = $this->controller($this->renderingNothing(), $this->createStub(Folder::class))->byPath('Diagrams');
 
@@ -133,6 +148,13 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(200, $response->getStatus());
 		self::assertSame(self::SVG, $response->render());
 		self::assertSame('image/svg+xml', self::header($response, 'Content-Type'));
+	}
+
+	/** Nothing to draw is the caller's mistake, not a server problem. */
+	public function testMissingSourceIs400(): void {
+		$response = $this->controller($this->renderingNothing(), new NotFoundException())->bySource();
+
+		self::assertSame(400, $response->getStatus());
 	}
 
 	public function testBySourceServerProblemIs503WithProblem(): void {

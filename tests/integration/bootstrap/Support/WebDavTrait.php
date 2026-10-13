@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\PlantUml\Tests\Integration\Support;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
 use Psr\Http\Message\ResponseInterface;
 
 /**

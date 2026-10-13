@@ -36,15 +36,11 @@
 		<file name="tests/external-stubs.php" />
 	</stubs>
 	<issueHandlers>
-		<!-- The private OC internals the mimetype repair step reaches for
-		     (server root, config dir). Not shipped in nextcloud/ocp. -->
-		<UndefinedClass>
-			<errorLevel type="suppress">
-				<referencedClass name="OC" />
-			</errorLevel>
-		</UndefinedClass>
 		<!-- MissingDependency has no <referencedClass> in Psalm 6; every instance
-		     is OCP\Files\IRootFolder's private base class, missing from the stubs. -->
+		     is OCP\Files\IRootFolder's private base class, missing from the stubs.
+		     A suppression Psalm never needs fails the run as unused, so the
+		     UndefinedClass one for the private `OC` internals arrives with the
+		     mimetype repair step that reaches for them. -->
 		<MissingDependency errorLevel="suppress" />
 	</issueHandlers>
 </psalm>

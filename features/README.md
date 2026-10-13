@@ -96,8 +96,8 @@ the other side".
 All four are excluded from the run. The distinction is about **who picks it up**.
 `behat --tags @todo` is the work queue.
 
-Where the suite stands: the connection and lifecycle files and the two `@api`
-scenarios of `diagrams/view` run in CI, and the browser behaviours of `edit`,
+Where the suite stands: the connection file, the lifecycle file bar its `@blocked`
+scenario, and the two `@api` scenarios of `diagrams/view` run in CI; the browser behaviours of `edit`,
 `create` and `readme/render` are built but still `@unbuilt` until a browser leg
 runs them; `grep -rE '@unbuilt|@blocked|@todo' features/` is the authority. An
 `@unbuilt` on a `Feature:` line covers every scenario under it, and comes off on

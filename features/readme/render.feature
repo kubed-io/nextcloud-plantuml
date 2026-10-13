@@ -1,6 +1,6 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#readmerender
 
-# @unbuilt throughout — the app is specified ahead of its code; nothing in lib/ yet.
+# @unbuilt until a browser leg runs these; the behaviour is built (src/readme/).
 @unbuilt
 Feature: Diagrams in a folder README
   As someone reading a folder in the Files app

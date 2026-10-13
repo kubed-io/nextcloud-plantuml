@@ -43,6 +43,10 @@ THE STEPS DRIVE THE OCC TWINS. `plantuml:set-url` is the card's field and
 The check renders PlantUML's `version` diagram as text and reads the version off
 it, which only a PlantUML server can answer.
 
+A URL with no http(s) scheme or host is refused: the card's save fails with
+Nextcloud's generic message and logs the reason, Test connection then says
+`Server URL is not set`, and `occ plantuml:set-url` prints the reason itself.
+
 ### An admin enters a server address that cannot render
 
 THE MESSAGE HAS TO NAME THE PROBLEM. There are exactly three, they have three

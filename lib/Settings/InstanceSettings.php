@@ -14,6 +14,7 @@ use OCA\PlantUml\Service\ServerConfig;
 use OCP\IUser;
 use OCP\Settings\DeclarativeSettingsTypes;
 use OCP\Settings\IDeclarativeSettingsFormWithHandlers;
+use Psr\Log\LoggerInterface;
 
 /**
  * The admin card: one field, the server URL. Saved through {@see ServerConfig},
@@ -26,6 +27,7 @@ use OCP\Settings\IDeclarativeSettingsFormWithHandlers;
 final class InstanceSettings implements IDeclarativeSettingsFormWithHandlers {
 	public function __construct(
 		private readonly ServerConfig $server,
+		private readonly LoggerInterface $logger,
 	) {
 	}
 
@@ -67,6 +69,12 @@ final class InstanceSettings implements IDeclarativeSettingsFormWithHandlers {
 			$this->server->clear();
 			return;
 		}
-		$this->server->setUrl($url);
+		try {
+			$this->server->setUrl($url);
+		} catch (\InvalidArgumentException $e) {
+			// Core shows only a generic "failed to save"; the reason goes to the log.
+			$this->logger->info('Server URL refused: {reason}', ['reason' => $e->getMessage()]);
+			throw $e;
+		}
 	}
 }

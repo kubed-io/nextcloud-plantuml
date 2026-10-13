@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * The Test connection button. The endpoint always answers {success, message};
- * the message is the line to show, the flag picks its icon.
+ * the message is the line to show, the flag picks its icon. An answer that is
+ * not that JSON is not a server verdict, so it gets its own plain line.
  */
 (function () {
 	'use strict';
@@ -35,9 +36,15 @@
 					'Accept': 'application/json',
 				},
 			})
-				.then(function (res) { return res.json(); })
+				.then(function (res) {
+					// An expired session answers a login page, not JSON.
+					if (!res.ok) {
+						throw new Error('HTTP ' + res.status);
+					}
+					return res.json();
+				})
 				.then(function (data) { show(data.success === true, data.message); })
-				.catch(function (err) { show(false, err.message); })
+				.catch(function () { show(false, t('plantuml', 'Could not test the connection')); })
 				.finally(function () { btn.disabled = false; });
 		});
 	}

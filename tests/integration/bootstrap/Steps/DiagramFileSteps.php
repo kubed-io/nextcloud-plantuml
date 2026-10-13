@@ -13,6 +13,9 @@ namespace OCA\PlantUml\Tests\Integration\Steps;
 trait DiagramFileSteps {
 	private const DIAGRAM = "@startuml\nCustomer -> Shop : place order\n@enduml\n";
 
+	/** @var list<string> what this scenario PUT, removed after it */
+	private array $putFiles = [];
+
 	/** @Given /^a diagram file "([^"]*)" in "([^"]*)"$/ */
 	public function aDiagramFileIn(string $name, string $folder): void {
 		$this->putFile($folder, $name, self::DIAGRAM);
@@ -25,9 +28,19 @@ trait DiagramFileSteps {
 
 	private function putFile(string $folder, string $name, string $body): void {
 		$this->davEnsureFolder($folder);
-		$status = $this->davPut($folder . '/' . $name, $body)->getStatusCode();
+		$path = $folder . '/' . $name;
+		$this->putFiles[] = $path;
+		$status = $this->davPut($path, $body)->getStatusCode();
 		if ($status >= 300) {
-			throw new \RuntimeException("PUT {$folder}/{$name} answered HTTP {$status}");
+			throw new \RuntimeException("PUT {$path} answered HTTP {$status}");
 		}
+	}
+
+	/** @AfterScenario */
+	public function deleteTheFilesThisScenarioPut(): void {
+		foreach ($this->putFiles as $path) {
+			$this->davDelete($path);
+		}
+		$this->putFiles = [];
 	}
 }

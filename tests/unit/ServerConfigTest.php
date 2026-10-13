@@ -17,7 +17,7 @@ final class ServerConfigTest extends TestCase {
 	public function testUnsetReadsAsEmpty(): void {
 		$config = $this->createStub(IAppConfig::class);
 		$config->method('getValueString')->willReturnMap([
-			['plantuml', 'server_url', '', false, false, ''],
+			['plantuml', 'server_url', '', false, ''],
 		]);
 		$server = new ServerConfig($config);
 

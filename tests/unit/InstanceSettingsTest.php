@@ -15,11 +15,13 @@ use OCP\IAppConfig;
 use OCP\IUser;
 use OCP\Settings\DeclarativeSettingsTypes;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 final class InstanceSettingsTest extends TestCase {
 	/** @var array<string,string> appconfig as the fake below holds it, keyed "app/key" */
 	private array $stored = [];
 	private InstanceSettings $settings;
+	private ServerConfig $server;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -38,7 +40,8 @@ final class InstanceSettingsTest extends TestCase {
 				return true;
 			},
 		);
-		$this->settings = new InstanceSettings(new ServerConfig($config));
+		$this->server = new ServerConfig($config);
+		$this->settings = new InstanceSettings($this->server, $this->createStub(LoggerInterface::class));
 	}
 
 	public function testTheCardIsTitledAndSubtitledAsDesigned(): void {
@@ -77,5 +80,22 @@ final class InstanceSettingsTest extends TestCase {
 
 		self::assertArrayNotHasKey('plantuml/server_url', $this->stored);
 		self::assertSame('', $this->settings->getValue('server_url', $admin));
+	}
+
+	/** Core turns the throw into a generic toast, so the reason is logged. */
+	public function testARefusedUrlIsLoggedWithItsReasonAndNotStored(): void {
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects(self::once())
+			->method('info')
+			->with(self::anything(), self::callback(
+				static fn (array $context): bool => str_contains($context['reason'], 'http or https'),
+			));
+
+		try {
+			(new InstanceSettings($this->server, $logger))->setValue('server_url', 'plantuml.example.com', $this->createStub(IUser::class));
+			self::fail('expected the URL to be refused');
+		} catch (\InvalidArgumentException) {
+		}
+		self::assertArrayNotHasKey('plantuml/server_url', $this->stored);
 	}
 }

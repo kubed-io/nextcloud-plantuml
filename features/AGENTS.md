@@ -208,3 +208,23 @@ file name with one is written `![Order flow](<Order flow.puml>)` or
 Both scenarios are browser behaviours: the README is only ever rendered in a
 page. They wait for a browser leg and are checked by hand on the live instance
 until then.
+
+## Known limitations and next
+
+What the reviews deferred. None changes a scenario; each is work for a later round.
+
+* **The editor bundle is eager.** `editor.js` is about 163 kB gzipped and loads
+  with the Files page; it should load on the first **Edit diagram** or **+ New →
+  Diagram**.
+* **A 412 is a dead end.** "Someone else changed this file" leaves the editor with
+  no way forward; it wants **Reload** and **Save as copy**.
+* **Non-JSON failure bodies.** A proxy's HTML error page reaching the preview pane
+  is not mapped to the error vocabulary.
+* **No browser Behat leg.** Every `@blocked` and `@unbuilt` scenario here waits for
+  one; the homelab has a Selenium Grid that could supply it.
+* **The README's editable-state mitigation** (a drawn fence's `<pre>` and `<code>`
+  made non-editable) awaits a check in a real browser.
+* **`UnregisterMimetype` has no unit test**; it runs for real only on a store
+  uninstall.
+* **Trash-bin and share edge cases** (a `.puml` in the trash, opened through a share)
+  are unexamined.

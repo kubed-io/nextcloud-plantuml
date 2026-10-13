@@ -10,12 +10,12 @@ with the sibling apps
 deliberate process around getting changes in. Please read this whole doc before
 you push code.
 
-**Where the work is right now.** The app is specified ahead of its code: every
-behaviour has a scenario under [`features/`](features/), the design is in
+**Where the work is right now.** Every behaviour has a scenario under
+[`features/`](features/); the design is in
 [`docs/superpowers/specs/`](docs/superpowers/specs/) and the build order in
-[`docs/superpowers/plans/`](docs/superpowers/plans/). Scenarios come off
-`@unbuilt` one task at a time. `grep -r '@unbuilt' features/` is the authority on
-what is still owed.
+[`docs/superpowers/plans/`](docs/superpowers/plans/). The browser behaviours are
+built but not yet run by CI. `grep -rE '@unbuilt|@blocked|@todo' features/` is
+the authority on what is still owed.
 
 If you only have time for one paragraph: **prefer opening an issue first so the
 work can be scoped and approved, then open a PR with tests and a clear changelog

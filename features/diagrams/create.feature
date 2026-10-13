@@ -1,6 +1,6 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#diagramscreate
 
-# @unbuilt throughout — the app is specified ahead of its code; nothing in lib/ yet.
+# @unbuilt until a browser leg runs this; the behaviour is built (src/files.js).
 @unbuilt
 Feature: Creating a diagram file
   As a Nextcloud user

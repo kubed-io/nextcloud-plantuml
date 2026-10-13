@@ -1,6 +1,6 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#diagramsedit
 
-# @unbuilt throughout — the app is specified ahead of its code; nothing in lib/ yet.
+# @unbuilt until a browser leg runs these; the behaviour is built (src/editor.js).
 @unbuilt
 Feature: Editing a diagram file
   As a Nextcloud user

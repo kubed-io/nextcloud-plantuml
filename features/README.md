@@ -96,10 +96,12 @@ the other side".
 All four are excluded from the run. The distinction is about **who picks it up**.
 `behat --tags @todo` is the work queue.
 
-The app is specified ahead of its code, so `@unbuilt` sits on every `Feature:`
-line today and covers every scenario under it. It comes off per file, on the PR
-that runs the file's scenarios; the scenarios that file still cannot run get
-their own tag at that moment.
+Where the suite stands: the connection file, the lifecycle file bar its `@blocked`
+scenario, and the two `@api` scenarios of `diagrams/view` run in CI; the browser behaviours of `edit`,
+`create` and `readme/render` are built but still `@unbuilt` until a browser leg
+runs them; `grep -rE '@unbuilt|@blocked|@todo' features/` is the authority. An
+`@unbuilt` on a `Feature:` line covers every scenario under it, and comes off on
+the PR that runs the file's scenarios.
 
 #### A scenario changes status only on a PR that runs it
 
@@ -113,7 +115,7 @@ In the scenario, or in the section above it. The walls that exist today:
 * **no browser** — anything about a click, a menu entry, the Viewer, the editor
   or the README. The homelab runs a Selenium Grid, so this wall is removable;
   until it falls, these behaviours are checked by hand on the live instance before
-  a PR claims them.
+  a PR claims them. The README's editable-state mitigation is one of them.
 * **no app removal** — `occ` enables and disables; removing and reinstalling an
   app is a store operation this suite cannot perform.
 

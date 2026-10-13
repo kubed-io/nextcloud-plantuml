@@ -39,22 +39,48 @@ function problemOf(body) {
 }
 
 let timer = null
-let latest = 0
+let inFlight = false
+let parked = null
 
 /**
  * Renders `source` once it has been still for 300 ms and calls `cb(error, blob)`.
- * Only the newest source reaches `cb`, however the answers arrive.
+ *
+ * One render at a time: each POST holds a PHP worker for as long as the
+ * PlantUML server takes, so a burst of typing against a slow server must not
+ * become a burst of workers. A source that comes due while a render is out is
+ * parked, the newest replacing any before it, and is sent when the answer
+ * lands; that answer is then stale and dropped.
  *
  * @param {string} source
  * @param {(error: Error|null, blob?: Blob) => void} cb
  */
 export function debouncedRender(source, cb) {
   clearTimeout(timer)
-  const call = ++latest
-  timer = setTimeout(() => {
-    render(source).then(
-      (blob) => call === latest && cb(null, blob),
-      (error) => call === latest && cb(error),
-    )
-  }, DELAY_MS)
+  timer = setTimeout(() => send(source, cb), DELAY_MS)
+}
+
+/** Drops the waiting source and the parked one; an answer already out still arrives. */
+export function cancel() {
+  clearTimeout(timer)
+  parked = null
+}
+
+function send(source, cb) {
+  if (inFlight) {
+    parked = { source, cb }
+    return
+  }
+  inFlight = true
+  render(source)
+    .then((blob) => [null, blob], (error) => [error])
+    .then(([error, blob]) => {
+      inFlight = false
+      if (parked) {
+        const next = parked
+        parked = null
+        send(next.source, next.cb)
+      } else {
+        cb(error, blob)
+      }
+    })
 }

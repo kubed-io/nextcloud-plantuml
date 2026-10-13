@@ -17,7 +17,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from './files-helpers.js'
 import { plantumlMode } from './editor/plantuml-mode.js'
 import { ConflictError, loadFile, saveFile } from './editor/save.js'
-import { debouncedRender } from './editor/preview.js'
+import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
 
@@ -51,7 +51,7 @@ export function openEditor(node) {
 
   const source = el('div', 'plantuml-editor__source')
   const image = el('img', 'plantuml-editor__image', { alt: name, hidden: '' })
-  const problem = el('p', 'plantuml-editor__problem', { hidden: '' })
+  const problem = el('p', 'plantuml-editor__problem', { role: 'status', hidden: '' })
   const diagram = el('div', 'plantuml-editor__diagram')
   diagram.append(image, problem)
   const panes = el('div', 'plantuml-editor__panes')
@@ -59,6 +59,14 @@ export function openEditor(node) {
 
   const overlay = el('div', 'plantuml-editor', { role: 'dialog', 'aria-modal': 'true', 'aria-label': name })
   overlay.append(bar, panes)
+
+  // aria-modal only tells a screen reader; inert keeps Tab and clicks out of
+  // the Files page underneath too.
+  const opener = document.activeElement
+  const inerted = [...document.body.children].filter((sibling) => !sibling.hasAttribute('inert'))
+  for (const sibling of inerted) {
+    sibling.setAttribute('inert', '')
+  }
   document.body.append(overlay)
 
   let view = null
@@ -130,10 +138,15 @@ export function openEditor(node) {
       return
     }
     closed = true
+    cancelRender()
     document.removeEventListener('keydown', onKeydown)
     view?.destroy()
     URL.revokeObjectURL(imageUrl)
     overlay.remove()
+    for (const sibling of inerted) {
+      sibling.removeAttribute('inert')
+    }
+    opener?.focus?.()
   }
 
   // CodeMirror marks an Escape it used (dropping a multi-selection) as handled.

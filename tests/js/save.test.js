@@ -50,6 +50,21 @@ describe('saveFile', () => {
     await expect(saveFile('/Diagrams/Order flow.puml', 'changed', '"e1"')).resolves.toBe('"e2"')
   })
 
+  it('takes the new ETag from OC-ETag when ETag is missing', async () => {
+    client.customRequest.mockResolvedValue(new Response(null, { status: 204, headers: { 'OC-ETag': '"e2"' } }))
+
+    await expect(saveFile('/Diagrams/Order flow.puml', 'changed', '"e1"')).resolves.toBe('"e2"')
+  })
+
+  it('fails as a plain error, not a conflict, when the server names no ETag', async () => {
+    client.customRequest.mockResolvedValue(new Response(null, { status: 204 }))
+
+    const failure = await saveFile('/Diagrams/Order flow.puml', 'changed', '"e1"').catch((e) => e)
+
+    expect(failure).toBeInstanceOf(Error)
+    expect(failure).not.toBeInstanceOf(ConflictError)
+  })
+
   it('refuses with a ConflictError when someone else changed the file, and asks once', async () => {
     client.customRequest.mockRejectedValue(davError(412))
 

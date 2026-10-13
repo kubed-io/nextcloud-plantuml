@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { debouncedRender, render } from '../../src/editor/preview.js'
+import { cancel, debouncedRender, render } from '../../src/editor/preview.js'
 
 const svg = () => new Response('<svg/>', { status: 200, headers: { 'Content-Type': 'image/svg+xml' } })
 
@@ -101,5 +101,39 @@ describe('debouncedRender', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(cb).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps one render in flight and sends only the newest source after it', async () => {
+    let answerFirst
+    const fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => { answerFirst = resolve }))
+      .mockImplementation(async () => svg())
+    vi.stubGlobal('fetch', fetch)
+    const cb = vi.fn()
+
+    debouncedRender('first', cb)
+    await vi.advanceTimersByTimeAsync(300)
+    for (const source of ['second', 'third', 'fourth']) {
+      debouncedRender(source, cb)
+      await vi.advanceTimersByTimeAsync(300)
+    }
+    expect(fetch).toHaveBeenCalledTimes(1)
+    answerFirst(svg())
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: 'fourth' })
+    expect(cb).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends nothing once cancelled', async () => {
+    const fetch = vi.fn(async () => svg())
+    vi.stubGlobal('fetch', fetch)
+
+    debouncedRender('a', vi.fn())
+    cancel()
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

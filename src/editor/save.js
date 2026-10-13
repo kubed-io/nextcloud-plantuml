@@ -34,14 +34,20 @@ export async function loadFile(path) {
  */
 export async function saveFile(path, content, etag) {
   // putFileContents() answers only `true`; the new ETag is in the PUT's headers.
+  let res
   try {
-    const res = await getClient().customRequest(getRootPath() + path, {
+    res = await getClient().customRequest(getRootPath() + path, {
       method: 'PUT',
       headers: { 'If-Match': etag },
       data: content,
     })
-    return res.headers.get('ETag')
   } catch (e) {
     throw e?.status === 412 ? new ConflictError() : e
   }
+  const newEtag = res.headers.get('ETag') ?? res.headers.get('OC-ETag')
+  // Without it the next save would send `If-Match: null` and refuse itself forever.
+  if (!newEtag) {
+    throw new Error('The server answered the save without an ETag')
+  }
+  return newEtag
 }

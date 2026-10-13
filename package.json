@@ -27,6 +27,12 @@
     "node": "^24 || >=26"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/legacy-modes": "^6.5.5",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@lezer/highlight": "^1.2.5",
     "@nextcloud/event-bus": "^3.3.3",
     "@nextcloud/files": "^4.1.0",
     "@nextcloud/initial-state": "^3.0.0",

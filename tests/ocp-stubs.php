@@ -68,8 +68,15 @@ namespace OCP {
 			/** @var list<string> */
 			private static array $scripts = [];
 
+			/** @var list<string> */
+			private static array $styles = [];
+
 			public static function addScript(string $application, ?string $file = null, string $afterAppId = 'core', bool $prepend = false): void {
 				self::$scripts[] = "$application/js/$file";
+			}
+
+			public static function addStyle(string $application, ?string $file = null, bool $prepend = false): void {
+				self::$styles[] = "$application/css/$file";
 			}
 
 			/** @return list<string> */
@@ -77,8 +84,14 @@ namespace OCP {
 				return self::$scripts;
 			}
 
+			/** @return list<string> */
+			public static function getStyles(): array {
+				return self::$styles;
+			}
+
 			public static function resetScripts(): void {
 				self::$scripts = [];
+				self::$styles = [];
 			}
 		}
 	}

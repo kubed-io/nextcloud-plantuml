@@ -19,8 +19,9 @@ use OCP\Util;
 
 /**
  * Loads the Files-page bundles — `plantuml-files` (Viewer handler, file actions,
- * + New) and `plantuml-readme` (the README observer) — and tells them whether a
- * server is set, so the bundle can hide what would only answer "not set".
+ * + New), `plantuml-editor` (the diagram editor, with its stylesheet) and
+ * `plantuml-readme` (the README observer) — and tells them whether a server is
+ * set, so the bundle can hide what would only answer "not set".
  *
  * Wired to {@see LoadAdditionalScriptsEvent}, which the Files app fires once per
  * page render right before its `<script>` tags are emitted.
@@ -45,6 +46,8 @@ final class LoadFilesScriptListener implements IEventListener {
 		// Util::addScript appends `js/<file>.js` to the app root; `../dist/` walks
 		// back out of js/ into the vite output (see vite.config.js).
 		Util::addScript(Application::APP_ID, '../dist/' . Application::APP_ID . '-files');
+		Util::addScript(Application::APP_ID, '../dist/' . Application::APP_ID . '-editor');
+		Util::addStyle(Application::APP_ID, 'editor');
 		Util::addScript(Application::APP_ID, '../dist/' . Application::APP_ID . '-readme');
 	}
 }

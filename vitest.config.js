@@ -8,7 +8,8 @@
  * (dedicated vitest.config) and the sibling apps' setup.
  *
  * tests/js/ now holds the helper suite (files-helpers.test.js), so `npm test`
- * no longer needs `--passWithNoTests`.
+ * no longer needs `--passWithNoTests`. A suite that needs a DOM (workspace.test.js)
+ * opts into jsdom with a `// @vitest-environment jsdom` pragma.
  */
 import { defineConfig } from 'vitest/config'
 

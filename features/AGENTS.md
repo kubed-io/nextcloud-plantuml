@@ -186,6 +186,25 @@ THE IMAGE BEHAVES AS TEXT TREATS ANY IMAGE: inline, with its alt text as the
 caption, and no link to the file. Clicking it does nothing, so Text's own
 lightbox never reopens it as the broken `.puml` it would otherwise show.
 
+A fence is found by its place: the README's fences are counted in order, a
+mermaid one included, and the code block Text drew at the same place is drawn
+only when its text is that fence's source. Anything that shifts the count, such
+as an indented code block or a fence inside a blockquote (`> ```plantuml`), which
+Text draws and the scanner does not see, leaves the block as Text drew it rather
+than putting the wrong diagram there. When the server cannot draw, the README
+shows Text's own rendering and says nothing; the problem is the admin card's to
+name.
+
+The workspace is Text's editor, so a drawn fence's source is still in its
+document, hidden. Its `<pre>` and `<code>` are made non-editable, and made so again
+whenever Text resets them, so the caret cannot change source nobody can see; this
+editable state awaits a check in a browser.
+
+An image is a diagram when its path ends in `.puml`, resolved against the
+README's folder as Text resolves it. Markdown ends a link at a bare space, so a
+file name with one is written `![Order flow](<Order flow.puml>)` or
+`![Order flow](Order%20flow.puml)`; `![Order flow](Order flow.puml)` is text.
+
 Both scenarios are browser behaviours: the README is only ever rendered in a
 page. They wait for a browser leg and are checked by hand on the live instance
 until then.

@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- A folder README shows its ```plantuml fences and `![](<diagram.puml>)` images as diagrams.
 - **Edit diagram**: PlantUML source on the left with highlighting, the diagram redrawing on the right as you type; Save checks nobody else changed the file first.
 - A `.puml` opens as its diagram in the image viewer; right-click offers **Edit diagram** and **Open with text editor**; **+ New → Diagram** starts one.
 - Admin settings: point the app at a PlantUML server and test the connection; `occ plantuml:set-url`, `test-connection` and `show-config`.

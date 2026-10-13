@@ -32,8 +32,12 @@ describe('viewer component', () => {
     expect(img.data.attrs.src).toBe('/index.php/apps/plantuml/render?path=%2FDiagrams%2FOrder%20flow.puml')
   })
 
-  it('shows the line a failed render answered with', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('unreachable\n', { status: 503 })))
+  it('shows the problem the render route answered with', async () => {
+    // RenderController::problem(): JSONResponse(['problem' => …], 503).
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"problem":"unreachable"}', {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    })))
     const vm = instance()
 
     await component.methods.showProblem.call(vm)
@@ -41,6 +45,15 @@ describe('viewer component', () => {
     expect(vm.problem).toBe('unreachable')
     expect(drawn(vm)).toMatchObject({ tag: 'p', children: 'unreachable' })
     expect(vm.doneLoading).toHaveBeenCalled()
+  })
+
+  it('falls back to the first line of a plain-text failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('Bad gateway\nupstream detail', { status: 502 })))
+    const vm = instance()
+
+    await component.methods.showProblem.call(vm)
+
+    expect(vm.problem).toBe('Bad gateway')
   })
 
   it('keeps the image when the render answers 2xx after all', async () => {

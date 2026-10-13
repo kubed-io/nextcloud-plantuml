@@ -19,14 +19,18 @@ export function isDiagram(node) {
   return node?.mime === MIMETYPE
 }
 
-/** "Open with text editor": one node, and it is a diagram. */
+/**
+ * "Open with text editor": one node, a diagram, in the user's files. The trash
+ * and other non-files roots are left out, as the Viewer's own "View" does.
+ */
 export function canOpenAsText(nodes) {
-  return nodes?.length === 1 && isDiagram(nodes[0])
+  const node = nodes?.length === 1 ? nodes[0] : null
+  return Boolean(node?.isDavResource && node.root?.startsWith('/files') && isDiagram(node))
 }
 
 /** "Edit diagram": as above, and a server to draw the right pane. */
 export function canEditDiagram(nodes, serverConfigured) {
-  return serverConfigured && canOpenAsText(nodes)
+  return serverConfigured === true && canOpenAsText(nodes)
 }
 
 /**

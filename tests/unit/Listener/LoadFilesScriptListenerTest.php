@@ -7,73 +7,60 @@
 
 declare(strict_types=1);
 
-namespace OCA\PlantUml\Service {
-	// ServerConfig arrives with the connection stream. Until it is merged, this
-	// stand-in carries the one method the listener calls; once the real class
-	// autoloads, the guard skips it.
-	if (!class_exists(ServerConfig::class)) {
-		class ServerConfig {
-			public function isSet(): bool {
-				return false;
-			}
-		}
+namespace OCA\PlantUml\Tests\Unit\Listener;
+
+use OCA\Files\Event\LoadAdditionalScriptsEvent;
+use OCA\PlantUml\Listener\LoadFilesScriptListener;
+use OCA\PlantUml\Service\ServerConfig;
+use OCP\AppFramework\Services\IInitialState;
+use OCP\EventDispatcher\Event;
+use OCP\Util;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+final class LoadFilesScriptListenerTest extends TestCase {
+	#[\Override]
+	protected function setUp(): void {
+		Util::resetScripts();
 	}
-}
 
-namespace OCA\PlantUml\Tests\Unit\Listener {
-	use OCA\Files\Event\LoadAdditionalScriptsEvent;
-	use OCA\PlantUml\Listener\LoadFilesScriptListener;
-	use OCA\PlantUml\Service\ServerConfig;
-	use OCP\AppFramework\Services\IInitialState;
-	use OCP\EventDispatcher\Event;
-	use OCP\Util;
-	use PHPUnit\Framework\Attributes\DataProvider;
-	use PHPUnit\Framework\TestCase;
+	/** @return array<string, array{bool}> */
+	public static function configured(): array {
+		return ['set' => [true], 'not set' => [false]];
+	}
 
-	final class LoadFilesScriptListenerTest extends TestCase {
-		#[\Override]
-		protected function setUp(): void {
-			Util::resetScripts();
-		}
+	#[DataProvider('configured')]
+	public function testProvidesWhetherTheServerIsConfigured(bool $isSet): void {
+		$serverConfig = $this->createStub(ServerConfig::class);
+		$serverConfig->method('isSet')->willReturn($isSet);
+		$initialState = $this->createMock(IInitialState::class);
+		$initialState->expects(self::once())
+			->method('provideInitialState')
+			->with('server_configured', $isSet);
 
-		/** @return array<string, array{bool}> */
-		public static function configured(): array {
-			return ['set' => [true], 'not set' => [false]];
-		}
+		(new LoadFilesScriptListener($serverConfig, $initialState))->handle(new LoadAdditionalScriptsEvent());
+	}
 
-		#[DataProvider('configured')]
-		public function testProvidesWhetherTheServerIsConfigured(bool $isSet): void {
-			$serverConfig = $this->createStub(ServerConfig::class);
-			$serverConfig->method('isSet')->willReturn($isSet);
-			$initialState = $this->createMock(IInitialState::class);
-			$initialState->expects(self::once())
-				->method('provideInitialState')
-				->with('server_configured', $isSet);
+	public function testAddsTheFilesBundleThenTheReadmeBundle(): void {
+		$listener = new LoadFilesScriptListener(
+			$this->createStub(ServerConfig::class),
+			$this->createStub(IInitialState::class),
+		);
 
-			(new LoadFilesScriptListener($serverConfig, $initialState))->handle(new LoadAdditionalScriptsEvent());
-		}
+		$listener->handle(new LoadAdditionalScriptsEvent());
 
-		public function testAddsTheFilesBundleThenTheReadmeBundle(): void {
-			$listener = new LoadFilesScriptListener(
-				$this->createStub(ServerConfig::class),
-				$this->createStub(IInitialState::class),
-			);
+		self::assertSame(
+			['plantuml/js/../dist/plantuml-files', 'plantuml/js/../dist/plantuml-readme'],
+			Util::getScripts(),
+		);
+	}
 
-			$listener->handle(new LoadAdditionalScriptsEvent());
+	public function testIgnoresAnyOtherEvent(): void {
+		$initialState = $this->createMock(IInitialState::class);
+		$initialState->expects(self::never())->method('provideInitialState');
 
-			self::assertSame(
-				['plantuml/js/../dist/plantuml-files', 'plantuml/js/../dist/plantuml-readme'],
-				Util::getScripts(),
-			);
-		}
+		(new LoadFilesScriptListener($this->createStub(ServerConfig::class), $initialState))->handle(new Event());
 
-		public function testIgnoresAnyOtherEvent(): void {
-			$initialState = $this->createMock(IInitialState::class);
-			$initialState->expects(self::never())->method('provideInitialState');
-
-			(new LoadFilesScriptListener($this->createStub(ServerConfig::class), $initialState))->handle(new Event());
-
-			self::assertSame([], Util::getScripts());
-		}
+		self::assertSame([], Util::getScripts());
 	}
 }

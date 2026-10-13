@@ -17,6 +17,15 @@
  */
 import { renderUrl } from './files-helpers.js'
 
+function jsonProblem(body) {
+  try {
+    const problem = JSON.parse(body)?.problem
+    return typeof problem === 'string' ? problem : ''
+  } catch {
+    return ''
+  }
+}
+
 export default {
   name: 'PlantUmlDiagram',
 
@@ -26,12 +35,14 @@ export default {
 
   methods: {
     // An <img> never sees the response body, so the failed URL is asked once
-    // more for the line that names the problem.
+    // more for the problem: `{"problem": …}` from the render route, else the
+    // body's first line, else the status (a 404 has no body).
     async showProblem() {
       try {
         const res = await fetch(renderUrl(this.filename), { credentials: 'same-origin' })
         if (!res.ok) {
-          this.problem = (await res.text()).split('\n')[0].trim() || res.statusText || String(res.status)
+          const body = await res.text()
+          this.problem = jsonProblem(body) || body.split('\n')[0].trim() || res.statusText || String(res.status)
         }
       } catch (e) {
         this.problem = e.message
@@ -42,6 +53,7 @@ export default {
 
   render(h) {
     const content = this.problem
+      // The Viewer's backdrop is black in both themes.
       ? h('p', { style: { color: '#fff', fontSize: '16px' } }, this.problem)
       : h('img', {
           attrs: { src: renderUrl(this.filename), alt: this.basename },

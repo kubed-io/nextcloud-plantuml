@@ -36,8 +36,9 @@ describe('renderUrl', () => {
 })
 
 describe('action gating', () => {
-  const diagram = { mime: MIMETYPE }
-  const text = { mime: 'text/plain' }
+  // The node shape @nextcloud/files gives a row in the user's files.
+  const diagram = { mime: MIMETYPE, isDavResource: true, root: '/files/drk' }
+  const text = { ...diagram, mime: 'text/plain' }
 
   it('offers both actions on one diagram with a server set', () => {
     expect(canEditDiagram([diagram], true)).toBe(true)
@@ -52,6 +53,12 @@ describe('action gating', () => {
   it('hides both actions on a file that is not a diagram', () => {
     expect(canEditDiagram([text], true)).toBe(false)
     expect(canOpenAsText([text])).toBe(false)
+  })
+
+  it('hides both actions on a diagram in the trash', () => {
+    const trashed = { ...diagram, root: '/trashbin/drk/trash' }
+    expect(canEditDiagram([trashed], true)).toBe(false)
+    expect(canOpenAsText([trashed])).toBe(false)
   })
 
   it('hides Edit diagram but not the text editor when no server is set', () => {

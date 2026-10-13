@@ -62,7 +62,7 @@ registerFileAction({
   id: 'plantuml-text',
   displayName: () => t(APP_ID, 'Open with text editor'),
   iconSvgInline: () => textIcon,
-  enabled: ({ nodes }) => canOpenAsText(nodes),
+  enabled: ({ nodes }) => Boolean(window.OCA?.Viewer) && canOpenAsText(nodes),
   // Text's handler gets the real mime, so a .puml opens in its plain editor.
   // Viewer stable34 src/services/Viewer.js:351 `openWith(handlerId, options = {})`.
   async exec({ nodes }) {

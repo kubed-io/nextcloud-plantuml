@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: 2026 kubed-io
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  "Open with text editor" file action. Lines of text, themed via currentColor so
+  it follows the Files-app menu text colour. Imported (?raw) by src/files.js.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"/>
+</svg>

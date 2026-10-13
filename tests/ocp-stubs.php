@@ -386,6 +386,12 @@ namespace OCP\Files {
 			public function getStorage(): \OCP\Files\Storage\IStorage;
 
 			public function touch($mtime = null): void;
+
+			// RenderController serves a node only if FileInfo says it is a diagram,
+			// and hands its etag to the browser for the 304.
+			public function getMimetype(): string;
+
+			public function getEtag(): string;
 		}
 	}
 	// A folder the pull mirrors into: it lists children, checks/creates nodes,
@@ -411,6 +417,9 @@ namespace OCP\Files {
 	if (!interface_exists(File::class, false)) {
 		interface File extends Node {
 			public function putContent(mixed $data): void;
+
+			// The diagram source RenderController sends to the server.
+			public function getContent(): string;
 
 			public function getSize(): int|float;
 

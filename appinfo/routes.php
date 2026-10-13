@@ -8,5 +8,9 @@
 return [
 	'routes' => [
 		['name' => 'config#testConnection', 'url' => '/test-connection', 'verb' => 'POST'],
+		// ?path=<path in the caller's folder>
+		['name' => 'render#byPath', 'url' => '/render', 'verb' => 'GET'],
+		// JSON {source}
+		['name' => 'render#bySource', 'url' => '/render', 'verb' => 'POST'],
 	],
 ];

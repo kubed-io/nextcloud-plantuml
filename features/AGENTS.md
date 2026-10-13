@@ -99,8 +99,19 @@ drawn exactly what you can read. A path to a file that is not a diagram is refus
 rather than rendered, because PlantUML would happily draw an error image for a
 text file and a 200 for `notes.txt` would teach the caller nothing.
 
-The two `@api` scenarios are the harness-reachable half of this file; the click is
-a browser behaviour and waits for a browser leg.
+"Not a diagram" is the file's detected mimetype, `text/x-plantuml`, so these
+scenarios rest on the file type `lifecycle.feature` registers. A path that does
+not resolve, or climbs out of the caller's folder, is the same 404: the route never
+says whether a file it will not draw exists.
+
+A diagram the server answers is a 200 SVG with the file's ETag, and a 304 when the
+caller already holds that ETag. A diagram with a mistake in it is still a 200:
+PlantUML draws the error into the image. Only a server problem is not an image — a
+503 whose body names it in the shared vocabulary.
+
+The two `@api` scenarios are the harness-reachable half of this file, asked over
+HTTP as the admin. The click is `@blocked`: it is a browser behaviour and waits for
+a browser leg.
 
 ## diagrams/edit
 

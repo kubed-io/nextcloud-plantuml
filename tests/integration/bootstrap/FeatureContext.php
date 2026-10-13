@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\PlantUml\Tests\Integration;
 
 use Behat\Behat\Context\Context;
+use OCA\PlantUml\Tests\Integration\Steps\AppLifecycleSteps;
 use OCA\PlantUml\Tests\Integration\Support\OccTrait;
 use OCA\PlantUml\Tests\Integration\Support\WebDavTrait;
 
@@ -20,6 +21,7 @@ use OCA\PlantUml\Tests\Integration\Support\WebDavTrait;
  * silently dead — bin/check-step-definitions.sh says so.
  */
 final class FeatureContext implements Context {
+	use AppLifecycleSteps;
 	use OccTrait;
 	use WebDavTrait;
 

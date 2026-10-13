@@ -152,6 +152,27 @@ namespace OCP\App {
 	if (!interface_exists(IAppManager::class, false)) {
 		interface IAppManager {
 			public function isEnabledForUser(string $appId): bool;
+
+			// RegisterMimetype finds the icon through the app manager, never a
+			// hard-coded apps directory.
+			public function getAppPath(string $appId, bool $ignoreNamespace = false): string;
+		}
+	}
+}
+
+namespace OCP\Files {
+	// The two collaborators of the mimetype repair steps; the unit test only
+	// needs them to be mockable.
+	if (!interface_exists(IMimeTypeDetector::class, false)) {
+		interface IMimeTypeDetector {
+			public function getAllMappings(): array;
+		}
+	}
+	if (!interface_exists(IMimeTypeLoader::class, false)) {
+		interface IMimeTypeLoader {
+			public function getId(string $mimetype): int;
+
+			public function updateFilecache(string $ext, int $mimeTypeId): int;
 		}
 	}
 }

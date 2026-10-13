@@ -64,6 +64,12 @@ The file type is an END STATE of enabling, not a feature of its own: a user neve
 Removing the app reverts the registration and touches no file — a diagram is an
 ordinary file and stays one.
 
+BUILT. `RegisterMimetype` runs on install and every upgrade, mapping `puml` and
+`plantuml` to `text/x-plantuml` with icon `plantuml`. The scenario proves it from
+outside: PUT `probe.puml` over DAV, read the type back. "Removing the app" is
+`@blocked`: occ cannot remove an app, so `UnregisterMimetype` (the `<uninstall>`
+step, reverting rows to `text/plain`) runs for real only on a store uninstall.
+
 ## diagrams/view
 
 `features/diagrams/view.feature`

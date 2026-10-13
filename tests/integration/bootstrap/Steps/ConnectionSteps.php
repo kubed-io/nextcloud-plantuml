@@ -21,11 +21,18 @@ trait ConnectionSteps {
 		$this->appConfigDelete('server_url');
 	}
 
-	/** @Given the app is connected to a PlantUML server */
+	/**
+	 * "Connected" implies "enabled": CI never pre-enables the app, so a feature
+	 * whose Background starts here would otherwise run set-url as an unknown
+	 * command.
+	 *
+	 * @Given the app is connected to a PlantUML server
+	 */
 	public function theAppIsConnectedToAPlantUmlServer(): void {
+		$this->theAppIsEnabled();
 		$res = $this->occ('plantuml:set-url ' . escapeshellarg($this->plantumlUrl));
 		if ($res['exit'] !== 0) {
-			throw new \RuntimeException("set-url failed:\n{$res['output']}");
+			throw new \RuntimeException("set-url failed (exit {$res['exit']}):\n{$res['output']}");
 		}
 	}
 

@@ -109,9 +109,10 @@
 	outline-offset: -2px;
 }
 
+/* Disabled only for the moment a save runs: no dimming, or every autosave
+ * would make it flicker. */
 .plantuml-editor__bar button.plantuml-editor__refresh:disabled {
 	cursor: default;
-	opacity: 0.5;
 }
 
 .plantuml-editor__refresh svg,

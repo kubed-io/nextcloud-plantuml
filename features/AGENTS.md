@@ -141,7 +141,9 @@ A SAVE NEVER OVERWRITES SOMEONE ELSE'S CHANGE. The editor reads the file over
 WebDAV with its ETag and writes it back with `If-Match`; a file changed in the
 meantime answers 412, the top bar says "Someone else changed this file", and the
 file stays as the other person left it. There is no merge: collaboration is what
-Text's editor offers and this one gave up for highlighting.
+Text's editor offers and this one gave up for highlighting. The way out is beside
+the message until it is used: **Reload** takes their version, after a confirm, and
+**Save as copy** writes ours to `<name> (copy).puml` and carries on there.
 
 The right pane redraws 300 ms after typing stops. When the server cannot draw,
 the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)
@@ -213,13 +215,6 @@ until then.
 
 What the reviews deferred. None changes a scenario; each is work for a later round.
 
-* **The editor bundle is eager.** `editor.js` is about 163 kB gzipped and loads
-  with the Files page; it should load on the first **Edit diagram** or **+ New →
-  Diagram**.
-* **A 412 is a dead end.** "Someone else changed this file" leaves the editor with
-  no way forward; it wants **Reload** and **Save as copy**.
-* **Non-JSON failure bodies.** A proxy's HTML error page reaching the preview pane
-  is not mapped to the error vocabulary.
 * **No browser Behat leg.** Every `@blocked` and `@unbuilt` scenario here waits for
   one; the homelab has a Selenium Grid that could supply it.
 * **The README's editable-state mitigation** (a drawn fence's `<pre>` and `<code>`

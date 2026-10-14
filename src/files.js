@@ -19,7 +19,7 @@ import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextc
 import { loadState } from '@nextcloud/initial-state'
 import { translate as t } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
-import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, canEditDiagram, canOpenAsText } from './files-helpers.js'
+import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, canEditDiagram, canOpenAsText, editorBundleUrl } from './files-helpers.js'
 import component from './viewer-component.js'
 // Menu glyphs are fill="currentColor" files under img/icons/, inlined by Vite
 // (?raw), because Nextcloud themes menu icons to the surface they land on.
@@ -37,13 +37,52 @@ if (window.OCA?.Viewer) {
   window._oca_viewer_handlers = [...(window._oca_viewer_handlers ?? []), viewerHandler]
 }
 
-/** The editor is the editor bundle's; until it is on the page, the Viewer opens. */
-function openEditor(node) {
+// Read now: currentScript is only set while this bundle first runs.
+const bundleQuery = document.currentScript?.src ? new URL(document.currentScript.src).search : ''
+let editorLoading = null
+
+/**
+ * Puts the editor bundle on the page, once: it is most of the app's JavaScript
+ * and most Files pages never open it. A failed load is forgotten, so the next
+ * open tries again. It carries the Files bundle's version query.
+ *
+ * @return {Promise<void>}
+ */
+function ensureEditor() {
   if (window.OCA?.PlantUml?.openEditor) {
-    window.OCA.PlantUml.openEditor(node)
-  } else {
-    window.OCA?.Viewer?.open({ path: node.path })
+    return Promise.resolve()
   }
+  editorLoading ??= new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = editorBundleUrl(bundleQuery)
+    const fail = (message) => {
+      script.remove()
+      editorLoading = null
+      reject(new Error(message))
+    }
+    script.addEventListener('load', () => {
+      if (window.OCA?.PlantUml?.openEditor) {
+        resolve()
+      } else {
+        fail(`${script.src} did not define the editor`)
+      }
+    })
+    script.addEventListener('error', () => fail(`could not load ${script.src}`))
+    document.head.append(script)
+  })
+  return editorLoading
+}
+
+/** Opens the editor bundle's editor; if the bundle will not load, the Viewer opens. */
+async function openEditor(node) {
+  try {
+    await ensureEditor()
+  } catch (e) {
+    console.error(`[${APP_ID}] could not load the editor`, e)
+    window.OCA?.Viewer?.open({ path: node.path })
+    return
+  }
+  window.OCA.PlantUml.openEditor(node)
 }
 
 registerFileAction({
@@ -52,7 +91,7 @@ registerFileAction({
   iconSvgInline: () => pencilIcon,
   enabled: ({ nodes }) => canEditDiagram(nodes, serverConfigured),
   async exec({ nodes }) {
-    openEditor(nodes[0])
+    await openEditor(nodes[0])
     return null
   },
   order: 1, // right after the Viewer's "View" (0), before Nextcloud's Rename (10)
@@ -88,7 +127,7 @@ addNewFileMenuEntry({
       const res = await client.stat(davPath, { details: true, data: getDefaultPropfind() })
       const node = resultToNode(res.data)
       emit('files:node:created', node)
-      openEditor(node)
+      await openEditor(node)
     } catch (e) {
       console.error(`[${APP_ID}] could not create the diagram`, e)
       window.OC?.Notification?.showTemporary?.(t(APP_ID, 'Could not create the diagram'))

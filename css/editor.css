@@ -48,6 +48,30 @@
 	color: var(--color-text-maxcontrast);
 }
 
+/* The way out of a conflict, shown beside its status: secondary to Save. */
+.plantuml-editor__reload,
+.plantuml-editor__copy {
+	min-height: var(--default-clickable-area, 34px);
+	margin: 0;
+	padding: 0 16px;
+	border: none;
+	border-radius: var(--border-radius-pill, 100px);
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.plantuml-editor__reload:hover:not(:disabled),
+.plantuml-editor__copy:hover:not(:disabled) {
+	background: var(--color-primary-element-light-hover);
+}
+
+.plantuml-editor__reload[hidden],
+.plantuml-editor__copy[hidden] {
+	display: none;
+}
+
 .plantuml-editor__save {
 	min-height: var(--default-clickable-area, 34px);
 	margin: 0 20px 0 0;

@@ -48,6 +48,33 @@ describe('render', () => {
 
     await expect(render('@startuml\n@enduml\n')).rejects.toThrow('unreachable')
   })
+
+  it('rejects with one fixed line when a proxy answers with an error page', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>\n<h1>500 Internal Server Error</h1>\n</html>', {
+      status: 500,
+      headers: { 'Content-Type': 'text/html' },
+    })))
+
+    await expect(render('@startuml\n@enduml\n')).rejects.toThrow(/^Could not draw the diagram$/)
+  })
+
+  it('rejects with the same line for JSON that names no problem, as an expired session\'s does', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"message":"CSRF check failed"}', {
+      status: 412,
+      headers: { 'Content-Type': 'application/json' },
+    })))
+
+    await expect(render('@startuml\n@enduml\n')).rejects.toThrow(/^Could not draw the diagram$/)
+  })
+
+  it('rejects with the same line when a success is not an image', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>Log in</html>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+    })))
+
+    await expect(render('@startuml\n@enduml\n')).rejects.toThrow(/^Could not draw the diagram$/)
+  })
 })
 
 describe('debouncedRender', () => {

@@ -69,7 +69,12 @@ trait EditSteps {
 	public function someoneElseHasChangedItSinceIOpenedIt(string $path): void {
 		$this->openForEditing($path);
 		$this->theirVersion = "@startuml\nCustomer -> Shop : cancel order\n@enduml\n";
-		$response = $this->davPut($path, $this->theirVersion);
+		// Their change comes later than the open. Two writes inside one second can
+		// keep a local-storage ETag, so their PUT stamps a later mtime.
+		$response = $this->davClient()->put($this->davPath($path), [
+			'body' => $this->theirVersion,
+			'headers' => ['X-OC-Mtime' => (string)(time() + 60)],
+		]);
 		$status = $response->getStatusCode();
 		$this->theirEtag = $response->getHeaderLine('ETag');
 		if ($status >= 300) {

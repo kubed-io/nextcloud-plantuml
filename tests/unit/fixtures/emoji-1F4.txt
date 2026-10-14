@@ -1,0 +1,173 @@
+
+ Emoji available on Unicode Block 1f4
+ (Blocks available: 26, 27, 1F3, 1F4, 1F5, 1F6, 1F9)
+
+ <:1f400:> <:rat:> <:1f455:> <:shirt:> <:1f4aa:> <:muscle:>
+
+ <:1f401:> <:mouse2:> <:1f456:> <:jeans:> <:1f4ab:> <:dizzy:>
+
+ <:1f402:> <:ox:> <:1f457:> <:dress:> <:1f4ac:> <:speech_balloon:>
+
+ <:1f403:> <:water_buffalo:> <:1f458:> <:kimono:> <:1f4ad:> <:thought_balloon:>
+
+ <:1f404:> <:cow2:> <:1f459:> <:bikini:> <:1f4ae:> <:white_flower:>
+
+ <:1f405:> <:tiger2:> <:1f45a:> <:womans_clothes:> <:1f4af:> <:100:>
+
+ <:1f406:> <:leopard:> <:1f45b:> <:purse:> <:1f4b0:> <:moneybag:>
+
+ <:1f407:> <:rabbit2:> <:1f45c:> <:handbag:> <:1f4b1:> <:currency_exchange:>
+
+ <:1f408:> <:cat2:> <:1f45d:> <:pouch:> <:1f4b2:> <:heavy_dollar_sign:>
+
+ <:1f409:> <:dragon:> <:1f45e:> <:mans_shoe:> <:1f4b3:> <:credit_card:>
+
+ <:1f40a:> <:crocodile:> <:1f45f:> <:athletic_shoe:> <:1f4b4:> <:yen:>
+
+ <:1f40b:> <:whale2:> <:1f460:> <:high_heel:> <:1f4b5:> <:dollar:>
+
+ <:1f40c:> <:snail:> <:1f461:> <:sandal:> <:1f4b6:> <:euro:>
+
+ <:1f40d:> <:snake:> <:1f462:> <:boot:> <:1f4b7:> <:pound:>
+
+ <:1f40e:> <:racehorse:> <:1f463:> <:footprints:> <:1f4b8:> <:money_with_wings:>
+
+ <:1f40f:> <:ram:> <:1f464:> <:bust_in_silhouette:> <:1f4b9:> <:chart:>
+
+ <:1f410:> <:goat:> <:1f465:> <:busts_in_silhouette:> <:1f4ba:> <:seat:>
+
+ <:1f411:> <:sheep:> <:1f466:> <:boy:> <:1f4bb:> <:computer:>
+
+ <:1f412:> <:monkey:> <:1f467:> <:girl:> <:1f4bc:> <:briefcase:>
+
+ <:1f413:> <:rooster:> <:1f468:> <:man:> <:1f4bd:> <:minidisc:>
+
+ <:1f414:> <:chicken:> <:1f469:> <:woman:> <:1f4be:> <:floppy_disk:>
+
+ <:1f415:> <:dog2:> <:1f46a:> <:family:> <:1f4bf:> <:cd:>
+
+ <:1f416:> <:pig2:> <:1f46b:> <:couple:> <:1f4c0:> <:dvd:>
+
+ <:1f417:> <:boar:> <:1f46c:> <:two_men_holding_hands:> <:1f4c1:> <:file_folder:>
+
+ <:1f418:> <:elephant:> <:1f46d:> <:two_women_holding_hands:> <:1f4c2:> <:open_file_folder:>
+
+ <:1f419:> <:octopus:> <:1f46e:> <:cop:> <:1f4c3:> <:page_with_curl:>
+
+ <:1f41a:> <:shell:> <:1f46f:> <:dancers:> <:1f4c4:> <:page_facing_up:>
+
+ <:1f41b:> <:bug:> <:1f470:> <:person_with_veil:> <:1f4c5:> <:date:>
+
+ <:1f41c:> <:ant:> <:1f471:> <:blond_haired_person:> <:1f4c6:> <:calendar:>
+
+ <:1f41d:> <:bee:> <:1f472:> <:man_with_gua_pi_mao:> <:1f4c7:> <:card_index:>
+
+ <:1f41e:> <:lady_beetle:> <:1f473:> <:person_with_turban:> <:1f4c8:> <:chart_with_upwards_trend:>
+
+ <:1f41f:> <:fish:> <:1f474:> <:older_man:> <:1f4c9:> <:chart_with_downwards_trend:>
+
+ <:1f420:> <:tropical_fish:> <:1f475:> <:older_woman:> <:1f4ca:> <:bar_chart:>
+
+ <:1f421:> <:blowfish:> <:1f476:> <:baby:> <:1f4cb:> <:clipboard:>
+
+ <:1f422:> <:turtle:> <:1f477:> <:construction_worker:> <:1f4cc:> <:pushpin:>
+
+ <:1f423:> <:hatching_chick:> <:1f478:> <:princess:> <:1f4cd:> <:round_pushpin:>
+
+ <:1f424:> <:baby_chick:> <:1f479:> <:japanese_ogre:> <:1f4ce:> <:paperclip:>
+
+ <:1f425:> <:hatched_chick:> <:1f47a:> <:japanese_goblin:> <:1f4cf:> <:straight_ruler:>
+
+ <:1f426:> <:bird:> <:1f47b:> <:ghost:> <:1f4d0:> <:triangular_ruler:>
+
+ <:1f427:> <:penguin:> <:1f47c:> <:angel:> <:1f4d1:> <:bookmark_tabs:>
+
+ <:1f428:> <:koala:> <:1f47d:> <:alien:> <:1f4d2:> <:ledger:>
+
+ <:1f429:> <:poodle:> <:1f47e:> <:space_invader:> <:1f4d3:> <:notebook:>
+
+ <:1f42a:> <:dromedary_camel:> <:1f47f:> <:imp:> <:1f4d4:> <:notebook_with_decorative_cover:>
+
+ <:1f42b:> <:camel:> <:1f480:> <:skull:> <:1f4d5:> <:closed_book:>
+
+ <:1f42c:> <:dolphin:> <:1f481:> <:information_desk_person:> <:1f4d6:> <:book:>
+
+ <:1f42d:> <:mouse:> <:1f482:> <:guard:> <:1f4d7:> <:green_book:>
+
+ <:1f42e:> <:cow:> <:1f483:> <:dancer:> <:1f4d8:> <:blue_book:>
+
+ <:1f42f:> <:tiger:> <:1f484:> <:lipstick:> <:1f4d9:> <:orange_book:>
+
+ <:1f430:> <:rabbit:> <:1f485:> <:nail_care:> <:1f4da:> <:books:>
+
+ <:1f431:> <:cat:> <:1f486:> <:massage:> <:1f4db:> <:name_badge:>
+
+ <:1f432:> <:dragon_face:> <:1f487:> <:haircut:> <:1f4dc:> <:scroll:>
+
+ <:1f433:> <:whale:> <:1f488:> <:barber:> <:1f4dd:> <:memo:>
+
+ <:1f434:> <:horse:> <:1f489:> <:syringe:> <:1f4de:> <:telephone_receiver:>
+
+ <:1f435:> <:monkey_face:> <:1f48a:> <:pill:> <:1f4df:> <:pager:>
+
+ <:1f436:> <:dog:> <:1f48b:> <:kiss:> <:1f4e0:> <:fax:>
+
+ <:1f437:> <:pig:> <:1f48c:> <:love_letter:> <:1f4e1:> <:satellite:>
+
+ <:1f438:> <:frog:> <:1f48d:> <:ring:> <:1f4e2:> <:loudspeaker:>
+
+ <:1f439:> <:hamster:> <:1f48e:> <:gem:> <:1f4e3:> <:mega:>
+
+ <:1f43a:> <:wolf:> <:1f48f:> <:couplekiss:> <:1f4e4:> <:outbox_tray:>
+
+ <:1f43b:> <:bear:> <:1f490:> <:bouquet:> <:1f4e5:> <:inbox_tray:>
+
+ <:1f43c:> <:panda_face:> <:1f491:> <:couple_with_heart:> <:1f4e6:> <:package:>
+
+ <:1f43d:> <:pig_nose:> <:1f492:> <:wedding:> <:1f4e7:> <:email:>
+
+ <:1f43e:> <:feet:> <:1f493:> <:heartbeat:> <:1f4e8:> <:incoming_envelope:>
+
+ <:1f43f:> <:chipmunk:> <:1f494:> <:broken_heart:> <:1f4e9:> <:envelope_with_arrow:>
+
+ <:1f440:> <:eyes:> <:1f495:> <:two_hearts:> <:1f4ea:> <:mailbox_closed:>
+
+ <:1f441:> <:eye:> <:1f496:> <:sparkling_heart:> <:1f4eb:> <:mailbox:>
+
+ <:1f442:> <:ear:> <:1f497:> <:heartpulse:> <:1f4ec:> <:mailbox_with_mail:>
+
+ <:1f443:> <:nose:> <:1f498:> <:cupid:> <:1f4ed:> <:mailbox_with_no_mail:>
+
+ <:1f444:> <:lips:> <:1f499:> <:blue_heart:> <:1f4ee:> <:postbox:>
+
+ <:1f445:> <:tongue:> <:1f49a:> <:green_heart:> <:1f4ef:> <:postal_horn:>
+
+ <:1f446:> <:point_up_2:> <:1f49b:> <:yellow_heart:> <:1f4f0:> <:newspaper:>
+
+ <:1f447:> <:point_down:> <:1f49c:> <:purple_heart:> <:1f4f1:> <:iphone:>
+
+ <:1f448:> <:point_left:> <:1f49d:> <:gift_heart:> <:1f4f2:> <:calling:>
+
+ <:1f449:> <:point_right:> <:1f49e:> <:revolving_hearts:> <:1f4f3:> <:vibration_mode:>
+
+ <:1f44a:> <:facepunch:> <:1f49f:> <:heart_decoration:> <:1f4f4:> <:mobile_phone_off:>
+
+ <:1f44b:> <:wave:> <:1f4a0:> <:diamond_shape_with_a_dot_inside:> <:1f4f5:> <:no_mobile_phones:>
+
+ <:1f44c:> <:ok_hand:> <:1f4a1:> <:bulb:> <:1f4f6:> <:signal_strength:>
+
+ <:1f44d:> <:thumbsup:> <:1f4a2:> <:anger:> <:1f4f7:> <:camera:>
+
+ <:1f44e:> <:thumbsdown:> <:1f4a3:> <:bomb:> <:1f4f8:> <:camera_flash:>
+
+ <:1f44f:> <:clap:> <:1f4a4:> <:zzz:> <:1f4f9:> <:video_camera:>
+
+ <:1f450:> <:open_hands:> <:1f4a5:> <:boom:> <:1f4fa:> <:tv:>
+
+ <:1f451:> <:crown:> <:1f4a6:> <:sweat_drops:> <:1f4fb:> <:radio:>
+
+ <:1f452:> <:womans_hat:> <:1f4a7:> <:droplet:> <:1f4fc:> <:vhs:>
+
+ <:1f453:> <:eyeglasses:> <:1f4a8:> <:dash:> <:1f4fd:> <:film_projector:>
+
+ <:1f454:> <:necktie:> <:1f4a9:> <:hankey:> <:1f4ff:> <:prayer_beads:>

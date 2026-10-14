@@ -1,0 +1,95 @@
+
+ Emoji available on Unicode Block 1f5
+ (Blocks available: 26, 27, 1F3, 1F4, 1F5, 1F6, 1F9)
+
+ <:1f500:> <:twisted_rightwards_arrows:> <:1f52e:> <:crystal_ball:> <:1f56f:> <:candle:>
+
+ <:1f501:> <:repeat:> <:1f52f:> <:six_pointed_star:> <:1f570:> <:mantelpiece_clock:>
+
+ <:1f502:> <:repeat_one:> <:1f530:> <:beginner:> <:1f573:> <:hole:>
+
+ <:1f503:> <:arrows_clockwise:> <:1f531:> <:trident:> <:1f574:> <:business_suit_levitating:>
+
+ <:1f504:> <:arrows_counterclockwise:> <:1f532:> <:black_square_button:> <:1f575:> <:detective:>
+
+ <:1f505:> <:low_brightness:> <:1f533:> <:white_square_button:> <:1f576:> <:dark_sunglasses:>
+
+ <:1f506:> <:high_brightness:> <:1f534:> <:red_circle:> <:1f577:> <:spider:>
+
+ <:1f507:> <:mute:> <:1f535:> <:large_blue_circle:> <:1f578:> <:spider_web:>
+
+ <:1f508:> <:speaker:> <:1f536:> <:large_orange_diamond:> <:1f579:> <:joystick:>
+
+ <:1f509:> <:sound:> <:1f537:> <:large_blue_diamond:> <:1f57a:> <:man_dancing:>
+
+ <:1f50a:> <:loud_sound:> <:1f538:> <:small_orange_diamond:> <:1f587:> <:paperclips:>
+
+ <:1f50b:> <:battery:> <:1f539:> <:small_blue_diamond:> <:1f58a:> <:pen:>
+
+ <:1f50c:> <:electric_plug:> <:1f53a:> <:small_red_triangle:> <:1f58b:> <:fountain_pen:>
+
+ <:1f50d:> <:mag:> <:1f53b:> <:small_red_triangle_down:> <:1f58c:> <:paintbrush:>
+
+ <:1f50e:> <:mag_right:> <:1f53c:> <:arrow_up_small:> <:1f58d:> <:crayon:>
+
+ <:1f50f:> <:lock_with_ink_pen:> <:1f53d:> <:arrow_down_small:> <:1f590:> <:raised_hand_with_fingers_splayed:>
+
+ <:1f510:> <:closed_lock_with_key:> <:1f549:> <:om:> <:1f595:> <:fu:>
+
+ <:1f511:> <:key:> <:1f54a:> <:dove:> <:1f596:> <:vulcan_salute:>
+
+ <:1f512:> <:lock:> <:1f54b:> <:kaaba:> <:1f5a4:> <:black_heart:>
+
+ <:1f513:> <:unlock:> <:1f54c:> <:mosque:> <:1f5a5:> <:desktop_computer:>
+
+ <:1f514:> <:bell:> <:1f54d:> <:synagogue:> <:1f5a8:> <:printer:>
+
+ <:1f515:> <:no_bell:> <:1f54e:> <:menorah:> <:1f5b1:> <:computer_mouse:>
+
+ <:1f516:> <:bookmark:> <:1f550:> <:clock1:> <:1f5b2:> <:trackball:>
+
+ <:1f517:> <:link:> <:1f551:> <:clock2:> <:1f5bc:> <:framed_picture:>
+
+ <:1f518:> <:radio_button:> <:1f552:> <:clock3:> <:1f5c2:> <:card_index_dividers:>
+
+ <:1f519:> <:back:> <:1f553:> <:clock4:> <:1f5c3:> <:card_file_box:>
+
+ <:1f51a:> <:end:> <:1f554:> <:clock5:> <:1f5c4:> <:file_cabinet:>
+
+ <:1f51b:> <:on:> <:1f555:> <:clock6:> <:1f5d1:> <:wastebasket:>
+
+ <:1f51c:> <:soon:> <:1f556:> <:clock7:> <:1f5d2:> <:spiral_notepad:>
+
+ <:1f51d:> <:top:> <:1f557:> <:clock8:> <:1f5d3:> <:spiral_calendar:>
+
+ <:1f51e:> <:underage:> <:1f558:> <:clock9:> <:1f5dc:> <:clamp:>
+
+ <:1f51f:> <:keycap_ten:> <:1f559:> <:clock10:> <:1f5dd:> <:old_key:>
+
+ <:1f520:> <:capital_abcd:> <:1f55a:> <:clock11:> <:1f5de:> <:newspaper_roll:>
+
+ <:1f521:> <:abcd:> <:1f55b:> <:clock12:> <:1f5e1:> <:dagger:>
+
+ <:1f522:> <:1234:> <:1f55c:> <:clock130:> <:1f5e3:> <:speaking_head:>
+
+ <:1f523:> <:symbols:> <:1f55d:> <:clock230:> <:1f5e8:> <:left_speech_bubble:>
+
+ <:1f524:> <:abc:> <:1f55e:> <:clock330:> <:1f5ef:> <:right_anger_bubble:>
+
+ <:1f525:> <:fire:> <:1f55f:> <:clock430:> <:1f5f3:> <:ballot_box:>
+
+ <:1f526:> <:flashlight:> <:1f560:> <:clock530:> <:1f5fa:> <:world_map:>
+
+ <:1f527:> <:wrench:> <:1f561:> <:clock630:> <:1f5fb:> <:mount_fuji:>
+
+ <:1f528:> <:hammer:> <:1f562:> <:clock730:> <:1f5fc:> <:tokyo_tower:>
+
+ <:1f529:> <:nut_and_bolt:> <:1f563:> <:clock830:> <:1f5fd:> <:statue_of_liberty:>
+
+ <:1f52a:> <:hocho:> <:1f564:> <:clock930:> <:1f5fe:> <:japan:>
+
+ <:1f52b:> <:gun:> <:1f565:> <:clock1030:> <:1f5ff:> <:moyai:>
+
+ <:1f52c:> <:microscope:> <:1f566:> <:clock1130:>
+
+ <:1f52d:> <:telescope:> <:1f567:> <:clock1230:>

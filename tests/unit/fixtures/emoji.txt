@@ -1,0 +1,59 @@
+
+ Emoji available on Unicode Block 26
+ (Blocks available: 26, 27, 1F3, 1F4, 1F5, 1F6, 1F9)
+
+ <:2600:> <:sunny:> <:264d:> <:virgo:> <:26aa:> <:white_circle:>
+
+ <:2601:> <:cloud:> <:264e:> <:libra:> <:26ab:> <:black_circle:>
+
+ <:2602:> <:open_umbrella:> <:264f:> <:scorpius:> <:26b0:> <:coffin:>
+
+ <:2603:> <:snowman_with_snow:> <:2650:> <:sagittarius:> <:26b1:> <:funeral_urn:>
+
+ <:2604:> <:comet:> <:2651:> <:capricorn:> <:26bd:> <:soccer:>
+
+ <:260e:> <:phone:> <:2652:> <:aquarius:> <:26be:> <:baseball:>
+
+ <:2611:> <:ballot_box_with_check:> <:2653:> <:pisces:> <:26c4:> <:snowman:>
+
+ <:2614:> <:umbrella:> <:265f:> <:chess_pawn:> <:26c5:> <:partly_sunny:>
+
+ <:2615:> <:coffee:> <:2660:> <:spades:> <:26c8:> <:cloud_with_lightning_and_rain:>
+
+ <:2618:> <:shamrock:> <:2663:> <:clubs:> <:26ce:> <:ophiuchus:>
+
+ <:261d:> <:point_up:> <:2665:> <:hearts:> <:26cf:> <:pick:>
+
+ <:2620:> <:skull_and_crossbones:> <:2666:> <:diamonds:> <:26d1:> <:rescue_worker_helmet:>
+
+ <:2622:> <:radioactive:> <:2668:> <:hotsprings:> <:26d3:> <:chains:>
+
+ <:2623:> <:biohazard:> <:267b:> <:recycle:> <:26d4:> <:no_entry:>
+
+ <:2626:> <:orthodox_cross:> <:267e:> <:infinity:> <:26e9:> <:shinto_shrine:>
+
+ <:262a:> <:star_and_crescent:> <:267f:> <:wheelchair:> <:26ea:> <:church:>
+
+ <:262e:> <:peace_symbol:> <:2692:> <:hammer_and_pick:> <:26f0:> <:mountain:>
+
+ <:262f:> <:yin_yang:> <:2693:> <:anchor:> <:26f1:> <:parasol_on_ground:>
+
+ <:2638:> <:wheel_of_dharma:> <:2694:> <:crossed_swords:> <:26f2:> <:fountain:>
+
+ <:2639:> <:frowning_face:> <:2695:> <:medical_symbol:> <:26f3:> <:golf:>
+
+ <:263a:> <:relaxed:> <:2696:> <:balance_scale:> <:26f4:> <:ferry:>
+
+ <:2640:> <:female_sign:> <:2697:> <:alembic:> <:26f5:> <:boat:>
+
+ <:2642:> <:male_sign:> <:2699:> <:gear:> <:26f7:> <:skier:>
+
+ <:2648:> <:aries:> <:269b:> <:atom_symbol:> <:26f8:> <:ice_skate:>
+
+ <:2649:> <:taurus:> <:269c:> <:fleur_de_lis:> <:26f9:> <:bouncing_ball_person:>
+
+ <:264a:> <:gemini:> <:26a0:> <:warning:> <:26fa:> <:tent:>
+
+ <:264b:> <:cancer:> <:26a1:> <:zap:> <:26fd:> <:fuelpump:>
+
+ <:264c:> <:leo:> <:26a7:> <:transgender_symbol:>

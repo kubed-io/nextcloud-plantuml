@@ -1,0 +1,163 @@
+
+ Emoji available on Unicode Block 1f9
+ (Blocks available: 26, 27, 1F3, 1F4, 1F5, 1F6, 1F9)
+
+ <:1f90c:> <:pinched_fingers:> <:1f95e:> <:pancakes:> <:1f9af:> <:probing_cane:>
+
+ <:1f90d:> <:white_heart:> <:1f95f:> <:dumpling:> <:1f9b0:>
+
+ <:1f90e:> <:brown_heart:> <:1f960:> <:fortune_cookie:> <:1f9b1:>
+
+ <:1f90f:> <:pinching_hand:> <:1f961:> <:takeout_box:> <:1f9b2:>
+
+ <:1f910:> <:zipper_mouth_face:> <:1f962:> <:chopsticks:> <:1f9b3:>
+
+ <:1f911:> <:money_mouth_face:> <:1f963:> <:bowl_with_spoon:> <:1f9b4:> <:bone:>
+
+ <:1f912:> <:face_with_thermometer:> <:1f964:> <:cup_with_straw:> <:1f9b5:> <:leg:>
+
+ <:1f913:> <:nerd_face:> <:1f965:> <:coconut:> <:1f9b6:> <:foot:>
+
+ <:1f914:> <:thinking:> <:1f966:> <:broccoli:> <:1f9b7:> <:tooth:>
+
+ <:1f915:> <:face_with_head_bandage:> <:1f967:> <:pie:> <:1f9b8:> <:superhero:>
+
+ <:1f916:> <:robot:> <:1f968:> <:pretzel:> <:1f9b9:> <:supervillain:>
+
+ <:1f917:> <:hugs:> <:1f969:> <:cut_of_meat:> <:1f9ba:> <:safety_vest:>
+
+ <:1f918:> <:metal:> <:1f96a:> <:sandwich:> <:1f9bb:> <:ear_with_hearing_aid:>
+
+ <:1f919:> <:call_me_hand:> <:1f96b:> <:canned_food:> <:1f9bc:> <:motorized_wheelchair:>
+
+ <:1f91a:> <:raised_back_of_hand:> <:1f96c:> <:leafy_green:> <:1f9bd:> <:manual_wheelchair:>
+
+ <:1f91b:> <:fist_left:> <:1f96d:> <:mango:> <:1f9be:> <:mechanical_arm:>
+
+ <:1f91c:> <:fist_right:> <:1f96e:> <:moon_cake:> <:1f9bf:> <:mechanical_leg:>
+
+ <:1f91d:> <:handshake:> <:1f96f:> <:bagel:> <:1f9c0:> <:cheese:>
+
+ <:1f91e:> <:crossed_fingers:> <:1f970:> <:smiling_face_with_three_hearts:> <:1f9c1:> <:cupcake:>
+
+ <:1f91f:> <:love_you_gesture:> <:1f971:> <:yawning_face:> <:1f9c2:> <:salt:>
+
+ <:1f920:> <:cowboy_hat_face:> <:1f972:> <:smiling_face_with_tear:> <:1f9c3:> <:beverage_box:>
+
+ <:1f921:> <:clown_face:> <:1f973:> <:partying_face:> <:1f9c4:> <:garlic:>
+
+ <:1f922:> <:nauseated_face:> <:1f974:> <:woozy_face:> <:1f9c5:> <:onion:>
+
+ <:1f923:> <:rofl:> <:1f975:> <:hot_face:> <:1f9c6:> <:falafel:>
+
+ <:1f924:> <:drooling_face:> <:1f976:> <:cold_face:> <:1f9c7:> <:waffle:>
+
+ <:1f925:> <:lying_face:> <:1f977:> <:ninja:> <:1f9c8:> <:butter:>
+
+ <:1f926:> <:facepalm:> <:1f978:> <:disguised_face:> <:1f9c9:> <:mate:>
+
+ <:1f927:> <:sneezing_face:> <:1f97a:> <:pleading_face:> <:1f9ca:> <:ice_cube:>
+
+ <:1f928:> <:raised_eyebrow:> <:1f97b:> <:sari:> <:1f9cb:> <:bubble_tea:>
+
+ <:1f929:> <:star_struck:> <:1f97c:> <:lab_coat:> <:1f9cd:> <:standing_person:>
+
+ <:1f92a:> <:zany_face:> <:1f97d:> <:goggles:> <:1f9ce:> <:kneeling_person:>
+
+ <:1f92b:> <:shushing_face:> <:1f97e:> <:hiking_boot:> <:1f9cf:> <:deaf_person:>
+
+ <:1f92c:> <:cursing_face:> <:1f97f:> <:flat_shoe:> <:1f9d0:> <:monocle_face:>
+
+ <:1f92d:> <:hand_over_mouth:> <:1f980:> <:crab:> <:1f9d1:> <:adult:>
+
+ <:1f92e:> <:vomiting_face:> <:1f981:> <:lion:> <:1f9d2:> <:child:>
+
+ <:1f92f:> <:exploding_head:> <:1f982:> <:scorpion:> <:1f9d3:> <:older_adult:>
+
+ <:1f930:> <:pregnant_woman:> <:1f983:> <:turkey:> <:1f9d4:> <:bearded_person:>
+
+ <:1f931:> <:breast_feeding:> <:1f984:> <:unicorn:> <:1f9d5:> <:woman_with_headscarf:>
+
+ <:1f932:> <:palms_up_together:> <:1f985:> <:eagle:> <:1f9d6:> <:sauna_person:>
+
+ <:1f933:> <:selfie:> <:1f986:> <:duck:> <:1f9d7:> <:climbing:>
+
+ <:1f934:> <:prince:> <:1f987:> <:bat:> <:1f9d8:> <:lotus_position:>
+
+ <:1f935:> <:person_in_tuxedo:> <:1f988:> <:shark:> <:1f9d9:> <:mage:>
+
+ <:1f936:> <:mrs_claus:> <:1f989:> <:owl:> <:1f9da:> <:fairy:>
+
+ <:1f937:> <:shrug:> <:1f98a:> <:fox_face:> <:1f9db:> <:vampire:>
+
+ <:1f938:> <:cartwheeling:> <:1f98b:> <:butterfly:> <:1f9dc:> <:merperson:>
+
+ <:1f939:> <:juggling_person:> <:1f98c:> <:deer:> <:1f9dd:> <:elf:>
+
+ <:1f93a:> <:person_fencing:> <:1f98d:> <:gorilla:> <:1f9de:> <:genie:>
+
+ <:1f93c:> <:wrestling:> <:1f98e:> <:lizard:> <:1f9df:> <:zombie:>
+
+ <:1f93d:> <:water_polo:> <:1f98f:> <:rhinoceros:> <:1f9e0:> <:brain:>
+
+ <:1f93e:> <:handball_person:> <:1f990:> <:shrimp:> <:1f9e1:> <:orange_heart:>
+
+ <:1f93f:> <:diving_mask:> <:1f991:> <:squid:> <:1f9e2:> <:billed_cap:>
+
+ <:1f940:> <:wilted_flower:> <:1f992:> <:giraffe:> <:1f9e3:> <:scarf:>
+
+ <:1f941:> <:drum:> <:1f993:> <:zebra:> <:1f9e4:> <:gloves:>
+
+ <:1f942:> <:clinking_glasses:> <:1f994:> <:hedgehog:> <:1f9e5:> <:coat:>
+
+ <:1f943:> <:tumbler_glass:> <:1f995:> <:sauropod:> <:1f9e6:> <:socks:>
+
+ <:1f944:> <:spoon:> <:1f996:> <:1f9e7:> <:red_envelope:>
+
+ <:1f945:> <:goal_net:> <:1f997:> <:cricket:> <:1f9e8:> <:firecracker:>
+
+ <:1f947:> <:1st_place_medal:> <:1f998:> <:kangaroo:> <:1f9e9:> <:jigsaw:>
+
+ <:1f948:> <:2nd_place_medal:> <:1f999:> <:llama:> <:1f9ea:> <:test_tube:>
+
+ <:1f949:> <:3rd_place_medal:> <:1f99a:> <:peacock:> <:1f9eb:> <:petri_dish:>
+
+ <:1f94a:> <:boxing_glove:> <:1f99b:> <:hippopotamus:> <:1f9ec:> <:dna:>
+
+ <:1f94b:> <:martial_arts_uniform:> <:1f99c:> <:parrot:> <:1f9ed:> <:compass:>
+
+ <:1f94c:> <:curling_stone:> <:1f99d:> <:raccoon:> <:1f9ee:> <:abacus:>
+
+ <:1f94d:> <:lacrosse:> <:1f99e:> <:lobster:> <:1f9ef:> <:fire_extinguisher:>
+
+ <:1f94e:> <:softball:> <:1f99f:> <:mosquito:> <:1f9f0:> <:toolbox:>
+
+ <:1f94f:> <:flying_disc:> <:1f9a0:> <:microbe:> <:1f9f1:> <:bricks:>
+
+ <:1f950:> <:croissant:> <:1f9a1:> <:badger:> <:1f9f2:> <:magnet:>
+
+ <:1f951:> <:avocado:> <:1f9a2:> <:swan:> <:1f9f3:> <:luggage:>
+
+ <:1f952:> <:cucumber:> <:1f9a3:> <:mammoth:> <:1f9f4:> <:lotion_bottle:>
+
+ <:1f953:> <:bacon:> <:1f9a4:> <:dodo:> <:1f9f5:> <:thread:>
+
+ <:1f954:> <:potato:> <:1f9a5:> <:sloth:> <:1f9f6:> <:yarn:>
+
+ <:1f955:> <:carrot:> <:1f9a6:> <:otter:> <:1f9f7:> <:safety_pin:>
+
+ <:1f956:> <:baguette_bread:> <:1f9a7:> <:orangutan:> <:1f9f8:> <:teddy_bear:>
+
+ <:1f957:> <:green_salad:> <:1f9a8:> <:skunk:> <:1f9f9:> <:broom:>
+
+ <:1f958:> <:shallow_pan_of_food:> <:1f9a9:> <:flamingo:> <:1f9fa:> <:basket:>
+
+ <:1f959:> <:stuffed_flatbread:> <:1f9aa:> <:oyster:> <:1f9fb:> <:roll_of_paper:>
+
+ <:1f95a:> <:egg:> <:1f9ab:> <:beaver:> <:1f9fc:> <:soap:>
+
+ <:1f95b:> <:milk_glass:> <:1f9ac:> <:bison:> <:1f9fd:> <:sponge:>
+
+ <:1f95c:> <:peanuts:> <:1f9ad:> <:seal:> <:1f9fe:> <:receipt:>
+
+ <:1f95d:> <:kiwi_fruit:> <:1f9ae:> <:guide_dog:> <:1f9ff:> <:nazar_amulet:>

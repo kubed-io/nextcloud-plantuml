@@ -27,8 +27,8 @@ use OCP\IRequest;
 use OCP\IUserSession;
 
 /**
- * The two render routes and the server's themes, all for logged-in users only
- * (no #[PublicPage]).
+ * The two render routes and the server's lists for the editor's completion,
+ * all for logged-in users only (no #[PublicPage]).
  *
  * GET takes a path, resolved in the caller's own folder: you can have drawn
  * exactly what you can read. POST takes text for the README fences and the
@@ -99,6 +99,28 @@ final class RenderController extends Controller {
 	public function themes(): JSONResponse {
 		try {
 			return new JSONResponse(['themes' => $this->render->themes()]);
+		} catch (RenderException $e) {
+			return $this->problem($e);
+		}
+	}
+
+	/** The editor's `<&icon>` completion. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function icons(): JSONResponse {
+		try {
+			return new JSONResponse(['icons' => $this->render->icons()]);
+		} catch (RenderException $e) {
+			return $this->problem($e);
+		}
+	}
+
+	/** The editor's `<:emoji:>` completion. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function emoji(): JSONResponse {
+		try {
+			return new JSONResponse(['emoji' => $this->render->emoji()]);
 		} catch (RenderException $e) {
 			return $this->problem($e);
 		}

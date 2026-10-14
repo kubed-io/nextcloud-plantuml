@@ -12,5 +12,7 @@ return [
 		['name' => 'render#byPath', 'url' => '/render', 'verb' => 'GET'],
 		// JSON {source}
 		['name' => 'render#bySource', 'url' => '/render', 'verb' => 'POST'],
+		// {"themes": [...]}, for the editor's `!theme` completion
+		['name' => 'render#themes', 'url' => '/themes', 'verb' => 'GET'],
 	],
 ];

@@ -168,6 +168,66 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(['problem' => 'not set'], $response->getData());
 	}
 
+	/** The editor underlines the line PlantUML names; the image is drawn either way. */
+	public function testBySourceForwardsTheServersErrorAndLine(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('render')->willReturn(new Rendered(self::SVG, 'image/svg+xml', 'Syntax Error? (Assumed diagram type: sequence)', 2));
+
+		$response = $this->controller($render, new NotFoundException())->bySource(self::SOURCE);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame('Syntax Error? (Assumed diagram type: sequence)', self::header($response, 'X-PlantUML-Diagram-Error'));
+		self::assertSame('2', self::header($response, 'X-PlantUML-Diagram-Error-Line'));
+	}
+
+	public function testByPathForwardsTheServersError(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('render')->willReturn(new Rendered(self::SVG, 'image/svg+xml', 'Cannot load theme nope', 1));
+
+		$response = $this->controller($render, $this->diagram())->byPath('Diagrams/Order flow.puml');
+
+		self::assertSame('Cannot load theme nope', self::header($response, 'X-PlantUML-Diagram-Error'));
+		self::assertSame('1', self::header($response, 'X-PlantUML-Diagram-Error-Line'));
+	}
+
+	public function testACleanRenderForwardsNoError(): void {
+		$response = $this->controller($this->renderingSvg(), new NotFoundException())->bySource(self::SOURCE);
+
+		self::assertNull(self::header($response, 'X-PlantUML-Diagram-Error'));
+		self::assertNull(self::header($response, 'X-PlantUML-Diagram-Error-Line'));
+	}
+
+	/** An error with no line names none. */
+	public function testAnErrorWithoutALineForwardsNoLine(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('render')->willReturn(new Rendered(self::SVG, 'image/svg+xml', 'Syntax Error?'));
+
+		$response = $this->controller($render, new NotFoundException())->bySource(self::SOURCE);
+
+		self::assertSame('Syntax Error?', self::header($response, 'X-PlantUML-Diagram-Error'));
+		self::assertNull(self::header($response, 'X-PlantUML-Diagram-Error-Line'));
+	}
+
+	public function testThemesAreTheServersList(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('themes')->willReturn(['_none_', 'cerulean', 'vibrant']);
+
+		$response = $this->controller($render, new NotFoundException())->themes();
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame(['themes' => ['_none_', 'cerulean', 'vibrant']], $response->getData());
+	}
+
+	public function testThemesFromAServerThatCannotAnswerIs503WithProblem(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('themes')->willThrowException(new RenderException(RenderException::PROBLEM_NOT_PLANTUML));
+
+		$response = $this->controller($render, new NotFoundException())->themes();
+
+		self::assertSame(503, $response->getStatus());
+		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
+	}
+
 	public function testSyntaxErrorIsStillAnImage(): void {
 		$errorImage = '<svg xmlns="http://www.w3.org/2000/svg"><text>Syntax Error?</text></svg>';
 

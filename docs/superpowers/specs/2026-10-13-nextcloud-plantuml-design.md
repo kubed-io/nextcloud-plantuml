@@ -9,6 +9,9 @@ A Nextcloud app that shows PlantUML diagrams where people already read them: a `
 file in the Files app, and a folder README that quotes or embeds one. The drawing is done
 by a PlantUML server the admin names once; the app holds no diagrams of its own.
 
+The editor's own requirements, from autosave to completion and validation, live in
+`2026-10-14-editor-design.md`.
+
 Fourth member of the kubed-io nextcloud-* family after `nextcloud-n8n`,
 `nextcloud-grafana` and `nextcloud-penpot`. It borrows their skeleton, CI, documentation
 cascade and Gherkin rules, and none of their sync machinery.

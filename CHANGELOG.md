@@ -15,6 +15,8 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - Completion for Creole tags, OpenIconic icons and emoji.
+- Creole markup is highlighted in the editor: bold, italic, monospace, underline, `[[links]]`, tags such as `<size:20>` and `<&clock>`, and tables, in link labels, notes, legends and titles.
+- A colour picker on `#hex` colours in the editor, such as `skinparam backgroundColor #2B3E50` or `-[#FF6F61,bold]->`.
 - The editor picks up changes made to the file elsewhere, and has a Reload button.
 - Long lines in the editor wrap instead of scrolling sideways.
 - Links without a head (`--`, `..`, `~~`, `==`) are coloured like arrows, a link's label is shown in italics, and `== separators ==` stand out.

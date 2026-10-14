@@ -346,6 +346,28 @@ describe('validation', () => {
   })
 })
 
+describe('the colour picker', () => {
+  const swatch = () => q('.cm-content span[data-color] input[type=color]')
+
+  it.each([
+    ['skinparam backgroundColor #2B3E50', '#2B3E50'],
+    ['api -[#FF6F61,bold]-> jobs', '#FF6F61'],
+    ['node web #ABC', '#ABC'],
+  ])('puts a swatch on the colour in `%s`, and a pick rewrites it in place', async (line, colour) => {
+    seams.loadFile.mockResolvedValue({ content: `@startuml\n${line}\n@enduml\n`, etag: '"get"' })
+    await open()
+
+    expect(swatch().dataset.colorraw).toBe(colour)
+    expect(swatch().value).toBe(colour.length === 4 ? `#${[...colour.slice(1)].map((c) => c + c).join('')}`.toLowerCase() : colour.toLowerCase())
+
+    swatch().value = '#00ff00'
+    swatch().dispatchEvent(new Event('change', { bubbles: true }))
+
+    expect(source()).toBe(`@startuml\n${line.replace(colour, '#00ff00')}\n@enduml\n`)
+    expect(indicator()).toBe('unsaved')
+  })
+})
+
 describe('the source pane', () => {
   const key = (init) => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
   const view = () => EditorView.findFromDOM(q('.cm-editor'))

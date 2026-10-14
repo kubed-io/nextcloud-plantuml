@@ -27,6 +27,7 @@
     "node": "^24 || >=26"
   },
   "dependencies": {
+    "@babel/runtime": "^7.29.10",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/language": "^6.13.1",
@@ -44,6 +45,7 @@
     "@nextcloud/l10n": "^3.4.1",
     "@nextcloud/notify_push": "^1.4.0",
     "@nextcloud/router": "^3.2.0",
+    "@uiw/codemirror-extensions-color": "^4.25.12",
     "dompurify": "^3.4.17"
   }
 }

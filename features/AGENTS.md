@@ -185,6 +185,12 @@ space, unless that first word is a keyword such as `node` or `loop`. A `<` there
 is an arrow, so the Creole tags are offered after any other `<` in text, and
 `</` offers the closers of the tags still open on the line.
 
+Highlighting has no scenario for the same reason: the PlantUML mode's tokens are
+unit-tested, what stays plain included. Creole is marked up only where PlantUML
+reads text (labels, notes, legends, `[ … ]` descriptions, titles), and every `#hex`
+colour is a `ColorLiteral`, which `@uiw/codemirror-extensions-color` finds and puts
+a swatch before. A picked colour is an edit like any other, so it autosaves.
+
 Validation is the same pattern: one rule per file in `src/editor/lint/`, each a
 pure function of the editor state, unit-tested the same way. A diagram opened
 without a name is a warning whose action names it after the file (its base name,
@@ -285,5 +291,7 @@ What the reviews deferred. None changes a scenario; each is work for a later rou
   its CSP (`strict-dynamic`) should allow it.
 * **The Viewer shows a non-JSON failure body's first line** (#16); the editor already
   says `Could not draw the diagram`.
+* **Named colours** (`#Red`) get no swatch, and picking a colour for a `#RRGGBBAA`
+  drops its alpha: the picker library writes `#rrggbb`.
 * **Trash-bin and share edge cases** (#13; a `.puml` in the trash, opened through a
   share) are unexamined.

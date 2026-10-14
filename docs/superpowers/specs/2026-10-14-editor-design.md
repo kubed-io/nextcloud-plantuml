@@ -61,6 +61,7 @@ raised or was offered, not yet agreed).
 | H5 | `== separators ==` and `... delays ...` are quiet bold headings, not two links. | follows from H3 | shipped (#24) |
 | H6 | Active line and its gutter number tinted translucently, so a selection still shows. The selection is the primary colour at a third. | review | shipped (#21) |
 | H7 | Core's `server.css` styles every `div[contenteditable]` as a form input, and `files_bpm` sets `color: #000` on it. `.cm-content` resets both. | live check | shipped (#20, #21) |
+| H8 | Creole is highlighted where PlantUML reads text: a link's label, a note after its colon or down to `end note` (and `hnote`, `rnote`), a legend, a `[ … ]` description, and a title, header, footer or caption on its line or down to its `end`. Bold, italic, monospace and underline change the font only, so a label keeps its violet. `[[links]]` are underlined in a primary tint. Tags (`<size:N>`, `<color:…>`, `<b>`, `<&icon>`, `<:emoji:>`, `<img:…>`) and table bars are grey (`--color-text-maxcontrast`), and `----`, `....` and `====` rules are headings. `--strike--` and `~~wave~~` are left as text, because they read as the links `--` and `~~`. A label, a styled link or a one-line note never runs on into the next line. | Dr K | shipped (this PR) |
 
 ### Completion
 
@@ -71,8 +72,8 @@ raised or was offered, not yet agreed).
 | C3 | After `!theme `, only the themes the server ships, read from `GET /apps/plantuml/themes` (PlantUML's `help themes`, cached for a day per server URL). | Dr K | shipped (#22) |
 | C4 | After a name and a space, the connectors (19, each with what it draws). After a keyword, nothing. Picking one adds a space and opens the names. | Dr K | shipped (#22) |
 | C5 | `skinparam` completion. PlantUML's `skinparameters` command lists every name the server knows, so this can use the same route-and-cache pattern as C3. | Dr K asked | proposed |
-| C6 | A colour picker on `#RRGGBB` and named colours. First check `@uiw/codemirror-extensions-color` (maintained, 2026-09) before writing a widget. | Dr K asked | proposed |
-| C7 | Creole completion. After `<` in text, the tags as snippets (`<size:12>`, `<color:#>`, `<b>…</b>`, …); after `</`, the closers of the tags still open on the line. After `<&`, the server's OpenIconic icons (`GET /apps/plantuml/icons`, from `listopeniconic` drawn as SVG); after `<:`, its emoji (`GET /apps/plantuml/emoji`, from `emoji` and then each block it names, as text). Both cached a day per server URL like C3. Not in a `<<stereotype>>`, a `<style>` line, a comment, or where an arrow is due (`A <- B`). | Dr K | shipped (this PR) |
+| C6 | A colour picker on `#hex` colours, from `@uiw/codemirror-extensions-color` (4.25.12, MIT). The mode names every `#RGB`, `#RGBA`, `#RRGGBB` and `#RRGGBBAA` a `ColorLiteral`, the CSS node name the library looks for: skinparam values, element colours, a styled link's brackets (`-[#FF6F61,bold]->`, read in pieces) and `<color:…>`/`<back:…>`. A swatch sits before each one, and a pick writes the colour back as `#rrggbb`, which PlantUML takes. Named colours (`#Red`) are a follow-up, because the library knows only lowercase CSS names. | Dr K asked | shipped (this PR) |
+| C7 | Creole completion. After `<` in text, the tags as snippets (`<size:12>`, `<color:#>`, `<b>…</b>`, …); after `</`, the closers of the tags still open on the line. After `<&`, the server's OpenIconic icons (`GET /apps/plantuml/icons`, from `listopeniconic` drawn as SVG); after `<:`, its emoji (`GET /apps/plantuml/emoji`, from `emoji` and then each block it names, as text). Both cached a day per server URL like C3. Not in a `<<stereotype>>`, a `<style>` line, a comment, or where an arrow is due (`A <- B`). | Dr K | shipped (#31) |
 
 ### Validation
 
@@ -100,7 +101,7 @@ raised or was offered, not yet agreed).
 
 - **CodeMirror, official.** `@codemirror/view`, `state`, `commands`, `language`, `legacy-modes` (simple-mode), `autocomplete`, `search` and `lint`.
 - **CodeMirror, community.** Before hand-coding, check <https://codemirror.net/docs/extensions/> and npm. These were checked for activity on 2026-10-14:
-  - `@uiw/codemirror-extensions-color`, the colour picker (C6);
+  - `@uiw/codemirror-extensions-color`, the colour picker (C6). It imports `@babel/runtime` helpers without declaring them, so the app depends on `@babel/runtime` 7 itself;
   - `@replit/codemirror-indentation-markers`;
   - `@replit/codemirror-minimap`;
   - `@codemirror/merge`, a side-by-side diff that would make S6 show what differs;

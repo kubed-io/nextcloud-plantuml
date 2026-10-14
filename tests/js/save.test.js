@@ -5,13 +5,16 @@
 // would go over the wire and what the caller gets back.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const client = { getFileContents: vi.fn(), customRequest: vi.fn() }
+const client = { getFileContents: vi.fn(), customRequest: vi.fn(), stat: vi.fn() }
 vi.mock('@nextcloud/files/dav', () => ({
   getClient: () => client,
   getRootPath: () => '/files/drk',
+  getDefaultPropfind: () => '<propfind/>',
+  // The Files node is @nextcloud/files' own; standing in, the stat it was made from.
+  resultToNode: (stat) => ({ fromStat: stat }),
 }))
 
-const { ConflictError, loadFile, saveFile } = await import('../../src/editor/save.js')
+const { ConflictError, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
 
 /** webdav's handleResponseCode: an Error carrying the status. */
 function davError(status) {
@@ -77,5 +80,83 @@ describe('saveFile', () => {
     client.customRequest.mockRejectedValue(failure)
 
     await expect(saveFile('/Diagrams/Order flow.puml', 'changed', '"e1"')).rejects.toBe(failure)
+  })
+})
+
+describe('saveCopy', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    client.stat.mockImplementation(async (davPath) => ({ data: { filename: davPath } }))
+  })
+
+  /** A server where `taken` already exist: 412 for those, 201 with an ETag otherwise. */
+  function serverWith(...taken) {
+    client.customRequest.mockImplementation(async (davPath) => {
+      if (taken.includes(davPath)) {
+        throw davError(412)
+      }
+      return new Response(null, { status: 201, headers: { ETag: '"copy"' } })
+    })
+  }
+
+  it('writes the content beside the file as "(copy)", never over a file already there', async () => {
+    serverWith()
+
+    await saveCopy('/Diagrams/Order flow.puml', 'mine')
+
+    expect(client.customRequest).toHaveBeenCalledTimes(1)
+    expect(client.customRequest).toHaveBeenCalledWith('/files/drk/Diagrams/Order flow (copy).puml', {
+      method: 'PUT',
+      headers: { 'If-None-Match': '*' },
+      data: 'mine',
+    })
+  })
+
+  it('resolves with the copy as a Files node and the ETag the server gave it', async () => {
+    serverWith()
+
+    await expect(saveCopy('/Diagrams/Order flow.puml', 'mine')).resolves.toEqual({
+      node: { fromStat: { filename: '/files/drk/Diagrams/Order flow (copy).puml' } },
+      etag: '"copy"',
+    })
+    expect(client.stat).toHaveBeenCalledWith('/files/drk/Diagrams/Order flow (copy).puml', { details: true, data: '<propfind/>' })
+  })
+
+  it('numbers the copy when "(copy)" is taken, from 2', async () => {
+    serverWith('/files/drk/Diagrams/Order flow (copy).puml', '/files/drk/Diagrams/Order flow (copy 2).puml')
+
+    const { node } = await saveCopy('/Diagrams/Order flow.puml', 'mine')
+
+    expect(client.customRequest.mock.calls.map(([davPath]) => davPath)).toEqual([
+      '/files/drk/Diagrams/Order flow (copy).puml',
+      '/files/drk/Diagrams/Order flow (copy 2).puml',
+      '/files/drk/Diagrams/Order flow (copy 3).puml',
+    ])
+    expect(node.fromStat.filename).toBe('/files/drk/Diagrams/Order flow (copy 3).puml')
+  })
+
+  it('keeps the file\'s own extension, and works at the top of the user folder', async () => {
+    serverWith()
+
+    await saveCopy('/Order flow.plantuml', 'mine')
+
+    expect(client.customRequest.mock.calls[0][0]).toBe('/files/drk/Order flow (copy).plantuml')
+  })
+
+  it('gives up after "(copy 9)" with "Could not save a copy"', async () => {
+    client.customRequest.mockRejectedValue(davError(412))
+
+    await expect(saveCopy('/Diagrams/Order flow.puml', 'mine')).rejects.toThrow('Could not save a copy')
+    expect(client.customRequest).toHaveBeenCalledTimes(9)
+    expect(client.customRequest.mock.calls[8][0]).toBe('/files/drk/Diagrams/Order flow (copy 9).puml')
+    expect(client.stat).not.toHaveBeenCalled()
+  })
+
+  it('passes any other failure through as it is, without trying another name', async () => {
+    const failure = davError(507)
+    client.customRequest.mockRejectedValue(failure)
+
+    await expect(saveCopy('/Diagrams/Order flow.puml', 'mine')).rejects.toBe(failure)
+    expect(client.customRequest).toHaveBeenCalledTimes(1)
   })
 })

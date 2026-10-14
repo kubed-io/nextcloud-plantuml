@@ -7,7 +7,9 @@
  * a file someone else changed meanwhile answers 412 and is left as they left it.
  * Paths are in the user's folder, as a Files node's `path` is.
  */
-import { getClient, getRootPath } from '@nextcloud/files/dav'
+import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextcloud/files/dav'
+
+const COPY_ATTEMPTS = 9
 
 /** The file changed on the server since it was read. */
 export class ConflictError extends Error {
@@ -44,10 +46,52 @@ export async function saveFile(path, content, etag) {
   } catch (e) {
     throw e?.status === 412 ? new ConflictError() : e
   }
-  const newEtag = res.headers.get('ETag') ?? res.headers.get('OC-ETag')
+  return etagOf(res)
+}
+
+/**
+ * Writes `content` to a new file beside `path`: `<name> (copy).<ext>`, else
+ * `(copy 2)` up to `(copy 9)`. `If-None-Match: *` makes a taken name answer
+ * 412 instead of being overwritten.
+ *
+ * @param {string} path
+ * @param {string} content
+ * @return {Promise<{node: import('@nextcloud/files').Node, etag: string}>} the copy, as Files lists it
+ */
+export async function saveCopy(path, content) {
+  for (let n = 1; n <= COPY_ATTEMPTS; n++) {
+    const davPath = getRootPath() + copyPath(path, n)
+    let res
+    try {
+      res = await getClient().customRequest(davPath, {
+        method: 'PUT',
+        headers: { 'If-None-Match': '*' },
+        data: content,
+      })
+    } catch (e) {
+      if (e?.status === 412) {
+        continue
+      }
+      throw e
+    }
+    const etag = etagOf(res)
+    const stat = await getClient().stat(davPath, { details: true, data: getDefaultPropfind() })
+    return { node: resultToNode(stat.data), etag }
+  }
+  throw new Error('Could not save a copy')
+}
+
+function copyPath(path, n) {
+  const dot = path.lastIndexOf('.')
+  const [stem, ext] = dot > path.lastIndexOf('/') ? [path.slice(0, dot), path.slice(dot)] : [path, '']
+  return `${stem} (copy${n > 1 ? ` ${n}` : ''})${ext}`
+}
+
+function etagOf(res) {
+  const etag = res.headers.get('ETag') ?? res.headers.get('OC-ETag')
   // Without it the next save would send `If-Match: null` and refuse itself forever.
-  if (!newEtag) {
+  if (!etag) {
     throw new Error('The server answered the save without an ETag')
   }
-  return newEtag
+  return etag
 }

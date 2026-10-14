@@ -39,12 +39,5 @@
 		<!-- MissingDependency has no <referencedClass> in Psalm 6; every instance
 		     is OCP\Files\IRootFolder's private base class, missing from the stubs. -->
 		<MissingDependency errorLevel="suppress" />
-		<!-- The mimetype repair steps read the private \OC::$SERVERROOT and
-		     \OC::$configDir; there is no public API for either. -->
-		<UndefinedClass>
-			<errorLevel type="suppress">
-				<referencedClass name="OC" />
-			</errorLevel>
-		</UndefinedClass>
 	</issueHandlers>
 </psalm>

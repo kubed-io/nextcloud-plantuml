@@ -25,6 +25,9 @@ use Psr\Log\LoggerInterface;
  *      which is what they were before: a diagram is plain text.
  *   4. Regenerate `core/js/mimetypelist.js` without our alias.
  *
+ * An extension the admin has remapped (its value is no longer ours) is left
+ * entirely alone: neither its key nor its filecache rows are touched.
+ *
  * Touches only the system registration, never a user's files. Idempotent and
  * fail-soft: a half-present registration reverts cleanly.
  */
@@ -53,9 +56,13 @@ final class UnregisterMimetype implements IRepairStep {
 		$serverRoot = \OC::$SERVERROOT;
 		$configDir = \OC::$configDir;
 
+		/** @var list<string> $ours the extensions whose mapping was ours and is now gone */
+		$ours = [];
 		try {
 			foreach (self::FILE_EXTENSIONS as $extension) {
-				$this->removeJsonKey($configDir . 'mimetypemapping.json', $extension, [self::APP_MIMETYPE]);
+				if ($this->removeJsonKey($configDir . 'mimetypemapping.json', $extension, [self::APP_MIMETYPE])) {
+					$ours[] = $extension;
+				}
 			}
 			$this->removeJsonKey($configDir . 'mimetypealiases.json', self::APP_MIMETYPE);
 		} catch (\Throwable $e) {
@@ -75,7 +82,7 @@ final class UnregisterMimetype implements IRepairStep {
 		$this->detector->getAllMappings();
 		$fallbackId = $this->loader->getId(self::FALLBACK_MIMETYPE);
 		$touched = 0;
-		foreach (self::FILE_EXTENSIONS as $extension) {
+		foreach ($ours as $extension) {
 			$touched += $this->loader->updateFilecache($extension, $fallbackId);
 		}
 		$output->info(sprintf(
@@ -102,24 +109,27 @@ final class UnregisterMimetype implements IRepairStep {
 
 	/**
 	 * Remove a single key from a JSON object file, atomically (tempfile + rename).
-	 * No-op when the file or key is absent, or when `$ours` is given and the value
-	 * is no longer it (an admin's own override survives). Leaves every other
+	 * No-op when the file or key is absent. When `$ours` is given and the value is
+	 * no longer it (an admin's own override), the key is spared. Leaves every other
 	 * entry untouched.
 	 *
 	 * @param mixed $ours the value this app wrote, or null to remove regardless
+	 * @return bool false only when the key was spared; true when it is now gone
 	 */
-	private function removeJsonKey(string $path, string $key, mixed $ours = null): void {
+	private function removeJsonKey(string $path, string $key, mixed $ours = null): bool {
 		if (!is_file($path)) {
-			return;
+			return true;
 		}
 		$raw = file_get_contents($path);
 		if ($raw === false || trim($raw) === '') {
-			return;
+			return true;
 		}
 		$decoded = json_decode($raw, true);
-		if (!is_array($decoded) || !array_key_exists($key, $decoded)
-			|| ($ours !== null && $decoded[$key] !== $ours)) {
-			return;
+		if (!is_array($decoded) || !array_key_exists($key, $decoded)) {
+			return true;
+		}
+		if ($ours !== null && $decoded[$key] !== $ours) {
+			return false;
 		}
 		unset($decoded[$key]);
 		$encoded = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -134,5 +144,7 @@ final class UnregisterMimetype implements IRepairStep {
 			@unlink($tmp);
 			throw new \RuntimeException('rename failed: ' . $path);
 		}
+
+		return true;
 	}
 }

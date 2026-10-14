@@ -12,6 +12,7 @@ namespace OCA\PlantUml\Tests\Unit;
 use OCA\PlantUml\Migration\UnregisterMimetype;
 use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IMimeTypeLoader;
+use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -100,6 +101,32 @@ final class UnregisterMimetypeTest extends TestCase {
 		$this->removeKey($path, 'puml', ['text/x-plantuml']);
 
 		self::assertSame($json, file_get_contents($path));
+	}
+
+	public function testRunSparesAnOverriddenExtensionAndItsFilecacheRows(): void {
+		file_put_contents($this->dir . '/mimetypemapping.json', json_encode([
+			'puml' => ['text/x-plantuml'],
+			'plantuml' => ['text/vnd.mine'],
+		]));
+		file_put_contents($this->dir . '/mimetypealiases.json', json_encode(['text/x-plantuml' => 'plantuml']));
+		\OC::$SERVERROOT = $this->dir . '/root';
+		\OC::$configDir = $this->dir . '/';
+
+		$loader = $this->createMock(IMimeTypeLoader::class);
+		$loader->method('getId')->willReturn(7);
+		$loader->expects(self::once())->method('updateFilecache')->with('puml', 7)->willReturn(3);
+
+		(new UnregisterMimetype(
+			$this->createStub(IMimeTypeDetector::class),
+			$loader,
+			$this->createStub(LoggerInterface::class),
+		))->run($this->createStub(IOutput::class));
+
+		self::assertSame(
+			['plantuml' => ['text/vnd.mine']],
+			json_decode((string)file_get_contents($this->dir . '/mimetypemapping.json'), true),
+		);
+		self::assertSame([], json_decode((string)file_get_contents($this->dir . '/mimetypealiases.json'), true));
 	}
 
 	private function removeKey(string $path, string $key, mixed $ours = null): void {

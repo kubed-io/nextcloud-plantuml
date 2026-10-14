@@ -188,8 +188,3 @@
 .plantuml-editor__source .cm-editor .cm-line {
 	padding: 0 16px;
 }
-
-/* The base theme's caret is black, which a dark theme would hide. */
-.plantuml-editor__source .cm-editor .cm-cursor {
-	border-left-color: var(--color-main-text);
-}

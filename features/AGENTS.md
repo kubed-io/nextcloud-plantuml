@@ -157,6 +157,17 @@ stops until one of them (or a Save that lands) resolves it, and closing asks bef
 discarding. A save that fails for any other reason says "Could not save the file"
 and is tried again on the next change, not in a loop.
 
+A CHANGE MADE ELSEWHERE IS NOTICED, not waited for at the next save. The editor
+asks for the file's ETag alone (a Depth-0 `getetag` PROPFIND) every 10 s while
+the page is visible, at once when it is shown or focused again, and on
+notify_push's `notify_file` when that app is installed, which then leaves a 60 s
+poll behind it. A new ETag with everything saved takes the file in, cursor and
+scroll kept, and says "Updated from the file" until the next change; with
+anything unsaved it is the conflict above. The editor's own saves carry their
+new ETag, so they are no change; a failed look says nothing. The Reload icon in
+the bar does the conflict's Reload at any time, asking first only when there is
+something to lose.
+
 THE STEPS SEND WHAT THE EDITOR SENDS. A change without saving is the source
 posted to `POST /render`, as the right pane posts it; a save is a WebDAV PUT with
 `If-Match` and the ETag the file was opened with; a copy is the PUT with
@@ -261,6 +272,9 @@ What the reviews deferred. None changes a scenario; each is work for a later rou
   these are checked by hand on the live instance.
 * **The README's editable-state mitigation** (#11; a drawn fence's `<pre>` and `<code>`
   made non-editable) awaits a check in a real browser.
+* **Picking up a change made elsewhere** awaits a check by hand on the live
+  instance; its notify_push path runs only where that app is installed, which
+  the live instance is not.
 * **The lazily added editor bundle** awaits a check by hand on the live instance;
   its CSP (`strict-dynamic`) should allow it.
 * **The Viewer shows a non-JSON failure body's first line** (#16); the editor already

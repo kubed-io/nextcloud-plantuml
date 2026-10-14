@@ -14,7 +14,7 @@ vi.mock('@nextcloud/files/dav', () => ({
   resultToNode: (stat) => ({ fromStat: stat }),
 }))
 
-const { ConflictError, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
+const { ConflictError, currentEtag, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
 
 /** webdav's handleResponseCode: an Error carrying the status. */
 function davError(status) {
@@ -29,6 +29,43 @@ describe('loadFile', () => {
 
     await expect(loadFile('/Diagrams/Order flow.puml')).resolves.toEqual({ content: '@startuml\n@enduml\n', etag: '"e1"' })
     expect(client.getFileContents).toHaveBeenCalledWith('/files/drk/Diagrams/Order flow.puml', { format: 'text', details: true })
+  })
+})
+
+describe('currentEtag', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('asks for the ETag alone, of the file and nothing under it', async () => {
+    client.stat.mockResolvedValue({ filename: '/files/drk/Diagrams/Order flow.puml', etag: 'e1' })
+
+    await currentEtag('/Diagrams/Order flow.puml')
+
+    expect(client.stat).toHaveBeenCalledTimes(1)
+    const [davPath, options] = client.stat.mock.calls[0]
+    expect(davPath).toBe('/files/drk/Diagrams/Order flow.puml')
+    // stat() is webdav's Depth-0 PROPFIND; the body names the one property.
+    expect(options.data).toMatch(/xmlns:d="DAV:"/)
+    expect(options.data.match(/<d:prop>(.*)<\/d:prop>/s)[1].replace(/\s/g, '')).toBe('<d:getetag/>')
+  })
+
+  // webdav's stat strips the quotes Sabre sends; GET and PUT headers keep them.
+  it('resolves with the ETag quoted, as loadFile and saveFile have it', async () => {
+    client.stat.mockResolvedValue({ filename: '/files/drk/Diagrams/Order flow.puml', etag: 'e1' })
+
+    await expect(currentEtag('/Diagrams/Order flow.puml')).resolves.toBe('"e1"')
+  })
+
+  it('fails when the server names no ETag, rather than calling every file changed', async () => {
+    client.stat.mockResolvedValue({ filename: '/files/drk/Diagrams/Order flow.puml', etag: null })
+
+    await expect(currentEtag('/Diagrams/Order flow.puml')).rejects.toThrow()
+  })
+
+  it('passes a failure through as it is', async () => {
+    const failure = davError(404)
+    client.stat.mockRejectedValue(failure)
+
+    await expect(currentEtag('/Diagrams/Order flow.puml')).rejects.toBe(failure)
   })
 })
 

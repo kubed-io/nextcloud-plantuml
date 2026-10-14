@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- The editor picks up changes made to the file elsewhere, and has a Reload button.
 - Long lines in the editor wrap instead of scrolling sideways.
 - Links without a head (`--`, `..`, `~~`, `==`) are coloured like arrows, a link's label is shown in italics, and `== separators ==` stand out.
 - Drag the line between the source and the diagram to resize them; the split is remembered.

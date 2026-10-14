@@ -7,7 +7,8 @@
  * The file is written by Save, and by itself two seconds after typing stops,
  * always guarded by the ETag it was read with; when someone else changed it
  * meanwhile, saving stops until Reload takes theirs or Save as copy keeps ours
- * in a new file beside it.
+ * in a new file beside it. A change made elsewhere is taken in while the source
+ * is all saved, and is that same conflict while it is not.
  *
  * The Files bundle adds this bundle to the page the first time "Edit diagram"
  * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
@@ -29,13 +30,15 @@ import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
 import { plantumlLint } from './editor/lint/index.js'
 import { fileName, setServerError } from './editor/lint/state.js'
-import { ConflictError, loadFile, saveCopy, saveFile } from './editor/save.js'
+import { ConflictError, currentEtag, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { createAutosave } from './editor/autosave.js'
 import { createSplitter } from './editor/splitter.js'
+import { watchFile } from './editor/watch.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
 import checkIcon from '../img/icons/check.svg?raw'
+import refreshIcon from '../img/icons/refresh.svg?raw'
 
 const IDLE_MS = 2000
 const MAX_WAIT_MS = 30000
@@ -68,13 +71,17 @@ export function openEditor(node) {
   reloadButton.textContent = t(APP_ID, 'Reload')
   const copyButton = el('button', 'plantuml-editor__copy', { type: 'button', hidden: '' })
   copyButton.textContent = t(APP_ID, 'Save as copy')
+  const refreshButton = el('button', 'plantuml-editor__refresh', {
+    type: 'button', 'aria-label': t(APP_ID, 'Reload from the file'), title: t(APP_ID, 'Reload from the file'), hidden: '',
+  })
+  refreshButton.innerHTML = refreshIcon
   // Text's indicator: a check when saved, a dot on it while not, a spinner while saving.
   const saveButton = el('button', 'plantuml-editor__save', { type: 'button', 'aria-label': t(APP_ID, 'Save'), hidden: '' })
   saveButton.innerHTML = checkIcon
   const closeButton = el('button', 'plantuml-editor__close', { type: 'button', 'aria-label': t(APP_ID, 'Close') })
   closeButton.innerHTML = closeIcon
   const bar = el('header', 'plantuml-editor__bar')
-  bar.append(icon, title, status, reloadButton, copyButton, saveButton, closeButton)
+  bar.append(icon, title, status, reloadButton, copyButton, refreshButton, saveButton, closeButton)
 
   const source = el('div', 'plantuml-editor__source', { id: 'plantuml-editor-source' })
   const image = el('img', 'plantuml-editor__image', { alt: name, hidden: '' })
@@ -102,7 +109,10 @@ export function openEditor(node) {
   let savedAt = 0 // when this editor last wrote it
   let conflict = false // a save met someone else's change; lasts until resolved
   let failure = '' // what went wrong last; lasts until the next change
+  let notice = '' // their version was taken in; lasts until the next change
   let running = null // the file operation in flight
+  let quiet = false // that operation is a check, which the buttons do not show
+  let watcher = null
   let closing = false
   let closed = false
   let imageUrl = ''
@@ -124,16 +134,17 @@ export function openEditor(node) {
   }
 
   function showButtons() {
-    const state = running ? 'saving' : isDirty() ? 'unsaved' : 'saved'
+    const busy = running !== null && !quiet
+    const state = busy ? 'saving' : isDirty() ? 'unsaved' : 'saved'
     saveButton.dataset.state = state
     saveButton.classList.toggle('icon-loading-small', state === 'saving')
     saveButton.title = state === 'saved' ? savedTitle() : t(APP_ID, 'Unsaved changes')
     reloadButton.hidden = copyButton.hidden = !conflict
-    reloadButton.disabled = copyButton.disabled = running !== null
+    reloadButton.disabled = copyButton.disabled = refreshButton.disabled = busy
   }
 
   function showState() {
-    status.textContent = failure || (conflict ? t(APP_ID, 'Someone else changed this file') : '')
+    status.textContent = failure || (conflict ? t(APP_ID, 'Someone else changed this file') : notice)
     showButtons()
   }
 
@@ -147,24 +158,59 @@ export function openEditor(node) {
     saved = doc
     savedAt = Date.now()
     conflict = false
+    failure = notice = ''
+    showState()
+  }
+
+  /** Saving stops until Reload, Save as copy or a Save that lands resolves it. */
+  function enterConflict() {
+    conflict = true
     failure = ''
+    autosave.cancel()
     showState()
   }
 
   /**
-   * One file operation at a time. A change that lands meanwhile, or an
-   * autosave that found one running, is saved once it is done.
+   * The file's text in place of the source, changing only the stretch that
+   * differs: CodeMirror maps the cursor, and the line at the top of the view,
+   * through a change that small, so both stay where they were.
    */
-  async function exclusively(task) {
+  function replaceWith(content) {
+    const old = view.state.doc.toString()
+    const max = Math.min(old.length, content.length)
+    let from = 0
+    while (from < max && old[from] === content[from]) {
+      from++
+    }
+    let end = 0
+    while (end < max - from && old[old.length - 1 - end] === content[content.length - 1 - end]) {
+      end++
+    }
+    view.dispatch({
+      changes: { from, to: old.length - end, insert: content.slice(from, content.length - end) },
+    })
+  }
+
+  /**
+   * One file operation at a time. A change that lands meanwhile, or an
+   * autosave that found one running, is saved once it is done. A check gives
+   * way: it is skipped while anything runs, and anything else waits it out.
+   */
+  async function exclusively(task, { check = false } = {}) {
+    while (running && quiet && !check) {
+      await running.catch(() => {})
+    }
     if (running) {
       return
     }
+    quiet = check
     running = task()
     showButtons()
     try {
       await running
     } finally {
       running = null
+      quiet = false
       showButtons()
       if (!closed && !conflict && !failure && isDirty()) {
         autosave.schedule()
@@ -219,9 +265,7 @@ export function openEditor(node) {
         markSaved(doc)
       } catch (e) {
         if (e instanceof ConflictError) {
-          conflict = true
-          autosave.cancel()
-          showState()
+          enterConflict()
           return
         }
         console.error(`[${APP_ID}] could not save ${path}`, e)
@@ -242,13 +286,50 @@ export function openEditor(node) {
           return
         }
         etag = file.etag
-        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: file.content } })
+        replaceWith(file.content)
         markSaved(view.state.doc)
       } catch (e) {
         console.error(`[${APP_ID}] could not open ${path}`, e)
         fail(t(APP_ID, 'Could not open the file'))
       }
     })
+  }
+
+  /**
+   * Whether the file changed elsewhere, by its ETag; a save of ours holds the
+   * ETag it was answered with, so it is no change. A clean source takes the new
+   * version in, an unsaved one is a conflict. A failed check is the watcher's to log.
+   */
+  async function check() {
+    if (closing || closed || conflict) {
+      return
+    }
+    await exclusively(async () => {
+      if ((await currentEtag(path)) === etag || closing || closed) {
+        return
+      }
+      if (isDirty()) {
+        enterConflict()
+        return
+      }
+      const file = await loadFile(path)
+      if (closing || closed) {
+        return
+      }
+      // A change typed while it loaded is ours, unsaved, against theirs.
+      if (isDirty()) {
+        enterConflict()
+        return
+      }
+      const changed = file.content !== view.state.doc.toString()
+      etag = file.etag
+      replaceWith(file.content)
+      markSaved(view.state.doc)
+      if (changed) {
+        notice = t(APP_ID, 'Updated from the file')
+        showState()
+      }
+    }, { check: true })
   }
 
   /** Ours goes to a new file beside theirs, and the editor carries on there. */
@@ -316,6 +397,7 @@ export function openEditor(node) {
       return
     }
     closed = true
+    watcher?.stop()
     autosave.cancel()
     clearInterval(ticker)
     cancelRender()
@@ -348,6 +430,7 @@ export function openEditor(node) {
 
   saveButton.addEventListener('click', save)
   reloadButton.addEventListener('click', reload)
+  refreshButton.addEventListener('click', reload)
   copyButton.addEventListener('click', saveAsCopy)
   closeButton.addEventListener('click', close)
   document.addEventListener('keydown', onKeydown)
@@ -396,7 +479,7 @@ export function openEditor(node) {
           ]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
-              failure = ''
+              failure = notice = ''
               showState()
               draw(update.state.doc.toString())
               if (!conflict) {
@@ -408,8 +491,9 @@ export function openEditor(node) {
       }),
     })
     saved = view.state.doc
-    saveButton.hidden = false
+    saveButton.hidden = refreshButton.hidden = false
     showButtons()
+    watcher = watchFile({ check })
     view.focus()
     draw(content)
   }, (e) => {

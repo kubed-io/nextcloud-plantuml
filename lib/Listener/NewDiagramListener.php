@@ -22,7 +22,7 @@ use OCP\Files\Template\FileCreatedFromTemplateEvent;
  * that way, with no template when the file starts blank. A file made from a
  * template, or one that already holds something, is left as it is.
  *
- * @implements IEventListener<FileCreatedFromTemplateEvent>
+ * @implements IEventListener<Event|FileCreatedFromTemplateEvent>
  */
 final class NewDiagramListener implements IEventListener {
 	public const CONTENT = "@startuml\n\n@enduml\n";

@@ -26,6 +26,7 @@ trait EditSteps {
 	private string $openedEtag = '';
 	private string $changedSource = '';
 	private string $theirVersion = '';
+	private string $theirEtag = '';
 	private ?ResponseInterface $previewResponse = null;
 	private int $saveStatus = 0;
 
@@ -68,7 +69,9 @@ trait EditSteps {
 	public function someoneElseHasChangedItSinceIOpenedIt(string $path): void {
 		$this->openForEditing($path);
 		$this->theirVersion = "@startuml\nCustomer -> Shop : cancel order\n@enduml\n";
-		$status = $this->davPut($path, $this->theirVersion)->getStatusCode();
+		$response = $this->davPut($path, $this->theirVersion);
+		$status = $response->getStatusCode();
+		$this->theirEtag = $response->getHeaderLine('ETag');
 		if ($status >= 300) {
 			throw new \RuntimeException("their PUT of {$path} answered HTTP {$status}");
 		}
@@ -77,7 +80,12 @@ trait EditSteps {
 	/** @Then the save is refused */
 	public function theSaveIsRefused(): void {
 		if ($this->saveStatus !== 412) {
-			throw new \RuntimeException("expected the save to answer HTTP 412, got {$this->saveStatus}");
+			throw new \RuntimeException(sprintf(
+				'expected the save to answer HTTP 412, got %d (opened ETag %s, their PUT ETag %s)',
+				$this->saveStatus,
+				$this->openedEtag,
+				$this->theirEtag === '' ? 'none' : $this->theirEtag,
+			));
 		}
 	}
 

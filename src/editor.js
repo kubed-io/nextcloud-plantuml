@@ -257,14 +257,19 @@ export function openEditor(node) {
       return
     }
     const index = active
-    debouncedRender(text, index, (error, svgText, mistake) => {
+    // PlantUML's own count, which an unclosed block can make differ from the tab's.
+    debouncedRender(text, diagrams[index].render, (error, svgText, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
       }
+      // An answer for another tab is drawn by no tab: a change of tab sent a
+      // render of its own. One for an older source still is, while the newer
+      // one is on its way, and leaves the mapped mark alone.
+      if (index !== active) {
+        return
+      }
       // A server problem is no mistake in the source: the pane says what it is.
-      // An answer for an older source or another tab leaves the mapped mark to
-      // the render on its way.
-      if (text === view.state.doc.toString() && index === active) {
+      if (text === view.state.doc.toString()) {
         view.dispatch({ effects: setServerError.of(error ? null : mistake) })
       }
       // Built before the old one goes, so the pane never flashes empty.

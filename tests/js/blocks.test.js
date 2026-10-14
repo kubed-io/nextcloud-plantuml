@@ -19,7 +19,7 @@ describe('scan', () => {
 
   it('gives an empty document one diagram', () => {
     expect(scan('')).toEqual([
-      { index: 0, type: 'uml', name: '', page: 1, pages: 1, from: 1, to: 1, start: null, end: null },
+      { index: 0, type: 'uml', name: '', page: 1, pages: 1, from: 1, to: 1, start: null, end: null, render: 0 },
     ])
   })
 
@@ -27,6 +27,38 @@ describe('scan', () => {
     const [a, b] = scan('@startuml\nA\n@startsalt\n{\n}\n@endsalt')
     expect(a).toMatchObject({ type: 'uml', from: 1, to: 2, start: 1, end: null })
     expect(b).toMatchObject({ type: 'salt', index: 1, start: 3, end: 6 })
+  })
+})
+
+// PlantUML's own count, checked against the live server on 2026-10-14: a
+// `@start` begins its block afresh, dropping what an unclosed block before it
+// held; any `@end` closes; a file in which nothing closes is drawn wrapped in
+// `@startuml`…`@enduml`. `/svg/<n>` past the last image answers 400.
+describe('render, the image PlantUML draws for a diagram', () => {
+  const renders = (text) => scan(text).map((d) => d.render)
+
+  it('gives an unclosed block the image of the block that closes after it', () => {
+    expect(renders(read('swallowed.puml'))).toEqual([0, 0])
+    expect(renders('@startyaml\na: 1\n@startuml\nA -> B\n@enduml\n@startsalt\n{\n}\n@endsalt')).toEqual([0, 0, 1])
+  })
+
+  it('drops the pages of an unclosed uml block', () => {
+    expect(renders('@startuml\nA -> B\nnewpage\nB -> C\n@startsalt\n{\n}\n@endsalt')).toEqual([0, 0, 0])
+  })
+
+  it('pages the uml block that a later @start began', () => {
+    expect(renders('@startyaml\na: 1\n@startuml\nA -> B\nnewpage\nC -> D\n@enduml')).toEqual([0, 0, 1])
+    expect(renders('@startuml\nA -> B\n@startuml\nB -> C\nnewpage\nC -> D\n@enduml')).toEqual([0, 0, 1])
+  })
+
+  it('draws a file nothing closes as if wrapped in @startuml and @enduml', () => {
+    expect(renders('@startyaml\na: 1\n@startuml\nA -> B')).toEqual([0, 0])
+    expect(renders('@startuml\nA -> B\nnewpage\nC -> D')).toEqual([0, 1])
+    expect(renders('@enduml\n@startyaml\na: 1')).toEqual([1])
+  })
+
+  it('counts an unclosed block after the last image past the end, where PlantUML draws none', () => {
+    expect(renders('@startuml\nA -> B\n@enduml\n@startyaml\na: 1')).toEqual([0, 1])
   })
 })
 

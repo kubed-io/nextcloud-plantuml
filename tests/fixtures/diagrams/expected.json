@@ -1,35 +1,39 @@
 {
   "one-uml.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3 }
+    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
   ],
   "no-start.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 1, "start": null, "end": null }
+    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 1, "start": null, "end": null, "render": 0 }
   ],
   "uml-and-salt.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3 },
-    { "index": 1, "type": "salt", "name": "", "page": 1, "pages": 1, "from": 4, "to": 7, "start": 4, "end": 8 }
+    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 },
+    { "index": 1, "type": "salt", "name": "", "page": 1, "pages": 1, "from": 4, "to": 7, "start": 4, "end": 8, "render": 1 }
   ],
   "named-forms.puml": [
-    { "index": 0, "type": "uml", "name": "nodes", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3 },
-    { "index": 1, "type": "uml", "name": "nodes", "page": 1, "pages": 1, "from": 4, "to": 5, "start": 4, "end": 6 }
+    { "index": 0, "type": "uml", "name": "nodes", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 },
+    { "index": 1, "type": "uml", "name": "nodes", "page": 1, "pages": 1, "from": 4, "to": 5, "start": 4, "end": 6, "render": 1 }
   ],
   "pages.puml": [
-    { "index": 0, "type": "uml", "name": "big", "page": 1, "pages": 4, "from": 1, "to": 2, "start": 1, "end": 9 },
-    { "index": 1, "type": "uml", "name": "big", "page": 2, "pages": 4, "from": 3, "to": 4, "start": 1, "end": 9 },
-    { "index": 2, "type": "uml", "name": "big", "page": 3, "pages": 4, "from": 5, "to": 6, "start": 1, "end": 9 },
-    { "index": 3, "type": "uml", "name": "big", "page": 4, "pages": 4, "from": 7, "to": 8, "start": 1, "end": 9 }
+    { "index": 0, "type": "uml", "name": "big", "page": 1, "pages": 4, "from": 1, "to": 2, "start": 1, "end": 9, "render": 0 },
+    { "index": 1, "type": "uml", "name": "big", "page": 2, "pages": 4, "from": 3, "to": 4, "start": 1, "end": 9, "render": 1 },
+    { "index": 2, "type": "uml", "name": "big", "page": 3, "pages": 4, "from": 5, "to": 6, "start": 1, "end": 9, "render": 2 },
+    { "index": 3, "type": "uml", "name": "big", "page": 4, "pages": 4, "from": 7, "to": 8, "start": 1, "end": 9, "render": 3 }
   ],
   "newpage-in-salt.puml": [
-    { "index": 0, "type": "salt", "name": "", "page": 1, "pages": 1, "from": 1, "to": 4, "start": 1, "end": 5 }
+    { "index": 0, "type": "salt", "name": "", "page": 1, "pages": 1, "from": 1, "to": 4, "start": 1, "end": 5, "render": 0 }
   ],
   "unclosed.puml": [
-    { "index": 0, "type": "yaml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 3, "start": 1, "end": null }
+    { "index": 0, "type": "yaml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 3, "start": 1, "end": null, "render": 0 }
   ],
   "mismatched.puml": [
-    { "index": 0, "type": "json", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3 }
+    { "index": 0, "type": "json", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
   ],
   "outside-text.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 2, "to": 3, "start": 2, "end": 4 },
-    { "index": 1, "type": "mindmap", "name": "", "page": 1, "pages": 1, "from": 6, "to": 7, "start": 6, "end": 8 }
+    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 2, "to": 3, "start": 2, "end": 4, "render": 0 },
+    { "index": 1, "type": "mindmap", "name": "", "page": 1, "pages": 1, "from": 6, "to": 7, "start": 6, "end": 8, "render": 1 }
+  ],
+  "swallowed.puml": [
+    { "index": 0, "type": "yaml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": null, "render": 0 },
+    { "index": 1, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 3, "to": 4, "start": 3, "end": 5, "render": 0 }
   ]
 }

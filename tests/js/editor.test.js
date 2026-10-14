@@ -11,6 +11,7 @@ import { completionStatus, startCompletion } from '@codemirror/autocomplete'
 import { forceLinting } from '@codemirror/lint'
 import { undo } from '@codemirror/commands'
 import { ensureSyntaxTree, language } from '@codemirror/language'
+import swallowed from '../fixtures/diagrams/swallowed.puml?raw'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -1119,6 +1120,33 @@ describe('the diagram tabs', () => {
     expect(tabs().map((tab) => tab.textContent)).toEqual(['first', 'second'])
     expect(selected()).toEqual([false, true])
     expect(lastIndex()).toBe(1)
+  })
+
+  it('asks for the image PlantUML draws, which an unclosed block before it does not count', async () => {
+    seams.loadFile.mockResolvedValue({ content: swallowed, etag: '"get"' })
+    await open()
+
+    view().dispatch({ selection: { anchor: lineStart(4) } })
+
+    expect(selected()).toEqual([false, true])
+    expect(lastIndex()).toBe(0)
+    expect(seams.debouncedRender.mock.calls.map((call) => call[1])).not.toContain(1)
+  })
+
+  it('draws no answer under a tab it was not asked for', async () => {
+    await open()
+    const answers = []
+    seams.debouncedRender.mockImplementation((_source, _index, cb) => answers.push(cb))
+    type("' edit\n")
+    view().dispatch({ selection: { anchor: lineStart(9) } })
+
+    answers[0](null, diagram('first'), null)
+    await settle()
+    expect(image().textContent).toBe('docs')
+
+    answers[1](null, diagram('second'), null)
+    await settle()
+    expect(image().textContent).toBe('second')
   })
 
   it('marks no mistake from an answer for the tab left behind', async () => {

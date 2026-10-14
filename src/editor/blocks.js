@@ -20,6 +20,8 @@ const NEWPAGE = /^\s*newpage(?:\s.*)?$/
  * @property {number} to last line, inclusive, never the `@end` line
  * @property {number|null} start the block's `@start` line, null without one
  * @property {number|null} end the block's `@end` line, null when unclosed
+ * @property {number} render the image PlantUML draws for it, `/svg/<render>`:
+ *   its index, unless an unclosed block makes PlantUML count otherwise
  */
 
 /**
@@ -66,9 +68,47 @@ export function scan(text) {
   close(lines.length, null)
 
   if (!diagrams.length) {
-    return [{ index: 0, type: 'uml', name: '', page: 1, pages: 1, from: 1, to: lines.length, start: null, end: null }]
+    diagrams.push({ index: 0, type: 'uml', name: '', page: 1, pages: 1, from: 1, to: lines.length, start: null, end: null })
+  }
+  // A diagram PlantUML dropped shows the image of the block that closed over it.
+  const drawn = images(lines)
+  for (const d of diagrams) {
+    const at = drawn.findIndex((last) => last >= d.from)
+    d.render = at === -1 ? drawn.length : at
   }
   return diagrams
+}
+
+/**
+ * The last line of each image PlantUML draws, in its order. It reads a file
+ * its own way, as the live server showed: a `@start` begins its block afresh,
+ * dropping whatever an unclosed block before it held; an `@end` of any type
+ * closes the block; and a file in which nothing closes is drawn as if wrapped
+ * in `@startuml`…`@enduml`.
+ *
+ * @param {string[]} lines
+ * @param {boolean} [wrapped]
+ * @return {number[]}
+ */
+function images(lines, wrapped = false) {
+  const lasts = []
+  let open = wrapped ? { type: 'uml', pages: [] } : null // pages: the last line of each but the last
+  lines.forEach((line, i) => {
+    const n = i + 1
+    const start = START.exec(line)
+    if (start) {
+      open = { type: start[1], pages: [] }
+    } else if (open && END.test(line)) {
+      lasts.push(...open.pages, n)
+      open = null
+    } else if (open?.type === 'uml' && NEWPAGE.test(line)) {
+      open.pages.push(n - 1)
+    }
+  })
+  if (wrapped && open) {
+    lasts.push(...open.pages, lines.length)
+  }
+  return lasts.length || wrapped ? lasts : images(lines, true)
 }
 
 /**

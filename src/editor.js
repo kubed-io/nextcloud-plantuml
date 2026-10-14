@@ -45,6 +45,7 @@ import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
 import checkIcon from '../img/icons/check.svg?raw'
 import refreshIcon from '../img/icons/refresh.svg?raw'
+import sourceIcon from '../img/icons/code-tags.svg?raw'
 
 const IDLE_MS = 2000
 const MAX_WAIT_MS = 30000
@@ -82,13 +83,17 @@ export function openEditor(node) {
     type: 'button', 'aria-label': t(APP_ID, 'Reload from the file'), title: t(APP_ID, 'Reload from the file'), hidden: '',
   })
   refreshButton.innerHTML = refreshIcon
+  const sourceToggle = el('button', 'plantuml-editor__source-toggle', {
+    type: 'button', 'aria-label': t(APP_ID, 'Source'), title: t(APP_ID, 'Source'), 'aria-pressed': 'true', 'aria-controls': 'plantuml-editor-source', hidden: '',
+  })
+  sourceToggle.innerHTML = sourceIcon
   // Text's indicator: a check when saved, a dot on it while not, a spinner while saving.
   const saveButton = el('button', 'plantuml-editor__save', { type: 'button', 'aria-label': t(APP_ID, 'Save'), hidden: '' })
   saveButton.innerHTML = checkIcon
   const closeButton = el('button', 'plantuml-editor__close', { type: 'button', 'aria-label': t(APP_ID, 'Close') })
   closeButton.innerHTML = closeIcon
   const bar = el('header', 'plantuml-editor__bar')
-  bar.append(icon, title, status, reloadButton, copyButton, refreshButton, saveButton, closeButton)
+  bar.append(icon, title, status, reloadButton, copyButton, sourceToggle, refreshButton, saveButton, closeButton)
 
   const source = el('div', 'plantuml-editor__source', { id: 'plantuml-editor-source' })
   // The diagram is drawn inline, so its links work; to a screen reader it is one picture.
@@ -305,7 +310,22 @@ export function openEditor(node) {
 
   /** Where the focus goes from an activated tab: the one place to keep it on the tab instead. */
   function focusAfterTab() {
-    view.focus()
+    if (!overlay.classList.contains('plantuml-editor--diagram-only')) {
+      view.focus()
+    }
+  }
+
+  /** L8: hide or show the source; the splitter's share stays in --plantuml-split. */
+  function toggleSource() {
+    const hide = sourceToggle.getAttribute('aria-pressed') === 'true'
+    const inSource = source.contains(document.activeElement)
+    overlay.classList.toggle('plantuml-editor--diagram-only', hide)
+    sourceToggle.setAttribute('aria-pressed', String(!hide))
+    if (hide && inSource) {
+      sourceToggle.focus()
+    } else if (!hide) {
+      view?.focus()
+    }
   }
 
   async function save() {
@@ -476,6 +496,12 @@ export function openEditor(node) {
   // CodeMirror marks an Escape it used (closing the completion popup, the
   // search or diagnostics panel, dropping a multi-selection) as handled.
   function onKeydown(event) {
+    // The editor's own Mod-s has handled it already when the focus is in the source.
+    if ((event.key === 's' || event.key === 'S') && (event.ctrlKey || event.metaKey) && !event.altKey && !event.defaultPrevented) {
+      event.preventDefault()
+      save()
+      return
+    }
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
       event.stopPropagation()
@@ -492,6 +518,7 @@ export function openEditor(node) {
   saveButton.addEventListener('click', save)
   reloadButton.addEventListener('click', reload)
   refreshButton.addEventListener('click', reload)
+  sourceToggle.addEventListener('click', toggleSource)
   copyButton.addEventListener('click', saveAsCopy)
   closeButton.addEventListener('click', close)
   document.addEventListener('keydown', onKeydown)
@@ -561,7 +588,7 @@ export function openEditor(node) {
       }),
     })
     saved = view.state.doc
-    saveButton.hidden = refreshButton.hidden = false
+    saveButton.hidden = refreshButton.hidden = sourceToggle.hidden = false
     showButtons()
     watcher = watchFile({ check })
     view.focus()

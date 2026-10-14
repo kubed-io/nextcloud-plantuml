@@ -4,7 +4,7 @@
  *
  * The tab strip over the diagram, one tab per diagram of the file: a WAI-ARIA
  * tablist with manual activation. The arrow keys, Home and End move the focus,
- * Enter, Space or a click activates; only the active tab is in the Tab order.
+ * a click (which Enter and Space on a button are) activates; only the active tab is in the Tab order.
  * With one diagram it is hidden.
  */
 import { translate as t } from '@nextcloud/l10n'
@@ -51,10 +51,7 @@ export function createTabs({ onActivate, controls }) {
     if (i < 0 || event.altKey || event.ctrlKey || event.metaKey) {
       return
     }
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      onActivate(i)
-    } else if (MOVES[event.key]) {
+    if (MOVES[event.key]) {
       event.preventDefault()
       tabs[MOVES[event.key](i, tabs.length)].focus()
     }

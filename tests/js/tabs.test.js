@@ -63,13 +63,15 @@ describe('the tab strip', () => {
     expect(onActivate).not.toHaveBeenCalled()
   })
 
-  it.each(['Enter', ' '])('activates the focused tab on %j', (k) => {
+  it.each(['Enter', ' '])('leaves %j to the button, so a press activates once', (k) => {
     tabs.update(scan(THREE), 0)
     all()[2].focus()
 
-    key(all()[2], k)
+    const event = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true })
+    all()[2].dispatchEvent(event)
 
-    expect(onActivate).toHaveBeenCalledWith(2)
+    expect(event.defaultPrevented).toBe(false)
+    expect(onActivate).not.toHaveBeenCalled()
   })
 
   it('activates a tab on a click', () => {

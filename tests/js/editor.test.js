@@ -50,6 +50,7 @@ const indicator = () => saveButton().dataset.state
 const reloadButton = () => q('.plantuml-editor__reload')
 const copyButton = () => q('.plantuml-editor__copy')
 const refreshButton = () => q('.plantuml-editor__refresh')
+const toggle = () => q('.plantuml-editor__source-toggle')
 const source = () => EditorView.findFromDOM(q('.cm-editor')).state.doc.toString()
 const image = () => q('.plantuml-editor__image')
 // What PlantUML answers for a diagram with one link, cut down.
@@ -1096,6 +1097,18 @@ describe('the diagram tabs', () => {
     expect(lastIndex()).toBe(1)
   })
 
+  it('with the source hidden only the diagram changes, and the focus stays on the tab', async () => {
+    await open()
+    toggle().click()
+    tabs()[1].focus()
+
+    tabs()[1].click()
+
+    expect(selected()).toEqual([false, true, false])
+    expect(lastIndex()).toBe(1)
+    expect(document.activeElement).toBe(tabs()[1])
+  })
+
   it('moves to the last diagram when the active one is deleted, never past it', async () => {
     await open()
     view().dispatch({ selection: { anchor: lineStart(11) } })
@@ -1212,5 +1225,98 @@ describe('profiles', () => {
     await close()
     await open()
     expect(yaml).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the Source toggle', () => {
+  it('is revealed with the file, before the Reload icon, pressed, named Source', async () => {
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Order flow.puml', basename: 'Order flow.puml' })
+    expect(toggle().hidden).toBe(true)
+    await settle()
+
+    expect(toggle().hidden).toBe(false)
+    expect(toggle().nextElementSibling).toBe(refreshButton())
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(toggle().getAttribute('aria-label')).toBe('Source')
+    expect(toggle().title).toBe('Source')
+    expect(toggle().getAttribute('aria-controls')).toBe('plantuml-editor-source')
+    expect(toggle().querySelector('svg')).not.toBeNull()
+  })
+
+  it('hides the source on a click and gives the focus to the toggle', async () => {
+    await open()
+    expect(document.activeElement).toBe(q('.cm-content'))
+
+    toggle().click()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(true)
+    expect(document.activeElement).toBe(toggle())
+  })
+
+  it('leaves the focus alone when it was not in the source', async () => {
+    await open()
+    saveButton().focus()
+
+    toggle().click()
+
+    expect(document.activeElement).toBe(saveButton())
+  })
+
+  it('shows the source again on a second click and focuses it', async () => {
+    await open()
+    toggle().click()
+
+    toggle().click()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(false)
+    expect(document.activeElement).toBe(q('.cm-content'))
+  })
+
+  it('keeps the split the splitter left', async () => {
+    await open()
+    q('.plantuml-editor__panes').style.setProperty('--plantuml-split', '35%')
+
+    toggle().click()
+    toggle().click()
+
+    expect(q('.plantuml-editor__panes').style.getPropertyValue('--plantuml-split')).toBe('35%')
+  })
+
+  it('still saves on Ctrl+S and Cmd+S, once, while the source is hidden', async () => {
+    await open()
+    type("' edit\n")
+    toggle().click()
+    seams.saveFile.mockResolvedValue('"put"')
+
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }))
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    type("' more\n")
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true, cancelable: true }))
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('still closes on Escape while the source is hidden', async () => {
+    await open()
+    toggle().click()
+
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('shows the source on a fresh open', async () => {
+    await open()
+    toggle().click()
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+
+    await open()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(false)
   })
 })

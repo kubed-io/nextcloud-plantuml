@@ -127,18 +127,4 @@ trait EditSteps {
 		$this->openedEtag = $response->getHeaderLine('ETag');
 		$this->changedSource = str_replace('@enduml', self::CHANGE . '@enduml', $this->openedSource);
 	}
-
-	private function assertFileHolds(string $path, string $expected): void {
-		$response = $this->davGet($path);
-		$body = (string)$response->getBody();
-		if ($response->getStatusCode() !== 200 || $body !== $expected) {
-			throw new \RuntimeException(sprintf(
-				"expected %s to hold:\n%s\ngot HTTP %d:\n%s",
-				$path,
-				$expected,
-				$response->getStatusCode(),
-				$body,
-			));
-		}
-	}
 }

@@ -14,7 +14,7 @@ you push code.
 [`features/`](features/); the design is in
 [`docs/superpowers/specs/`](docs/superpowers/specs/) and the build order in
 [`docs/superpowers/plans/`](docs/superpowers/plans/). Every scenario reaches the
-app through its API, so CI runs them all bar one `@blocked`.
+app through occ, WebDAV or HTTP, so CI runs them all bar one `@blocked`.
 `grep -rE '@unbuilt|@blocked|@todo' features/` is the authority on what is still
 owed.
 

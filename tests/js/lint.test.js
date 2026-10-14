@@ -11,6 +11,7 @@ import { rules } from '../../src/editor/lint/index.js'
 import { fileName, serverError, setServerError } from '../../src/editor/lint/state.js'
 import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
+import { yamlLint } from '../../src/editor/lint/yaml.js'
 
 const stateOf = (doc, name = 'Order flow.puml') => EditorState.create({ doc, extensions: [fileName.of(name), serverError] })
 
@@ -104,5 +105,42 @@ describe('server-error', () => {
     const state = reported(reported(stateOf(doc), { message: 'Syntax Error?', line: 3 }), null)
 
     expect(serverMistake(state)).toEqual([])
+  })
+})
+
+describe('yaml', () => {
+  const bad = '@startyaml\na: [1,\nb: : :\n@endyaml\n'
+
+  it('reports the line and column the parser does, in document positions', () => {
+    const doc = `@startuml\nA -> B\n@enduml\n${bad}`
+    const found = yamlLint(stateOf(doc))
+    const first = doc.indexOf('a: [1,')
+
+    expect(found.length).toBeGreaterThan(0)
+    expect(found[0]).toMatchObject({ severity: 'error' })
+    expect(found[0].message).not.toContain('\n')
+    expect(found.every((d) => d.from >= first && d.to <= doc.indexOf('@endyaml') && d.to >= d.from)).toBe(true)
+    expect(found.some((d) => d.from >= doc.indexOf('b: : :'))).toBe(true)
+  })
+
+  it('reads a block that is never closed to the end of the file', () => {
+    expect(yamlLint(stateOf('@startyaml\nb: : :\n')).length).toBeGreaterThan(0)
+  })
+
+  it('leaves valid yaml alone', () => {
+    expect(yamlLint(stateOf('@startyaml\na:\n- 1\n- 2\nb: x\n@endyaml\n'))).toEqual([])
+  })
+
+  it('leaves another diagram type alone, whatever its text', () => {
+    expect(yamlLint(stateOf(bad.replace('yaml', 'uml')))).toEqual([])
+  })
+
+  it('skips #highlight lines without moving the lines after them', () => {
+    const doc = '@startyaml\n#highlight "a" / "b"\na: 1\nb: : :\n@endyaml\n'
+    const found = yamlLint(stateOf(doc))
+
+    expect(found.length).toBeGreaterThan(0)
+    expect(found.every((d) => d.from >= doc.indexOf('b: : :'))).toBe(true)
+    expect(yamlLint(stateOf('@startyaml\n#highlight "a" / "b"\na: 1\n@endyaml\n'))).toEqual([])
   })
 })

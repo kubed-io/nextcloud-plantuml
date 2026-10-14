@@ -62,7 +62,7 @@ describe('loadProfile', () => {
 
     expect(yaml).toHaveBeenCalledTimes(1)
     expect(first).toBe(second)
-    expect(first).toMatchObject({ type: 'yaml', completions: [], lints: [] })
+    expect(first).toMatchObject({ type: 'yaml', completions: [], lints: [expect.any(Function)] })
     expect(typeof first.mode.token).toBe('function')
   })
 

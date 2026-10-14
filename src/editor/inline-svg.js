@@ -10,6 +10,19 @@
  */
 import DOMPurify from 'dompurify'
 
+let instance = null
+/**
+ * Our own DOMPurify, made on first use: the default instance is shared with
+ * @nextcloud/l10n, and a setConfig() or hook anywhere on the page would change it.
+ */
+function purifier() {
+  if (instance === null) {
+    instance = DOMPurify(window)
+    instance.addHook('afterSanitizeAttributes', confine)
+  }
+  return instance
+}
+
 const LINK = /^(?:https?|mailto):/i
 const DATA_IMAGE = /^data:image\//i
 // A CSS value may call these; any other call could fetch something, and a
@@ -87,14 +100,7 @@ function fit(svg) {
  * @return {SVGSVGElement|null} null when the answer holds no SVG
  */
 export function toInlineSvg(svgText, { idPrefix }) {
-  // Scoped to this call: other code on the page may use DOMPurify too.
-  DOMPurify.addHook('afterSanitizeAttributes', confine)
-  let fragment
-  try {
-    fragment = DOMPurify.sanitize(svgText, CONFIG)
-  } finally {
-    DOMPurify.removeHook('afterSanitizeAttributes', confine)
-  }
+  const fragment = purifier().sanitize(svgText, CONFIG)
   const svg = fragment.firstElementChild
   if (!(svg instanceof SVGSVGElement)) {
     return null

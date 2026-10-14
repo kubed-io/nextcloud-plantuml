@@ -199,6 +199,17 @@ describe('sanitising', () => {
     expect(second.hasAttribute('filter')).toBe(false)
   })
 
+  it('is not loosened by a setConfig on the page-wide DOMPurify', () => {
+    DOMPurify.setConfig({ ADD_TAGS: ['script'], ALLOW_UNKNOWN_PROTOCOLS: true })
+    try {
+      const svg = inline('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script><a href="javascript:alert(1)"><text>x</text></a></svg>')
+      expect(svg.querySelector('script')).toBeNull()
+      expect(svg.querySelector('a').hasAttribute('href')).toBe(false)
+    } finally {
+      DOMPurify.clearConfig()
+    }
+  })
+
   it('leaves DOMPurify as it found it for everyone else on the page', () => {
     inline(links)
 

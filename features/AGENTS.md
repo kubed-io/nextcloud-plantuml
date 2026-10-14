@@ -212,9 +212,9 @@ was checked in a browser on the live instance on 2026-10-14 (#11).
 
 An image is a diagram when its path ends in `.puml`, resolved against the README's
 folder; the steps join the two plainly and use no `./` or `../`. Markdown ends a
-link at a bare space, so a file name with one is written `![Order flow](<Order
-flow.puml>)` or `![Order flow](Order%20flow.puml)`; `![Order flow](Order flow.puml)`
-is text.
+link at a bare space, so a file name with one is written
+`![Order flow](<Order flow.puml>)` or `![Order flow](Order%20flow.puml)`;
+`![Order flow](Order flow.puml)` is text.
 
 THE STEPS READ THE README AS THE OBSERVER DOES: its text over WebDAV, a fence
 found by `src/readme/markdown.js`'s rule and drawn through `POST /render`, an

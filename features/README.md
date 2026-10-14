@@ -71,14 +71,16 @@ checks exactly that, in the quality job.
 
 | Tag | Meaning |
 |---|---|
-| `@gesture` | A Files-app action: a click, a menu entry, "+ New". |
+| `@gesture` | A user's action: editing, saving, creating, reading a README. |
 | `@occ` | Reachable from the CLI. |
 | `@admin` | Needs the admin settings panel or an admin-only command. |
-| `@ui` | The behaviour has a user-interface surface at all. |
+| `@ui` | Cannot be run without a browser. Always also `@blocked`, untested for now. |
 | `@api` | Asserted through a raw HTTP request to the app's own endpoint. |
 
-These describe the FEATURE's surfaces, not how the harness drove it. A scenario the
-test runs via `occ` is still `@ui` if the admin panel has a button for it.
+A step never names the medium. It states what holds before and after, and its
+definition picks how to get there — WebDAV, Files' endpoints, `occ`, the app's
+routes. A scenario that seems to need a browser is usually worded for a screen;
+reword it. One that truly cannot run without a page is `@ui @blocked` and waits.
 
 There is no origin axis. Nothing in this app syncs, so nothing ever happens "on
 the other side".
@@ -110,10 +112,10 @@ written down**. Never by re-reading the spec and deciding what it probably is.
 
 In the scenario, or in the section above it. The walls that exist today:
 
-* **no browser** — anything about a click, a menu entry, the Viewer, the editor
-  or the README. The homelab runs a Selenium Grid, so this wall is removable;
-  until it falls, these behaviours are checked by hand on the live instance before
-  a PR claims them. The README's editable-state mitigation is one of them.
+* **no browser** — a `@ui` scenario, one that cannot be run without a page. There
+  are none today. What only a page shows (the Viewer's lightbox, the editor's
+  layout, where a README's drawing lands) has no scenario and is checked by hand
+  on the live instance before a PR claims it.
 * **no app removal** — `occ` enables and disables; removing and reinstalling an
   app is a store operation this suite cannot perform.
 

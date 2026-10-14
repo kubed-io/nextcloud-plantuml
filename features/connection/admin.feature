@@ -9,7 +9,7 @@ Feature: The admin connects the app to a PlantUML server
     Given the app is enabled
     And no server is configured yet
 
-  @admin @occ @ui
+  @admin @occ
   Scenario: An admin enters a working server address
     When the admin fills in the connection details:
       | url | the test server |
@@ -17,7 +17,7 @@ Feature: The admin connects the app to a PlantUML server
     Then the health check reports success
     And the health check names the PlantUML version the server is running
 
-  @admin @occ @ui
+  @admin @occ
   Scenario Outline: An admin enters a server address that cannot render
     When the admin fills in the connection details:
       | url | <url> |

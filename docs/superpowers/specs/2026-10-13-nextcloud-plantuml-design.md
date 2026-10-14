@@ -237,8 +237,8 @@ which is Text's own rendering with our images in it.
 | Suite | Covers |
 |---|---|
 | Unit (`tests/unit/`) | `RenderService` request shape and problem classification (405 → not a PlantUML server, connect failure → unreachable, empty URL → not set); version parsing; `ServerConfig` normalisation; `RenderController` path rules (outside the user folder, not `.puml`, ETag/304). OCP stubbed as in the siblings. |
-| Behat (`tests/integration/`) | A real Nextcloud + a `plantuml/plantuml-server` container. `connection/admin.feature` over `occ`; `lifecycle.feature`; `diagrams/view.feature`'s endpoint scenarios over HTTP; `diagrams/edit.feature`'s and `create.feature`'s file outcomes over WebDAV. |
-| `@blocked` — no browser | Every scenario that is a click, a menu entry, the Viewer, the editor or the README. A named wall; removable with a Selenium leg, which the homelab Grid can supply. |
+| Behat (`tests/integration/`) | A real Nextcloud + a `plantuml/plantuml-server` container. `connection/admin.feature` over `occ`; `lifecycle.feature`; `diagrams/view.feature`'s endpoint scenarios over HTTP; `diagrams/edit.feature`, `create.feature` and `readme/render.feature` through what the editor, the + New entry and the README observer send: WebDAV with ETags, Files' create endpoint, the render routes. |
+| `@ui @blocked` — no browser | A scenario that cannot be run without a page. None, since Dr K's ruling of 2026-10-14; what only a page shows is checked by hand. |
 
 Suites partition `features/` by path; the three quality-job guards from the siblings
 (`check-suites.sh`, `check-notes-anchors.sh`, `check-step-definitions.sh`) come across
@@ -276,6 +276,20 @@ unchanged.
 
 - **The editor's left pane is CodeMirror 6** (ruled 2026-10-13, "the lightest-weight
   option"). Highlighting wins over Text's free save path; the save path is ours to write.
+
+## Rulings from Dr K (2026-10-14)
+
+- **"The behat tests should not need the browser."** Gherkin never names the medium: it
+  states what holds before and after, and the step definition picks how to get there.
+  "If you think a browser is needed in behat it's because of how you worded the feature."
+  `edit`, `create` and `readme/render` were reworded and run over WebDAV, Files' create
+  endpoint and the render routes; the scenarios about layout ("Opening a diagram file for
+  editing"), Text's editor ("Opening a diagram file as plain text") and the Viewer's click
+  were dropped.
+- **`@ui` only when a browser is unavoidable**, and then also `@blocked`, untested for now.
+  It no longer means "has a user interface"; `connection/admin.feature` lost it.
+- **The backend writes a new diagram's starting lines**, so an API call and a click give
+  the same file (see the decisions table).
 
 ### The editor choice, as it was weighed
 

@@ -224,12 +224,13 @@ image's destination resolved against the README's folder and drawn through
 
 What the reviews deferred. None changes a scenario; each is work for a later round.
 
-* **No browser Behat leg** (#10). Every `@blocked` and `@unbuilt` scenario here waits
-  for one; the homelab has a Selenium Grid that could supply it.
+* **What only a page shows** (#10): the Viewer's lightbox, the editor's layout and
+  highlighting, where a README's drawing lands. No scenario waits for a browser;
+  these are checked by hand on the live instance.
 * **The README's editable-state mitigation** (#11; a drawn fence's `<pre>` and `<code>`
   made non-editable) awaits a check in a real browser.
-* **The lazily added editor bundle** awaits a check in a real browser; the live CSP
-  (`strict-dynamic`) should allow it.
+* **The lazily added editor bundle** awaits a check by hand on the live instance;
+  its CSP (`strict-dynamic`) should allow it.
 * **The Viewer shows a non-JSON failure body's first line** (#16); the editor already
   says `Could not draw the diagram`.
 * **Trash-bin and share edge cases** (#13; a `.puml` in the trash, opened through a

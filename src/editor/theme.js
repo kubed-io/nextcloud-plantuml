@@ -58,8 +58,9 @@ export const surfaceRules = {
   },
   '.cm-scroller': { fontFamily: MONO },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--color-main-text)' },
+  // Primary at a third: --color-primary-element-light is near-black navy on the dark theme.
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'var(--color-primary-element-light)',
+    backgroundColor: 'color-mix(in srgb, var(--color-primary-element) 35%, transparent)',
   },
 
   '.cm-activeLine': { backgroundColor: tint(6) },

@@ -121,8 +121,9 @@ bash tests/integration/bin/check-notes-anchors.sh
 bash tests/integration/bin/check-step-definitions.sh
 ```
 
-PHP tooling runs in the devcontainer or CI. The code-server pod this app is
-developed in has Node but no PHP; never run Psalm, php-cs-fixer or Behat in a pod.
+The code-server pod this app is developed in has PHP 8.4, Composer and Node, so
+every command above runs there. Behat runs only in CI, against a real Nextcloud and
+PlantUML server, and nothing here runs inside the Nextcloud pod.
 
 ## Architectural non-negotiables
 

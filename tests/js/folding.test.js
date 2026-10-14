@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Each @start line folds its block, @end excluded; the keys are B6's.
+// Each @start line folds its block, @end excluded; the keys are B6's, fold
+// and unfold at the cursor only.
 import { afterEach, describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { defaultKeymap } from '@codemirror/commands'
@@ -50,13 +51,28 @@ describe('folding', () => {
       expect(foldedRanges(view.state).size).toBe(0)
     })
 
-    it('fold and unfold every block on Ctrl-Alt-[ and ]', () => {
+    // AltGr is Ctrl-Alt to the browser, and AltGr+8 / 9 type [ and ] on German and Nordic layouts.
+    it('leave Ctrl-Alt-[ and ] to type, folding nothing', () => {
       open()
 
-      expect(press({ key: '[', code: 'BracketLeft', keyCode: 219, ctrlKey: true, altKey: true })).toBe(true)
-      expect(foldedRanges(view.state).size).toBe(2)
-      expect(press({ key: ']', code: 'BracketRight', keyCode: 221, ctrlKey: true, altKey: true })).toBe(true)
+      expect(press({ key: '[', code: 'Digit8', keyCode: 56, ctrlKey: true, altKey: true })).toBe(false)
+      expect(press({ key: '[', code: 'BracketLeft', keyCode: 219, ctrlKey: true, altKey: true })).toBe(false)
       expect(foldedRanges(view.state).size).toBe(0)
+      view.dispatch({ selection: { anchor: 3 } })
+      press({ key: '{', code: 'BracketLeft', keyCode: 219, ctrlKey: true, shiftKey: true })
+      expect(press({ key: ']', code: 'Digit9', keyCode: 57, ctrlKey: true, altKey: true })).toBe(false)
+      expect(press({ key: ']', code: 'BracketRight', keyCode: 221, ctrlKey: true, altKey: true })).toBe(false)
+      expect(foldedRanges(view.state).size).toBe(1)
+    })
+
+    // The platform is read once, when @codemirror/view loads: macOS is checked on the bindings.
+    it('are Cmd-Alt-[ and ] on macOS, and no key folds or unfolds every block', () => {
+      const bindings = stateOf('').facet(keymap).flat()
+
+      expect(bindings.map(({ key, mac }) => [key, mac])).toEqual([
+        ['Ctrl-Shift-[', 'Cmd-Alt-['],
+        ['Ctrl-Shift-]', 'Cmd-Alt-]'],
+      ])
     })
   })
 

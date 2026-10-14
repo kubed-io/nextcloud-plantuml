@@ -167,7 +167,7 @@ export function openEditor(node) {
     showState()
   }
 
-  /** Saving stops until Reload, Save as copy or a Save that lands resolves it. */
+  /** Saving stops until Reload or Save as copy resolves it: a Save in conflict writes nothing. */
   function enterConflict() {
     conflict = true
     failure = ''

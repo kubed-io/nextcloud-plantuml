@@ -9,8 +9,10 @@ A Nextcloud app that shows PlantUML diagrams where people already read them: a `
 file in the Files app, and a folder README that quotes or embeds one. The drawing is done
 by a PlantUML server the admin names once; the app holds no diagrams of its own.
 
-The editor's own requirements, from autosave to completion and validation, live in
-`2026-10-14-editor-design.md`.
+This spec covers the server side, the routes, the Files integration, the Viewer and the
+README. The editor's own requirements, from layout and autosave to highlighting,
+completion and validation, live in `2026-10-14-editor-design.md` (requirement ids such as
+S2 or C7 below are that spec's); this one says only what the editor asks of the rest.
 
 Fourth member of the kubed-io nextcloud-* family after `nextcloud-n8n`,
 `nextcloud-grafana` and `nextcloud-penpot`. It borrows their skeleton, CI, documentation
@@ -24,11 +26,11 @@ verb.
 | # | Behaviour | Feature file |
 |---|---|---|
 | 1 | An admin points the app at a PlantUML server and tests it | `connection/admin.feature` |
-| 2 | `.puml` is its own file type, with its own icon | `lifecycle.feature` (an end state of enabling) |
-| 3 | Click a `.puml` → its diagram opens in the image viewer | `diagrams/view.feature` |
+| 2 | `.puml` and `.plantuml` are their own file type, with their own icon | `lifecycle.feature` (an end state of enabling) |
+| 3 | Click a `.puml` → its diagram opens in the image viewer | `diagrams/view.feature` (the route; the click is checked by hand) |
 | 4 | A URL that names a `.puml` file answers with its image | `diagrams/view.feature` |
 | 5 | Right-click a `.puml` → edit it, source beside the live diagram | `diagrams/edit.feature` |
-| 6 | **+ New → UML Diagram** makes a `.puml` and opens the editor on it | `diagrams/create.feature` |
+| 6 | **+ New → UML Diagram** makes `New diagram.puml` and opens the editor on it | `diagrams/create.feature` |
 | 7 | A folder README shows its ```` ```plantuml ```` fences and `![](x.puml)` images as diagrams | `readme/render.feature` |
 
 Delete, rename, move, copy, trash, restore, share: Nextcloud's, untouched. A `.puml` is
@@ -39,7 +41,7 @@ an ordinary file.
 - **No CRUD API for diagrams.** Nextcloud's own files, WebDAV and sharing are the API.
 - **No folder mappings, no sync, no metadata.** A `.puml` is an ordinary file wherever it
   sits; the PlantUML server never holds one.
-- **Nothing for anonymous callers.** Every render is for a logged-in user. Public share
+- **Nothing for anonymous callers.** Every route is for a logged-in user. Public share
   pages are out of scope.
 - **Files app and folder README only.** Not Text's full-page editor for `.md` files, not
   Collectives, not Talk.
@@ -48,24 +50,27 @@ an ordinary file.
 ## Platform facts the design rests on
 
 Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream source on
-2026-10-13.
+2026-10-13, unless a fact names another date.
 
 1. **The folder README is Text's "workspace".** `WorkspaceService` finds `Readme.md`,
    `README.md`, `readme.md` or `.Readme.md`; `RichWorkspace.vue` shows it first with
    `RichTextReader` and then, once ready, with Text's full editor, which is the view that
-   lasts (found during the build; the observer therefore sees two renders per folder). Code fences go through
-   `CodeBlockView.vue`, whose one renderable language is hard-coded:
-   `supportPreview() { return ['mermaid'].includes(this.type) }`. There is no
+   lasts (found during the build; the observer therefore sees two renders per folder).
+   Code fences go through `CodeBlockView.vue`, whose one renderable language is
+   hard-coded: `supportPreview() { return ['mermaid'].includes(this.type) }`. There is no
    registration call, event or markdown-it slot; `window.OCA.Text` exposes only
    `createEditor` and `createTable`. nextcloud/text#705 asked for PlantUML in 2020 and was
    closed; the maintainer's suggestion that other apps could register code-block
-   renderers was never built.
+   renderers was never built. The fence's language is not in the DOM either: tiptap
+   draws a bare `<code>` (read from Text stable34 during the build).
 2. **A relative Markdown image is a raw WebDAV URL.** Text's `AttachmentResolver` turns
-   `![](diagram.puml)` into `dav/files/<uid>/<dir>/diagram.puml` and `ImageView.vue` puts
-   it in an `<img>`, with no mimetype check and no preview. The browser receives PlantUML
-   text and shows a broken image. Clicking any embedded image opens Text's own lightbox
-   (`showImageModal`), which re-resolves images from their original `src`; it never opens
-   the Nextcloud Viewer and never links to the file.
+   `![](diagram.puml)` into `dav/files/<uid>/<dir>/diagram.puml` with no mimetype check
+   and no preview. The browser receives PlantUML text and cannot decode it. Read during
+   the build: `ImageView.vue` preloads that URL and, when it fails, draws its broken-image
+   icon in a `figure[data-component="image-view"]`, so there is no `<img>` left to
+   rewrite. Clicking any embedded image opens Text's own lightbox (`showImageModal`),
+   which re-resolves images from their original `src`; it never opens the Nextcloud
+   Viewer and never links to the file.
 3. **A preview provider can call an HTTP service.** `IRegistrationContext::registerPreviewProvider()`
    registers an `IProviderV2` for a mimetype regex; core's `Imaginary` provider and
    richdocuments' `Office` provider both POST the file to a service and return the image.
@@ -78,15 +83,18 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
 5. **The Viewer opens what a handler claims.** `OCA.Viewer.registerHandler({ id, mimes,
    component })` makes the Viewer — Nextcloud's standard image lightbox — open a mimetype
    with the given component. The Files app's default click on a file goes to the Viewer
-   when a handler claims its mimetype.
+   when a handler claims its mimetype. `OCA.Viewer.openWith(handlerId, { path })` opens a
+   file with a named handler, and Text's handler then gets the file's real mimetype.
 6. **The PlantUML server renders from a POST body.** `POST <server>/<format>` with the
    diagram text as the body returns the image. A `version` diagram rendered as `/txt`
    names the server's PlantUML version. A server that is not PlantUML answers 405 or 404;
    an unreachable host fails to connect. A syntax error is drawn into the image and
-   answered with **HTTP 400** plus an `X-PlantUML-Diagram-Error` header (verified against
-   1.2026.8 during the build), so the app decides "is this a render?" by the body's
-   `image/*` Content-Type, whatever the status; a non-image body at any status is `not a
-   PlantUML server`.
+   answered with **HTTP 400** plus an `X-PlantUML-Diagram-Error` header and an
+   `X-PlantUML-Diagram-Error-Line` header (verified against 1.2026.8 during the build).
+   The line counts from 0 at the top of the source sent, blank lines and comments before
+   `@startuml` included. So the app decides "is this a render?" by the body's `image/*`
+   Content-Type, whatever the status; a non-image body at any status is `not a PlantUML
+   server`.
 7. **The fence is `plantuml`.** GitLab, Kroki, Asciidoctor, pandoc, Docsify and Joplin
    accept only that tag; every tool that accepts another also accepts it. GitHub Linguist
    registers PlantUML with extensions `.puml`, `.iuml`, `.plantuml` and no aliases. `puml`
@@ -111,55 +119,102 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
     new file as the target, and answers OCS 403 "File already exists" for a taken path.
     It has been there since Nextcloud 21. Registering a `TemplateFileCreator` would add a
     second **+ New** entry, and Files opens a file made that way with its default action,
-    the Viewer, not our editor.
+    the Viewer, not our editor. On S3 object storage the "empty" file holds one space
+    (found live, 2026-10-14).
+11. **A WebDAV GET carries no `Cache-Control`** (found live, 2026-10-14). Browsers then
+    cache the file heuristically, for about a tenth of its age, so a file changed
+    elsewhere reads back stale unless the request says `Cache-Control: no-cache`.
+12. **What a diagram may reach is the server's `PLANTUML_SECURITY_PROFILE`** (verified
+    2026-10-14 against the kubed-io/plantuml deployment, pinned to `INTERNET`). Under
+    `INTERNET`, cluster URLs (`n8n.flow.svc`, `nextcloud.cloud.svc:8080`) answer "Cannot
+    open URL" although the pod reaches them, and local files are refused; public
+    `!include https://raw.githubusercontent.com/…`, the standard library's
+    `!include <C4/…>` and remote `<img:https://…>` work. (The pin was uncommitted in that
+    repo on 2026-10-14.)
 
 ## Architecture
 
 ```
-                 ┌──────────────────── Nextcloud ────────────────────┐
-  browser        │                                                   │     PlantUML server
-                 │  Files app ─ src/files.js                         │
-  .puml click ──▶│    default: Viewer handler ──▶ GET /render?path=… ┼──▶ POST /svg
-  right-click ──▶│    Edit diagram ──▶ src/editor.js (source | diagram)
-  + New ────────▶│    UML Diagram ──▶ Files' create ──▶ editor        │
-  README ───────▶│  Text workspace ─ src/readme.js (DOM observer)    │
-   ```plantuml   │    fence  ──▶ POST /render  {source}              │
-   ![](x.puml)   │    <img>  ──▶ GET  /render?path=…                 │
-                 │  Admin settings ─ Instance card ─ Test connection ┼──▶ POST /txt (version)
-                 │  occ plantuml:set-url · test-connection · show-config
-                 └───────────────────────────────────────────────────┘
+                 ┌──────────────────────── Nextcloud ─────────────────────────┐
+  browser        │                                                            │  PlantUML server
+                 │  Files page: plantuml-files.js + plantuml-readme.js        │
+  .puml click ──▶│    Viewer handler ─ <img> ─▶ GET  /render?path=…  ─────────┼──▶ POST /svg
+  right-click ──▶│    Edit diagram ─▶ plantuml-editor.js (added on first use) │
+                 │      source ◀─▶ WebDAV GET (no-cache) · PUT If-Match       │
+                 │      diagram ─ inline SVG ◀─ POST /render {source} ────────┼──▶ POST /svg
+                 │      completion ◀─ GET /themes · /icons · /emoji ──────────┼──▶ POST /txt, /svg
+  + New ────────▶│    UML Diagram ─▶ Files' create ─▶ NewDiagramListener      │
+                 │                                 ─▶ editor                  │
+  README ───────▶│  Text workspace ─ readme observer (DOM)                    │
+   ```plantuml   │    fence ─ <img> ◀─ POST /render {source} ─────────────────┼──▶ POST /svg
+   ![](x.puml)   │    image ─ <img> ─▶ GET  /render?path=… ───────────────────┼──▶ POST /svg
+                 │  Admin card ─ Test connection ─▶ POST /test-connection ────┼──▶ POST /txt (version)
+                 │  occ plantuml:set-url · test-connection · show-config ─────┼──▶ POST /txt (version)
+                 └────────────────────────────────────────────────────────────┘
 ```
+
+Nextcloud 32 to 34 (`appinfo/info.xml`). The app is of type `filesystem`, so it loads on
+WebDAV requests too, as the siblings do.
 
 ### Backend (`lib/`)
 
 | Unit | Does | Depends on |
 |---|---|---|
-| `Service/ServerConfig` | Reads and writes the one setting, `server_url`, through `IAppConfig`. Normalises the trailing slash. | `IAppConfig` |
-| `Service/RenderService` | `render(string $source, string $format): Rendered` — POSTs the source to `<server>/<format>`, returns bytes + content type, or throws `RenderException` naming the problem (`not set`, `unreachable`, `not a PlantUML server`). `version(): string` renders the `version` diagram as text and parses the version out. `themes(): list<string>` renders `help themes` as text and reads the names after "The possible themes are"; `icons()` reads the `<text>` names off `listopeniconic` drawn as SVG; `emoji()` reads the `<:name:>` tokens off `emoji` and each block it names, as text, leaving out the code points. All three are cached a day per server URL. A render with a mistake in it carries PlantUML's `X-PlantUML-Diagram-Error` and `-Line` headers as one line of at most 200 characters and a number. | `ServerConfig`, `IClientService`, `ICacheFactory` |
-| `Controller/RenderController` | Two routes, one service. `GET /apps/plantuml/render?path=<path>` resolves `path` in the **calling user's** folder, so a user can only render what they can read; answers the image with the file's ETag, `304` on a matching `If-None-Match`, `404` for a missing or non-`.puml` file. `POST /apps/plantuml/render` with `{source}` renders text for the README fences and the editor's live preview; CSRF-checked, logged-in only. Both pass PlantUML's error and its line on as `X-PlantUML-Diagram-Error` and `X-PlantUML-Diagram-Error-Line` (0-based from the top of the source). `GET /apps/plantuml/themes`, `/icons` and `/emoji` answer `{"themes": [...]}`, `{"icons": [...]}` and `{"emoji": [...]}` for the editor's `!theme`, `<&icon>` and `<:emoji:>` completion. Any of them answers `503` naming the problem when the server cannot. | `RenderService`, `IRootFolder`, `IUserSession` |
-| `Settings/InstanceSettings` + `AdminSection` | One declarative-settings card, "Instance": the server URL. Same section id and priority as the siblings so an admin who knows one knows this one. | `ServerConfig` |
-| `Controller/ConfigController` | The **Test connection** endpoint behind `#[AuthorizedAdminSetting]`: calls `RenderService::version()` and answers success + version, or error + problem. | `RenderService` |
-| `Command/SetUrl`, `Command/TestConnection`, `Command/ShowConfig` | The `occ` twins. CLI-first is the house style and is what the integration suite drives. | the services above |
-| `Listener/NewDiagramListener` | On `FileCreatedFromTemplateEvent` with no template, writes the empty diagram into a new, empty `.puml` or `.plantuml` (any case). Anything else it leaves alone. The empty diagram is defined here and nowhere else. | Files' create endpoint (fact 10) |
-| `Migration/RegisterMimetype`, `Migration/UnregisterMimetype` | `puml` and `plantuml` → `text/x-plantuml`, alias → icon `plantuml`. Copied from the siblings, extension and names changed. | core detection |
+| `Service/ServerConfig` | Reads and writes the one setting, `server_url`, through `IAppConfig`. Trims it, drops a trailing slash, and refuses anything but an `http` or `https` URL with a host. `clear()` deletes the key. | `IAppConfig` |
+| `Service/RenderService` | The one place the app talks to the server: `POST <server>/<format>`, the source as a `text/plain; charset=utf-8` body, a 10 s timeout, `allow_local_address` set per request (homelab servers live at in-cluster addresses), HTTP errors returned rather than thrown. `render(string $source): Rendered` always asks for SVG and returns body, content type, PlantUML's error as one line (control characters made spaces, at most 200 characters) and its line number when the server sent digits; any non-`image/*` answer is `not a PlantUML server`. `version()` reads `PlantUML x.y.z` off the `version` diagram as text. `themes()` reads the names after "The possible themes are" off `help themes` as text (at most 200). `icons()` reads the `<text>` names off `listopeniconic` drawn as SVG, since its text rendering sets them in columns beside a credit (at most 500). `emoji()` renders `emoji` as text, then each block it names (at most 16), and keeps the `<:name:>` tokens that are not code points (at most 2,000). Icons and emoji come back unique and sorted. Each list is cached a day per server URL in the distributed cache; a failure is not cached. Every failure is a `RenderException` with one of three problems, logged at info with its cause. | `ServerConfig`, `IClientService`, `ICacheFactory`, `LoggerInterface` |
+| `Service/Rendered`, `Exception/RenderException` | The render's value object; the problem (`not set`, `unreachable`, `not a PlantUML server`) and its admin line (`Server URL is not set`, `Server is unreachable`, `Server is not a PlantUML server`). | — |
+| `Controller/RenderController` | The render routes and the server's lists, below. All for logged-in users only (no `#[PublicPage]`). | `RenderService`, `IRootFolder`, `IUserSession` |
+| `Controller/ConfigController` | `POST /apps/plantuml/test-connection` behind `#[AuthorizedAdminSetting(settings: AdminTest::class)]`: calls `version()` and answers `{success: true, message: "PlantUML 1.2026.8"}` or `{success: false, message: <admin line>}`, always with a 200. | `RenderService` |
+| `Settings/InstanceSettings` | One declarative-settings card, form id `instance`: title "PlantUML", description "Point to your PlantUML server", one URL field "Server URL", stored externally through `ServerConfig`. An empty submit clears the URL; a refused one is logged with its reason and fails the save. | `ServerConfig` |
+| `Settings/AdminSection`, `Settings/AdminTest` | The section (id `plantuml`, priority 80 as in the siblings, icon `app-dark.svg`) and, under the card, the **Test connection** button: `templates/admin_test.php` with `js/admin-test.js` and `css/admin-test.css`, added through `Util` so they carry the CSP nonce. `AdminTest` is the delegated setting the test endpoint is authorised by. | — |
+| `Command/SetUrl`, `Command/TestConnection`, `Command/ShowConfig` | The `occ` twins: `plantuml:set-url <url>`, `plantuml:test-connection` (prints `PlantUML x.y.z` or the admin line), `plantuml:show-config` (`server_url: …`, or `(not set)` and a failure exit). CLI-first is the house style and is what the integration suite drives. | the services above |
+| `Listener/LoadFilesScriptListener` | On Files' `LoadAdditionalScriptsEvent`: provides the initial state `server_configured`, adds `dist/plantuml-files.js`, `css/editor.css` and `dist/plantuml-readme.js`. The editor bundle is left to `plantuml-files.js`. | `ServerConfig`, `IInitialState` |
+| `Listener/NewDiagramListener` | On `FileCreatedFromTemplateEvent` with no template, writes the empty diagram (`@startuml`, a blank line, `@enduml`) into a new `.puml` or `.plantuml` (any case) that is blank: size 0, or at most 16 bytes of whitespace, because S3 object storage writes one space for an empty file (fact 10). A file made from a template, one that holds something, or any other extension is left alone. The empty diagram is defined here and nowhere else. | Files' create endpoint (fact 10) |
+| `Migration/RegisterMimetype`, `Migration/UnregisterMimetype` | `puml` and `plantuml` → `text/x-plantuml`, alias → icon `plantuml`; register runs on install and after every migration. Unregister drops our keys and icon, re-stamps the filecache rows to `text/plain` and regenerates `mimetypelist.js`; an extension the admin remapped keeps its key and its rows (#14). Copied from the siblings, extension and names changed. | core detection |
+
+#### Routes
+
+| Route | Answers | Caching | Refusals |
+|---|---|---|---|
+| `GET /apps/plantuml/render?path=<path>` | The SVG of the `.puml` at `path`, resolved in the **calling user's** folder, so a user can only render what they can read. No CSRF token (it is an `<img src>`); the path rule keeps it safe. | The file's ETag and `Cache-Control: private, no-cache` (core's default `no-store` would keep the browser from sending the ETag back); `304` on a matching `If-None-Match`, weak or quoted. | `404` for a missing path, one that climbs out with `..`, a folder, or a file that is not `text/x-plantuml`; `503 {"problem": …}` |
+| `POST /apps/plantuml/render` | JSON `{source}` → its SVG, for the README fences and the editor's live diagram. CSRF-checked. | None (core's default). | `400` for a blank source; `503 {"problem": …}` |
+| `GET /apps/plantuml/themes`, `/icons`, `/emoji` | `{"themes": [...]}`, `{"icons": [...]}`, `{"emoji": [...]}` for the editor's `!theme`, `<&icon>` and `<:emoji:>` completion (editor spec C3, C7). No CSRF token: a GET that changes nothing. | A day per server URL on the server (`RenderService`); none over HTTP. The editor asks once per page, and a failed answer is an empty list until the next page load. The first `/emoji` of a day takes about 9 s (one text render per Unicode block, in a row). | `503 {"problem": …}` |
+| `POST /apps/plantuml/test-connection` | `{success, message}` (see `ConfigController`). | — | admin or delegated admin only |
+
+Both render routes answer a render with **200** and the server's content type, whatever
+status the server used: a mistake in the diagram is PlantUML's error image, and the
+routes forward the server's `X-PlantUML-Diagram-Error` (one line, at most 200 characters)
+and `X-PlantUML-Diagram-Error-Line` (0-based from the top of the source, fact 6; only
+when the server sent a number). The editor turns them into an underlined line (editor
+spec V3).
 
 The POST route grants a logged-in user nothing the GET route did not: anyone who can
 render text can already upload it as a `.puml` and render that. What it must never do is
 serve an anonymous caller, which is the one line the non-goals draw.
 
 Error wording is one vocabulary, used by the health check, the endpoints and the editor
-alike: **not set · unreachable · not a PlantUML server**. All three
-are about the server and are the admin's to fix. A mistake in a diagram is not in the
-list, because the server draws it into the image and the app never paraphrases it.
+alike: **not set · unreachable · not a PlantUML server**. The routes answer the word; the
+admin card and `occ` say its admin line. All three are about the server and are the
+admin's to fix. A mistake in a diagram is not in the list, because the server draws it
+into the image and the app never paraphrases it. An answer that is neither a render nor
+the route's `{"problem": …}` (a proxy's error page, an expired session's login page, a
+network failure) is not a server verdict either: the Viewer and the editor show one fixed
+line, **Could not draw the diagram**, and the admin card **Could not test the
+connection**.
 
-### Frontend (`src/`)
+### Frontend (`src/`, `js/`)
+
+Three single-file IIFE bundles built by Vite, one per surface (`package.json`):
+`dist/plantuml-files.js` and `dist/plantuml-readme.js` load on every Files page,
+`dist/plantuml-editor.js` only when the editor first opens.
 
 | Unit | Does |
 |---|---|
-| `files.js` | Registers the Viewer handler for `text/x-plantuml`, which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions, hidden for a multi-selection: **Edit diagram** (ours) and **Open with text editor** (Text's plain editor, hosted through `OCA.Text.createEditor()` because Text claims a fixed mimetype list that does not include ours). Registers **UML Diagram** in the **+ New** menu: asks Files' create endpoint (fact 10) for `<name>.puml` in the current folder, which `NewDiagramListener` fills with an empty diagram, then stats it over WebDAV, announces it to the Files view and opens the editor on it. |
-| `viewer.js` | The Viewer component: an `<img>` on `GET /render?path=…`, and the problem as a one-line message when the render fails. |
-| `editor.js` | The editor page: PlantUML source on the left in CodeMirror 6 with the app's own PlantUML mode, the diagram on the right, redrawn from `POST /render` as the source changes (debounced). Load and save go over WebDAV with the ETag as the conflict check; `editor/autosave.js` saves two seconds after the last change, at least every 30 s, and the save indicator is Text's check-and-dot button. `editor/completion/` holds one module per completion source (directives and preprocessor lines, keywords, names in the diagram, snippets, the server's themes after `!theme`, connectors after a line's first element, Creole tags after `<`, the server's icons after `<&` and emoji after `<:`), each a pure function of a CodeMirror `CompletionContext`, registered through the PlantUML language's data. `editor/lint/` holds one module per validation rule (a diagram opened without a name, with an action naming it after the file; the mistake the server named, on its line), each a pure function of an `EditorState` returning CodeMirror diagnostics, run by `@codemirror/lint` with its gutter and its panel. Its look comes from a Penpot design before it is built. |
-| `readme.js` | Loaded on Files pages. Waits for Text's read-only workspace to render, fetches the README's own text over WebDAV, and then: rewrites each `<img>` whose `src` ends in `.puml` to `GET /render?path=…`; replaces each ```` ```plantuml ```` block with an `<img>` of its source via `POST /render`, matching fences to code blocks by order (the `language-plantuml` class, if Text leaves it in the DOM, is a shortcut and not relied on). Both images swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. On a failed render it leaves Text's own rendering in place and adds nothing. |
+| `files.js`, `files-helpers.js` | Registers the Viewer handler for `text/x-plantuml` (queued on `window._oca_viewer_handlers` when the Viewer loads later), which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions for one diagram in the user's files (not a multi-selection, not the trash): **Edit diagram** (order 1, after the Viewer's View), shown only when `server_configured`; and **Open with text editor** (order 2), `OCA.Viewer.openWith('text', { path })`, shown whenever the Viewer is there. Registers **UML Diagram** in the **+ New** menu, with or without a server: asks Files' create endpoint (fact 10) for `New diagram.puml` (made unique among the folder's names) in the current folder, which `NewDiagramListener` fills; stats it over WebDAV, emits `files:node:created` and opens the editor on it. A failure is logged and shown as "Could not create the diagram". Opening the editor first adds the editor bundle, once, with the Files bundle's `?v=` and `&h=<the editor build's hash>`; a load that fails is forgotten so the next open retries, and that open falls back to the Viewer. |
+| `viewer-component.js` | The Viewer component (Vue 2 `render(h)`, as Viewer stable34 mounts it): an `<img>` on `GET /render?path=…` inside a `<div>` (the Viewer's mixin would swap an erroring root for its generic error page). When the image fails it asks the URL once more and shows, in white on the Viewer's black, the route's `problem` or, for any other failure, the fixed line **Could not draw the diagram** (#32). A diagram mistake is an image, so it shows PlantUML's error drawing. |
+| `editor.js`, `editor/` | The **Edit diagram** overlay, specified in `2026-10-14-editor-design.md`. What it asks of the rest: the file over WebDAV (`editor/save.js`: GET with `Cache-Control: no-cache` (fact 11, E4), PUT with `If-Match` (S1), a copy with `If-None-Match: *` (S8), a Depth-0 `getetag` PROPFIND to watch for changes (E1)); the diagram from `POST /render`, 300 ms after typing stops and one request at a time (`editor/preview.js`, D3; an empty source is not sent), the problem line in its place when the server cannot (D4); the server's lists from `/themes`, `/icons`, `/emoji`, once per page (C8). Loaded on first use (O2). The answer is drawn **inline** as sanitised SVG, not an `<img>`, so its links work (`editor/inline-svg.js`, editor spec D1, #30). |
+| `readme.js`, `readme/markdown.js`, `readme/workspace.js` | The README observer, loaded on Files pages. A `MutationObserver` on the page wakes when Text draws a `.ProseMirror` inside `#rich-workspace` holding code blocks or image figures not yet looked at. It asks Text's own `GET ocs/v2.php/apps/text/workspace?path=<dir>` which file the workspace shows (kept while the folder stays the same), reads it over WebDAV, and scans it for fences (backtick or tilde, CommonMark's closing rule) and relative images. Each `.code-block` is matched to the fence at the same index, and drawn only when that fence is `plantuml` and the block's text equals its source; its children are hidden and an `<img>` of `POST /render`'s answer (a `blob:` URL; renders cached by source, 64 of them, failures not kept) is added, the hidden source made non-editable and kept so if Text resets it. Each image figure whose `data-src` ends in `.puml` is hidden and our own `<figure>` goes after it: an `<img>` on `GET /render?path=…`, the path resolved against the README's folder as Text's `AttachmentResolver` does, with the Markdown alt text as its caption. Text's elements are hidden, never removed. Both drawings swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. A fence the server cannot draw keeps Text's code block. |
+| `js/admin-test.js` | The **Test connection** button, a plain script outside the build: POSTs to `/test-connection` with the request token, shows the message with a check or an error icon, and "Could not test the connection" for an answer that is not the JSON. |
 
 ### Why the README is a DOM observer, and the exit
 
@@ -180,31 +235,52 @@ critical path.
 1. Upload `diagram.puml`. Core detects `text/x-plantuml` from the extension, so the row
    wears the PlantUML icon. There is no thumbnail: the grid shows the icon, as it does
    for any text file.
-2. Click the row → Viewer → `GET /render?path=…` → SVG, with the ETag.
-3. Right-click → Edit diagram → the editor; each change (debounced) → `POST /render` →
-   the right pane. Save → the file is written → the next Viewer open sees a new ETag.
+2. Click the row → Viewer → `GET /render?path=…` → SVG, with the file's ETag; the next
+   open revalidates and gets a `304` while the file is unchanged.
+3. Right-click → Edit diagram → the editor bundle loads (first time only) → the file is
+   read over WebDAV → each change, 300 ms after typing stops → `POST /render` → the right
+   pane. Autosave writes it 2 s after the last change (editor spec S2) with `If-Match` →
+   the file gets a new ETag → the next Viewer open draws the new diagram.
 
 ### Error handling
 
 | Where | Server unset | Server down / not PlantUML | Diagram mistake |
 |---|---|---|---|
-| Admin health check | error, "not set" | error, "unreachable" / "not a PlantUML server" | n/a |
-| Viewer | one-line message, "not set" | one-line message naming the problem | PlantUML's error image |
-| Editor right pane | the message, source still editable | the message, source still editable | PlantUML's error image, and the line it names underlined in the source with its message |
-| Endpoints | 503 "not set" | 503 naming the problem | PlantUML's error image, passed through with the server's 400 |
-| README | fence stays a code block, image stays broken | same | PlantUML's error image |
+| Admin health check (card and `occ`) | error, "Server URL is not set" | error, "Server is unreachable" / "Server is not a PlantUML server" | n/a |
+| Viewer | one line, "not set" | one line naming the problem | PlantUML's error image |
+| Editor right pane | the problem word, source still editable (Edit diagram is hidden; + New still opens the editor) | the problem word, source still editable | PlantUML's error image, and the line it names underlined in the source with its message (editor spec V3) |
+| Render routes | 503 `{"problem": "not set"}` | 503 naming the problem | 200, PlantUML's error image, with `X-PlantUML-Diagram-Error` and `-Line` |
+| List routes | 503 `{"problem": "not set"}` | 503 naming the problem; the editor offers no server names | n/a |
+| README | fence stays a code block; image shows broken | same | PlantUML's error image |
+
+Anything that is not one of these answers is the fixed line, **Could not draw the
+diagram**, in the Viewer and the editor (see the error vocabulary above).
 
 ### Security
 
 - The GET route takes a **path**, resolved in the caller's user folder; the POST route
-  takes text from a logged-in, CSRF-checked caller. Neither serves anonymously.
+  takes text from a logged-in, CSRF-checked caller; the list routes return only what the
+  server lists. None serves anonymously.
 - Only the server URL is admin-set, so only an admin decides where source leaves the
-  instance. It is stored in plain `IAppConfig` (it is not a secret).
-- PlantUML's `!include` of remote URLs and its security profile are the **server's**
-  configuration (`PLANTUML_SECURITY_PROFILE`), documented in the README as the admin's
-  job, not enforced here.
+  instance. It is stored in plain `IAppConfig` (it is not a secret). The app sends
+  requests to that server and nowhere else; `allow_local_address` per request lets it be
+  an in-cluster address, a relaxation only an admin can point anywhere (`SECURITY.md`).
+- **The app relies on the server's security profile.** What a diagram may `!include`,
+  read or fetch is `PLANTUML_SECURITY_PROFILE` on the server, not a filter here. The
+  kubed-io deployment pins `INTERNET` (fact 12): cluster addresses and local files are
+  refused, public includes, the standard library and remote images work. A server run
+  with a looser profile lets any user who can render reach what the server can.
+- **The editor draws the server's SVG inline, sanitised** (`src/editor/inline-svg.js`,
+  editor spec D1): a private DOMPurify instance with the SVG and SVG-filter profiles; no
+  `<script>`, `<style>`, `<foreignObject>` or event handlers; a link keeps only an `http`,
+  `https` or `mailto` address and opens with `target="_blank" rel="noopener noreferrer"`;
+  `href` and `url()` may name only the diagram's own ids (or a `data:` image on an
+  `<image>`/`<feImage>`), so nothing loads from outside; ids are prefixed
+  `plantuml-diagram-`. The Viewer and the README keep the SVG inside an `<img>`, where it
+  can run and load nothing.
 - Content-Security-Policy is untouched: every image the browser loads comes from the
-  Nextcloud origin.
+  Nextcloud origin or is a `blob:` URL of a render it answered, and the lazily added
+  editor bundle is a script from the app's own path.
 
 ## The design (Penpot, file "NXT PlantUML")
 
@@ -213,15 +289,16 @@ Penpot file is not needed to read this section.
 
 Four pages, one per surface, drawn on 2026-10-13 against Nextcloud 34's light theme
 (50px primary header, 300px navigation, 44px controls, 8px element radius and pill
-buttons, Noto Sans). Each page has its own prototype flow; links change state within a
+buttons, Noto Sans); the Editor page and the + New menu were redrawn on 2026-10-14 to
+match what ships (#23). Each page has its own prototype flow; links change state within a
 page and never cross one.
 
 | Page | Boards | What the click does |
 |---|---|---|
-| Admin | `screens/admin` → `screens/admin-success`; `Admin — health check states` | *Test connection* reveals the result line. The states board holds the four lines the check can show: `PlantUML 1.2026.8`, `Server URL is not set`, `Server is unreachable`, `Server is not a PlantUML server`. |
-| Editor | `screens/editor` → `screens/editor-saved` | *Save* turns "Unsaved changes" into "Saved" and quiets the button. |
-| Files | `screens/files`, `screens/viewer`, `overlay/context-menu`, `overlay/new-menu` | A row's name or icon opens the Viewer; its × returns. The row's *…* opens the menu: **View**, **Edit diagram**, **Open with text editor**, then Nextcloud's own entries. *+ New* opens its menu with **Diagram** as the new entry. |
-| Readme | `screens/readme` ↔ `screens/readme-source` | The Diagrams folder with Text's README workspace above the list: a ```` ```plantuml ```` fence and an `![Order flow](Order flow.puml)` both shown as the diagram, the image with its alt text as caption. Clicking the README.md row shows the markdown source; its × returns. |
+| Admin | `screens / admin` → `screens / admin-success`; `Admin — health check states` | *Test connection* reveals the result line. The states board holds the four lines the check can show: `PlantUML 1.2026.8`, `Server URL is not set`, `Server is unreachable`, `Server is not a PlantUML server`. |
+| Editor | `screens / editor` → `screens / editor-saving` → `screens / editor-saved`; `screens / editor-autocomplete`, `screens / editor-lint`, `screens / editor-dark` | The unsaved board (check with a dot, the divider's handle) moves to saving and then saved by itself after a delay, as autosave does; a click on the save state saves at once; typing in the saved board makes it unsaved again. *Add name* on the lint board returns to the editor. The other boards are states: connector completions after `node1 `, the unnamed-`@startuml` warning with its panel, the dark theme with search open. Detail: editor spec. |
+| Files | `screens / files`, `screens / viewer`, `overlay / context-menu`, `overlay / new-menu` | A row's name or icon opens the Viewer; its × returns. The row's *…* opens the menu: **View**, **Edit diagram**, **Open with text editor**, then Nextcloud's own entries. *+ New* opens its menu with **UML Diagram** as the new entry (drawn as **Diagram** on 2026-10-13). |
+| Readme | `screens / readme` ↔ `screens / readme-source` | The Diagrams folder with Text's README workspace above the list: a ```` ```plantuml ```` fence and an `![Order flow](Order flow.puml)` both shown as the diagram, the image with its alt text as caption. Clicking the README.md row shows the markdown source; its × returns. |
 
 Copy on the admin card: section title "PlantUML", subtitle "Point to your PlantUML server",
 field label "Server URL", button "Test connection". Nothing else.
@@ -231,21 +308,58 @@ Library components: `header` (main on the Admin board, instance on Files) and
 Viewer). The diagram is drawn from shapes in PlantUML's default style because the Penpot
 backend could not fetch a render from any server.
 
-Not drawn, and not needed before code: the editor's right pane when the server is down
-(one line of the error vocabulary where the diagram would be), and the README surface,
-which is Text's own rendering with our images in it.
+Not drawn: the editor's right pane when the server is down (one line of the error
+vocabulary where the diagram would be), and the README surface, which is Text's own
+rendering with our images in it.
 
 ## Testing
 
 | Suite | Covers |
 |---|---|
-| Unit (`tests/unit/`) | `RenderService` request shape and problem classification (405 → not a PlantUML server, connect failure → unreachable, empty URL → not set); version parsing; `ServerConfig` normalisation; `RenderController` path rules (outside the user folder, not `.puml`, ETag/304). OCP stubbed as in the siblings. |
-| Behat (`tests/integration/`) | A real Nextcloud + a `plantuml/plantuml-server` container. `connection/admin.feature` over `occ`; `lifecycle.feature`; `diagrams/view.feature`'s endpoint scenarios over HTTP; `diagrams/edit.feature`, `create.feature` and `readme/render.feature` through what the editor, the + New entry and the README observer send: WebDAV with ETags, Files' create endpoint, the render routes. |
-| `@ui @blocked` — no browser | A scenario that cannot be run without a page. None, since Dr K's ruling of 2026-10-14; what only a page shows is checked by hand. |
+| PHP unit (`tests/unit/`, PHPUnit, OCP stubbed as in the siblings) | `RenderService`: request shape, problem classification (no URL → not set; connect failure → unreachable; 404, 405 or a non-image body → not a PlantUML server; an image with a 400 → a render), version parsing, the themes, icons and emoji parsing with their caps, a day's cache per server and no cache for a failure, the error header as one short line with its number. `RenderController`: the path rules (outside the folder, climbing out, missing, a folder, plain text → 404), ETag and 304, a blank source → 400, a server problem → 503 with the problem, a syntax error still a 200 image, the error headers forwarded (and no line without one), the three lists. `ConfigController`, `ServerConfig`, `InstanceSettings`, the three commands, `NewDiagramListener` (S3's one space included), `LoadFilesScriptListener` (the editor bundle left to first use), `RegisterMimetype` and `UnregisterMimetype` (an admin's override survives). |
+| JS unit (`tests/js/`, vitest with jsdom) | `files-helpers` (action gating, the editor bundle URL), `files`, `viewer-component` (problem word and fixed line), `readme/markdown` and `readme/workspace`; every editor module, as the editor spec's Testing says. |
+| Behat (`tests/integration/`) | A real Nextcloud (PHP's built-in server, SQLite, `allow_local_remote_servers`) and a `plantuml/plantuml-server:jetty-v1.2026.8` container. Pull requests run Nextcloud stable34; `main` runs stable32, stable33 and stable34. Three suites, partitioning `features/` by path. **admin**: `connection/admin.feature` over `occ`, `lifecycle.feature` (enable, disable, the file type). **diagrams**: `view.feature` over the GET route; `edit.feature` over WebDAV GET and PUT with `If-Match` (someone else's change stamped with `X-OC-Mtime`, since two local-storage writes in one second can keep the ETag), the copy with `If-None-Match: *`, `POST /render` for the changed diagram and the mistake's line, `GET /themes` compared with the server's own `help themes`; `create.feature` through Files' create endpoint. **readme**: `render.feature` reads the README over WebDAV and draws its fence through `POST /render` and its image through `GET /render`. |
+| Not in Behat | `@blocked`: "Removing the app", because `occ` cannot remove an app. No `@ui` scenario, since Dr K's ruling of 2026-10-14. What only a page shows — the Viewer's lightbox, where a README's drawing lands, the editor's layout, highlighting, colour picker and change watcher — is unit-tested where it can be and checked by hand on the live instance. The icon and emoji routes are unit-tested only: the scenarios "Asking for the server's icons" and "Asking for the server's emoji" are proposed and await Dr K. |
 
-Suites partition `features/` by path; the three quality-job guards from the siblings
-(`check-suites.sh`, `check-notes-anchors.sh`, `check-step-definitions.sh`) come across
-unchanged.
+Behat runs in CI only, never in a pod. PHPUnit, `php -l`, Psalm and php-cs-fixer may run
+in the code-server pod (Dr K, 2026-10-14). The three quality-job guards from the
+siblings (`check-suites.sh`, `check-notes-anchors.sh`, `check-step-definitions.sh`) come
+across unchanged.
+
+## Traps found in the live instance
+
+- **Object storage.** S3 writes one space for an "empty" new file; `NewDiagramListener`
+  counts it as blank (#19).
+- **Same-second ETags.** On local storage two writes in one second can keep the same
+  ETag; the conflict scenario stamps `X-OC-Mtime`.
+- **Asset caching.** App JS and CSS are cached for six months under a `?v=` that changes
+  only with the app version. The lazily added editor URL carries `&h=<build hash>`
+  (#20); the Files and README bundles and the CSS need one hard refresh after a hand
+  deploy.
+- **Route caching.** The route table lives in APCu in the web server and can outlive its
+  3600 s TTL, so a new route answers 404; `apachectl -k graceful` fixes it.
+- **WebDAV GET has no `Cache-Control`** (fact 11): `editor/save.js`'s `loadFile`, used by
+  the editor and the README observer, sends `no-cache` (#29).
+- Styling and browser-driving traps (core's `server.css` on every
+  `div[contenteditable]`, files_bpm's forced black, Nextcloud's buttons outranking a
+  single class, selenium key presses on `.cm-content`) are the editor's: editor spec,
+  Traps.
+
+## Known limitations and open proposals
+
+- The Viewer and the README still show the diagram as an `<img>`, so its links do not
+  work there. *Proposed, not agreed:* inline SVG for both, through `inline-svg.js`.
+- The first `/emoji` of a day takes about 9 s, so the first `<:` completion waits for it.
+- Trash and shares need nothing from the app (#13, closed): a `.puml` is a plain file to
+  Nextcloud. The file actions are not offered in the trash (the `/files` root guard), and a
+  received share sits under the recipient's `/files`, so the actions, the Viewer and the render
+  route work there. A public link has no logged-in user, which the scope rules out.
+- The README observer tracks Text's DOM, so a Text upgrade can break it without any test
+  noticing (see the exit above).
+- Editor-only limitations (no WebDAV timeout, the notify_push bundle cost, links hidden
+  from screen readers, the colour picker's named colours and alpha, Creole edge cases)
+  and open proposals (L6, C5, D2, named colours, a diff view in the conflict state) are
+  in the editor spec's Known limitations and Open proposals.
 
 ## Decisions taken in this spec
 
@@ -256,23 +370,25 @@ unchanged.
 | Fence language | `plantuml` only (fact 7) | `puml` as an alias — two editors' courtesy, not a standard; `c4plantuml` — nobody asked |
 | Default click on a `.puml` | the Viewer, Nextcloud's standard image lightbox | the editor; a diagram is read far more often than it is changed |
 | Editing | the app's own side-by-side editor, source left and diagram right | Text's plain editor — no highlighting, no preview |
-| Editor engine | **CodeMirror 6**, used directly from `@codemirror/*` in a thin Vue component, with a PlantUML `StreamLanguage` written as a simple-mode rule table (~100 lines) ported from Prism's `prism-plant-uml` (MIT), kkeisuke's CM5 mode as a second reference; the split pane is ours (fact 9) | an off-the-shelf editor — none is a component with a PlantUML grammar and a pulse; Monaco — 5–10× the bundle, AMD loader and workers inside a Nextcloud app, and no PlantUML tokenizer either; a TextMate bridge — 160 kB of wasm for a grammar Shiki does not even carry |
+| Editor engine | **CodeMirror 6**, used directly from `@codemirror/*`, with a PlantUML `StreamLanguage` written as a simple-mode rule table ported from Prism's `prism-plant-uml` (MIT), kkeisuke's CM5 mode as a second reference; the split pane is ours (fact 9). The spec said "in a thin Vue component"; it shipped as a plain DOM overlay, which needed no Vue. | an off-the-shelf editor — none is a component with a PlantUML grammar and a pulse; Monaco — 5–10× the bundle, AMD loader and workers inside a Nextcloud app, and no PlantUML tokenizer either; a TextMate bridge — 160 kB of wasm for a grammar Shiki does not even carry |
+| Editor bundle | added to the page the first time the editor opens (#15) | on every Files page — most of the app's JavaScript, for pages that never open it |
+| The diagram in the editor | inline, sanitised SVG (Dr K: "let's draw it inline with svg", #30) | an `<img>` — safe, but its links cannot be followed |
 | Fences | a POST passthrough render for logged-in users | `path=<README>&fence=<n>` — the server would re-parse Markdown to find text the client already has |
 | Image format | SVG everywhere | PNG — only a thumbnail would have needed a raster, and there is none |
 | Thumbnails | none; the grid shows the file-type icon, as Nextcloud does for any text file | a preview provider of our own (fact 3) — code written for a behaviour nobody asked for |
-| Secondary opener | Text's plain editor through its public `createEditor()` | a textarea of our own, as the siblings did for JSON — a rewrite of what Text already does |
+| Secondary opener | Text's plain editor, through `OCA.Viewer.openWith('text', { path })` (changed during the build, #3) | `OCA.Text.createEditor()`, the spec's first choice — it forces Text's Markdown editor, whose serializer would rewrite PlantUML source; a textarea of our own, as the siblings did for JSON — a rewrite of what Text already does |
 | README image click | swallowed, so Text's lightbox cannot show a broken `.puml` | open the file in the Viewer — a link nobody asked for |
 | Admin surface | URL + Test connection, nothing else | a format or timeout setting — neither is a decision an admin makes per instance |
 | Error vocabulary | three fixed problems, shared by every surface | per-surface wording |
 | A new diagram's starting lines | written by the server, `NewDiagramListener` on Files' create endpoint (Dr K, 2026-10-14: "regardless of an api call or click in the UI you would get the same start/end uml tags") | the + New handler PUTting them from JavaScript — only that one client would get them |
-| The **+ New** entry | our own, opening the editor | a `TemplateFileCreator` — a second entry, and the new file opens in the Viewer (fact 10) |
-| Saving in the editor | by itself as Text does (Dr K, 2026-10-14): 2 s after the last change, at least every 30 s, stopped by a conflict; closing saves first, and asks before discarding when that save fails or hangs 10 s | Save only — a long edit all at risk until a click; Text's 5 s session sync — there is no session to sync to |
+| The **+ New** entry | our own, "UML Diagram", opening the editor | a `TemplateFileCreator` — a second entry, and the new file opens in the Viewer (fact 10) |
+| Saving in the editor | by itself as Text does (Dr K, 2026-10-14): 2 s after the last change, at least every 30 s, stopped by a conflict; closing saves first, and asks before discarding when that save fails or hangs 10 s (editor spec S2, S4) | Save only — a long edit all at risk until a click; Text's 5 s session sync — there is no session to sync to |
 | Autocomplete | `@codemirror/autocomplete`, one source per file in `src/editor/completion/`, registered through the language's data facet so a source is a file and a line; Tab never accepts | one hand-written source with every rule in it — the pattern was the point (Dr K: "a pattern going for autocomplete that we can expand on") |
-| `!theme` completion | the server's own list, `help themes` rendered as text, cached a day per server URL | a list written into the bundle — wrong the day the server's version differs |
+| What the server knows (themes, icons, emoji) | the server's own lists, through the app's routes, cached a day per server URL | a list written into the bundle — wrong the day the server's version differs |
 | Validation | `@codemirror/lint`, one rule per file in `src/editor/lint/`, each `(state) => Diagnostic[]`, so a rule is a file and a line; the server's mistake is a rule too, reading the last render's error line from editor state | a hand-written underline layer — CodeMirror ships the wavy marks, the gutter, the tooltip and a panel |
 | Editor conveniences | stock CodeMirror only: active line, bracket matching and closing (`'` is never paired, it starts a comment), search with its panel on top, selection matches, `toggleComment` from the mode's `commentTokens`, `indentWithTab`; all themed with Nextcloud variables | hand-rolled equivalents — CodeMirror ships each one |
-| A change made elsewhere | looked for by ETag (Dr K, 2026-10-14: "maybe even a simple poll to check like the etag"): a Depth-0 `getetag` PROPFIND every 10 s while the page is visible and at once on focus, or on notify_push's `notify_file` with a 60 s poll behind it when that app is there; a clean source takes the new version in, an unsaved one is the save conflict; a Reload icon in the bar at all times | notify_push alone — an app of its own with a push daemon, not installed on the live instance; a full GET per poll — the whole file every 10 s to learn one header; reloading over unsaved changes — loses ours without asking |
-| The save indicator | Text's: one icon button, check when saved, a primary dot while not, core's `icon-loading-small` while saving, the time since the last save as its tooltip | a "Save" pill and status words — Dr K's terse-UI rule, a dot not a word |
+| A change made elsewhere | looked for by ETag (Dr K, 2026-10-14: "maybe even a simple poll to check like the etag"): a Depth-0 `getetag` PROPFIND every 10 s while the page is visible and at once when it is shown or focused, or on notify_push's `notify_file` with a 60 s poll behind it when that app is there; a clean source takes the new version in, an unsaved one is the save conflict; a Reload icon in the bar at all times (editor spec E1–E4) | notify_push alone — an app of its own with a push daemon, not installed on the live instance; a full GET per poll — the whole file every 10 s to learn one header; reloading over unsaved changes — loses ours without asking |
+| The save indicator | Text's: one icon button, check when saved, a primary dot while not, core's `icon-loading-small` while saving, the time since the last save as its tooltip (editor spec S3) | a "Save" pill and status words — Dr K's terse-UI rule, a dot not a word |
 
 ## Rulings from Dr K (2026-10-13)
 
@@ -283,11 +399,13 @@ unchanged.
   gets. The provider is out, and with it the PNG path.
 - **A new diagram holds an empty diagram**: `@startuml`, a blank line, `@enduml`.
 - **Text's plain editor stays as the secondary opener**, "Open with text editor".
-
 - **The editor's left pane is CodeMirror 6** (ruled 2026-10-13, "the lightest-weight
   option"). Highlighting wins over Text's free save path; the save path is ours to write.
 
 ## Rulings from Dr K (2026-10-14)
+
+Editor rulings are listed here with the requirement they became; the editor spec holds
+the detail.
 
 - **"The behat tests should not need the browser."** Gherkin never names the medium: it
   states what holds before and after, and the step definition picks how to get there.
@@ -295,11 +413,33 @@ unchanged.
   `edit`, `create` and `readme/render` were reworded and run over WebDAV, Files' create
   endpoint and the render routes; the scenarios about layout ("Opening a diagram file for
   editing"), Text's editor ("Opening a diagram file as plain text") and the Viewer's click
-  were dropped.
-- **`@ui` only when a browser is unavoidable**, and then also `@blocked`, untested for now.
-  It no longer means "has a user interface"; `connection/admin.feature` lost it.
-- **The backend writes a new diagram's starting lines**, so an API call and a click give
-  the same file (see the decisions table).
+  were dropped (#18).
+- **"Try not to have any `@ui` tags."** `@ui` only when a browser is unavoidable, and then
+  also `@blocked`, untested for now. It no longer means "has a user interface";
+  `connection/admin.feature` lost it.
+- **"It's ok to break that psalm rule now that this pod actually has php."** Psalm and
+  php-cs-fixer may run in the code-server pod; Behat stays CI-only, and nothing runs in a
+  service pod.
+- **"The fact JS would make the start and end tags is odd. Shouldn't the backend do
+  that?"** The backend writes a new diagram's starting lines, so an API call and a click
+  give the same file (`NewDiagramListener`, #18; see the decisions table).
+- **"UML Diagram"** is the **+ New** label (#18).
+- **"I would like ours to auto save after some time … after some inactivity."** Autosave
+  and Text's save indicator (S2, S3, #21).
+- **"Get a pattern going for autocomplete that we can expand on."** One file per
+  completion source and per lint rule (C1, V1, #21, #22).
+- **"Maybe even a simple poll to check like the etag."** The change watcher (E1–E3, #28).
+- **"It should auto fit so it's always visible."** (L4, #26.)
+- **"Let's just always wordwrap."** (L5, #25.)
+- **"Let's draw it inline with svg."** The editor's inline, sanitised diagram (D1, #30).
+- **"Check for existing libs to use."** The colour picker is
+  `@uiw/codemirror-extensions-color` (C6, #33); Creole's highlighting and completion are
+  the app's own mode rules and completion source (H8, C7).
+- Approved the two server-knowledge scenarios ("Asking for the server's themes", "A
+  mistake in the source names its line") and the two narrative lines that no longer name
+  the Files app (#23).
+- **"We also should have a superpowers spec just for the editor."**
+  `2026-10-14-editor-design.md` (#27).
 
 ### The editor choice, as it was weighed
 
@@ -315,4 +455,6 @@ against each other, and only one could win:
 
 Highlighting was the point of the editor, so it is CodeMirror, and the save path is the
 price: load over WebDAV, a dirty flag, PUT with `If-Match` on the ETag, and a plain
-"someone else changed this file" refusal when it does not match. No collaboration.
+"someone else changed this file" refusal when it does not match. No collaboration. (The
+price grew on 2026-10-14: autosave, Reload or Save as copy after a refusal, and a watcher
+for changes made elsewhere; editor spec S2–S10, E1–E4.)

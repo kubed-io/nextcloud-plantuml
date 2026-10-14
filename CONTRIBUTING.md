@@ -77,6 +77,18 @@ surface asks of the server, and has no browser, so nothing it does proves the
 Viewer, the editor, the file actions or the README still draw it. Those are
 checked by hand on the homelab instance before a PR claims them.
 
+Copying a build into `custom_apps/plantuml` by hand meets two caches and a trap:
+
+- **Scripts and styles.** Nextcloud serves an app's JS and CSS for six months
+  under a `?v=` that changes only with the app version. The editor bundle, added
+  on first use, also carries `&h=<build hash>` and is always fresh; the Files and
+  README bundles and `css/editor.css` need one hard refresh after each deploy.
+- **Routes.** The route table is cached in APCu inside the web server and can
+  outlive its TTL, so a new route answers 404. `apachectl -k graceful` in the
+  Nextcloud container clears it.
+- **Driving the editor with Selenium.** Send key presses to `.cm-content`; a bare
+  Enter reaches the Files page underneath and opens the Viewer.
+
 ### When AI writes code, validate harder
 
 AI assistance is welcome — this app family was built with it — but the quality
@@ -196,7 +208,7 @@ Three suites, and they answer different questions.
 | Suite | Runner | Asks |
 |---|---|---|
 | [`tests/unit/`](tests/unit/) | PHPUnit | Does this rule hold, for every input I can think of? |
-| [`tests/js/`](tests/js/) | vitest | Same question, for the browser side's pure helpers |
+| [`tests/js/`](tests/js/) | vitest | Same question for the browser side: every completion source, lint rule and the mode's tokens against a real editor state, and the whole editor with its WebDAV and render calls mocked |
 | [`tests/integration/`](tests/integration/) | Behat | Does the app do what the spec says, against a real Nextcloud and a real PlantUML server? |
 
 ```sh
@@ -216,6 +228,12 @@ after it. So a feature PR runs **scenario → code → test**, in that order:
    agreeing on it is cheaper than agreeing on a diff.
 2. **Build it.**
 3. **Make that scenario run**, and take its status tag off.
+
+**Scenarios go through the API.** A step reaches the app by `occ`, WebDAV, Files'
+endpoints or the app's own routes, never a browser. A scenario that seems to need
+a page is worded for a screen; reword it, and propose the new wording rather than
+committing it. One that truly cannot run without a page is tagged `@ui @blocked`
+and waits; there are none today.
 
 **The rule, and it is the only hard one here: a scenario stops being `@unbuilt`
 or `@todo` only on a PR that runs it.** Promote it to live when it passes; move it
@@ -272,8 +290,13 @@ composer run lint        # php -l across lib/
 npm run lint             # ESLint
 ```
 
-Once a `tests/psalm-baseline.xml` exists, **don't regenerate it on your branch**
-unless you're explicitly paying down debt.
+All of these, and both unit suites, run locally: in the devcontainer, or any shell
+with PHP and the Node from `.nvmrc`. Behat needs a Nextcloud server checkout and a
+PlantUML server beside it, which `integration.yml` builds, so in practice it runs
+in CI.
+
+**Don't regenerate `tests/psalm-baseline.xml` on your branch** unless you're
+explicitly paying down debt.
 
 ---
 

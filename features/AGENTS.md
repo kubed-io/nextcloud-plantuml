@@ -79,11 +79,13 @@ The file type is an END STATE of enabling, not a feature of its own: a user neve
 Removing the app reverts the registration and touches no file — a diagram is an
 ordinary file and stays one.
 
-BUILT. `RegisterMimetype` runs on install and every upgrade, mapping `puml` and
+`RegisterMimetype` runs on install and every upgrade, mapping `puml` and
 `plantuml` to `text/x-plantuml` with icon `plantuml`. The scenario proves it from
 outside: PUT `probe.puml` over DAV, read the type back. "Removing the app" is
 `@blocked`: occ cannot remove an app, so `UnregisterMimetype` (the `<uninstall>`
-step, reverting rows to `text/plain`) runs for real only on a store uninstall.
+step, reverting rows to `text/plain`) runs for real only on a store uninstall,
+and its unit tests stand in. An extension the admin has mapped to something else
+is left alone on removal, key and file rows both.
 
 ## diagrams/view
 
@@ -100,7 +102,9 @@ and has no scenario of its own.
 The Viewer opens it because the app registers a Viewer handler for
 `text/x-plantuml`; the menu's "View" entry is the Viewer's own. With no server
 set the Viewer still opens, and shows the route's one line — `not set` — where
-the picture would be.
+the picture would be. A failure that is not the route's own (a proxy's error
+page, an expired session) is one fixed line, "Could not draw the diagram", as in
+the editor.
 
 ### Asking for a diagram file by its path
 
@@ -126,7 +130,7 @@ Both scenarios are asked over HTTP as the admin.
 
 `features/diagrams/edit.feature`
 
-spec: [Decisions → Editor engine](../docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md#decisions-taken-in-this-spec) · [The editor choice](../docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md#the-editor-choice-as-it-was-weighed)
+spec: [Decisions → Editor engine](../docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md#decisions-taken-in-this-spec) · [The editor choice](../docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md#the-editor-choice-as-it-was-weighed) · [The editor spec](../docs/superpowers/specs/2026-10-14-editor-design.md)
 
 THE DIAGRAM FOLLOWS THE SOURCE. The point of the editor is seeing the picture
 change as you type, so a changed source is drawn at once, and the file still
@@ -135,8 +139,8 @@ holds what it held: the scenario asserts both halves.
 SAVING IS THE ONLY THING THAT TOUCHES THE FILE. The live preview sends text to
 the server, never to the file. The editor saves as Text does, by itself: two
 seconds after the last change, and at least every 30 seconds while changes keep
-coming, through the same guarded PUT as Save. "Without saving" in a step is the
-state before that, which the step reaches by never sending the PUT.
+coming, through the same guarded PUT as a save asked for. "Without saving" in a
+step is the state before that, which the step reaches by never sending the PUT.
 
 The indicator is Text's: one icon button, a check when the file holds the
 source, a dot on the check while it does not, a spinner while a save is in
@@ -147,15 +151,17 @@ discarding rather than trapping the user (a read-only share, a full quota).
 Leaving the page with unsaved changes gets the browser's own prompt.
 
 A SAVE NEVER OVERWRITES SOMEONE ELSE'S CHANGE. The editor reads the file over
-WebDAV with its ETag and writes it back with `If-Match`; a file changed in the
+WebDAV with its ETag, `Cache-Control: no-cache` so the browser never answers
+from its cache, and writes it back with `If-Match`; a file changed in the
 meantime answers 412, the top bar says "Someone else changed this file", and the
 file stays as the other person left it. There is no merge: collaboration is what
 Text's editor offers and this one gave up for highlighting. The way out is beside
-the message until it is used: **Reload** takes their version, after a confirm, and
-**Save as copy** writes ours to `<name> (copy).puml` and carries on there. Autosave
-stops until one of them (or a Save that lands) resolves it, and closing asks before
-discarding. A save that fails for any other reason says "Could not save the file"
-and is tried again on the next change, not in a loop.
+the message until it is used: **Reload** takes their version, confirming first
+while there is anything unsaved, and **Save as copy** writes ours to
+`<name> (copy).puml` (then `(copy 2)` up to `(copy 9)`) and carries on there.
+Autosave stops until one of them (or a save that lands) resolves it, and closing
+asks before discarding. A save that fails for any other reason says "Could not
+save the file" and is tried again on the next change, not in a loop.
 
 A CHANGE MADE ELSEWHERE IS NOTICED, not waited for at the next save. The editor
 asks for the file's ETag alone (a Depth-0 `getetag` PROPFIND) every 10 s while
@@ -172,46 +178,69 @@ THE STEPS SEND WHAT THE EDITOR SENDS. A change without saving is the source
 posted to `POST /render`, as the right pane posts it; a save is a WebDAV PUT with
 `If-Match` and the ETag the file was opened with; a copy is the PUT with
 `If-None-Match: *` that **Save as copy** sends first. "Someone else" is a plain
-PUT between the opening and the save. A change adds one participant, so the
-changed diagram can be told from the old one.
+PUT between the opening and the save, stamped a minute ahead with `X-OC-Mtime`,
+because two writes in one second on local storage can keep the same ETag. A
+change adds one participant, so the changed diagram can be told from the old one.
+
+THE EDITOR KNOWS WHAT THE SERVER KNOWS, and each scenario checks it against the
+test server itself, never against a list written down in the suite. The themes
+the app offers (`GET /apps/plantuml/themes`) are exactly the ones the server's
+own `help themes` lists. A mistake goes on the line before `@enduml`, so its
+document line is known; the render route passes on the server's
+`X-PlantUML-Diagram-Error` and `X-PlantUML-Diagram-Error-Line`, which counts from
+0 at the top of the source, blank lines and comments before `@startuml`
+included, so the document line is that number + 1.
 
 Autocomplete has no scenario: what the popup offers is a rule with no I/O, so
 each source in `src/editor/completion/` is unit-tested against a real editor
 state, and adding one is a file there and a line in its `index.js`. The themes
-after `!theme` are the server's own, from `GET /apps/plantuml/themes`, asked once
-per page, and so are the icons after `<&` and the emoji after `<:`
-(`/icons`, `/emoji`); connectors are offered after a line's first element and a
-space, unless that first word is a keyword such as `node` or `loop`. A `<` there
-is an arrow, so the Creole tags are offered after any other `<` in text, and
+after `!theme`, the icons after `<&` and the emoji after `<:` are the server's
+own (`/themes`, `/icons` from `listopeniconic`, `/emoji` from `emoji` and each
+block it names), cached a day per server URL and asked once per page; picking an
+icon or an emoji closes its tag. Connectors are offered after a line's first
+element and a space, unless that first word is a keyword such as `node` or
+`loop`. A `<` there is an arrow, so the Creole tags are offered after any other
+`<` in text, except in a `<<stereotype>>`, a `<style>` or `<<` line, or a comment;
 `</` offers the closers of the tags still open on the line.
 
 Highlighting has no scenario for the same reason: the PlantUML mode's tokens are
-unit-tested, what stays plain included. Creole is marked up only where PlantUML
-reads text (labels, notes, legends, `[ … ]` descriptions, titles), and every `#hex`
-colour is a `ColorLiteral`, which `@uiw/codemirror-extensions-color` finds and puts
-a swatch before. A picked colour is an edit like any other, so it autosaves.
+unit-tested, what stays plain included, and every colour is a Nextcloud theme
+variable, so the source reads on the light, dark and high-contrast themes.
+Creole is marked up only where PlantUML reads text (link labels, notes, legends,
+`[ … ]` descriptions, titles, headers, footers, captions), and every `#hex`
+colour (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) is a `ColorLiteral`, which
+`@uiw/codemirror-extensions-color` finds and puts a swatch before. A picked
+colour is an edit like any other, so it autosaves.
 
 Validation is the same pattern: one rule per file in `src/editor/lint/`, each a
 pure function of the editor state, unit-tested the same way. A diagram opened
-without a name is a warning whose action names it after the file (its base name,
-spaces as `_`), and the name follows a Save as copy. The mistake PlantUML finds
-is an error on the line it names: the render route passes on the server's
-`X-PlantUML-Diagram-Error` and `X-PlantUML-Diagram-Error-Line`, which counts from
-0 at the top of the source, blank lines and comments before `@startuml` included.
-It clears when a render comes back clean. Ctrl/Cmd+Shift+M lists them in a panel
-that Escape closes before it closes the editor.
+without a name is a warning whose **Add name** action names it after the file
+(its base name, anything but letters, digits, `_`, `-` and `.` as `_`), and the
+name follows a Save as copy. The mistake PlantUML finds is an error on the line
+it names, as above. It clears when a render comes back clean. Ctrl/Cmd+Shift+M
+lists them in a panel that Escape closes before it closes the editor; F8 steps
+through them.
 
-The right pane redraws 300 ms after typing stops, drawing the SVG inline and
-sanitised, so a link in the diagram opens in a new tab. When the server cannot draw,
-the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)
-where the diagram was, and the source stays editable.
+The right pane redraws 300 ms after typing stops, one render at a time, drawing
+the SVG inline and sanitised, so a link in the diagram opens in a new tab. When
+the server cannot draw, the pane shows the problem (`not set`, `unreachable`,
+`not a PlantUML server`) where the diagram was, or "Could not draw the diagram"
+for an answer that is neither an image nor the route's own, and the source stays
+editable.
+
+The layout has no scenario either. The line between the panes drags from 20% to
+80% (arrow keys, Home, End; Enter or a double click halves it) and is remembered
+per browser; the source scrolls and its long lines wrap; the diagram is fitted
+to its pane, never larger than it is drawn.
 
 The menu entries have no scenario: how the editor is laid out, and Text's own
 editor opening a file, are not this app's outcomes to assert. **Edit diagram**
 and **Open with text editor** (Text's plain editor, beside ours because some
-people want the raw file) are on one diagram, never on a multi-selection. "Edit
-diagram" hides while no server is set, since its right pane would have nothing to
-draw; "Open with text editor" needs no server and stays.
+people want the raw file) are on one diagram in the user's files, never on a
+multi-selection and never in the trash. "Edit diagram" hides while no server is
+set, since its right pane would have nothing to draw; "Open with text editor"
+needs no server and stays. The editor's code is fetched the first time either
+the entry or + New opens it, not with every Files page.
 
 ## diagrams/create
 
@@ -225,8 +254,11 @@ something to draw from the first keystroke.
 
 THE SERVER WRITES THOSE LINES. Files' own create endpoint makes the file and
 `NewDiagramListener` fills it, so the + New entry and any other client that asks
-Nextcloud for a new `.puml` get the same file. The step asks that endpoint, as
-the + New entry does, for `New diagram.puml` in the folder.
+Nextcloud for a new `.puml` get the same file. A file made from a template, or
+one that already holds something, is left alone; blank means empty or
+whitespace only, because object storage writes a new empty file as one space.
+The step asks that endpoint, as the + New entry does, for `New diagram.puml` in
+the folder.
 
 Choosing **UML Diagram** creates `New diagram.puml` (`New diagram (1).puml` when that
 is taken) and opens the editor on it, because nobody creates a diagram in order
@@ -275,23 +307,39 @@ image's destination resolved against the README's folder and drawn through
 
 ## Known limitations and next
 
-What the reviews deferred. None changes a scenario; each is work for a later round.
+What the reviews and the live checks deferred. None changes a scenario; each is
+work for a later round, or a call for Dr K.
 
-* **What only a page shows** (#10): the Viewer's lightbox, the editor's layout and
-  highlighting, where a README's drawing lands. No scenario waits for a browser;
-  these are checked by hand on the live instance.
-* **The README's editable-state mitigation** (#11; a drawn fence's `<pre>` and `<code>`
-  made non-editable) awaits a check in a real browser.
-* **Picking up a change made elsewhere** awaits a check by hand on the live
-  instance; its notify_push path runs only where that app is installed, which
-  the live instance is not.
-* **The editor's inline diagram** awaits a check by hand that it looks as the `<img>` did,
-  on both themes, and that its links open.
-* **The lazily added editor bundle** awaits a check by hand on the live instance;
-  its CSP (`strict-dynamic`) should allow it.
-* **The Viewer shows a non-JSON failure body's first line** (#16); the editor already
-  says `Could not draw the diagram`.
-* **Named colours** (`#Red`) get no swatch, and picking a colour for a `#RRGGBBAA`
-  drops its alpha: the picker library writes `#rrggbb`.
-* **Trash-bin and share edge cases** (#13; a `.puml` in the trash, opened through a
-  share) are unexamined.
+* **What only a page shows.** The Behat leg sees HTTP, never a page: the
+  Viewer's lightbox, the editor's layout, highlighting, colour picker and change
+  watcher, and where a README's drawing lands are unit-tested and checked by
+  hand on the live instance.
+* **A hung check has no timeout.** A PROPFIND or GET that never answers holds
+  the editor's one file operation, so Save, Reload and Save as copy wait behind
+  it; closing still exits through its 10 s prompt.
+* **`@nextcloud/notify_push` costs ~20.6 kB gzip** (it brings axios) in the
+  editor bundle, and the live instance has no notify_push app, so only the poll
+  has run there. Keeping it is Dr K's call.
+* **Links in the diagram are hidden from screen readers.** The pane is one
+  `role="img"`, so its links can be tabbed to but are not announced.
+* **The Viewer and the README draw an `<img>`**, so a diagram's links work only
+  in the editor.
+* **The colour picker** gives a named colour (`#Red`) no swatch, and a pick
+  drops the alpha of `#RRGGBBAA` or `#RGBA`: the library writes `#rrggbb`.
+* **Creole `--strike--` and `~~wave~~` are not highlighted**; they read as the
+  links `--` and `~~`.
+* **A line ending in `[`**, as a JSON diagram's can, opens a `[ … ]` description,
+  so the lines after it are highlighted as Creole until a line starts with `]`.
+* **The first `<:` of a day waits ~9 s** while the server lists its emoji block
+  by block; after that the list is cached a day.
+* **While a `<<stereotype>>` is typed**, its first `<` briefly opens the Creole tag list.
+* **The README observer reads Text's DOM**, so a Text upgrade can break it with
+  no test noticing; the exit is an upstream Text hook for fences.
+
+Proposed, not agreed: a fit / 100% toggle for the diagram (editor spec L6);
+`skinparam` completion from the server's `skinparameters` (C5); a pane
+background that follows the theme, since dark PlantUML themes such as superhero
+leave the diagram transparent (D2); the inline SVG in the Viewer and the README;
+named colours in the picker; a diff of the two versions in the conflict state
+(`@codemirror/merge`). Two scenarios await Dr K: "Asking for the server's icons"
+and "Asking for the server's emoji".

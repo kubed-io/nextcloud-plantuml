@@ -192,7 +192,8 @@ is an error on the line it names: the render route passes on the server's
 It clears when a render comes back clean. Ctrl/Cmd+Shift+M lists them in a panel
 that Escape closes before it closes the editor.
 
-The right pane redraws 300 ms after typing stops. When the server cannot draw,
+The right pane redraws 300 ms after typing stops, drawing the SVG inline and
+sanitised, so a link in the diagram opens in a new tab. When the server cannot draw,
 the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)
 where the diagram was, and the source stays editable.
 
@@ -275,6 +276,8 @@ What the reviews deferred. None changes a scenario; each is work for a later rou
 * **Picking up a change made elsewhere** awaits a check by hand on the live
   instance; its notify_push path runs only where that app is installed, which
   the live instance is not.
+* **The editor's inline diagram** awaits a check by hand that it looks as the `<img>` did,
+  on both themes, and that its links open.
 * **The lazily added editor bundle** awaits a check by hand on the live instance;
   its CSP (`strict-dynamic`) should allow it.
 * **The Viewer shows a non-JSON failure body's first line** (#16); the editor already

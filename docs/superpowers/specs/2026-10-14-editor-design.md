@@ -92,7 +92,7 @@ raised or was offered, not yet agreed).
 
 | # | Requirement | Source | Status |
 |---|---|---|---|
-| D1 | `[[url label]]` links and `[[url{tooltip} label]]` render as real SVG links. The editor and the Viewer show the SVG as an `<img>`, so they cannot be clicked. Making them clickable means drawing a sanitised inline SVG. | Dr K asked | proposed |
+| D1 | `[[url label]]` links and `[[url{tooltip} label]]` render as real SVG links. The editor draws the server's SVG inline (`src/editor/inline-svg.js`): DOMPurify keeps SVG and its filters and drops scripts, `<style>`, `foreignObject` and handlers; a link keeps only an http, https or mailto address and opens in a new tab; nothing may load from outside (`url()` and `href` name the diagram's own ids or a `data:` image); ids are prefixed so two diagrams never clash. The Viewer and the README still show an `<img>`. | Dr K asked | shipped (this PR) |
 | D2 | Themes made for a dark page (superhero, cyborg, …) leave the background transparent, so their light text vanishes on our white pane. Either `skinparam backgroundColor` in the diagram, or a pane background that follows the theme. | Dr K hit it | proposed |
 
 ## Building blocks

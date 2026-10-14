@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * The editor's right pane: source text to an SVG through POST /render. The
+ * The editor's right pane: source text to SVG text through POST /render. The
  * route keeps core's CSRF check, so the request token rides along. A failure
  * rejects with the one line to show: the route's `{"problem": …}`, else one
  * fixed line, since anything else (a proxy's error page, an expired session)
@@ -16,13 +16,13 @@ const DELAY_MS = 300
 
 /**
  * @param {string} source
- * @return {Promise<Blob>} the SVG
+ * @return {Promise<string>} the SVG
  */
 export async function render(source) {
-  return (await request(source)).blob
+  return (await request(source)).svg
 }
 
-/** @return {Promise<{blob: Blob, mistake: {message: string, line: number}|null}>} */
+/** @return {Promise<{svg: string, mistake: {message: string, line: number}|null}>} */
 async function request(source) {
   const res = await fetch(OC.generateUrl(`/apps/${APP_ID}/render`), {
     method: 'POST',
@@ -31,7 +31,7 @@ async function request(source) {
     body: JSON.stringify({ source }),
   })
   if (res.ok && res.headers.get('Content-Type')?.startsWith('image/')) {
-    return { blob: await res.blob(), mistake: mistakeOf(res.headers) }
+    return { svg: await res.text(), mistake: mistakeOf(res.headers) }
   }
   const problem = res.ok ? '' : problemOf(await res.text())
   throw new Error(problem || t(APP_ID, 'Could not draw the diagram'))
@@ -62,7 +62,8 @@ let parked = null
 
 /**
  * Renders `source` once it has been still for 300 ms and calls
- * `cb(error, blob, mistake)`, `mistake` being `{message, line}` or null.
+ * `cb(error, svg, mistake)`, `svg` being the SVG's text and `mistake`
+ * `{message, line}` or null.
  *
  * One render at a time: each POST holds a PHP worker for as long as the
  * PlantUML server takes, so a burst of typing against a slow server must not
@@ -71,7 +72,7 @@ let parked = null
  * lands; that answer is then stale and dropped.
  *
  * @param {string} source
- * @param {(error: Error|null, blob?: Blob, mistake?: {message: string, line: number}|null) => void} cb
+ * @param {(error: Error|null, svg?: string, mistake?: {message: string, line: number}|null) => void} cb
  */
 export function debouncedRender(source, cb) {
   clearTimeout(timer)
@@ -91,15 +92,15 @@ function send(source, cb) {
   }
   inFlight = true
   request(source)
-    .then(({ blob, mistake }) => [null, blob, mistake], (error) => [error])
-    .then(([error, blob, mistake]) => {
+    .then(({ svg, mistake }) => [null, svg, mistake], (error) => [error])
+    .then(([error, svg, mistake]) => {
       inFlight = false
       if (parked) {
         const next = parked
         parked = null
         send(next.source, next.cb)
       } else {
-        cb(error, blob, mistake)
+        cb(error, svg, mistake)
       }
     })
 }

@@ -34,13 +34,10 @@ describe('render', () => {
     })
   })
 
-  it('resolves with the SVG', async () => {
+  it('resolves with the SVG\'s text, for the editor to draw inline', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => svg()))
 
-    const blob = await render('@startuml\n@enduml\n')
-
-    expect(blob.type).toBe('image/svg+xml')
-    expect(await blob.text()).toBe('<svg/>')
+    expect(await render('@startuml\n@enduml\n')).toBe('<svg/>')
   })
 
   it('rejects with the problem the render route names', async () => {
@@ -104,9 +101,9 @@ describe('a mistake in the diagram', () => {
     debouncedRender(source, cb)
     await vi.advanceTimersByTimeAsync(300)
 
-    const [error, blob, mistake] = cb.mock.calls[0]
+    const [error, svgText, mistake] = cb.mock.calls[0]
     expect(error).toBeNull()
-    expect(blob.type).toBe('image/svg+xml')
+    expect(svgText).toBe('<svg/>')
     expect(mistake.message).toBe('Syntax Error? (Assumed diagram type: sequence)')
     expect(source.split('\n')[mistake.line - 1]).toBe(BAD)
   })
@@ -126,9 +123,7 @@ describe('a mistake in the diagram', () => {
   it('still resolves render() with the image alone', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => mistaken('2')))
 
-    const blob = await render('@startuml\n@enduml\n')
-
-    expect(blob).toBeInstanceOf(Blob)
+    expect(await render('@startuml\n@enduml\n')).toBe('<svg/>')
   })
 })
 
@@ -153,7 +148,7 @@ describe('debouncedRender', () => {
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ source: 'abc' })
     expect(cb).toHaveBeenCalledTimes(1)
     expect(cb.mock.calls[0][0]).toBeNull()
-    expect(cb.mock.calls[0][1].type).toBe('image/svg+xml')
+    expect(cb.mock.calls[0][1]).toBe('<svg/>')
   })
 
   it('hands the problem to the callback', async () => {

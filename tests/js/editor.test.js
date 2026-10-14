@@ -50,6 +50,12 @@ const reloadButton = () => q('.plantuml-editor__reload')
 const copyButton = () => q('.plantuml-editor__copy')
 const refreshButton = () => q('.plantuml-editor__refresh')
 const source = () => EditorView.findFromDOM(q('.cm-editor')).state.doc.toString()
+const image = () => q('.plantuml-editor__image')
+// What PlantUML answers for a diagram with one link, cut down.
+const diagram = (label = 'docs') => '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"'
+  + ' style="width:120px;height:40px;background:#FFFFFF;" width="120px" height="40px" viewBox="0 0 120 40"'
+  + ` preserveAspectRatio="none"><a target="_top" href="https://example.com/docs" xlink:href="https://example.com/docs">`
+  + `<text x="5" y="20">${label}</text></a></svg>`
 
 beforeAll(async () => {
   window.OCA = {}
@@ -59,10 +65,9 @@ beforeAll(async () => {
 beforeEach(() => {
   vi.resetAllMocks()
   URL.createObjectURL = vi.fn(() => 'blob:diagram')
-  URL.revokeObjectURL = vi.fn()
-  seams.answer = { error: null, blob: new Blob(['<svg/>'], { type: 'image/svg+xml' }) }
+  seams.answer = { error: null, svg: diagram() }
   // The answer never lands inside the change that asked for it.
-  seams.debouncedRender.mockImplementation((_source, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.blob, seams.answer.mistake ?? null)))
+  seams.debouncedRender.mockImplementation((_source, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.svg, seams.answer.mistake ?? null)))
   seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
   // A test about changes elsewhere says what the file's ETag is; any other
   // test's checks fail, which the editor keeps to the debug console.
@@ -100,10 +105,51 @@ describe('the editor overlay', () => {
 
     expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml')
     expect(q('.cm-content').textContent).toContain('A -> B')
-    expect(q('.plantuml-editor__image').hidden).toBe(false)
-    expect(q('.plantuml-editor__image').src).toBe('blob:diagram')
+    expect(image().hidden).toBe(false)
+    expect(image().querySelector('svg').textContent).toBe('docs')
     expect(indicator()).toBe('saved')
     expect(q('#content').hasAttribute('inert')).toBe(true)
+  })
+
+  it('draws the diagram inline, named for a screen reader, its links opening in a new tab', async () => {
+    seams.answer.svg = diagram().replace('<text', '<script>alert(1)</script><text')
+    await open()
+
+    expect(image().getAttribute('role')).toBe('img')
+    expect(image().getAttribute('aria-label')).toBe('Order flow.puml')
+    expect(image().querySelectorAll('svg')).toHaveLength(1)
+    expect(image().querySelector('script')).toBeNull()
+    expect(image().querySelector('svg').getAttribute('preserveAspectRatio')).toBe('xMidYMid meet')
+    const link = image().querySelector('a')
+    expect(link.getAttribute('href')).toBe('https://example.com/docs')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('keeps the diagram on screen until the next one is drawn, then swaps it', async () => {
+    await open()
+    let answer
+    seams.debouncedRender.mockImplementation((_source, cb) => { answer = cb })
+
+    type("' edit\n")
+    expect(image().hidden).toBe(false)
+    expect(image().textContent).toBe('docs')
+
+    answer(null, diagram('changed'), null)
+    expect(image().querySelectorAll('svg')).toHaveLength(1)
+    expect(image().textContent).toBe('changed')
+  })
+
+  it('says it could not draw the diagram when the answer is no SVG', async () => {
+    await open()
+
+    seams.answer = { error: null, svg: '<html><body>Log in</body></html>' }
+    type("' edit\n")
+    await settle()
+
+    expect(q('.plantuml-editor__problem').textContent).toBe('Could not draw the diagram')
+    expect(q('.plantuml-editor__problem').hidden).toBe(false)
+    expect(image().hidden).toBe(true)
   })
 
   it('wraps long lines, so the source never scrolls sideways', async () => {
@@ -405,6 +451,7 @@ describe('after someone else changed the file', () => {
     expect(seams.emit).toHaveBeenCalledWith('files:node:created', copy)
     expect(q('.plantuml-editor__name').textContent).toBe('Order flow (copy).puml')
     expect(q('.plantuml-editor').getAttribute('aria-label')).toBe('Order flow (copy).puml')
+    expect(image().getAttribute('aria-label')).toBe('Order flow (copy).puml')
     expect(status()).toBe('')
     expect(indicator()).toBe('saved')
     expect(reloadButton().hidden).toBe(true)

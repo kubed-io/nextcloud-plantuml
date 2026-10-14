@@ -32,6 +32,7 @@ import { plantumlLint } from './editor/lint/index.js'
 import { fileName, setServerError } from './editor/lint/state.js'
 import { ConflictError, currentEtag, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
+import { toInlineSvg } from './editor/inline-svg.js'
 import { createAutosave } from './editor/autosave.js'
 import { createSplitter } from './editor/splitter.js'
 import { watchFile } from './editor/watch.js'
@@ -84,7 +85,8 @@ export function openEditor(node) {
   bar.append(icon, title, status, reloadButton, copyButton, refreshButton, saveButton, closeButton)
 
   const source = el('div', 'plantuml-editor__source', { id: 'plantuml-editor-source' })
-  const image = el('img', 'plantuml-editor__image', { alt: name, hidden: '' })
+  // The diagram is drawn inline, so its links work; to a screen reader it is one picture.
+  const image = el('div', 'plantuml-editor__image', { role: 'img', 'aria-label': name, hidden: '' })
   const problem = el('p', 'plantuml-editor__problem', { role: 'status', hidden: '' })
   const diagram = el('div', 'plantuml-editor__diagram')
   diagram.append(image, problem)
@@ -115,7 +117,6 @@ export function openEditor(node) {
   let watcher = null
   let closing = false
   let closed = false
-  let imageUrl = ''
   const nameConfig = new Compartment()
 
   const isDirty = () => view !== null && !view.state.doc.eq(saved)
@@ -235,7 +236,7 @@ export function openEditor(node) {
       queueMicrotask(() => { if (!closed) view.dispatch({ effects: setServerError.of(null) }) })
       return
     }
-    debouncedRender(text, (error, blob, mistake) => {
+    debouncedRender(text, (error, svgText, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
       }
@@ -244,15 +245,15 @@ export function openEditor(node) {
       if (text === view.state.doc.toString()) {
         view.dispatch({ effects: setServerError.of(error ? null : mistake) })
       }
-      if (error) {
-        problem.textContent = error.message
+      // Built before the old one goes, so the pane never flashes empty.
+      const svg = error ? null : toInlineSvg(svgText, { idPrefix: 'plantuml-editor-' })
+      if (!svg) {
+        problem.textContent = error ? error.message : t(APP_ID, 'Could not draw the diagram')
         problem.hidden = false
         image.hidden = true
         return
       }
-      URL.revokeObjectURL(imageUrl)
-      imageUrl = URL.createObjectURL(blob)
-      image.src = imageUrl
+      image.replaceChildren(svg)
       image.hidden = false
       problem.hidden = true
     })
@@ -350,8 +351,9 @@ export function openEditor(node) {
         const copy = await saveCopy(path, doc.toString())
         emit('files:node:created', copy.node)
         path = copy.node.path
-        title.textContent = image.alt = copy.node.basename
+        title.textContent = copy.node.basename
         overlay.setAttribute('aria-label', copy.node.basename)
+        image.setAttribute('aria-label', copy.node.basename)
         view.dispatch({ effects: nameConfig.reconfigure(fileName.of(copy.node.basename)) })
         etag = copy.etag
         markSaved(doc)
@@ -415,7 +417,6 @@ export function openEditor(node) {
     document.removeEventListener('keydown', onKeydown)
     window.removeEventListener('beforeunload', onBeforeUnload)
     view?.destroy()
-    URL.revokeObjectURL(imageUrl)
     overlay.remove()
     for (const sibling of inerted) {
       sibling.removeAttribute('inert')

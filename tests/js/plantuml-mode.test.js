@@ -4,7 +4,9 @@
 // The mode is read the way CodeMirror reads it: the language's parser runs over
 // a Text and each token is a named node in the tree.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
+import { EditorState, Text } from '@codemirror/state'
+import { toggleComment } from '@codemirror/commands'
+import { closeBrackets, insertBracket } from '@codemirror/autocomplete'
 import { plantumlMode } from '../../src/editor/plantuml-mode.js'
 
 /** [text, token class] for every highlighted span of `lines`. */
@@ -62,5 +64,23 @@ describe('plantumlMode', () => {
 
   it('keeps indentation out of a keyword', () => {
     expect(tokens('  note left of A')).toEqual([['note', 'keyword']])
+  })
+})
+
+describe('plantumlMode language data', () => {
+  const state = (doc) => EditorState.create({ doc, extensions: [plantumlMode, closeBrackets()] })
+
+  it("toggles a line comment with PlantUML's quote", () => {
+    let current = state('A -> B')
+    toggleComment({ state: current, dispatch: (tr) => { current = tr.state } })
+
+    expect(current.doc.toString()).toBe("' A -> B")
+  })
+
+  it('closes brackets and double quotes, but never the quote that starts a comment', () => {
+    for (const [open, pair] of [['(', '()'], ['[', '[]'], ['{', '{}'], ['"', '""']]) {
+      expect(insertBracket(state(''), open).state.doc.toString()).toBe(pair)
+    }
+    expect(insertBracket(state(''), "'")).toBeNull()
   })
 })

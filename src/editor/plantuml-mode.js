@@ -58,5 +58,7 @@ export const plantumlMode = StreamLanguage.define(simpleMode({
   languageData: {
     name: 'plantuml',
     commentTokens: { line: "'", block: { open: "/'", close: "'/" } },
+    // `'` starts a comment, so it is never paired.
+    closeBrackets: { brackets: ['(', '[', '{', '"'] },
   },
 }))

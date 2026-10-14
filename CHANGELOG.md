@@ -24,6 +24,7 @@ All notable changes to this project are documented here. The format follows
 - When someone else changed the file you are editing, Reload or Save as copy.
 - The editor saves by itself two seconds after you stop typing, and at least every 30 seconds while you keep going.
 - Autocomplete in the editor: `@start`/`@end` lines, keywords, the names the diagram already uses, and blocks such as `alt` and `loop` to fill in.
+- Editor conveniences: the current line highlighted, matching brackets outlined and closed as you type, Ctrl/Cmd+F to search, Ctrl/Cmd+/ to comment a line, Tab to indent.
 
 ### Changed
 

@@ -29,9 +29,13 @@ describe('the editor surface', () => {
   const declarations = Object.entries(surfaceRules)
     .flatMap(([selector, rule]) => Object.entries(rule).map(([property, value]) => [selector, property, value]))
 
-  it('styles the completion popup, its selected option, kinds and info', () => {
+  it.each([
+    ['the completion popup, its selected option, kinds and info', ['.cm-tooltip-autocomplete', 'li[aria-selected]', '.cm-completionIcon-keyword', '.cm-completionInfo']],
+    ['the active line and the matched bracket', ['.cm-activeLine', '.cm-activeLineGutter', '.cm-matchingBracket']],
+    ['the search panel and its matches', ['.cm-panels', '.cm-search', '.cm-searchMatch', '.cm-selectionMatch']],
+  ])('styles %s', (_what, parts) => {
     const selectors = Object.keys(surfaceRules).join('\n')
-    for (const part of ['.cm-tooltip-autocomplete', 'li[aria-selected]', '.cm-completionIcon-keyword', '.cm-completionInfo']) {
+    for (const part of parts) {
       expect(selectors).toContain(part)
     }
   })
@@ -41,7 +45,7 @@ describe('the editor surface', () => {
     expect(coloured.length).toBeGreaterThan(0)
     for (const [selector, property, value] of coloured) {
       expect(value, `${selector} ${property}`).not.toMatch(LITERAL)
-      if (!/^(?:transparent|none|0)$/.test(value)) {
+      if (!/^(?:transparent|none|inherit|0)$/.test(value)) {
         expect(value, `${selector} ${property}`).toMatch(/var\(--[a-z-]+/)
       }
     }

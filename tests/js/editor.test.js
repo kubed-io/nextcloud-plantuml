@@ -163,6 +163,53 @@ describe('Escape', () => {
     await settle()
     expect(q('.plantuml-editor')).toBeNull()
   })
+
+  it('closes the search panel first, and the editor only after', async () => {
+    await open()
+    const key = (target, init) => target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
+
+    key(q('.cm-content'), { key: 'f', ctrlKey: true })
+    expect(q('.cm-search')).not.toBeNull()
+
+    key(q('.cm-search input'), { key: 'Escape' })
+    expect(q('.cm-search')).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    escape()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+})
+
+describe('the source pane', () => {
+  const key = (init) => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+
+  it('marks the line the cursor is on, in the text and in the gutter', async () => {
+    await open()
+
+    expect(q('.cm-activeLine')).not.toBeNull()
+    expect(q('.cm-activeLineGutter')).not.toBeNull()
+  })
+
+  it('indents with Tab and toggles a comment with Ctrl+/', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: '@startuml\n'.length } })
+
+    key({ key: 'Tab' })
+    expect(source().split('\n')[1]).toBe('  A -> B')
+
+    key({ key: '/', ctrlKey: true })
+    expect(source().split('\n')[1]).toBe("  ' A -> B")
+  })
+
+  it('outlines the bracket matching the one at the cursor', async () => {
+    seams.loadFile.mockResolvedValue({ content: 'class A {\n}\n', etag: '"get"' })
+    await open()
+    view().dispatch({ selection: { anchor: 'class A {'.length } })
+
+    expect(q('.cm-matchingBracket')).not.toBeNull()
+  })
 })
 
 describe('after someone else changed the file', () => {

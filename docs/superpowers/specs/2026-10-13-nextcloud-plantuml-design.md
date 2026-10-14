@@ -265,6 +265,7 @@ unchanged.
 | The **+ New** entry | our own, opening the editor | a `TemplateFileCreator` — a second entry, and the new file opens in the Viewer (fact 10) |
 | Saving in the editor | by itself as Text does (Dr K, 2026-10-14): 2 s after the last change, at least every 30 s, stopped by a conflict; closing saves first | Save only — a long edit all at risk until a click; Text's 5 s session sync — there is no session to sync to |
 | Autocomplete | `@codemirror/autocomplete`, one source per file in `src/editor/completion/`, registered through the language's data facet so a source is a file and a line; Tab never accepts | one hand-written source with every rule in it — the pattern was the point (Dr K: "a pattern going for autocomplete that we can expand on") |
+| Editor conveniences | stock CodeMirror only: active line, bracket matching and closing (`'` is never paired, it starts a comment), search with its panel on top, selection matches, `toggleComment` from the mode's `commentTokens`, `indentWithTab`; all themed with Nextcloud variables | hand-rolled equivalents — CodeMirror ships each one |
 | The save indicator | Text's: one icon button, check when saved, a primary dot while not, core's `icon-loading-small` while saving, the time since the last save as its tooltip | a "Save" pill and status words — Dr K's terse-UI rule, a dot not a word |
 
 ## Rulings from Dr K (2026-10-13)

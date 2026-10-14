@@ -44,6 +44,42 @@ export const surfaceRules = {
     backgroundColor: 'var(--color-primary-element-light)',
   },
 
+  '.cm-activeLine': { backgroundColor: 'var(--color-background-hover)' },
+  '.cm-activeLineGutter': {
+    color: 'var(--color-main-text)',
+    backgroundColor: 'var(--color-background-dark)',
+  },
+  '&.cm-focused .cm-matchingBracket': {
+    backgroundColor: 'transparent',
+    outline: '1px solid var(--color-primary-element)',
+  },
+  '&.cm-focused .cm-nonmatchingBracket': {
+    backgroundColor: 'transparent',
+    outline: '1px solid var(--color-element-error, var(--color-error))',
+  },
+  '.cm-selectionMatch': { backgroundColor: 'var(--color-primary-element-light)' },
+  '.cm-searchMatch': {
+    backgroundColor: 'color-mix(in srgb, var(--color-element-warning) 35%, transparent)',
+    outline: 'none',
+  },
+  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--color-primary-element-light)' },
+
+  // The search panel, as a Nextcloud toolbar: its fields and buttons keep the
+  // page's own input and button styles.
+  '.cm-panels': {
+    color: 'var(--color-main-text)',
+    backgroundColor: 'var(--color-main-background)',
+  },
+  '.cm-panels.cm-panels-top': { borderBottom: '1px solid var(--color-border)' },
+  '.cm-panel.cm-search': { padding: '4px 40px 4px 16px' },
+  '.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': { margin: '2px 6px 2px 0', fontSize: 'inherit' },
+  '.cm-panel.cm-search [name=close]': {
+    top: '50%',
+    right: '8px',
+    transform: 'translateY(-50%)',
+    color: 'var(--color-text-maxcontrast)',
+  },
+
   // The completion popup, as Nextcloud draws a popover.
   '.cm-tooltip': {
     color: 'var(--color-main-text)',
@@ -51,9 +87,10 @@ export const surfaceRules = {
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--border-radius-large)',
     boxShadow: '0 1px 10px var(--color-box-shadow)',
-    overflow: 'hidden',
   },
+  // The list scrolls, so its own rounding keeps the selected row inside the corners.
   '.cm-tooltip.cm-tooltip-autocomplete > ul': {
+    borderRadius: 'inherit',
     fontFamily: 'var(--font-face-mono, monospace)',
     maxHeight: '16em',
   },

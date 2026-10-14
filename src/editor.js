@@ -13,8 +13,13 @@
  * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
  */
 import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import {
+  EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers,
+} from '@codemirror/view'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { bracketMatching } from '@codemirror/language'
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
+import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
@@ -281,8 +286,8 @@ export function openEditor(node) {
     opener?.focus?.()
   }
 
-  // CodeMirror marks an Escape it used (closing the completion popup, dropping
-  // a multi-selection) as handled.
+  // CodeMirror marks an Escape it used (closing the completion popup or the
+  // search panel, dropping a multi-selection) as handled.
   function onKeydown(event) {
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
@@ -315,12 +320,28 @@ export function openEditor(node) {
         doc: content,
         extensions: [
           lineNumbers(),
+          highlightActiveLineGutter(),
+          highlightActiveLine(),
+          drawSelection(),
+          bracketMatching(),
+          closeBrackets(),
+          highlightSelectionMatches(),
+          search({ top: true }),
           history(),
           plantumlMode,
           plantumlCompletion,
           plantumlTheme,
-          // Mod-s would otherwise be the browser's "Save page as".
-          keymap.of([{ key: 'Mod-s', run: () => { save(); return true } }, ...defaultKeymap, ...historyKeymap]),
+          // Mod-s would otherwise be the browser's "Save page as". defaultKeymap
+          // carries Mod-/ for comments; Ctrl-M (Shift-Alt-M on macOS) makes Tab
+          // move focus again instead of indenting.
+          keymap.of([
+            { key: 'Mod-s', run: () => { save(); return true } },
+            ...closeBracketsKeymap,
+            ...defaultKeymap,
+            ...searchKeymap,
+            ...historyKeymap,
+            indentWithTab,
+          ]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               failure = ''

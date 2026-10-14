@@ -44,7 +44,8 @@ export const surfaceRules = {
   // On .cm-content itself: core's server.css styles every div[contenteditable]
   // as a form input (border, radius, margin, font, pointer), and files_bpm sets
   // color: #000 on it; inherited values from '&' lose to both.
-  '.cm-content, .cm-content:hover, .cm-content:focus, .cm-content:active': {
+  // div.* matches core's div[contenteditable=true]:not(:disabled):hover (0,3,1).
+  'div.cm-content, div.cm-content:not(:disabled):hover, div.cm-content:not(:disabled):focus, div.cm-content:not(:disabled):active': {
     color: 'var(--color-main-text)',
     backgroundColor: 'transparent',
     caretColor: 'var(--color-main-text)',
@@ -55,8 +56,10 @@ export const surfaceRules = {
     margin: '0',
     cursor: 'text',
     fontFamily: MONO,
+    // Core fixes width: 130px and its UI font size; the content must grow to its longest line.
+    width: 'auto',
+    fontSize: 'inherit',
   },
-  '.cm-scroller': { fontFamily: MONO },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--color-main-text)' },
   // Primary at a third: --color-primary-element-light is near-black navy on the dark theme.
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {

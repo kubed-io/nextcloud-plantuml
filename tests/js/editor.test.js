@@ -523,6 +523,43 @@ describe('closing', () => {
     expect(q('.plantuml-editor')).toBeNull()
   })
 
+  it('sends nothing after a discard, when the hanging save later fails', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const hung = deferred()
+    seams.saveFile.mockReturnValueOnce(hung.promise)
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(q('.plantuml-editor')).toBeNull()
+
+    hung.reject(new Error('504'))
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends nothing after a discard, when the hanging save later lands with an edit typed meanwhile', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const hung = deferred()
+    seams.saveFile.mockReturnValueOnce(hung.promise)
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await vi.advanceTimersByTimeAsync(5000)
+    type("' late\n")
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(q('.plantuml-editor')).toBeNull()
+
+    hung.resolve('"late"')
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+
   it('waits for a save already in flight, then closes without another', async () => {
     await open()
     const pending = deferred()

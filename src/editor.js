@@ -196,7 +196,8 @@ export function openEditor(node) {
   }
 
   async function save() {
-    if (!isDirty()) {
+    // Once closed, a discard was chosen: a hanging save that settles late writes nothing more.
+    if (closed || !isDirty()) {
       return
     }
     await exclusively(async () => {
@@ -268,6 +269,9 @@ export function openEditor(node) {
       while (!gaveUp && isDirty() && !conflict && !failure) {
         while (running) {
           await running
+        }
+        if (gaveUp || conflict || failure) {
+          break
         }
         await autosave.flush()
       }

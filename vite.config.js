@@ -18,12 +18,23 @@
  * `js/<file>.js` to the app root, so the `../dist/` prefix walks back out of
  * `js/`. The files bundle adds the editor's `<script>` itself, on first use.
  * `emptyOutDir` is off because the three builds share `dist/`.
+ *
+ * The editor builds first so the files build can stamp a hash of it into the
+ * editor's URL: Nextcloud's `?v=` changes only with the app version, and the
+ * server caches app scripts for six months.
  */
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 
 const entry = process.env.ENTRY || 'files'
 
+const editorHash = entry === 'files'
+  ? createHash('sha256').update(readFileSync('dist/plantuml-editor.js')).digest('hex').slice(0, 12)
+  : ''
+
 export default defineConfig({
+  define: { __PLANTUML_EDITOR_HASH__: JSON.stringify(editorHash) },
   build: {
     outDir: 'dist',
     emptyOutDir: false,

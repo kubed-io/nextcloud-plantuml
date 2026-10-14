@@ -44,6 +44,11 @@ describe('editorBundleUrl', () => {
     expect(editorBundleUrl()).toBe('/custom_apps/plantuml/dist/plantuml-editor.js')
   })
 
+  it('adds the editor build hash after the version query', () => {
+    expect(editorBundleUrl('?v=1a2b3c', 'f00d')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c&h=f00d')
+    expect(editorBundleUrl('', 'f00d')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?h=f00d')
+  })
+
   it('carries the version query it is given', () => {
     expect(editorBundleUrl('?v=1a2b3c')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c')
   })

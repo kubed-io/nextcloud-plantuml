@@ -58,7 +58,9 @@ function ensureEditor() {
   }
   editorLoading ??= new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = editorBundleUrl(bundleQuery)
+    // Replaced at build time (vite.config.js); absent under vitest.
+    // eslint-disable-next-line no-undef
+    script.src = editorBundleUrl(bundleQuery, typeof __PLANTUML_EDITOR_HASH__ === 'string' ? __PLANTUML_EDITOR_HASH__ : '')
     const fail = (message) => {
       script.remove()
       editorLoading = null

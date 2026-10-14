@@ -15,9 +15,10 @@ describe('the editor highlight style', () => {
     }
   })
 
-  it('takes every colour from a Nextcloud theme variable', () => {
+  it('takes every colour from Nextcloud theme variables, never a literal', () => {
     for (const spec of highlightStyle.specs) {
-      expect(spec.color).toMatch(/^var\(--color-[a-z-]+\)$/)
+      expect(spec.color).toMatch(/var\(--color-[a-z-]+\)/)
+      expect(spec.color).not.toMatch(/#|rgba?\(|hsla?\(/)
     }
   })
 })

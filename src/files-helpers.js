@@ -45,11 +45,14 @@ export function renderUrl(path) {
 /**
  * The editor bundle, which files.js adds to the page the first time it is needed.
  * `query` is the `?v=…` Nextcloud put on the Files bundle: without it the server
- * caches the file for months and an upgrade never reaches the browser.
+ * caches the file for months and an upgrade never reaches the browser. `hash` is
+ * the editor build's own, since `v` changes only with the app version.
  *
  * @param {string} [query]
+ * @param {string} [hash]
  * @return {string}
  */
-export function editorBundleUrl(query = '') {
-  return generateFilePath(APP_ID, 'dist', `${APP_ID}-editor.js`) + query
+export function editorBundleUrl(query = '', hash = '') {
+  const url = generateFilePath(APP_ID, 'dist', `${APP_ID}-editor.js`) + query
+  return hash ? `${url}${query ? '&' : '?'}h=${hash}` : url
 }

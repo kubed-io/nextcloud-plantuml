@@ -141,8 +141,10 @@ state before that, which the step reaches by never sending the PUT.
 The indicator is Text's: one icon button, a check when the file holds the
 source, a dot on the check while it does not, a spinner while a save is in
 flight; its tooltip says when the last save was. Clicking it, or Ctrl/Cmd+S,
-saves at once. Closing saves first and stays open when that save does not land;
-leaving the page with unsaved changes gets the browser's own prompt.
+saves at once. Closing saves first. A refused save keeps the editor open on the
+conflict line; a save that fails, or still hangs after 10 s, asks before
+discarding rather than trapping the user (a read-only share, a full quota).
+Leaving the page with unsaved changes gets the browser's own prompt.
 
 A SAVE NEVER OVERWRITES SOMEONE ELSE'S CHANGE. The editor reads the file over
 WebDAV with its ETag and writes it back with `If-Match`; a file changed in the

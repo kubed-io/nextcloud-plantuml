@@ -60,6 +60,15 @@ describe('keywords', () => {
 
   it('offers nothing past the first word of a line', () => {
     expect(complete(keywords, 'A -> part|')).toBeNull()
+    expect(complete(keywords, 'participant Al|')).toBeNull()
+  })
+
+  it('keeps offering a two-word keyword after its space', () => {
+    const result = complete(keywords, '  end f|')
+
+    expect(result.from).toBe(2)
+    expect(labels(result)).toContain('end fork')
+    expect(result.validFor.test('end fo')).toBe(true)
   })
 
   it('waits for a letter on an empty line unless asked', () => {
@@ -90,6 +99,17 @@ describe('names', () => {
   it('does not offer the word being typed back as a name', () => {
     expect(labels(complete(names, diagram + 'Wanderer -> Cus|'))).not.toContain('Cus')
     expect(labels(complete(names, 'Cus| -> Shop'))).not.toContain('Cus')
+  })
+
+  it('still reads the arrow on the line being typed', () => {
+    expect(labels(complete(names, 'Cus| -> Shop'))).toContain('Shop')
+    expect(labels(complete(names, 'Shop -> Cus|'))).toContain('Shop')
+  })
+
+  it('offers nothing after an @ directive, inside a string, or in an arrow message', () => {
+    expect(complete(names, diagram + '@start|')).toBeNull()
+    expect(complete(names, diagram + 'participant "Cus|')).toBeNull()
+    expect(complete(names, diagram + 'Customer -> Shop : order Cus|')).toBeNull()
   })
 
   it('offers anywhere on a line, and nothing in a comment', () => {

@@ -33,6 +33,8 @@ describe('the editor surface', () => {
     ['the completion popup, its selected option, kinds and info', ['.cm-tooltip-autocomplete', 'li[aria-selected]', '.cm-completionIcon-keyword', '.cm-completionInfo']],
     ['the active line and the matched bracket', ['.cm-activeLine', '.cm-activeLineGutter', '.cm-matchingBracket']],
     ['the search panel and its matches', ['.cm-panels', '.cm-search', '.cm-searchMatch', '.cm-selectionMatch']],
+    ["the search panel's field and buttons", ['.cm-textfield', '.cm-button', '.cm-button:active', '[name=close]']],
+    ['snippet fields and a disabled popup', ['.cm-snippetField', '.cm-snippetFieldPosition', '.cm-tooltip-autocomplete-disabled']],
   ])('styles %s', (_what, parts) => {
     const selectors = Object.keys(surfaceRules).join('\n')
     for (const part of parts) {
@@ -41,7 +43,7 @@ describe('the editor surface', () => {
   })
 
   it('takes every colour from Nextcloud theme variables, never a literal', () => {
-    const coloured = declarations.filter(([, property]) => /color|background|border|shadow|outline/i.test(property))
+    const coloured = declarations.filter(([, property]) => /color|background|shadow|outline|^border(?!Radius)/i.test(property))
     expect(coloured.length).toBeGreaterThan(0)
     for (const [selector, property, value] of coloured) {
       expect(value, `${selector} ${property}`).not.toMatch(LITERAL)

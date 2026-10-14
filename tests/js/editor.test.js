@@ -440,6 +440,10 @@ describe('the save indicator', () => {
     expect(saveButton().title).toBe('Saved 1 min ago')
     await vi.advanceTimersByTimeAsync(4 * 60000)
     expect(saveButton().title).toBe('Saved 5 min ago')
+    await vi.advanceTimersByTimeAsync(55 * 60000)
+    expect(saveButton().title).toBe('Saved 1 h ago')
+    await vi.advanceTimersByTimeAsync(2 * 60 * 60000)
+    expect(saveButton().title).toBe('Saved 3 h ago')
   })
 
   it('saves at once on Ctrl+S', async () => {
@@ -481,17 +485,92 @@ describe('closing', () => {
     expect(source()).toContain("' edit")
   })
 
-  it('stays open and says so when that save fails', async () => {
+  it('asks before discarding when that save fails, and on a later close asks without saving again', async () => {
     await open()
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
     type("' edit\n")
-    seams.saveFile.mockRejectedValueOnce(new Error('503'))
+    seams.saveFile.mockRejectedValueOnce(new Error('403'))
 
     q('.plantuml-editor__close').click()
     await settle()
-
+    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
     expect(q('.plantuml-editor')).not.toBeNull()
     expect(status()).toBe('Could not save the file')
+
+    window.confirm.mockReturnValue(true)
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(window.confirm).toHaveBeenCalledTimes(2)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('asks before discarding when the save is still hanging after ten seconds', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    type("' edit\n")
+    seams.saveFile.mockReturnValueOnce(new Promise(() => {}))
+
+    q('.plantuml-editor__close').click()
+    await vi.advanceTimersByTimeAsync(9999)
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('waits for a save already in flight, then closes without another', async () => {
+    await open()
+    const pending = deferred()
+    seams.saveFile.mockReturnValueOnce(pending.promise)
+    type("' edit\n")
+    saveButton().click()
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    pending.resolve('"put"')
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('saves a change typed while it was saving, then closes', async () => {
+    await open()
+    const first = deferred()
+    seams.saveFile.mockReturnValueOnce(first.promise).mockResolvedValueOnce('"second"')
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    type("' late\n")
+    first.resolve('"first"')
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledTimes(2)
+    expect(seams.saveFile).toHaveBeenLastCalledWith('/Diagrams/Order flow.puml', expect.stringContaining("' late"), '"first"')
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('saves nothing once closed', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    seams.saveFile.mockRejectedValueOnce(new Error('503'))
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(120000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
   })
 
   it('has the browser ask before leaving the page with unsaved changes', async () => {

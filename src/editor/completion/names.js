@@ -4,20 +4,28 @@
  *
  * The names the diagram already uses, offered wherever a word is typed:
  * each declared participant or element (its alias, when it has one) and both
- * ends of every arrow, found with the grammar's own arrow.
+ * ends of every arrow, found with the grammar's own arrow. Not in a comment,
+ * a directive, a string or an arrow's message, where a name is not wanted.
  */
 import { arrow } from '../plantuml-mode.js'
 import { PARTICIPANTS, STRUCTURES } from './keywords.js'
 
 const kinds = [...PARTICIPANTS, ...STRUCTURES].map((kind) => (kind === 'abstract' ? 'abstract(?:[ \\t]+class)?' : kind))
-const DECLARATION = new RegExp(`^[ \\t]*(?:${kinds.join('|')})[ \\t]+(?:"[^"]*"|(\\w+))(?:[ \\t]+as[ \\t]+(\\w+))?`, 'gm')
-const ARROW = new RegExp(`^[ \\t]*(\\w+)[ \\t]*${arrow.source}[ \\t]*(\\w+)?`, 'gm')
+// `d` for each name's offset, so the word being typed can be told apart.
+const DECLARATION = new RegExp(`^[ \\t]*(?:${kinds.join('|')})[ \\t]+(?:"[^"]*"|(\\w+))(?:[ \\t]+as[ \\t]+(\\w+))?`, 'gmd')
+const ARROW = new RegExp(`^[ \\t]*(\\w+)[ \\t]*${arrow.source}[ \\t]*(\\w+)?`, 'gmd')
+const MESSAGE = new RegExp(`${arrow.source}[^:]*:`)
+
+/** Where a name is not wanted: a comment, a directive, a string, a message. */
+function unwanted(lineBefore) {
+  return /^\s*['@]/.test(lineBefore) || lineBefore.split('"').length % 2 === 0 || MESSAGE.test(lineBefore)
+}
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function names(context) {
   const { state, pos } = context
   const line = state.doc.lineAt(pos)
-  if (/^\s*'/.test(line.text)) {
+  if (unwanted(state.sliceDoc(line.from, pos))) {
     return null
   }
   const before = context.matchBefore(/\w+/)
@@ -25,17 +33,21 @@ export function names(context) {
     return null
   }
   const from = before?.from ?? pos
-  // The word under the cursor is left out, or every half-typed name offers itself.
-  const to = pos + /^\w*/.exec(state.sliceDoc(pos, line.to))[0].length
-  const text = state.sliceDoc(0, from) + state.sliceDoc(to)
 
+  // The word under the cursor is skipped, or every half-typed name offers itself.
   const found = new Set()
-  for (const [, name, alias] of text.matchAll(DECLARATION)) {
-    found.add(alias ?? name)
+  const add = (match, group) => {
+    if (match[group] !== undefined && match.indices[group][0] !== from) {
+      found.add(match[group])
+    }
   }
-  for (const [, left, right] of text.matchAll(ARROW)) {
-    found.add(left).add(right)
+  const text = state.doc.toString()
+  for (const match of text.matchAll(DECLARATION)) {
+    add(match, match[2] === undefined ? 1 : 2)
   }
-  found.delete(undefined)
+  for (const match of text.matchAll(ARROW)) {
+    add(match, 1)
+    add(match, 2)
+  }
   return { from, options: [...found].map((label) => ({ label, type: 'variable' })), validFor: /^\w*$/ }
 }

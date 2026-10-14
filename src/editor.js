@@ -36,6 +36,7 @@ import checkIcon from '../img/icons/check.svg?raw'
 const IDLE_MS = 2000
 const MAX_WAIT_MS = 30000
 const MINUTE = 60000
+const CLOSE_WAIT_MS = 10000
 
 function el(tag, className, attrs = {}) {
   const node = document.createElement(tag)
@@ -109,7 +110,12 @@ export function openEditor(node) {
       return t(APP_ID, 'Saved')
     }
     const minutes = Math.floor((Date.now() - savedAt) / MINUTE)
-    return minutes < 1 ? t(APP_ID, 'Saved just now') : n(APP_ID, 'Saved %n min ago', 'Saved %n min ago', minutes)
+    if (minutes < 1) {
+      return t(APP_ID, 'Saved just now')
+    }
+    return minutes < 60
+      ? n(APP_ID, 'Saved %n min ago', 'Saved %n min ago', minutes)
+      : n(APP_ID, 'Saved %n h ago', 'Saved %n h ago', Math.floor(minutes / 60))
   }
 
   function showButtons() {
@@ -251,25 +257,46 @@ export function openEditor(node) {
     })
   }
 
-  /** Saves first; in a conflict, or when that save does not land, nothing is lost. */
+  /**
+   * Saves until the file holds the source, including a change typed meanwhile,
+   * or until a save does not land, or CLOSE_WAIT_MS pass with one hanging.
+   */
+  function saveBeforeClose() {
+    let timer
+    let gaveUp = false
+    const saving = (async () => {
+      while (!gaveUp && isDirty() && !conflict && !failure) {
+        while (running) {
+          await running
+        }
+        await autosave.flush()
+      }
+    })()
+    const timeout = new Promise((resolve) => {
+      timer = setTimeout(() => { gaveUp = true; resolve() }, CLOSE_WAIT_MS)
+    })
+    return Promise.race([saving, timeout]).finally(() => clearTimeout(timer))
+  }
+
+  /**
+   * Saves first. A refused save stays open on the conflict line, whose buttons
+   * are the way out; a save that cannot land (a read-only share, a full quota,
+   * an outage) asks before discarding instead of trapping the user.
+   */
   async function close() {
     if (closing) {
       return
     }
-    if (conflict) {
-      if (isDirty() && !window.confirm(t(APP_ID, 'Discard unsaved changes?'))) {
-        return
-      }
-    } else if (isDirty()) {
+    if (isDirty() && !conflict && !failure) {
       closing = true
-      while (running) {
-        await running
-      }
-      await autosave.flush()
+      await saveBeforeClose()
       closing = false
-      if (isDirty()) {
+      if (conflict) {
         return
       }
+    }
+    if (isDirty() && !window.confirm(t(APP_ID, 'Discard unsaved changes?'))) {
+      return
     }
     closed = true
     autosave.cancel()

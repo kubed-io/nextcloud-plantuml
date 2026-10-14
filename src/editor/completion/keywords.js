@@ -25,18 +25,24 @@ const DETAILS = {
   skinparam: 'style',
 }
 
-const options = [...new Set([...PARTICIPANTS, ...STRUCTURES, ...SEQUENCE, ...ACTIVITY])]
-  .map((label) => ({ label, type: 'keyword', ...(DETAILS[label] && { detail: DETAILS[label] }) }))
+const labels = [...new Set([...PARTICIPANTS, ...STRUCTURES, ...SEQUENCE, ...ACTIVITY])]
+const options = labels.map((label) => ({ label, type: 'keyword', ...(DETAILS[label] && { detail: DETAILS[label] }) }))
+
+/** The first words of the keywords that have a second, such as `end fork`. */
+const TWO_WORD = new Set(labels.filter((label) => label.includes(' ')).map((label) => label.split(' ')[0]))
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function keywords(context) {
-  const typed = context.matchBefore(/^\s*\w*/)
+  const typed = context.matchBefore(/^\s*(?:\w+ )?\w*/)
   if (!typed) {
     return null
   }
-  const from = typed.to - typed.text.trimStart().length
-  if (from === typed.to && !context.explicit) {
+  const word = typed.text.trimStart()
+  if (word.includes(' ') && !TWO_WORD.has(word.split(' ')[0])) {
     return null
   }
-  return { from, options, validFor: /^\w*$/ }
+  if (!word && !context.explicit) {
+    return null
+  }
+  return { from: typed.to - word.length, options, validFor: /^\w*(?: \w*)?$/ }
 }

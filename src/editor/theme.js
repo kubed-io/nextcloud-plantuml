@@ -29,7 +29,13 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.comment, color: 'var(--color-text-maxcontrast)', fontStyle: 'italic' },
 ])
 
-/** Over CodeMirror's base theme, which assumes a white page; each rule there has one here. */
+/** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */
+const tint = (percent) => `color-mix(in srgb, var(--color-main-text) ${percent}%, transparent)`
+
+/**
+ * Over CodeMirror's base theme, which assumes a white page, wherever the editor
+ * shows its colours; and over core's input and button rules, which reach in.
+ */
 export const surfaceRules = {
   '&': {
     color: 'var(--color-main-text)',
@@ -56,10 +62,10 @@ export const surfaceRules = {
     backgroundColor: 'var(--color-primary-element-light)',
   },
 
-  '.cm-activeLine': { backgroundColor: 'var(--color-background-hover)' },
+  '.cm-activeLine': { backgroundColor: tint(6) },
   '.cm-activeLineGutter': {
     color: 'var(--color-main-text)',
-    backgroundColor: 'var(--color-background-dark)',
+    backgroundColor: tint(10),
   },
   '&.cm-focused .cm-matchingBracket': {
     backgroundColor: 'transparent',
@@ -69,15 +75,23 @@ export const surfaceRules = {
     backgroundColor: 'transparent',
     outline: '1px solid var(--color-element-error, var(--color-error))',
   },
-  '.cm-selectionMatch': { backgroundColor: 'var(--color-primary-element-light)' },
+  // Marks paint over the selection: the other matches are outlined, the selected one left to it.
+  '.cm-selectionMatch': {
+    backgroundColor: 'color-mix(in srgb, var(--color-primary-element) 12%, transparent)',
+    outline: '1px solid color-mix(in srgb, var(--color-primary-element) 50%, transparent)',
+  },
+  '.cm-selectionMatch.cm-selectionMatch-main': { backgroundColor: 'transparent', outline: 'none' },
+  '.cm-snippetField': { backgroundColor: tint(12) },
+  '.cm-snippetFieldPosition': { borderLeft: '1.4px dotted var(--color-text-maxcontrast)' },
   '.cm-searchMatch': {
     backgroundColor: 'color-mix(in srgb, var(--color-element-warning) 35%, transparent)',
     outline: 'none',
   },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--color-primary-element-light)' },
 
-  // The search panel, as a Nextcloud toolbar: its fields and buttons keep the
-  // page's own input and button styles.
+  // The search panel, as a Nextcloud toolbar. The base theme's white field and
+  // grey gradient outrank core's input and button rules; '& .cm-panel.cm-search'
+  // outranks both, and core's :hover too.
   '.cm-panels': {
     color: 'var(--color-main-text)',
     backgroundColor: 'var(--color-main-background)',
@@ -85,11 +99,43 @@ export const surfaceRules = {
   '.cm-panels.cm-panels-top': { borderBottom: '1px solid var(--color-border)' },
   '.cm-panel.cm-search': { padding: '4px 40px 4px 16px' },
   '.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': { margin: '2px 6px 2px 0', fontSize: 'inherit' },
-  '.cm-panel.cm-search [name=close]': {
+  '& .cm-panel.cm-search .cm-textfield': {
+    minHeight: 'var(--default-clickable-area)',
+    padding: '0 12px',
+    color: 'var(--color-main-text)',
+    backgroundColor: 'var(--color-main-background)',
+    border: '2px solid var(--color-border-maxcontrast)',
+    borderRadius: 'var(--border-radius-large)',
+  },
+  '& .cm-panel.cm-search .cm-textfield:focus': { borderColor: 'var(--color-main-text)' },
+  '& .cm-panel.cm-search .cm-button, & .cm-panel.cm-search .cm-button:active': {
+    minHeight: 'var(--default-clickable-area)',
+    padding: '0 14px',
+    color: 'var(--color-primary-element-light-text)',
+    backgroundColor: 'var(--color-primary-element-light)',
+    backgroundImage: 'none',
+    border: 'none',
+    borderRadius: 'var(--border-radius-element, var(--border-radius-large))',
+    fontWeight: 'bold',
+  },
+  '& .cm-panel.cm-search .cm-button:hover': { backgroundColor: 'var(--color-primary-element-light-hover)' },
+  '& .cm-panel.cm-search [name=close]': {
     top: '50%',
     right: '8px',
+    width: 'var(--default-clickable-area)',
+    height: 'var(--default-clickable-area)',
+    minHeight: '0',
+    padding: '0',
     transform: 'translateY(-50%)',
     color: 'var(--color-text-maxcontrast)',
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: '50%',
+    fontSize: '20px',
+  },
+  '& .cm-panel.cm-search [name=close]:hover': {
+    color: 'var(--color-main-text)',
+    backgroundColor: 'var(--color-background-hover)',
   },
 
   // The completion popup, as Nextcloud draws a popover.
@@ -113,6 +159,10 @@ export const surfaceRules = {
   '.cm-tooltip-autocomplete ul li[aria-selected]': {
     color: 'var(--color-primary-element-light-text)',
     backgroundColor: 'var(--color-primary-element-light)',
+  },
+  '.cm-tooltip-autocomplete-disabled ul li[aria-selected]': {
+    color: 'var(--color-text-maxcontrast)',
+    backgroundColor: 'var(--color-background-dark)',
   },
   '.cm-completionMatchedText': {
     textDecoration: 'none',

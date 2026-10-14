@@ -4,8 +4,8 @@
  *
  * The tab strip over the diagram, one tab per diagram of the file: a WAI-ARIA
  * tablist with manual activation. The arrow keys, Home and End move the focus,
- * a click (which Enter and Space on a button are) activates; only the active tab is in the Tab order.
- * With one diagram it is hidden.
+ * a click (which Enter and Space on a button are) activates; only the active
+ * tab is in the Tab order. With one diagram it is hidden.
  */
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../files-helpers.js'

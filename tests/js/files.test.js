@@ -132,7 +132,10 @@ describe('Edit diagram', () => {
   })
 
   // A Files bundle cached from before the editor was a module adds it as a
-  // classic script: the `import` is a syntax error, yet the tag still fires load.
+  // classic script: the bundle's trailing `export` is a syntax error there, yet
+  // the tag still fires load. That the whole script fails matters: run as a
+  // classic script, its minified top-level vars would clobber Nextcloud's global
+  // t and n.
   it('opens the Viewer when an old Files bundle runs the module editor as a classic script', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 

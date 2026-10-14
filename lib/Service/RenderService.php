@@ -29,6 +29,7 @@ final class RenderService {
 	private const THEMES_DIAGRAM = "@startuml\nhelp themes\n@enduml\n";
 	private const THEMES_MARKER = 'The possible themes are';
 	private const THEMES_TTL = 86400;
+	private const THEMES_MAX = 200;
 	/** The error rides out as a response header, so it stays one short line. */
 	private const ERROR_MAX = 200;
 
@@ -82,8 +83,14 @@ final class RenderService {
 		$body = (string)$response->getBody();
 		$at = strpos($body, self::THEMES_MARKER);
 		$list = $at === false ? '' : substr($body, $at + strlen(self::THEMES_MARKER));
-		$themes = preg_split('/\s+/', trim(ltrim(trim($list), ':')), -1, PREG_SPLIT_NO_EMPTY);
-		if ($themes === false || $themes === []) {
+		$tokens = preg_split('/\s+/', trim(ltrim(trim($list), ':')), -1, PREG_SPLIT_NO_EMPTY);
+		// Only what looks like a theme name, and a sane number of them: anything a
+		// later server prints after the list must not become a theme.
+		$themes = array_slice(array_values(array_filter(
+			$tokens === false ? [] : $tokens,
+			static fn (string $token): bool => preg_match('/^[\w-]{1,64}$/', $token) === 1,
+		)), 0, self::THEMES_MAX);
+		if ($themes === []) {
 			throw $this->notPlantUml('txt answered help themes without a list of themes');
 		}
 		$cache->set($key, $themes, self::THEMES_TTL);

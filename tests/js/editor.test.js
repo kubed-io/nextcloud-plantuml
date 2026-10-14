@@ -178,6 +178,12 @@ describe('Escape', () => {
     expect(q('.cm-panel-lint')).toBeNull()
     expect(q('.plantuml-editor')).not.toBeNull()
 
+    // Escape typed in the source closes an open panel too, not the editor.
+    key(q('.cm-content'), { key: 'M', keyCode: 77, ctrlKey: true, shiftKey: true })
+    key(q('.cm-content'), { key: 'Escape', keyCode: 27 })
+    expect(q('.cm-panel-lint')).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
     escape()
     await settle()
     expect(q('.plantuml-editor')).toBeNull()

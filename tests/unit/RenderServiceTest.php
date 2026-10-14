@@ -236,6 +236,16 @@ final class RenderServiceTest extends TestCase {
 		self::assertNotContains(':', $themes);
 	}
 
+	public function testThemesKeepOnlyNamesNotTextAfterTheList(): void {
+		$body = self::helpThemes() . "\n\nSee https://plantuml.com/theme (more soon!)\n" . str_repeat('x', 80) . "\n";
+		$themes = $this->service($this->clientAnswering($this->response(200, $body)))->themes();
+
+		self::assertCount(45, $themes); // the 44, and the one bare word "See"
+		self::assertNotContains('https://plantuml.com/theme', $themes);
+		self::assertNotContains('(more', $themes);
+		self::assertNotContains(str_repeat('x', 80), $themes);
+	}
+
 	public function testThemesAreAskedOncePerServerForADay(): void {
 		$client = $this->createMock(IClient::class);
 		$client->expects(self::exactly(2))->method('post')->willReturn($this->response(200, self::helpThemes()));

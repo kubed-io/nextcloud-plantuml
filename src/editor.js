@@ -20,7 +20,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { bracketMatching } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
-import { lintKeymap } from '@codemirror/lint'
+import { closeLintPanel, lintKeymap } from '@codemirror/lint'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
@@ -188,7 +188,10 @@ export function openEditor(node) {
         return
       }
       // A server problem is no mistake in the source: the pane says what it is.
-      view.dispatch({ effects: setServerError.of(error ? null : mistake) })
+      // An answer for an older source leaves the mapped mark to the render on its way.
+      if (text === view.state.doc.toString()) {
+        view.dispatch({ effects: setServerError.of(error ? null : mistake) })
+      }
       if (error) {
         problem.textContent = error.message
         problem.hidden = false
@@ -384,6 +387,8 @@ export function openEditor(node) {
             ...searchKeymap,
             ...historyKeymap,
             ...lintKeymap,
+            // An open diagnostics panel takes Escape before the editor does.
+            { key: 'Escape', run: closeLintPanel },
             indentWithTab,
           ]),
           EditorView.updateListener.of((update) => {

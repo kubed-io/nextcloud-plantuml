@@ -24,7 +24,6 @@ export function diagramName(file) {
 
 /** @param {import('@codemirror/state').EditorState} state */
 export function unnamedStart(state) {
-  const name = diagramName(state.facet(fileName))
   const found = []
   for (let n = 1; n <= state.doc.lines; n++) {
     const line = state.doc.line(n)
@@ -41,7 +40,9 @@ export function unnamedStart(state) {
       message: t(APP_ID, 'Name the diagram: {directive} <name>', { directive }, undefined, { escape: false, sanitize: false }),
       actions: [{
         name: t(APP_ID, 'Add name'),
+        // Read at click time: Save as copy renames the file before the next lint.
         apply(view, _from, to) {
+          const name = diagramName(view.state.facet(fileName))
           view.dispatch({ changes: { from: to, to: view.state.doc.lineAt(to).to, insert: ` ${name}` } })
         },
       }],

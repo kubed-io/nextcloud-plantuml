@@ -23,14 +23,11 @@ All notable changes to this project are documented here. The format follows
 - `.puml` and `.plantuml` files are their own file type, with the app's icon.
 - When someone else changed the file you are editing, Reload or Save as copy.
 
-### Fixed
-
-- Removing the app keeps a `.puml` or `.plantuml` file type you set yourself in `config/mimetypemapping.json`, and repair now warns when it cannot write `core/js/mimetypelist.js`.
 ### Changed
 
 - The editor loads the first time you open it, not on every Files page.
 
 ### Fixed
 
+- Removing the app keeps a `.puml` or `.plantuml` file type you set yourself in `config/mimetypemapping.json`, and repair now warns when it cannot write `core/js/mimetypelist.js`.
 - The editor no longer shows a raw error page when the server answers something other than a diagram.
-

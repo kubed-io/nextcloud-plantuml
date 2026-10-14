@@ -46,6 +46,8 @@ Highlighting knows PlantUML, Creole markup included, and follows Nextcloud's lig
 
 Autocomplete knows your server: its themes after `!theme`, its icons after `<&`, its emoji after `<:`. It offers the arrows between two names, the Creole tags after `<`, keywords, the names already in the diagram, and whole `alt` and `loop` blocks to fill in. And the editor underlines what PlantUML would complain about: a diagram with no name, and the line with the mistake on it.
 
+A file with several diagrams gets a tab for each: the picture follows your cursor, and picking a tab takes the cursor there. Blocks fold, a missing `@end` is underlined with a fix, and YAML blocks are coloured and checked. 🗂️
+
 Prefer plain text? **Open with text editor** gives you Nextcloud's own editor on the source, as it would for any text file.
 
 **+ New → UML Diagram** starts one, already holding `@startuml` and `@enduml`, and opens the editor on it.

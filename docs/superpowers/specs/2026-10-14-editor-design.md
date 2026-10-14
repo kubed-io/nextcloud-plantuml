@@ -72,6 +72,7 @@ raised or was offered, not yet agreed).
 | C4 | After a name and a space, the connectors (19, each with what it draws). After a keyword, nothing. Picking one adds a space and opens the names. | Dr K | shipped (#22) |
 | C5 | `skinparam` completion. PlantUML's `skinparameters` command lists every name the server knows, so this can use the same route-and-cache pattern as C3. | Dr K asked | proposed |
 | C6 | A colour picker on `#RRGGBB` and named colours. First check `@uiw/codemirror-extensions-color` (maintained, 2026-09) before writing a widget. | Dr K asked | proposed |
+| C7 | Creole completion. After `<` in text, the tags as snippets (`<size:12>`, `<color:#>`, `<b>…</b>`, …); after `</`, the closers of the tags still open on the line. After `<&`, the server's OpenIconic icons (`GET /apps/plantuml/icons`, from `listopeniconic` drawn as SVG); after `<:`, its emoji (`GET /apps/plantuml/emoji`, from `emoji` and then each block it names, as text). Both cached a day per server URL like C3. Not in a `<<stereotype>>`, a `<style>` line, a comment, or where an arrow is due (`A <- B`). | Dr K | shipped (this PR) |
 
 ### Validation
 
@@ -126,7 +127,7 @@ raised or was offered, not yet agreed).
 | Decision | Why |
 |---|---|
 | Autosave on 2 s idle and 30 s max, after Text | Text saves a few seconds after typing, and Dr K asked for the same |
-| Themes and skinparams come from the server, never a fixed list | The list follows the server's version |
+| Themes, skinparams, icons and emoji come from the server, never a fixed list | The list follows the server's version; even the emoji blocks are the ones `emoji` names |
 | One file per completion source and per lint rule | Dr K asked for a pattern to grow |
 | Labels in violet, not a primary tint | The primary tint read near white on dark; violet is the one free hue (H4) |
 | Fit the diagram by default | Dr K: "it should auto fit so it's always visible" |

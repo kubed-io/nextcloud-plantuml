@@ -46,12 +46,21 @@ const ELEMENT = /(?:\w+|"[^"]*"|\[[^\]]*\]|\([^)]*\)|:[^:]+:)/.source
 const LINE = new RegExp(`^\\s*(${ELEMENT})\\s+((?:[-.~=<*o][^\\s]*)?)$`)
 const keywords = new Set(KEYWORDS)
 
+/**
+ * The connector typed so far where one is due in `lineBefore`, `''` when none
+ * is typed yet, and null where none is due; `creole.js` reads this too.
+ */
+export function connectorTyped(lineBefore) {
+  const match = LINE.exec(lineBefore)
+  return match && !keywords.has(match[1].toLowerCase()) ? match[2] : null
+}
+
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function connectors(context) {
   const line = context.state.doc.lineAt(context.pos)
-  const match = LINE.exec(context.state.sliceDoc(line.from, context.pos))
-  if (!match || keywords.has(match[1].toLowerCase())) {
+  const typed = connectorTyped(context.state.sliceDoc(line.from, context.pos))
+  if (typed === null) {
     return null
   }
-  return { from: context.pos - match[2].length, options, validFor: /^\S*$/ }
+  return { from: context.pos - typed.length, options, validFor: /^\S*$/ }
 }

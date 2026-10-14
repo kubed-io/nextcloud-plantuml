@@ -74,7 +74,8 @@ jobs:
 
     # Pack the app folder Nextcloud expects: a single top-level directory named
     # after the app id, containing only runtime files. Every Vite entry (files,
-    # viewer, editor, readme) lands in dist/ as plantuml-<entry>.js. Deterministic tar
+    # editor, readme) lands in dist/ as plantuml-<entry>.js, and the editor's
+    # profiles in dist/chunks/. Deterministic tar
     # (fixed owner/mtime, sorted) so the same commit packs byte-identically.
     - name: Package
       id: package
@@ -90,6 +91,8 @@ jobs:
         done
         mkdir -p "$STAGE/dist"
         cp dist/plantuml-*.js "$STAGE/dist/"
+        mkdir -p "$STAGE/dist/chunks"
+        cp dist/chunks/*.js "$STAGE/dist/chunks/"
         TARBALL="${APP_ID}-${VERSION}.tar.gz"
         tar --create --gzip --file "dist/${TARBALL}" \
           --directory dist/pkg \

@@ -1,0 +1,128 @@
+// @vitest-environment jsdom
+// SPDX-FileCopyrightText: 2026 kubed-io
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Which profiles a file needs, loading each once for the page, and what a
+// loaded profile adds to the editor: its inner mode, completion and lint.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Compartment, EditorState } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
+import { diagnosticCount } from '@codemirror/lint'
+import { scan } from '../../src/editor/blocks.js'
+import { plantumlLint, profileRules } from '../../src/editor/lint/index.js'
+import { fileName } from '../../src/editor/lint/state.js'
+import { PROFILES, needed, profileExtension } from '../../src/editor/profiles/index.js'
+
+const neededFor = (text) => needed(scan(text), text)
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+  delete PROFILES.archimate
+})
+
+describe('the profiles a file needs', () => {
+  it('are its block types that have a profile', () => {
+    const text = '@startuml flow\nA -> B\n@enduml\n@startyaml config\na: 1\n@endyaml\n'
+
+    expect(neededFor(text)).toEqual(new Set(['yaml']))
+    expect(neededFor('@startuml\nA -> B\n@enduml\n')).toEqual(new Set())
+    expect(neededFor('A -> B\n')).toEqual(new Set())
+  })
+
+  it('include archimate when a uml block includes its library or draws an archimate element', () => {
+    PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
+
+    expect(neededFor('@startuml\n!include <archimate/Archimate>\n@enduml\n')).toEqual(new Set(['archimate']))
+    expect(neededFor('@startuml\n  archimate #Technology "VPN" as vpn\n@enduml\n')).toEqual(new Set(['archimate']))
+    expect(neededFor('!include <archimate/Archimate>\n')).toEqual(new Set(['archimate']))
+    expect(neededFor('@startuml\nA -> B : archimate\n@enduml\n')).toEqual(new Set())
+    expect(neededFor('@startyaml\narchimate: 1\n@endyaml\n')).toEqual(new Set(['yaml']))
+  })
+
+  it('leave out archimate while it has no profile', () => {
+    expect(neededFor('@startuml\n!include <archimate/Archimate>\n@enduml\n')).toEqual(new Set())
+  })
+})
+
+describe('loadProfile', () => {
+  // What is loaded stays loaded for the page, so each test gets a new page.
+  let profiles
+  beforeEach(async () => {
+    vi.resetModules()
+    profiles = await import('../../src/editor/profiles/index.js')
+  })
+  const loadProfile = (type) => profiles.loadProfile(type)
+  const resetProfiles = () => profiles.resetProfiles()
+
+  it('imports a profile once for two callers', async () => {
+    const yaml = vi.spyOn(profiles.PROFILES, 'yaml')
+
+    const [first, second] = await Promise.all([loadProfile('yaml'), loadProfile('yaml')])
+
+    expect(yaml).toHaveBeenCalledTimes(1)
+    expect(first).toBe(second)
+    expect(first).toMatchObject({ type: 'yaml', completions: [], lints: [] })
+    expect(typeof first.mode.token).toBe('function')
+  })
+
+  it('logs a profile that will not load once, gives null, and tries again only after a reset', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const yaml = vi.spyOn(profiles.PROFILES, 'yaml').mockRejectedValue(new Error('404'))
+
+    expect(await loadProfile('yaml')).toBeNull()
+    expect(await loadProfile('yaml')).toBeNull()
+    expect(yaml).toHaveBeenCalledTimes(1)
+    expect(console.error).toHaveBeenCalledTimes(1)
+
+    resetProfiles()
+    yaml.mockRestore()
+    expect(await loadProfile('yaml')).toMatchObject({ type: 'yaml' })
+  })
+
+  it('keeps a loaded profile across a reset', async () => {
+    const yaml = vi.spyOn(profiles.PROFILES, 'yaml')
+    const profile = await loadProfile('yaml')
+
+    resetProfiles()
+
+    expect(await loadProfile('yaml')).toBe(profile)
+    expect(yaml).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('profileExtension', () => {
+  const profiles = new Compartment()
+  const word = (stream) => { stream.skipToEnd(); return 'atom' }
+
+  it('registers each profile\'s completion sources as language data', () => {
+    const source = () => null
+    const state = EditorState.create({
+      extensions: profileExtension([{ type: 'yaml', mode: { token: word }, completions: [source], lints: [] }]),
+    })
+
+    expect(state.languageDataAt('autocomplete', 0)).toEqual([source])
+  })
+
+  it('runs each profile\'s lint rules beside the core ones, from the moment it arrives', async () => {
+    vi.useFakeTimers()
+    const rule = vi.fn((state) => [{ from: 0, to: state.doc.length, severity: 'error', message: 'yaml' }])
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '@startyaml config\na: 1\n@endyaml\n',
+        extensions: [profiles.of(profileExtension([])), plantumlLint, fileName.of('Config.puml')],
+      }),
+      parent: document.body,
+    })
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(diagnosticCount(view.state)).toBe(0)
+
+    view.dispatch({ effects: profiles.reconfigure(profileExtension([{ type: 'yaml', completions: [], lints: [rule] }])) })
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(view.state.facet(profileRules)).toEqual([rule])
+    expect(rule).toHaveBeenCalled()
+    expect(diagnosticCount(view.state)).toBe(1)
+    view.destroy()
+  })
+})

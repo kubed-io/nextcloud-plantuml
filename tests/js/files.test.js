@@ -74,6 +74,8 @@ describe('Edit diagram', () => {
     const opening = [editDiagram(), editDiagram(other)]
     expect(scripts()).toHaveLength(1)
     expect(scripts()[0].getAttribute('src')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c')
+    // An ES module: it imports its profiles as chunks beside it.
+    expect(scripts()[0].type).toBe('module')
     editorBundleRuns()
     await Promise.all(opening)
 
@@ -119,6 +121,20 @@ describe('Edit diagram', () => {
     expect(scripts()).toHaveLength(0)
     editDiagram()
     expect(scripts()).toHaveLength(1)
+  })
+
+  // A Files bundle cached from before the editor was a module adds it as a
+  // classic script: the `import` is a syntax error, yet the tag still fires load.
+  it('opens the Viewer when an old Files bundle runs the module editor as a classic script', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const opening = editDiagram()
+    scripts()[0].dispatchEvent(new Event('load'))
+    await opening
+
+    expect(window.OCA.Viewer.open).toHaveBeenCalledWith({ path: node.path })
+    expect(console.error).toHaveBeenCalledTimes(1)
+    expect(console.error.mock.calls[0][1].message).toMatch(/did not define the editor$/)
   })
 })
 

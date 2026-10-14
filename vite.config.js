@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Plain vite config (no @nextcloud preset), the sibling apps' shape: one
- * self-contained IIFE per surface, nothing added to the global scope, no
- * module loader plumbing. The preset's EmptyJSDirPlugin wipes `js/` on every
- * build, which is why none of the siblings use it.
+ * self-contained bundle per surface, nothing added to the global scope. The
+ * preset's EmptyJSDirPlugin wipes `js/` on every build, which is why none of
+ * the siblings use it.
  *
  * Three entries, one build each, chosen by ENTRY (see package.json):
  *
@@ -13,11 +13,16 @@
  *   editor  → dist/plantuml-editor.js   CodeMirror split pane
  *   readme  → dist/plantuml-readme.js   the Text workspace observer
  *
+ * files and readme are IIFEs. The editor is an ES module, so it can `import()`
+ * a diagram type's profile (src/editor/profiles/) only when a file needs it:
+ * each profile is a chunk in dist/chunks/, named by its content hash, so the
+ * six-month cache below never serves a stale one.
+ *
  * files and readme are loaded by Listener\LoadFilesScriptListener via
  * Util::addScript('plantuml', '../dist/plantuml-<entry>'): NC's loader appends
  * `js/<file>.js` to the app root, so the `../dist/` prefix walks back out of
- * `js/`. The files bundle adds the editor's `<script>` itself, on first use.
- * `emptyOutDir` is off because the three builds share `dist/`.
+ * `js/`. The files bundle adds the editor's `<script type="module">` itself,
+ * on first use. `emptyOutDir` is off because the three builds share `dist/`.
  *
  * The editor builds first so the files build can stamp a hash of it into the
  * editor's URL: Nextcloud's `?v=` changes only with the app version, and the
@@ -28,6 +33,7 @@ import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 
 const entry = process.env.ENTRY || 'files'
+const isEditor = entry === 'editor'
 
 const editorHash = entry === 'files'
   ? createHash('sha256').update(readFileSync('dist/plantuml-editor.js')).digest('hex').slice(0, 12)
@@ -47,8 +53,9 @@ export default defineConfig({
     lib: {
       entry: `src/${entry}.js`,
       name: `plantuml${entry[0].toUpperCase()}${entry.slice(1)}`,
-      formats: ['iife'],
+      formats: [isEditor ? 'es' : 'iife'],
       fileName: () => `plantuml-${entry}.js`,
     },
+    rolldownOptions: isEditor ? { output: { chunkFileNames: 'chunks/[name]-[hash].js', minify: true } } : {},
   },
 })

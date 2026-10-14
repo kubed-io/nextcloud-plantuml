@@ -116,5 +116,7 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: js-bundle
-        path: dist/plantuml-*.js
+        path: |
+          dist/plantuml-*.js
+          dist/chunks/*.js
         if-no-files-found: error

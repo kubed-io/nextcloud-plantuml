@@ -10,6 +10,7 @@ import { EditorView } from '@codemirror/view'
 import { completionStatus, startCompletion } from '@codemirror/autocomplete'
 import { forceLinting } from '@codemirror/lint'
 import { undo } from '@codemirror/commands'
+import { ensureSyntaxTree, language } from '@codemirror/language'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -1021,5 +1022,96 @@ describe('the Reload button', () => {
     await settle()
     expect(source()).toBe(THEIRS)
     expect(indicator()).toBe('saved')
+  })
+})
+
+describe('profiles', () => {
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+  const DOC = '@startuml flow\nA -> B\n@enduml\n@startyaml config\nkey: value\n@endyaml\n'
+  /** The node the language reads at the start of `text`. */
+  const nodeAt = (text) => {
+    const { state } = view()
+    return ensureSyntaxTree(state, state.doc.length, 5000).resolveInner(state.doc.toString().indexOf(text), 1).name
+  }
+  const close = async () => {
+    q('.plantuml-editor__close').click()
+    await settle()
+  }
+  let PROFILES
+  let yamlProfile
+
+  // What is loaded stays loaded for the page, so each test gets a new page.
+  beforeEach(async () => {
+    vi.resetModules()
+    await import('../../src/editor.js')
+    ;({ PROFILES } = await import('../../src/editor/profiles/index.js'))
+    yamlProfile = await import('../../src/editor/profiles/yaml.js')
+    seams.loadFile.mockResolvedValue({ content: DOC, etag: '"get"' })
+  })
+
+  it('reads a yaml block as plain text until its profile arrives, then as yaml', async () => {
+    const arrival = deferred()
+    const yaml = vi.spyOn(PROFILES, 'yaml').mockReturnValue(arrival.promise)
+    await open()
+    expect(nodeAt('key')).not.toBe('atom')
+
+    arrival.resolve(yamlProfile)
+    await settle()
+
+    expect(nodeAt('key')).toBe('atom')
+    // A keystroke keeps the language: the document is not read again from the top.
+    const yamlLanguage = view().state.facet(language)
+    type("' edit\n")
+    await settle()
+    expect(view().state.facet(language)).toBe(yamlLanguage)
+    expect(yaml).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for a profile once a block of its type is typed', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+    const yaml = vi.spyOn(PROFILES, 'yaml')
+    await open()
+    expect(yaml).not.toHaveBeenCalled()
+
+    type('@startyaml config\nkey: value\n@endyaml\n')
+    await settle()
+
+    expect(yaml).toHaveBeenCalledTimes(1)
+  })
+
+  it('dispatches nothing into a closed editor when a profile arrives late', async () => {
+    const arrival = deferred()
+    vi.spyOn(PROFILES, 'yaml').mockReturnValue(arrival.promise)
+    await open()
+    const closed = view()
+    await close()
+    expect(q('.plantuml-editor')).toBeNull()
+    const dispatch = vi.spyOn(closed, 'dispatch')
+
+    arrival.resolve(yamlProfile)
+    await settle()
+
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+
+  it('leaves the block plain when its profile will not load, and tries again on the next open, not the next keystroke', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const yaml = vi.spyOn(PROFILES, 'yaml').mockRejectedValue(new Error('404'))
+    await open()
+    type("' one\n")
+    type("' two\n")
+    await settle()
+
+    expect(yaml).toHaveBeenCalledTimes(1)
+    // jsdom cannot measure text, which CodeMirror also logs as an error.
+    expect(console.error.mock.calls.filter(([message]) => /profile/.test(message))).toEqual([
+      ['[plantuml] could not load the yaml profile', expect.any(Error)],
+    ])
+    expect(nodeAt('key')).not.toBe('atom')
+    expect(q('.plantuml-editor__problem').hidden).toBe(true)
+
+    await close()
+    await open()
+    expect(yaml).toHaveBeenCalledTimes(2)
   })
 })

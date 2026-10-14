@@ -10,8 +10,9 @@
  * in a new file beside it. A change made elsewhere is taken in while the source
  * is all saved, and is that same conflict while it is not.
  *
- * The Files bundle adds this bundle to the page the first time "Edit diagram"
- * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
+ * The Files bundle adds this bundle, an ES module, to the page the first time
+ * "Edit diagram" or + New needs it, then calls the window.OCA.PlantUml.openEditor
+ * it defines. Each diagram type's profile is imported only when a file holds it.
  */
 import { Compartment, EditorState, Transaction } from '@codemirror/state'
 import {
@@ -26,7 +27,8 @@ import { color } from '@uiw/codemirror-extensions-color'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
-import { plantumlMode } from './editor/plantuml-mode.js'
+import { scan } from './editor/blocks.js'
+import { profileExtension, profileLoader, resetProfiles } from './editor/profiles/index.js'
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
 import { plantumlLint } from './editor/lint/index.js'
@@ -61,6 +63,7 @@ export function openEditor(node) {
   if (document.querySelector('.plantuml-editor')) {
     return
   }
+  resetProfiles()
   let path = node.path
   const name = node.basename
 
@@ -119,6 +122,12 @@ export function openEditor(node) {
   let closing = false
   let closed = false
   const nameConfig = new Compartment()
+  const profilesConfig = new Compartment()
+  const wantProfiles = profileLoader((extension) => {
+    if (!closed) {
+      view.dispatch({ effects: profilesConfig.reconfigure(extension) })
+    }
+  })
 
   const isDirty = () => view !== null && !view.state.doc.eq(saved)
 
@@ -468,7 +477,8 @@ export function openEditor(node) {
           highlightSelectionMatches(),
           search({ top: true }),
           history(),
-          plantumlMode,
+          // The PlantUML language, and what the loaded profiles add to it.
+          profilesConfig.of(profileExtension([])),
           plantumlCompletion,
           plantumlLint,
           nameConfig.of(fileName.of(name)),
@@ -496,7 +506,9 @@ export function openEditor(node) {
             if (update.docChanged) {
               failure = notice = ''
               showState()
-              draw(update.state.doc.toString())
+              const text = update.state.doc.toString()
+              draw(text)
+              wantProfiles(scan(text), text)
               if (!conflict) {
                 autosave.schedule()
               }
@@ -511,6 +523,7 @@ export function openEditor(node) {
     watcher = watchFile({ check })
     view.focus()
     draw(content)
+    wantProfiles(scan(content), content)
   }, (e) => {
     console.error(`[${APP_ID}] could not open ${path}`, e)
     fail(t(APP_ID, 'Could not open the file'))

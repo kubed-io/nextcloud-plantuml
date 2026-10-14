@@ -4,16 +4,18 @@
 //
 // Each completion source against a real EditorState: `|` in a document marks
 // the cursor, and what is asserted is what the popup would offer from where.
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { CompletionContext } from '@codemirror/autocomplete'
+import { CompletionContext, completionStatus, insertCompletionText } from '@codemirror/autocomplete'
 import { plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
 import { keywords } from '../../src/editor/completion/keywords.js'
 import { names } from '../../src/editor/completion/names.js'
 import { snippets } from '../../src/editor/completion/snippets.js'
+import { themes } from '../../src/editor/completion/themes.js'
+import { connectors } from '../../src/editor/completion/connectors.js'
 
 function stateAt(marked) {
   const pos = marked.indexOf('|')
@@ -31,9 +33,23 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets])
+    expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors])
   })
 })
+
+/** Applies `option` from `result` in a real view, as picking it in the popup does. */
+function pick(marked, source, label) {
+  const { state, pos } = stateAt(marked)
+  const view = new EditorView({ state, parent: document.body })
+  const result = source(new CompletionContext(view.state, pos, false))
+  const option = result.options.find((candidate) => candidate.label === label)
+  if (typeof option.apply === 'function') {
+    option.apply(view, option, result.from, pos)
+  } else {
+    view.dispatch(insertCompletionText(view.state, option.apply ?? option.label, result.from, pos))
+  }
+  return view
+}
 
 describe('directives', () => {
   it('offers the @start and @end lines after an @ at the start of a line', () => {
@@ -46,6 +62,138 @@ describe('directives', () => {
 
   it('offers nothing after an @ anywhere else on the line', () => {
     expect(complete(directives, 'A -> B : mail @|')).toBeNull()
+  })
+
+  it('offers the preprocessor lines after a ! at the start of a line, and only those', () => {
+    const result = complete(directives, '  !th|')
+
+    expect(result.from).toBe(2)
+    expect(labels(result)).toEqual(['!theme', '!include', '!define', '!pragma'])
+    expect(labels(complete(directives, '@|'))).not.toContain('!theme')
+    expect(complete(directives, 'A -> B : wow !|')).toBeNull()
+  })
+
+  it('leaves the cursor after a space when a preprocessor line is picked, ready for its argument', () => {
+    const view = pick('!th|', directives, '!theme')
+
+    expect(view.state.doc.toString()).toBe('!theme ')
+    expect(view.state.selection.main.head).toBe('!theme '.length)
+    view.destroy()
+  })
+})
+
+describe('themes', () => {
+  const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
+  let fetch
+  let themesSource
+
+  // The list is fetched once per page, so each test loads a fresh module.
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    fetch = vi.fn(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetch)
+    themesSource = (await import('../../src/editor/completion/themes.js')).themes
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('offers the server\'s themes after !theme and a space', async () => {
+    const result = await complete(themesSource, '!theme |')
+
+    expect(result.from).toBe('!theme '.length)
+    expect(labels(result)).toEqual(THEMES)
+    expect(result.options.every((option) => option.type === 'constant')).toBe(true)
+    expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/themes', expect.objectContaining({ credentials: 'same-origin' }))
+  })
+
+  it('keeps offering them over a half-typed name, after any indentation', async () => {
+    const result = await complete(themesSource, '  !theme cerulean-o|')
+
+    expect(result.from).toBe('  !theme '.length)
+    expect(result.validFor.test('cerulean-out')).toBe(true)
+  })
+
+  it('offers nothing once the name is done, or anywhere but a !theme line', async () => {
+    expect(await complete(themesSource, '!theme cerulean |')).toBeNull()
+    expect(await complete(themesSource, 'A -> B : !theme |')).toBeNull()
+    expect(await complete(themesSource, '!themes |')).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('asks the server once, however often it is asked', async () => {
+    await complete(themesSource, '!theme |')
+    await complete(themesSource, '!theme c|')
+    await complete(themesSource, '!theme ce|')
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers nothing when the server cannot answer, and does not ask again on every key', async () => {
+    fetch.mockImplementation(async () => new Response('{"problem":"unreachable"}', { status: 503 }))
+
+    expect(labels(await complete(themesSource, '!theme |'))).toEqual([])
+    expect(labels(await complete(themesSource, '!theme c|'))).toEqual([])
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers nothing when the request itself fails', async () => {
+    fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    expect(labels(await complete(themesSource, '!theme |'))).toEqual([])
+  })
+})
+
+describe('connectors', () => {
+  it.each([
+    ['an identifier', 'node1 |'],
+    ['a quoted name', '"Order flow" |'],
+    ['a bracketed component', '  [Shop] |'],
+    ['a use case', '(Check out) |'],
+    ['an actor', ':Customer: |'],
+  ])('are offered after %s and a space', (_what, marked) => {
+    const result = complete(connectors, marked)
+
+    expect(result.from).toBe(marked.indexOf('|'))
+    expect(labels(result)).toEqual(expect.arrayContaining(['-->', '->', '--', '..', '~~', '==', '<-', '<->', '--|>', '..|>', '*--', 'o--', '-up->', '-[hidden]-']))
+    expect(result.options.every((option) => option.type === 'operator' && option.detail)).toBe(true)
+  })
+
+  it('put the commonest first', () => {
+    const { options } = complete(connectors, 'node1 |')
+    const byBoost = [...options].sort((a, b) => (b.boost ?? 0) - (a.boost ?? 0))
+
+    expect(byBoost.slice(0, 4).map((option) => option.label)).toEqual(['-->', '->', '--', '..'])
+  })
+
+  it('keep offering over a half-typed connector', () => {
+    const result = complete(connectors, 'node1 -|')
+
+    expect(result.from).toBe('node1 '.length)
+    expect(result.validFor.test('-u')).toBe(true)
+    expect(complete(connectors, 'node1 <|').from).toBe('node1 '.length)
+  })
+
+  it.each([
+    ['a declaring keyword', 'node |'],
+    ['another declaring keyword', 'actor |'],
+    ['a block keyword', 'loop |'],
+    ['a directive', '@startuml |'],
+    ['an arrow message', 'A -> B : hello |'],
+    ['a finished arrow', 'node1 -> B |'],
+    ['the reference still being typed', 'nod|e1 '],
+    ['the reference before its space', 'node1|'],
+    ['a comment', "' node1 |"],
+  ])('are not offered after %s', (_what, marked) => {
+    expect(complete(connectors, marked)).toBeNull()
+  })
+
+  it('insert the connector and a space, then offer the names to connect to', () => {
+    const view = pick('Customer -> Shop\nnode1 -|', connectors, '-->')
+
+    expect(view.state.doc.toString()).toBe('Customer -> Shop\nnode1 --> ')
+    expect(view.state.selection.main.head).toBe(view.state.doc.length)
+    expect(completionStatus(view.state)).not.toBeNull()
+    view.destroy()
   })
 })
 
@@ -112,9 +260,10 @@ describe('names', () => {
     expect(complete(names, diagram + 'Customer -> Shop : order Cus|')).toBeNull()
   })
 
-  it('offers anywhere on a line, and nothing in a comment', () => {
+  it('offers anywhere on a line, and nothing in a comment or a preprocessor line', () => {
     expect(labels(complete(names, diagram + 'Shop -> Ware|'))).toContain('Warehouse')
     expect(complete(names, diagram + "' Ware|")).toBeNull()
+    expect(complete(names, diagram + '!theme Ware|')).toBeNull()
   })
 })
 

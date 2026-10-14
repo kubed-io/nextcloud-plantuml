@@ -75,8 +75,9 @@
 
 /* Text's save status: a tertiary icon button, the dot marking unsaved changes
  * and core's icon-loading-small spinner standing in for the check. */
-.plantuml-editor__save,
-.plantuml-editor__close {
+/* button.* outranks core's button:not(.button-vue, …) pill background. */
+.plantuml-editor__bar button.plantuml-editor__save,
+.plantuml-editor__bar button.plantuml-editor__close {
 	position: relative;
 	display: flex;
 	align-items: center;
@@ -93,8 +94,8 @@
 	cursor: pointer;
 }
 
-.plantuml-editor__save:hover,
-.plantuml-editor__close:hover {
+.plantuml-editor__bar button.plantuml-editor__save:hover,
+.plantuml-editor__bar button.plantuml-editor__close:hover {
 	background: var(--color-background-hover);
 }
 
@@ -169,7 +170,7 @@
 }
 
 .plantuml-editor__source .cm-editor .cm-scroller {
-	font-family: var(--font-face-mono, monospace);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 	font-size: 14px;
 	line-height: 1.7;
 }

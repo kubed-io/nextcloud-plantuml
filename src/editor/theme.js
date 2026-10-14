@@ -17,6 +17,9 @@ import { tags } from '@lezer/highlight'
  */
 const towardText = (variable) => `color-mix(in srgb, var(${variable}) 75%, var(--color-main-text))`
 
+/** Nextcloud names no monospace face, so the system's own. */
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
+
 /** One rule per token plantuml-mode.js emits. */
 export const highlightStyle = HighlightStyle.define([
   { tag: tags.meta, color: 'var(--color-primary-element)', fontWeight: 'bold' },
@@ -32,13 +35,22 @@ export const surfaceRules = {
     color: 'var(--color-main-text)',
     backgroundColor: 'var(--color-main-background)',
   },
-  // On .cm-content itself: another app's global div[contenteditable=true] rule
-  // (files_bpm sets color: #000) outranks a colour inherited from '&'.
-  '.cm-content': {
+  // On .cm-content itself: core's server.css styles every div[contenteditable]
+  // as a form input (border, radius, margin, font, pointer), and files_bpm sets
+  // color: #000 on it; inherited values from '&' lose to both.
+  '.cm-content, .cm-content:hover, .cm-content:focus, .cm-content:active': {
     color: 'var(--color-main-text)',
     backgroundColor: 'transparent',
     caretColor: 'var(--color-main-text)',
+    border: 'none',
+    borderRadius: '0',
+    boxShadow: 'none',
+    outline: 'none',
+    margin: '0',
+    cursor: 'text',
+    fontFamily: MONO,
   },
+  '.cm-scroller': { fontFamily: MONO },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--color-main-text)' },
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
     backgroundColor: 'var(--color-primary-element-light)',
@@ -91,7 +103,7 @@ export const surfaceRules = {
   // The list scrolls, so its own rounding keeps the selected row inside the corners.
   '.cm-tooltip.cm-tooltip-autocomplete > ul': {
     borderRadius: 'inherit',
-    fontFamily: 'var(--font-face-mono, monospace)',
+    fontFamily: MONO,
     maxHeight: '16em',
   },
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
@@ -112,9 +124,13 @@ export const surfaceRules = {
   },
   // Each kind of option in its highlight colour.
   '.cm-completionIcon': { color: 'var(--color-text-maxcontrast)', opacity: '1' },
+  // Letters, not CodeMirror's emoji (a key for a keyword), which read as clip art here.
   '.cm-completionIcon-keyword': { color: 'var(--color-info-text)' },
+  '.cm-completionIcon-keyword:after': { content: '"k"' },
   '.cm-completionIcon-variable': { color: towardText('--color-element-success') },
+  '.cm-completionIcon-variable:after': { content: '"x"' },
   '.cm-completionIcon-text': { color: towardText('--color-element-warning') },
+  '.cm-completionIcon-text:after': { content: '"{ }"' },
   '.cm-completionInfo': {
     padding: '4px 8px',
     color: 'var(--color-main-text)',

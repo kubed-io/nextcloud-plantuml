@@ -38,12 +38,34 @@ describe('plantumlMode', () => {
     ])
   })
 
-  it('names a message arrow as an operator and leaves the label plain', () => {
-    expect(tokens('Customer -> Shop : place order')).toEqual([['->', 'operator']])
+  it('names a message arrow as an operator and its label as a label', () => {
+    expect(tokens('Customer -> Shop : place order')).toEqual([['->', 'operator'], ['place order', 'labelName']])
   })
 
-  it.each(['-->', '<-', '->>', '-[#red]->', '..>', 'o->'])('names %s as an operator', (arrow) => {
+  it.each(['-->', '<-', '->>', '-[#red]->', '..>', 'o->', '==>', '~~>'])('names %s as an operator', (arrow) => {
     expect(tokens(`A ${arrow} B`)).toEqual([[arrow, 'operator']])
+  })
+
+  it.each(['--', '..', '~~', '==', '---', '-up-', '-[hidden]-', '.left.'])('names the headless link %s as an operator too', (link) => {
+    expect(tokens(`node1 ${link} node2`)).toEqual([[link, 'operator']])
+  })
+
+  it('labels a headless link, a quoted end, and a label with no spaces round the colon', () => {
+    expect(tokens('node1 -- node2 : label1')).toEqual([['--', 'operator'], ['label1', 'labelName']])
+    expect(tokens('A ~~ "Big B" : waves')).toEqual([['~~', 'operator'], ['waves', 'labelName']])
+    expect(tokens('A->B:hi')).toEqual([['->', 'operator'], ['hi', 'labelName']])
+  })
+
+  it('leaves a lone dash, a member type and an activity action unlabelled', () => {
+    expect(tokens('- item')).toEqual([])
+    expect(tokens('class A', '-field : int')).toEqual([['class', 'keyword']])
+    expect(tokens(':pay the bill;')).toEqual([])
+  })
+
+  it('names a separator or a delay as a heading, not as links', () => {
+    expect(tokens('== Checkout ==')).toEqual([['== Checkout ==', 'heading']])
+    expect(tokens('... 5 minutes later ...')).toEqual([['... 5 minutes later ...', 'heading']])
+    expect(tokens('...')).toEqual([['...', 'heading']])
   })
 
   it('names a quote-led line as a comment', () => {

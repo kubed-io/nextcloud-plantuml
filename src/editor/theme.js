@@ -27,6 +27,10 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.string, color: towardText('--color-element-success') },
   { tag: tags.operator, color: towardText('--color-element-warning') },
   { tag: tags.comment, color: 'var(--color-text-maxcontrast)', fontStyle: 'italic' },
+  // A link's label reads as an annotation: italic like a caption, in a primary
+  // tint so it is never mistaken for a grey comment.
+  { tag: tags.labelName, color: 'color-mix(in srgb, var(--color-primary-element) 60%, var(--color-main-text))', fontStyle: 'italic' },
+  { tag: tags.heading, color: 'var(--color-text-maxcontrast)', fontWeight: 'bold' },
 ])
 
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */

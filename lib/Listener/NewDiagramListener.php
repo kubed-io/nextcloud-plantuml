@@ -11,6 +11,7 @@ namespace OCA\PlantUml\Listener;
 
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
+use OCP\Files\File;
 use OCP\Files\Template\FileCreatedFromTemplateEvent;
 
 /**
@@ -20,7 +21,8 @@ use OCP\Files\Template\FileCreatedFromTemplateEvent;
  *
  * Files fires {@see FileCreatedFromTemplateEvent} for every file it creates
  * that way, with no template when the file starts blank. A file made from a
- * template, or one that already holds something, is left as it is.
+ * template, or one that already holds something, is left as it is. Blank
+ * means empty or whitespace only: object storage writes a space for an empty file.
  *
  * @implements IEventListener<Event|FileCreatedFromTemplateEvent>
  */
@@ -29,6 +31,9 @@ final class NewDiagramListener implements IEventListener {
 
 	private const EXTENSIONS = ['puml', 'plantuml'];
 
+	/** Bytes worth reading to tell a blank file from a small one. */
+	private const BLANK_LIMIT = 16;
+
 	#[\Override]
 	public function handle(Event $event): void {
 		if (!$event instanceof FileCreatedFromTemplateEvent || $event->getTemplate() !== null) {
@@ -36,9 +41,15 @@ final class NewDiagramListener implements IEventListener {
 		}
 		$target = $event->getTarget();
 		$extension = strtolower(pathinfo($target->getName(), PATHINFO_EXTENSION));
-		if (!in_array($extension, self::EXTENSIONS, true) || (int)$target->getSize() !== 0) {
+		if (!in_array($extension, self::EXTENSIONS, true) || !self::isBlank($target)) {
 			return;
 		}
 		$target->putContent(self::CONTENT);
+	}
+
+	/** Object storage cannot hold an empty object, so its touch() writes one space. */
+	private static function isBlank(File $target): bool {
+		$size = (int)$target->getSize();
+		return $size === 0 || ($size <= self::BLANK_LIMIT && trim($target->getContent()) === '');
 	}
 }

@@ -30,6 +30,20 @@ final class NewDiagramListenerTest extends TestCase {
 		(new NewDiagramListener())->handle(new FileCreatedFromTemplateEvent(null, $target, []));
 	}
 
+	public function testWritesTheEmptyDiagramOverTheSpaceObjectStorageCreates(): void {
+		$target = $this->target('New diagram.puml', 1, ' ');
+		$target->expects(self::once())->method('putContent')->with("@startuml\n\n@enduml\n");
+
+		(new NewDiagramListener())->handle(new FileCreatedFromTemplateEvent(null, $target, []));
+	}
+
+	public function testLeavesASmallDiagramFileThatHoldsSomething(): void {
+		$target = $this->target('Tiny.puml', 3, "A\n ");
+		$target->expects(self::never())->method('putContent');
+
+		(new NewDiagramListener())->handle(new FileCreatedFromTemplateEvent(null, $target, []));
+	}
+
 	public function testLeavesAFileThatIsNotADiagram(): void {
 		$target = $this->target('notes.txt', 0);
 		$target->expects(self::never())->method('putContent');
@@ -57,10 +71,11 @@ final class NewDiagramListenerTest extends TestCase {
 		(new NewDiagramListener())->handle(new Event());
 	}
 
-	private function target(string $name, int $size): File&\PHPUnit\Framework\MockObject\MockObject {
+	private function target(string $name, int $size, string $content = ''): File&\PHPUnit\Framework\MockObject\MockObject {
 		$target = $this->createMock(File::class);
 		$target->method('getName')->willReturn($name);
 		$target->method('getSize')->willReturn($size);
+		$target->method('getContent')->willReturn($content);
 		return $target;
 	}
 }

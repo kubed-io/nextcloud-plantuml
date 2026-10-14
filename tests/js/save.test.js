@@ -28,7 +28,7 @@ describe('loadFile', () => {
     client.getFileContents.mockResolvedValue({ data: '@startuml\n@enduml\n', headers: { etag: '"e1"' }, status: 200 })
 
     await expect(loadFile('/Diagrams/Order flow.puml')).resolves.toEqual({ content: '@startuml\n@enduml\n', etag: '"e1"' })
-    expect(client.getFileContents).toHaveBeenCalledWith('/files/drk/Diagrams/Order flow.puml', { format: 'text', details: true })
+    expect(client.getFileContents).toHaveBeenCalledWith('/files/drk/Diagrams/Order flow.puml', { format: 'text', details: true, headers: { 'Cache-Control': 'no-cache' } })
   })
 })
 

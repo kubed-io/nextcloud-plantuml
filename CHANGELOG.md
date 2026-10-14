@@ -41,6 +41,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The editor reads a changed file fresh instead of from the browser's cache, so a change made elsewhere shows up.
 - A long source scrolls inside the editor, and a big diagram is fitted to its pane instead of running off the bottom.
 - The editor's source is readable on a dark theme: its text and highlighting follow Nextcloud's theme colours.
 - Removing the app keeps a `.puml` or `.plantuml` file type you set yourself in `config/mimetypemapping.json`, and repair now warns when it cannot write `core/js/mimetypelist.js`.

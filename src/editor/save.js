@@ -24,7 +24,13 @@ export class ConflictError extends Error {
  * @return {Promise<{content: string, etag: string}>}
  */
 export async function loadFile(path) {
-  const res = await getClient().getFileContents(getRootPath() + path, { format: 'text', details: true })
+  // Nextcloud sends no Cache-Control with a file, so the browser may answer from
+  // its cache for a tenth of the file's age: a changed file read back stale.
+  const res = await getClient().getFileContents(getRootPath() + path, {
+    format: 'text',
+    details: true,
+    headers: { 'Cache-Control': 'no-cache' },
+  })
   return { content: res.data, etag: res.headers.etag }
 }
 

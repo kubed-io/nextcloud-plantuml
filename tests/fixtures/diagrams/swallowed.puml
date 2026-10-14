@@ -1,0 +1,5 @@
+@startyaml
+a: 1
+@startuml
+A -> B
+@enduml

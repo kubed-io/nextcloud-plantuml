@@ -81,13 +81,16 @@ final class RenderController extends Controller {
 	}
 
 	#[NoAdminRequired]
-	public function bySource(string $source = ''): Response {
-		// Nothing to draw is the caller's mistake, not a server problem.
-		if (trim($source) === '') {
+	public function bySource(string $source = '', mixed $index = 0): Response {
+		if (is_string($index) && preg_match('/^\d{1,3}$/', $index) === 1) {
+			$index = (int)$index;
+		}
+		// Nothing to draw, or no such diagram, is the caller's mistake, not a server problem.
+		if (trim($source) === '' || !is_int($index) || $index < 0 || $index > 999) {
 			return new Response(Http::STATUS_BAD_REQUEST);
 		}
 		try {
-			return $this->image($this->render->render($source));
+			return $this->image($this->render->render($source, $index));
 		} catch (RenderException $e) {
 			return $this->problem($e);
 		}

@@ -21,7 +21,7 @@ const towardText = (variable) => `color-mix(in srgb, var(${variable}) 75%, var(-
 /** Nextcloud names no monospace face, so the system's own. */
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
 
-/** One rule per token plantuml-mode.js emits. */
+/** One rule per token plantuml-mode.js emits, its nested modes' included. */
 export const highlightStyle = HighlightStyle.define([
   { tag: tags.meta, color: 'var(--color-primary-element)', fontWeight: 'bold' },
   { tag: tags.keyword, color: 'var(--color-info-text)', fontWeight: 'bold' },
@@ -47,6 +47,10 @@ export const highlightStyle = HighlightStyle.define([
   // Markup recedes behind the text it marks up: tags, table bars.
   { tag: tags.tagName, color: 'var(--color-text-maxcontrast)' },
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
+  // A nested mode's values and names (YAML's keys are atoms). Atom would
+  // otherwise inherit the keyword's bold.
+  { tag: [tags.atom, tags.special(tags.variableName)], color: towardText('--color-element-success') },
+  { tag: [tags.number, tags.propertyName, tags.definition(tags.variableName)], color: 'var(--color-info-text)' },
 ])
 
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */
@@ -110,6 +114,16 @@ export const surfaceRules = {
     outline: '1px solid color-mix(in srgb, var(--color-primary-element) 50%, transparent)',
   },
   '.cm-selectionMatch.cm-selectionMatch-main': { backgroundColor: 'transparent', outline: 'none' },
+  // The fold chevrons recede until pointed at; the placeholder is a pill, as a tag.
+  '.cm-foldGutter span': { color: 'var(--color-text-maxcontrast)' },
+  '.cm-foldGutter span:hover': { color: 'var(--color-main-text)' },
+  '.cm-foldPlaceholder': {
+    color: 'var(--color-text-maxcontrast)',
+    backgroundColor: 'var(--color-background-dark)',
+    border: 'none',
+    borderRadius: 'var(--border-radius-pill, 100px)',
+    padding: '0 8px',
+  },
   '.cm-snippetField': { backgroundColor: tint(12) },
   '.cm-snippetFieldPosition': { borderLeft: '1.4px dotted var(--color-text-maxcontrast)' },
   '.cm-searchMatch': {

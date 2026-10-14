@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Autocomplete for the source pane: one module per completion source, each a
- * pure function of a CompletionContext, registered through the PlantUML
- * language's data. A new source is a file beside these and a line in
- * `sources`.
+ * pure function of a CompletionContext, registered as the editor's language
+ * data rather than one PlantUML language's, so the sources outlive a swap to a
+ * language with a profile's inner mode. A new source is a file beside these
+ * and a line in `sources`.
  */
 import { autocompletion } from '@codemirror/autocomplete'
-import { plantumlMode } from '../plantuml-mode.js'
+import { EditorState } from '@codemirror/state'
 import { directives } from './directives.js'
 import { keywords } from './keywords.js'
 import { names } from './names.js'
@@ -25,6 +26,6 @@ export const sources = [directives, keywords, names, snippets, themes, connector
 // of completions, not of sources. autocompletion() binds completionKeymap
 // (Ctrl-Space, arrows, Enter, Escape) and leaves Tab alone.
 export const plantumlCompletion = [
-  ...sources.map((source) => plantumlMode.data.of({ autocomplete: source })),
+  ...sources.map((source) => EditorState.languageData.of(() => [{ autocomplete: source }])),
   autocompletion(),
 ]

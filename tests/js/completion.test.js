@@ -5,10 +5,10 @@
 // Each completion source against a real EditorState: `|` in a document marks
 // the cursor, and what is asserted is what the popup would offer from where.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { CompletionContext, completionStatus, insertCompletionText } from '@codemirror/autocomplete'
-import { plantumlMode } from '../../src/editor/plantuml-mode.js'
+import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
 import { keywords } from '../../src/editor/completion/keywords.js'
@@ -37,6 +37,16 @@ describe('the completion sources', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
     expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors, creole, icons, emoji])
+  })
+
+  it('stay registered when the language is swapped for one with an inner mode', () => {
+    const language = new Compartment()
+    const before = EditorState.create({ doc: '@st', extensions: [language.of(plantumlMode), plantumlCompletion] })
+    const yaml = { token: (stream) => { stream.skipToEnd(); return 'atom' } }
+    const { state } = before.update({ effects: language.reconfigure(plantumlLanguage({ yaml })) })
+
+    expect(state.languageDataAt('autocomplete', 3)).toEqual(sources)
+    expect(labels(directives(new CompletionContext(state, 3, false)))).toContain('@startuml')
   })
 })
 
@@ -82,6 +92,38 @@ describe('directives', () => {
     expect(view.state.doc.toString()).toBe('!theme ')
     expect(view.state.selection.main.head).toBe('!theme '.length)
     view.destroy()
+  })
+})
+
+describe('whole-block directives', () => {
+  it('offers salt, regex and ebnf, which the unnamed-start warning then covers', () => {
+    expect(labels(complete(directives, '@|'))).toEqual(expect.arrayContaining(['@startsalt', '@endsalt', '@startregex', '@endregex', '@startebnf', '@endebnf']))
+  })
+
+  it('inserts a salt block with the name selected first', () => {
+    const view = pick('@startsa|', directives, '@startsalt')
+
+    expect(view.state.doc.toString()).toBe('@startsalt name\n{\n  \n}\n@endsalt')
+    const { from, to } = view.state.selection.main
+    expect(view.state.sliceDoc(from, to)).toBe('name')
+    view.destroy()
+  })
+
+  it('inserts an empty line for a body that is not braces', () => {
+    const view = pick('@startum|', directives, '@startuml')
+
+    expect(view.state.doc.toString()).toBe('@startuml name\n\n@enduml')
+    view.destroy()
+  })
+
+  it('offers only the open block\'s end inside a block with no end yet', () => {
+    const ends = (marked) => labels(complete(directives, marked)).filter((label) => label.startsWith('@end'))
+
+    expect(ends('@startjson a\n{}\n@end|')).toEqual(['@endjson'])
+    expect(ends('@startjson a\n{}\n@|')).toEqual(['@endjson'])
+    expect(ends('@startjson a\n{}\n@endjson\n@end|')).toContain('@enduml')
+    expect(ends('@end|')).toContain('@enduml')
+    expect(ends('@startjson a\n{}\n@end|\n@endjson\n')).toContain('@enduml')
   })
 })
 

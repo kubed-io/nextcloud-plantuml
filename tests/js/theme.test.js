@@ -4,9 +4,9 @@
 // The source pane follows Nextcloud's theme: every colour is a theme variable,
 // so a dark theme never gets CodeMirror's dark-on-white defaults.
 import { describe, expect, it } from 'vitest'
-import { tags } from '@lezer/highlight'
+import { highlightTree, tags } from '@lezer/highlight'
 import { highlightStyle, surfaceRules } from '../../src/editor/theme.js'
-import { underline } from '../../src/editor/plantuml-mode.js'
+import { plantumlLanguage, underline } from '../../src/editor/plantuml-mode.js'
 
 const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\b(?:white|black)\b/i
 
@@ -17,6 +17,15 @@ describe('the editor highlight style', () => {
     for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation]) {
       expect(styled).toContain(tag)
     }
+  })
+
+  // The names CodeMirror's legacy modes emit, as a nested profile's mode would.
+  it.each(['atom', 'number', 'property', 'def', 'variable-2', 'meta', 'string', 'keyword', 'comment'])('colours a nested mode\'s %s token', (name) => {
+    const inner = { token: (stream) => { stream.skipToEnd(); return name } }
+    const tree = plantumlLanguage({ yaml: inner }).parser.parse('@startyaml\nx\n@endyaml')
+    const styled = []
+    highlightTree(tree, highlightStyle, (from, to) => styled.push([from, to]))
+    expect(styled).toContainEqual([11, 12])
   })
 
   // They modify the text they sit in, a label's violet included, so they set no colour.
@@ -52,6 +61,7 @@ describe('the editor surface', () => {
     ['the active line and the matched bracket', ['.cm-activeLine', '.cm-activeLineGutter', '.cm-matchingBracket']],
     ['the search panel and its matches', ['.cm-panels', '.cm-search', '.cm-searchMatch', '.cm-selectionMatch']],
     ["the search panel's field and buttons", ['.cm-textfield', '.cm-button', '.cm-button:active', '[name=close]']],
+    ['the fold chevrons and the folded placeholder', ['.cm-foldGutter span', '.cm-foldGutter span:hover', '.cm-foldPlaceholder']],
     ['snippet fields and a disabled popup', ['.cm-snippetField', '.cm-snippetFieldPosition', '.cm-tooltip-autocomplete-disabled']],
     ["the colour picker's swatch and its input", ['span[data-color]', 'span[data-color] input[type="color"]']],
     ['the diagnostics: underline, gutter mark, tooltip and panel', ['.cm-lintRange-error', '.cm-lintRange-warning', '.cm-lintRange-info', '.cm-lintPoint-warning', '.cm-lint-marker-error', '.cm-lint-marker-warning', '.cm-diagnostic-warning', '.cm-diagnosticAction', '.cm-panel-lint']],

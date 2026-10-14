@@ -52,6 +52,12 @@ describe('editorBundleUrl', () => {
   it('carries the version query it is given', () => {
     expect(editorBundleUrl('?v=1a2b3c')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c')
   })
+
+  it('counts the retries after the hash, so each is a URL the browser has not tried', () => {
+    expect(editorBundleUrl('?v=1a2b3c', 'f00d', 0)).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c&h=f00d')
+    expect(editorBundleUrl('?v=1a2b3c', 'f00d', 2)).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c&h=f00d&r=2')
+    expect(editorBundleUrl('', '', 1)).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?r=1')
+  })
 })
 
 describe('action gating', () => {

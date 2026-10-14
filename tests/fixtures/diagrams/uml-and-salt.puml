@@ -1,0 +1,8 @@
+@startuml
+A -> B
+@enduml
+@startsalt
+{
+[OK]
+}
+@endsalt

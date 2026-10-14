@@ -32,6 +32,7 @@ verb.
 | 5 | Right-click a `.puml` → edit it, source beside the live diagram | `diagrams/edit.feature` |
 | 6 | **+ New → UML Diagram** makes `New diagram.puml` and opens the editor on it | `diagrams/create.feature` |
 | 7 | A folder README shows its ```` ```plantuml ```` fences and `![](x.puml)` images as diagrams | `readme/render.feature` |
+| 8 | A file with several diagrams: the editor shows one tab each (editor spec B1–B8); a README image names the one it shows, `![](x.puml#login)` or `![](x.puml#2)`, else the first; a fence draws all of its diagrams | `readme/render.feature` (proposed, awaits Dr K) |
 
 Delete, rename, move, copy, trash, restore, share: Nextcloud's, untouched. A `.puml` is
 an ordinary file.
@@ -177,7 +178,9 @@ WebDAV requests too, as the siblings do.
 | Route | Answers | Caching | Refusals |
 |---|---|---|---|
 | `GET /apps/plantuml/render?path=<path>` | The SVG of the `.puml` at `path`, resolved in the **calling user's** folder, so a user can only render what they can read. No CSRF token (it is an `<img src>`); the path rule keeps it safe. | The file's ETag and `Cache-Control: private, no-cache` (core's default `no-store` would keep the browser from sending the ETag back); `304` on a matching `If-None-Match`, weak or quoted. | `404` for a missing path, one that climbs out with `..`, a folder, or a file that is not `text/x-plantuml`; `503 {"problem": …}` |
-| `POST /apps/plantuml/render` | JSON `{source}` → its SVG, for the README fences and the editor's live diagram. CSRF-checked. | None (core's default). | `400` for a blank source; `503 {"problem": …}` |
+| `GET /apps/plantuml/render?path=<path>&diagram=<name or number>` | As above, for one diagram of a file that holds several (agreed, round 4). `diagram` is a diagram's name (B1) or its position counted from 1, pages included, as the editor's tabs count; a name wins over a number. The server finds the index with the same block rules as the editor's B1 (`lib/Service/Diagrams.php`) and sends it to `<server>/svg/<index>`. Absent, it is the first diagram, as today. | As above; the ETag is the file's, so it covers every diagram in it. | As above, and `404 {"problem": "no diagram named <x>"}` (or `"no diagram <n>"`) when nothing matches, never a fallback to the first |
+| `POST /apps/plantuml/render` | JSON `{source}` → its SVG, for the README fences and the editor's live diagram. CSRF-checked. `{source, index}` (shipped #36; an integer 0–999) draws the diagram at that 0-based index, through `<server>/svg/<index>` (editor spec B5). | None (core's default). | `400` for a blank source or an `index` that is not an integer 0–999; `503 {"problem": …}` |
+| `GET /apps/plantuml/sprites` | `{"sprites": [...]}`, the server's ArchiMate sprites from `listsprite`, for editor spec T9 (agreed, round 3). Same caching and refusals as the row below. | | |
 | `GET /apps/plantuml/themes`, `/icons`, `/emoji` | `{"themes": [...]}`, `{"icons": [...]}`, `{"emoji": [...]}` for the editor's `!theme`, `<&icon>` and `<:emoji:>` completion (editor spec C3, C7). No CSRF token: a GET that changes nothing. | A day per server URL on the server (`RenderService`); none over HTTP. The editor asks once per page, and a failed answer is an empty list until the next page load. The first `/emoji` of a day takes about 9 s (one text render per Unicode block, in a row). | `503 {"problem": …}` |
 | `POST /apps/plantuml/test-connection` | `{success, message}` (see `ConfigController`). | — | admin or delegated admin only |
 
@@ -204,16 +207,19 @@ connection**.
 
 ### Frontend (`src/`, `js/`)
 
-Three single-file IIFE bundles built by Vite, one per surface (`package.json`):
-`dist/plantuml-files.js` and `dist/plantuml-readme.js` load on every Files page,
-`dist/plantuml-editor.js` only when the editor first opens.
+Three bundles built by Vite, one per surface (`package.json`):
+`dist/plantuml-files.js` and `dist/plantuml-readme.js` load on every Files page as
+single-file IIFEs, and `dist/plantuml-editor.js` only when the editor first opens. From
+round 1 of the diagram types the editor is an ES module whose per-type profiles are
+hashed chunks under `dist/chunks/`, loaded when a file holds that type (editor spec
+P1–P6).
 
 | Unit | Does |
 |---|---|
 | `files.js`, `files-helpers.js` | Registers the Viewer handler for `text/x-plantuml` (queued on `window._oca_viewer_handlers` when the Viewer loads later), which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions for one diagram in the user's files (not a multi-selection, not the trash): **Edit diagram** (order 1, after the Viewer's View), shown only when `server_configured`; and **Open with text editor** (order 2), `OCA.Viewer.openWith('text', { path })`, shown whenever the Viewer is there. Registers **UML Diagram** in the **+ New** menu, with or without a server: asks Files' create endpoint (fact 10) for `New diagram.puml` (made unique among the folder's names) in the current folder, which `NewDiagramListener` fills; stats it over WebDAV, emits `files:node:created` and opens the editor on it. A failure is logged and shown as "Could not create the diagram". Opening the editor first adds the editor bundle, once, with the Files bundle's `?v=` and `&h=<the editor build's hash>`; a load that fails is forgotten so the next open retries, and that open falls back to the Viewer. |
 | `viewer-component.js` | The Viewer component (Vue 2 `render(h)`, as Viewer stable34 mounts it): an `<img>` on `GET /render?path=…` inside a `<div>` (the Viewer's mixin would swap an erroring root for its generic error page). When the image fails it asks the URL once more and shows, in white on the Viewer's black, the route's `problem` or, for any other failure, the fixed line **Could not draw the diagram** (#32). A diagram mistake is an image, so it shows PlantUML's error drawing. |
 | `editor.js`, `editor/` | The **Edit diagram** overlay, specified in `2026-10-14-editor-design.md`. What it asks of the rest: the file over WebDAV (`editor/save.js`: GET with `Cache-Control: no-cache` (fact 11, E4), PUT with `If-Match` (S1), a copy with `If-None-Match: *` (S8), a Depth-0 `getetag` PROPFIND to watch for changes (E1)); the diagram from `POST /render`, 300 ms after typing stops and one request at a time (`editor/preview.js`, D3; an empty source is not sent), the problem line in its place when the server cannot (D4); the server's lists from `/themes`, `/icons`, `/emoji`, once per page (C8). Loaded on first use (O2). The answer is drawn **inline** as sanitised SVG, not an `<img>`, so its links work (`editor/inline-svg.js`, editor spec D1, #30). |
-| `readme.js`, `readme/markdown.js`, `readme/workspace.js` | The README observer, loaded on Files pages. A `MutationObserver` on the page wakes when Text draws a `.ProseMirror` inside `#rich-workspace` holding code blocks or image figures not yet looked at. It asks Text's own `GET ocs/v2.php/apps/text/workspace?path=<dir>` which file the workspace shows (kept while the folder stays the same), reads it over WebDAV, and scans it for fences (backtick or tilde, CommonMark's closing rule) and relative images. Each `.code-block` is matched to the fence at the same index, and drawn only when that fence is `plantuml` and the block's text equals its source; its children are hidden and an `<img>` of `POST /render`'s answer (a `blob:` URL; renders cached by source, 64 of them, failures not kept) is added, the hidden source made non-editable and kept so if Text resets it. Each image figure whose `data-src` ends in `.puml` is hidden and our own `<figure>` goes after it: an `<img>` on `GET /render?path=…`, the path resolved against the README's folder as Text's `AttachmentResolver` does, with the Markdown alt text as its caption. Text's elements are hidden, never removed. Both drawings swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. A fence the server cannot draw keeps Text's code block. |
+| `readme.js`, `readme/markdown.js`, `readme/workspace.js` | The README observer, loaded on Files pages. A `MutationObserver` on the page wakes when Text draws a `.ProseMirror` inside `#rich-workspace` holding code blocks or image figures not yet looked at. It asks Text's own `GET ocs/v2.php/apps/text/workspace?path=<dir>` which file the workspace shows (kept while the folder stays the same), reads it over WebDAV, and scans it for fences (backtick or tilde, CommonMark's closing rule) and relative images. Each `.code-block` is matched to the fence at the same index, and drawn only when that fence is `plantuml` and the block's text equals its source; its children are hidden and an `<img>` of `POST /render`'s answer (a `blob:` URL; renders cached by source, 64 of them, failures not kept) is added, the hidden source made non-editable and kept so if Text resets it. Each image figure whose `data-src` ends in `.puml` is hidden and our own `<figure>` goes after it: an `<img>` on `GET /render?path=…`, the path resolved against the README's folder as Text's `AttachmentResolver` does, with the Markdown alt text as its caption. Text's elements are hidden, never removed. Both drawings swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. A fence the server cannot draw keeps Text's code block. **Several diagrams (agreed, round 4):** an image's `#fragment` names the diagram (`Screens.puml#login`, `Screens.puml#2`) and goes to `GET /render` as `&diagram=`, URL-decoded; the path before the `#` is what must end in `.puml`. When Text's figure has dropped the fragment from `data-src`, it is read from the README's own Markdown, matching images to figures in order. A fence draws each of its diagrams in turn, one `POST /render` per index, since the README shows its source and every block in it is the author's. |
 | `js/admin-test.js` | The **Test connection** button, a plain script outside the build: POSTs to `/test-connection` with the request token, shows the message with a check or an error icon, and "Could not test the connection" for an answer that is not the JSON. |
 
 ### Why the README is a DOM observer, and the exit
@@ -291,21 +297,37 @@ Four pages, one per surface, drawn on 2026-10-13 against Nextcloud 34's light th
 (50px primary header, 300px navigation, 44px controls, 8px element radius and pill
 buttons, Noto Sans); the Editor page and the + New menu were redrawn on 2026-10-14 to
 match what ships (#23). Each page has its own prototype flow; links change state within a
-page and never cross one.
+page and never cross one. A fifth page, Components, holds the library: five `library / …`
+boards (icons, controls, navigation and files, admin, editor) that hold the component mains
+and are not screens.
 
 | Page | Boards | What the click does |
 |---|---|---|
 | Admin | `screens / admin` → `screens / admin-success`; `Admin — health check states` | *Test connection* reveals the result line. The states board holds the four lines the check can show: `PlantUML 1.2026.8`, `Server URL is not set`, `Server is unreachable`, `Server is not a PlantUML server`. |
-| Editor | `screens / editor` → `screens / editor-saving` → `screens / editor-saved`; `screens / editor-autocomplete`, `screens / editor-lint`, `screens / editor-dark` | The unsaved board (check with a dot, the divider's handle) moves to saving and then saved by itself after a delay, as autosave does; a click on the save state saves at once; typing in the saved board makes it unsaved again. *Add name* on the lint board returns to the editor. The other boards are states: connector completions after `node1 `, the unnamed-`@startuml` warning with its panel, the dark theme with search open. Detail: editor spec. |
+| Editor | `screens / editor` → `screens / editor-saving` → `screens / editor-saved`; `screens / editor-autocomplete`, `screens / editor-lint`, `screens / editor-dark`, `screens / editor-diagram-only` | The unsaved board (check with a dot, the divider's handle) moves to saving and then saved by itself after a delay, as autosave does; a click on the save state saves at once; typing in the saved board makes it unsaved again. *Add name* on the lint board returns to the editor. The other boards are states: connector completions after `node1 `, the unnamed-`@startuml` warning with its panel, the dark theme with search open. The Source toggle switches between the editor and `screens / editor-diagram-only`, where it is unpressed and the diagram spans the full width. Detail: editor spec. |
 | Files | `screens / files`, `screens / viewer`, `overlay / context-menu`, `overlay / new-menu` | A row's name or icon opens the Viewer; its × returns. The row's *…* opens the menu: **View**, **Edit diagram**, **Open with text editor**, then Nextcloud's own entries. *+ New* opens its menu with **UML Diagram** as the new entry (drawn as **Diagram** on 2026-10-13). |
 | Readme | `screens / readme` ↔ `screens / readme-source` | The Diagrams folder with Text's README workspace above the list: a ```` ```plantuml ```` fence and an `![Order flow](Order flow.puml)` both shown as the diagram, the image with its alt text as caption. Clicking the README.md row shows the markdown source; its × returns. |
 
 Copy on the admin card: section title "PlantUML", subtitle "Point to your PlantUML server",
 field label "Server URL", button "Test connection". Nothing else.
 
-Library components: `header` (main on the Admin board, instance on Files) and
-`order-flow`, the rendered diagram (main in the editor's right pane, instance in the
-Viewer). The diagram is drawn from shapes in PlantUML's default style because the Penpot
+Every board is built from library components, and every fill, stroke, radius, shadow and
+flex spacing on a layer is a token (2026-10-14), with one exception: the syntax colours in
+the editor boards' `source / code` texts are per-character fills, which Penpot cannot bind
+to a token. They copy the token values. Colour tokens carry the names of the Nextcloud
+variables they stand for (`color-main-text`, `color-primary-element-light`, …) in a `Light`
+and a `Dark` theme. Switching to `Dark` flips every board except two: `editor-dark` binds
+pinned `dark.*` tokens so it stays dark whichever theme is active, and the code texts keep
+their light syntax colours. The PlantUML drawing has its own `plantuml.*` tokens because it
+is the server's picture, not the theme's. The components are on the Components page as
+`Name / Property=Value`: the icons, `icon-button` (Default, Hover, Pressed, Focus),
+`source-toggle` (Pressed), `save-indicator` (Unsaved, Saving, Saved), `tab` (Active,
+Inactive), `tab-strip`, `editor-bar`, `source-pane`, `splitter`, `fold-placeholder`,
+`completion-row` (Default, Selected), `checkbox`, `app-navigation` (Heading),
+`navigation-item`, `files-table-head`, `files-row`, `menu-item`, `menu-separator`, `button`
+(Primary, Secondary, PrimaryLight), `text-field` and `health-check`. Two older mains stay
+where they were drawn: `header` (Admin board) and `order-flow`, the rendered diagram (the
+editor's right pane), drawn from shapes in PlantUML's default style because the Penpot
 backend could not fetch a render from any server.
 
 Not drawn: the editor's right pane when the server is down (one line of the error
@@ -373,6 +395,8 @@ across unchanged.
 | Editor engine | **CodeMirror 6**, used directly from `@codemirror/*`, with a PlantUML `StreamLanguage` written as a simple-mode rule table ported from Prism's `prism-plant-uml` (MIT), kkeisuke's CM5 mode as a second reference; the split pane is ours (fact 9). The spec said "in a thin Vue component"; it shipped as a plain DOM overlay, which needed no Vue. | an off-the-shelf editor — none is a component with a PlantUML grammar and a pulse; Monaco — 5–10× the bundle, AMD loader and workers inside a Nextcloud app, and no PlantUML tokenizer either; a TextMate bridge — 160 kB of wasm for a grammar Shiki does not even carry |
 | Editor bundle | added to the page the first time the editor opens (#15) | on every Files page — most of the app's JavaScript, for pages that never open it |
 | The diagram in the editor | inline, sanitised SVG (Dr K: "let's draw it inline with svg", #30) | an `<img>` — safe, but its links cannot be followed |
+| Choosing one diagram of several in a README | `x.puml#name` or `x.puml#2`: the name the editor's tab shows, else the position counted from 1 like the tabs; the server resolves it | `?diagram=` in the image path — any other Markdown reader (GitHub, an IDE preview) would look for a file whose name holds the query, while a fragment is ignored there and the file still shows; 0-based numbers — PlantUML's own index, but not what a reader counts |
+| A fence holding several diagrams | draws them all | only the first — hides what the author wrote right there in the README |
 | Fences | a POST passthrough render for logged-in users | `path=<README>&fence=<n>` — the server would re-parse Markdown to find text the client already has |
 | Image format | SVG everywhere | PNG — only a thumbnail would have needed a raster, and there is none |
 | Thumbnails | none; the grid shows the file-type icon, as Nextcloud does for any text file | a preview provider of our own (fact 3) — code written for a behaviour nobody asked for |

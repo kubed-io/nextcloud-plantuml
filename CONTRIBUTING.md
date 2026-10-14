@@ -45,7 +45,7 @@ review.**
 | [psalm.xml](psalm.xml), [.php-cs-fixer.dist.php](.php-cs-fixer.dist.php) | Static analysis + coding standard config, from the sibling apps. |
 | [.devcontainer/](.devcontainer/) | One-shot dev environment (PHP 8.3 + Node + GH CLI + docker-out-of-docker). |
 | [.github/workflows/](.github/workflows/) | `pr.yml`, `tests.yml`, `quality.yml`, `integration.yml` (the three-leg Behat matrix), `publish.yml`, `package.yml`, `copilot-setup-steps.yml`. |
-| [vite.config.js](vite.config.js) | Frontend build config: one IIFE per `src/` entry, chosen by `ENTRY`. |
+| [vite.config.js](vite.config.js) | Frontend build config, one build per `src/` entry, chosen by `ENTRY`: the editor is an ES module whose diagram-type profiles are chunks in `dist/chunks/`; the files and readme bundles are IIFEs. |
 
 ---
 
@@ -196,7 +196,7 @@ You'll need PHP 8.4 (matches prod/CI), Composer, Node from `.nvmrc`. Then:
 ```sh
 composer install
 npm ci
-npm run build   # bundles src/*.js to dist/plantuml-*.js
+npm run build   # dist/plantuml-{editor,files,readme}.js + dist/chunks/ (ship both)
 ```
 
 ---

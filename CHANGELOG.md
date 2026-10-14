@@ -33,3 +33,8 @@ All notable changes to this project are documented here. The format follows
 - The editor underlines a diagram with no name after `@startuml`, offering to name it after the file, and the line where the server finds a mistake.
 - Editor conveniences: the current line highlighted, matching brackets outlined and closed as you type, Ctrl/Cmd+F to search, Ctrl/Cmd+/ to comment a line, Tab to indent.
 - A folder README shows its ```plantuml fences and `![](<diagram.puml>)` images as diagrams.
+- A file with several diagrams shows them as tabs above the diagram; the diagram follows the cursor and the cursor follows the tab. A block can be folded, and the **Source** toggle hides and restores the code.
+- The editor marks an `@start` with no `@end`, or an `@end` of the wrong type, with quick fixes; picking `@start` inserts the whole block, `salt`, `regex` and `ebnf` included.
+- `@startyaml` blocks are highlighted as YAML and checked, every mistake underlined; each diagram type's support loads only when a file holds that type.
+- Drawing one diagram of several: `POST /apps/plantuml/render` takes an `index`.
+- The editor bundle is an ES module, with its per-type chunks in `dist/chunks/`.

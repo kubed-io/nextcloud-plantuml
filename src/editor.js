@@ -10,8 +10,9 @@
  * in a new file beside it. A change made elsewhere is taken in while the source
  * is all saved, and is that same conflict while it is not.
  *
- * The Files bundle adds this bundle to the page the first time "Edit diagram"
- * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
+ * The Files bundle adds this bundle, an ES module, to the page the first time
+ * "Edit diagram" or + New needs it, then calls the window.OCA.PlantUml.openEditor
+ * it defines. Each diagram type's profile is imported only when a file holds it.
  */
 import { Compartment, EditorState, Transaction } from '@codemirror/state'
 import {
@@ -26,21 +27,25 @@ import { color } from '@uiw/codemirror-extensions-color'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
-import { plantumlMode } from './editor/plantuml-mode.js'
+import { diagramAt, scan } from './editor/blocks.js'
+import { profileExtension, profileLoader, resetProfiles } from './editor/profiles/index.js'
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
 import { plantumlLint } from './editor/lint/index.js'
+import { plantumlFolding } from './editor/folding.js'
 import { fileName, setServerError } from './editor/lint/state.js'
 import { ConflictError, currentEtag, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { toInlineSvg } from './editor/inline-svg.js'
 import { createAutosave } from './editor/autosave.js'
 import { createSplitter } from './editor/splitter.js'
+import { createTabs } from './editor/tabs.js'
 import { watchFile } from './editor/watch.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
 import checkIcon from '../img/icons/check.svg?raw'
 import refreshIcon from '../img/icons/refresh.svg?raw'
+import sourceIcon from '../img/icons/code-tags.svg?raw'
 
 const IDLE_MS = 2000
 const MAX_WAIT_MS = 30000
@@ -61,6 +66,7 @@ export function openEditor(node) {
   if (document.querySelector('.plantuml-editor')) {
     return
   }
+  resetProfiles()
   let path = node.path
   const name = node.basename
 
@@ -77,20 +83,25 @@ export function openEditor(node) {
     type: 'button', 'aria-label': t(APP_ID, 'Reload from the file'), title: t(APP_ID, 'Reload from the file'), hidden: '',
   })
   refreshButton.innerHTML = refreshIcon
+  const sourceToggle = el('button', 'plantuml-editor__source-toggle', {
+    type: 'button', 'aria-label': t(APP_ID, 'Source'), title: t(APP_ID, 'Source'), 'aria-pressed': 'true', 'aria-controls': 'plantuml-editor-source', hidden: '',
+  })
+  sourceToggle.innerHTML = sourceIcon
   // Text's indicator: a check when saved, a dot on it while not, a spinner while saving.
   const saveButton = el('button', 'plantuml-editor__save', { type: 'button', 'aria-label': t(APP_ID, 'Save'), hidden: '' })
   saveButton.innerHTML = checkIcon
   const closeButton = el('button', 'plantuml-editor__close', { type: 'button', 'aria-label': t(APP_ID, 'Close') })
   closeButton.innerHTML = closeIcon
   const bar = el('header', 'plantuml-editor__bar')
-  bar.append(icon, title, status, reloadButton, copyButton, refreshButton, saveButton, closeButton)
+  bar.append(icon, title, status, reloadButton, copyButton, sourceToggle, refreshButton, saveButton, closeButton)
 
   const source = el('div', 'plantuml-editor__source', { id: 'plantuml-editor-source' })
   // The diagram is drawn inline, so its links work; to a screen reader it is one picture.
-  const image = el('div', 'plantuml-editor__image', { role: 'img', 'aria-label': name, hidden: '' })
+  const image = el('div', 'plantuml-editor__image', { id: 'plantuml-editor-image', role: 'img', 'aria-label': name, hidden: '' })
   const problem = el('p', 'plantuml-editor__problem', { role: 'status', hidden: '' })
+  const tabs = createTabs({ onActivate: showDiagram, controls: image.id })
   const diagram = el('div', 'plantuml-editor__diagram')
-  diagram.append(image, problem)
+  diagram.append(tabs.element, image, problem)
   const panes = el('div', 'plantuml-editor__panes')
   panes.append(source, createSplitter(panes, source), diagram)
 
@@ -118,7 +129,15 @@ export function openEditor(node) {
   let watcher = null
   let closing = false
   let closed = false
+  let diagrams = [] // the file's, from blocks.js; the one drawn is diagrams[active]
+  let active = 0
   const nameConfig = new Compartment()
+  const profilesConfig = new Compartment()
+  const wantProfiles = profileLoader((extension) => {
+    if (!closed) {
+      view.dispatch({ effects: profilesConfig.reconfigure(extension) })
+    }
+  })
 
   const isDirty = () => view !== null && !view.state.doc.eq(saved)
 
@@ -237,12 +256,19 @@ export function openEditor(node) {
       queueMicrotask(() => { if (!closed) view.dispatch({ effects: setServerError.of(null) }) })
       return
     }
-    debouncedRender(text, (error, svgText, mistake) => {
+    const index = active
+    // PlantUML's own count, which an unclosed block can make differ from the tab's.
+    debouncedRender(text, diagrams[index].render, (error, svgText, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
       }
+      // An answer for another tab is drawn by no tab: a change of tab sent a
+      // render of its own. One for an older source still is, while the newer
+      // one is on its way, and leaves the mapped mark alone.
+      if (index !== active) {
+        return
+      }
       // A server problem is no mistake in the source: the pane says what it is.
-      // An answer for an older source leaves the mapped mark to the render on its way.
       if (text === view.state.doc.toString()) {
         view.dispatch({ effects: setServerError.of(error ? null : mistake) })
       }
@@ -258,6 +284,53 @@ export function openEditor(node) {
       image.hidden = false
       problem.hidden = true
     })
+  }
+
+  /**
+   * The tab follows the cursor (B3), staying put on a line outside every block;
+   * the diagram is drawn again when the source or the tab changed. A deleted
+   * block can leave `active` past the end, which falls back to the last.
+   */
+  function follow(state, docChanged) {
+    const at = diagramAt(diagrams, state.doc.lineAt(state.selection.main.head).number)
+    const next = at ? at.index : Math.min(active, diagrams.length - 1)
+    if (!docChanged && next === active) {
+      return
+    }
+    active = next
+    tabs.update(diagrams, active)
+    draw(state.doc.toString())
+  }
+
+  /** The cursor follows the tab (B4): to the end of its `@start` or `newpage` line. */
+  function showDiagram(index) {
+    const target = diagrams[index]
+    if (!view || !target) {
+      return
+    }
+    const pos = view.state.doc.line(target.from).to
+    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: 20 }) })
+    focusAfterTab()
+  }
+
+  /** Where the focus goes from an activated tab: the one place to keep it on the tab instead. */
+  function focusAfterTab() {
+    if (!overlay.classList.contains('plantuml-editor--diagram-only')) {
+      view.focus()
+    }
+  }
+
+  /** L8: hide or show the source; the splitter's share stays in --plantuml-split. */
+  function toggleSource() {
+    const hide = sourceToggle.getAttribute('aria-pressed') === 'true'
+    const inSource = source.contains(document.activeElement)
+    overlay.classList.toggle('plantuml-editor--diagram-only', hide)
+    sourceToggle.setAttribute('aria-pressed', String(!hide))
+    if (hide && inSource) {
+      sourceToggle.focus()
+    } else if (!hide) {
+      view?.focus()
+    }
   }
 
   async function save() {
@@ -428,6 +501,13 @@ export function openEditor(node) {
   // CodeMirror marks an Escape it used (closing the completion popup, the
   // search or diagnostics panel, dropping a multi-selection) as handled.
   function onKeydown(event) {
+    // The editor's own Mod-s has handled it already when the focus is in the
+    // source. 'S' is Caps Lock's; Shift is another shortcut's.
+    if ((event.key === 's' || event.key === 'S') && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && !event.defaultPrevented) {
+      event.preventDefault()
+      save()
+      return
+    }
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
       event.stopPropagation()
@@ -444,6 +524,7 @@ export function openEditor(node) {
   saveButton.addEventListener('click', save)
   reloadButton.addEventListener('click', reload)
   refreshButton.addEventListener('click', reload)
+  sourceToggle.addEventListener('click', toggleSource)
   copyButton.addEventListener('click', saveAsCopy)
   closeButton.addEventListener('click', close)
   document.addEventListener('keydown', onKeydown)
@@ -468,9 +549,11 @@ export function openEditor(node) {
           highlightSelectionMatches(),
           search({ top: true }),
           history(),
-          plantumlMode,
+          // The PlantUML language, and what the loaded profiles add to it.
+          profilesConfig.of(profileExtension([])),
           plantumlCompletion,
           plantumlLint,
+          plantumlFolding,
           nameConfig.of(fileName.of(name)),
           plantumlTheme,
           // A swatch before each ColorLiteral; picking a colour writes it back as #rrggbb.
@@ -496,21 +579,28 @@ export function openEditor(node) {
             if (update.docChanged) {
               failure = notice = ''
               showState()
-              draw(update.state.doc.toString())
+              const text = update.state.doc.toString()
+              diagrams = scan(text)
+              wantProfiles(diagrams, text)
               if (!conflict) {
                 autosave.schedule()
               }
+            }
+            if (update.docChanged || update.selectionSet) {
+              follow(update.state, update.docChanged)
             }
           }),
         ],
       }),
     })
     saved = view.state.doc
-    saveButton.hidden = refreshButton.hidden = false
+    saveButton.hidden = refreshButton.hidden = sourceToggle.hidden = false
     showButtons()
     watcher = watchFile({ check })
     view.focus()
-    draw(content)
+    diagrams = scan(content)
+    follow(view.state, true)
+    wantProfiles(diagrams, content)
   }, (e) => {
     console.error(`[${APP_ID}] could not open ${path}`, e)
     fail(t(APP_ID, 'Could not open the file'))

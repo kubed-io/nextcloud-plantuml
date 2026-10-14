@@ -10,6 +10,8 @@ import { EditorView } from '@codemirror/view'
 import { completionStatus, startCompletion } from '@codemirror/autocomplete'
 import { forceLinting } from '@codemirror/lint'
 import { undo } from '@codemirror/commands'
+import { ensureSyntaxTree, language } from '@codemirror/language'
+import swallowed from '../fixtures/diagrams/swallowed.puml?raw'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -49,6 +51,7 @@ const indicator = () => saveButton().dataset.state
 const reloadButton = () => q('.plantuml-editor__reload')
 const copyButton = () => q('.plantuml-editor__copy')
 const refreshButton = () => q('.plantuml-editor__refresh')
+const toggle = () => q('.plantuml-editor__source-toggle')
 const source = () => EditorView.findFromDOM(q('.cm-editor')).state.doc.toString()
 const image = () => q('.plantuml-editor__image')
 // What PlantUML answers for a diagram with one link, cut down.
@@ -67,7 +70,7 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:diagram')
   seams.answer = { error: null, svg: diagram() }
   // The answer never lands inside the change that asked for it.
-  seams.debouncedRender.mockImplementation((_source, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.svg, seams.answer.mistake ?? null)))
+  seams.debouncedRender.mockImplementation((_source, _index, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.svg, seams.answer.mistake ?? null)))
   seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
   // A test about changes elsewhere says what the file's ETag is; any other
   // test's checks fail, which the editor keeps to the debug console.
@@ -129,7 +132,7 @@ describe('the editor overlay', () => {
   it('keeps the diagram on screen until the next one is drawn, then swaps it', async () => {
     await open()
     let answer
-    seams.debouncedRender.mockImplementation((_source, cb) => { answer = cb })
+    seams.debouncedRender.mockImplementation((_source, _index, cb) => { answer = cb })
 
     type("' edit\n")
     expect(image().hidden).toBe(false)
@@ -643,6 +646,42 @@ describe('the save indicator', () => {
     await settle()
     expect(seams.saveFile).toHaveBeenCalledTimes(1)
   })
+
+  it('saves exactly once on Ctrl+S from the source, the browser\'s Save page kept away', async () => {
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockResolvedValue('"put"')
+    const save = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+
+    q('.cm-content').dispatchEvent(save)
+    await settle()
+
+    expect(save.defaultPrevented).toBe(true)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves Ctrl+Shift+S alone, in the source or out of it, Caps Lock or not', async () => {
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockResolvedValue('"put"')
+    const presses = [
+      [q('.cm-content'), { key: 'S', ctrlKey: true, shiftKey: true }],
+      [saveButton(), { key: 'S', ctrlKey: true, shiftKey: true }],
+      [saveButton(), { key: 's', metaKey: true, shiftKey: true }],
+    ].map(([target, init]) => {
+      const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+      target.dispatchEvent(event)
+      return event
+    })
+    await settle()
+
+    expect(presses.map((event) => event.defaultPrevented)).toEqual([false, false, false])
+    expect(seams.saveFile).not.toHaveBeenCalled()
+
+    saveButton().dispatchEvent(new KeyboardEvent('keydown', { key: 'S', ctrlKey: true, bubbles: true, cancelable: true }))
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('closing', () => {
@@ -1021,5 +1060,327 @@ describe('the Reload button', () => {
     await settle()
     expect(source()).toBe(THEIRS)
     expect(indicator()).toBe('saved')
+  })
+})
+
+describe('the diagram tabs', () => {
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+  const tabs = () => [...document.querySelectorAll('.plantuml-editor__diagram [role="tab"]')]
+  const selected = () => tabs().map((tab) => tab.getAttribute('aria-selected') === 'true')
+  const lastIndex = () => seams.debouncedRender.mock.calls.at(-1)[1]
+  const lineStart = (n) => view().state.doc.line(n).from
+  const DOC = '@startuml first\nA -> B\n@enduml\n\nnote between\n\n@startuml second\nB -> C\n@enduml\n@startsalt third\n{\n}\n@endsalt\n'
+
+  beforeEach(() => {
+    seams.loadFile.mockResolvedValue({ content: DOC, etag: '"get"' })
+  })
+
+  it('opens on the first diagram, one tab per diagram, at the top of the diagram pane', async () => {
+    await open()
+
+    expect(q('.plantuml-editor__diagram').firstElementChild.getAttribute('role')).toBe('tablist')
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['first', 'second', 'third'])
+    expect(selected()).toEqual([true, false, false])
+    expect(lastIndex()).toBe(0)
+    expect(tabs()[0].getAttribute('aria-controls')).toBe(image().id)
+  })
+
+  it('draws no strip for a file of one diagram', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+    await open()
+
+    expect(q('.plantuml-editor__diagram [role="tablist"]').hidden).toBe(true)
+  })
+
+  it('follows the cursor into the second block, and draws it', async () => {
+    await open()
+
+    view().dispatch({ selection: { anchor: lineStart(8) } })
+
+    expect(selected()).toEqual([false, true, false])
+    expect(seams.debouncedRender).toHaveBeenLastCalledWith(DOC, 1, expect.any(Function))
+  })
+
+  it('draws nothing again while the cursor stays in the same diagram', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: lineStart(8) } })
+    const renders = seams.debouncedRender.mock.calls.length
+
+    view().dispatch({ selection: { anchor: lineStart(9) } })
+
+    expect(seams.debouncedRender.mock.calls.length).toBe(renders)
+  })
+
+  it('keeps the tab on a line between blocks', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: lineStart(8) } })
+    const renders = seams.debouncedRender.mock.calls.length
+
+    view().dispatch({ selection: { anchor: lineStart(5) } })
+
+    expect(selected()).toEqual([false, true, false])
+    expect(seams.debouncedRender.mock.calls.length).toBe(renders)
+  })
+
+  it('puts the cursor at the end of the @start line of the tab activated, and the focus in the source', async () => {
+    await open()
+    tabs()[1].focus()
+
+    tabs()[1].click()
+
+    expect(view().state.selection.main.head).toBe(view().state.doc.line(7).to)
+    expect(document.activeElement).toBe(q('.cm-content'))
+    expect(selected()).toEqual([false, true, false])
+    expect(lastIndex()).toBe(1)
+  })
+
+  it('with the source hidden only the diagram changes, and the focus stays on the tab', async () => {
+    await open()
+    toggle().click()
+    tabs()[1].focus()
+
+    tabs()[1].click()
+
+    expect(selected()).toEqual([false, true, false])
+    expect(lastIndex()).toBe(1)
+    expect(document.activeElement).toBe(tabs()[1])
+  })
+
+  it('moves to the last diagram when the active one is deleted, never past it', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: lineStart(11) } })
+    expect(lastIndex()).toBe(2)
+
+    view().dispatch({ changes: { from: lineStart(10), to: view().state.doc.length } })
+
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['first', 'second'])
+    expect(selected()).toEqual([false, true])
+    expect(lastIndex()).toBe(1)
+  })
+
+  it('asks for the image PlantUML draws, which an unclosed block before it does not count', async () => {
+    seams.loadFile.mockResolvedValue({ content: swallowed, etag: '"get"' })
+    await open()
+
+    view().dispatch({ selection: { anchor: lineStart(4) } })
+
+    expect(selected()).toEqual([false, true])
+    expect(lastIndex()).toBe(0)
+    expect(seams.debouncedRender.mock.calls.map((call) => call[1])).not.toContain(1)
+  })
+
+  it('draws no answer under a tab it was not asked for', async () => {
+    await open()
+    const answers = []
+    seams.debouncedRender.mockImplementation((_source, _index, cb) => answers.push(cb))
+    type("' edit\n")
+    view().dispatch({ selection: { anchor: lineStart(9) } })
+
+    answers[0](null, diagram('first'), null)
+    await settle()
+    expect(image().textContent).toBe('docs')
+
+    answers[1](null, diagram('second'), null)
+    await settle()
+    expect(image().textContent).toBe('second')
+  })
+
+  it('marks no mistake from an answer for the tab left behind', async () => {
+    await open()
+    const answers = []
+    seams.debouncedRender.mockImplementation((_source, _index, cb) => answers.push(cb))
+    type("' edit\n")
+    view().dispatch({ selection: { anchor: lineStart(9) } })
+
+    answers[0](null, diagram(), { message: 'Syntax Error?', line: 3 })
+    await settle()
+    forceLinting(view())
+    await settle()
+
+    expect(q('.cm-lintRange-error')).toBeNull()
+  })
+})
+
+describe('profiles', () => {
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+  const DOC = '@startuml flow\nA -> B\n@enduml\n@startyaml config\nkey: value\n@endyaml\n'
+  /** The node the language reads at the start of `text`. */
+  const nodeAt = (text) => {
+    const { state } = view()
+    return ensureSyntaxTree(state, state.doc.length, 5000).resolveInner(state.doc.toString().indexOf(text), 1).name
+  }
+  const close = async () => {
+    q('.plantuml-editor__close').click()
+    await settle()
+  }
+  let PROFILES
+  let yamlProfile
+
+  // What is loaded stays loaded for the page, so each test gets a new page.
+  beforeEach(async () => {
+    vi.resetModules()
+    await import('../../src/editor.js')
+    ;({ PROFILES } = await import('../../src/editor/profiles/index.js'))
+    yamlProfile = await import('../../src/editor/profiles/yaml.js')
+    seams.loadFile.mockResolvedValue({ content: DOC, etag: '"get"' })
+  })
+
+  it('reads a yaml block as plain text until its profile arrives, then as yaml', async () => {
+    const arrival = deferred()
+    const yaml = vi.spyOn(PROFILES, 'yaml').mockReturnValue(arrival.promise)
+    await open()
+    expect(nodeAt('key')).not.toBe('atom')
+
+    arrival.resolve(yamlProfile)
+    await settle()
+
+    expect(nodeAt('key')).toBe('atom')
+    // A keystroke keeps the language: the document is not read again from the top.
+    const yamlLanguage = view().state.facet(language)
+    type("' edit\n")
+    await settle()
+    expect(view().state.facet(language)).toBe(yamlLanguage)
+    expect(yaml).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for a profile once a block of its type is typed', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+    const yaml = vi.spyOn(PROFILES, 'yaml')
+    await open()
+    expect(yaml).not.toHaveBeenCalled()
+
+    type('@startyaml config\nkey: value\n@endyaml\n')
+    await settle()
+
+    expect(yaml).toHaveBeenCalledTimes(1)
+  })
+
+  it('dispatches nothing into a closed editor when a profile arrives late', async () => {
+    const arrival = deferred()
+    vi.spyOn(PROFILES, 'yaml').mockReturnValue(arrival.promise)
+    await open()
+    const closed = view()
+    await close()
+    expect(q('.plantuml-editor')).toBeNull()
+    const dispatch = vi.spyOn(closed, 'dispatch')
+
+    arrival.resolve(yamlProfile)
+    await settle()
+
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+
+  it('leaves the block plain when its profile will not load, and tries again on the next open, not the next keystroke', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const yaml = vi.spyOn(PROFILES, 'yaml').mockRejectedValue(new Error('404'))
+    await open()
+    type("' one\n")
+    type("' two\n")
+    await settle()
+
+    expect(yaml).toHaveBeenCalledTimes(1)
+    // jsdom cannot measure text, which CodeMirror also logs as an error.
+    expect(console.error.mock.calls.filter(([message]) => /profile/.test(message))).toEqual([
+      ['[plantuml] could not load the yaml profile', expect.any(Error)],
+    ])
+    expect(nodeAt('key')).not.toBe('atom')
+    expect(q('.plantuml-editor__problem').hidden).toBe(true)
+
+    await close()
+    await open()
+    expect(yaml).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the Source toggle', () => {
+  it('is revealed with the file, before the Reload icon, pressed, named Source', async () => {
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Order flow.puml', basename: 'Order flow.puml' })
+    expect(toggle().hidden).toBe(true)
+    await settle()
+
+    expect(toggle().hidden).toBe(false)
+    expect(toggle().nextElementSibling).toBe(refreshButton())
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(toggle().getAttribute('aria-label')).toBe('Source')
+    expect(toggle().title).toBe('Source')
+    expect(toggle().getAttribute('aria-controls')).toBe('plantuml-editor-source')
+    expect(toggle().querySelector('svg')).not.toBeNull()
+  })
+
+  it('hides the source on a click and gives the focus to the toggle', async () => {
+    await open()
+    expect(document.activeElement).toBe(q('.cm-content'))
+
+    toggle().click()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(true)
+    expect(document.activeElement).toBe(toggle())
+  })
+
+  it('leaves the focus alone when it was not in the source', async () => {
+    await open()
+    saveButton().focus()
+
+    toggle().click()
+
+    expect(document.activeElement).toBe(saveButton())
+  })
+
+  it('shows the source again on a second click and focuses it', async () => {
+    await open()
+    toggle().click()
+
+    toggle().click()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(false)
+    expect(document.activeElement).toBe(q('.cm-content'))
+  })
+
+  it('keeps the split the splitter left', async () => {
+    await open()
+    q('.plantuml-editor__panes').style.setProperty('--plantuml-split', '35%')
+
+    toggle().click()
+    toggle().click()
+
+    expect(q('.plantuml-editor__panes').style.getPropertyValue('--plantuml-split')).toBe('35%')
+  })
+
+  it('still saves on Ctrl+S and Cmd+S, once, while the source is hidden', async () => {
+    await open()
+    type("' edit\n")
+    toggle().click()
+    seams.saveFile.mockResolvedValue('"put"')
+
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }))
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    type("' more\n")
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true, cancelable: true }))
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('still closes on Escape while the source is hidden', async () => {
+    await open()
+    toggle().click()
+
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('shows the source on a fresh open', async () => {
+    await open()
+    toggle().click()
+    toggle().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+
+    await open()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(false)
   })
 })

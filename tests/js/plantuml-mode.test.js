@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 import { EditorState, Text } from '@codemirror/state'
 import { toggleComment } from '@codemirror/commands'
 import { closeBrackets, insertBracket } from '@codemirror/autocomplete'
-import { plantumlMode } from '../../src/editor/plantuml-mode.js'
+import { highlightTree, tagHighlighter, tags } from '@lezer/highlight'
+import { plantumlMode, underline } from '../../src/editor/plantuml-mode.js'
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {
@@ -42,12 +43,39 @@ describe('plantumlMode', () => {
     expect(tokens('Customer -> Shop : place order')).toEqual([['->', 'operator'], ['place order', 'labelName']])
   })
 
-  it.each(['-->', '<-', '->>', '-[#red]->', '..>', 'o->', '==>', '~~>'])('names %s as an operator', (arrow) => {
+  it.each(['-->', '<-', '->>', '..>', 'o->', '==>', '~~>'])('names %s as an operator', (arrow) => {
     expect(tokens(`A ${arrow} B`)).toEqual([[arrow, 'operator']])
   })
 
-  it.each(['--', '..', '~~', '==', '---', '-up-', '-[hidden]-', '.left.'])('names the headless link %s as an operator too', (link) => {
+  it.each(['--', '..', '~~', '==', '---', '-up-', '.left.'])('names the headless link %s as an operator too', (link) => {
     expect(tokens(`node1 ${link} node2`)).toEqual([[link, 'operator']])
+  })
+
+  it('names a styled link in pieces: the strokes and brackets operators, a hex colour a colour, the rest attributes', () => {
+    expect(tokens('A -[#red]-> B')).toEqual([['-[', 'operator'], ['#red', 'attributeName'], [']->', 'operator']])
+    expect(tokens('node1 -[hidden]- node2')).toEqual([['-[', 'operator'], ['hidden', 'attributeName'], [']-', 'operator']])
+    expect(tokens('api -[#FF6F61,bold]-> jobs : deploys')).toEqual([
+      ['-[', 'operator'],
+      ['#FF6F61', 'ColorLiteral'],
+      ['bold', 'attributeName'],
+      [']->', 'operator'],
+      ['deploys', 'labelName'],
+    ])
+    expect(tokens('A .[#00F, dashed, thickness=2]..> B')).toEqual([
+      ['.[', 'operator'],
+      ['#00F', 'ColorLiteral'],
+      ['dashed', 'attributeName'],
+      ['thickness=2', 'attributeName'],
+      [']..>', 'operator'],
+    ])
+    expect(tokens('A <-[#red]- B')).toEqual([['<-[', 'operator'], ['#red', 'attributeName'], [']-', 'operator']])
+  })
+
+  it('never carries a label, a styled link or a note line into the next line', () => {
+    expect(tokens('A -> B : hi', 'participant C')).toEqual([['->', 'operator'], ['hi', 'labelName'], ['participant', 'keyword']])
+    expect(tokens('A -> B', 'participant C : x')).toEqual([['->', 'operator'], ['participant', 'keyword']])
+    expect(tokens('note left of A : hi', 'actor B')).toEqual([['note', 'keyword'], ['actor', 'keyword']])
+    expect(tokens('title A **b**', 'actor B')).toEqual([['title', 'keyword'], ['**b**', 'strong'], ['actor', 'keyword']])
   })
 
   it('labels a headless link, a quoted end, and a label with no spaces round the colon', () => {
@@ -57,7 +85,10 @@ describe('plantumlMode', () => {
   })
 
   it('finds no arrow inside a word or a URL, but keeps o and x heads', () => {
-    expect(tokens('database db [[https://www.postgresql.org/docs/ Postgres docs]]')).toEqual([['database', 'keyword']])
+    expect(tokens('database db [[https://www.postgresql.org/docs/ Postgres docs]]')).toEqual([
+      ['database', 'keyword'],
+      ['[[https://www.postgresql.org/docs/ Postgres docs]]', 'link'],
+    ])
     expect(tokens('A --o B')).toEqual([['--o', 'operator']])
     expect(tokens('A ..x B')).toEqual([['..x', 'operator']])
     expect(tokens('A-->B')).toEqual([['-->', 'operator']])
@@ -93,6 +124,168 @@ describe('plantumlMode', () => {
 
   it('keeps indentation out of a keyword', () => {
     expect(tokens('  note left of A')).toEqual([['note', 'keyword']])
+  })
+})
+
+describe('plantumlMode colours', () => {
+  it('names a hex colour a ColorLiteral, the node the colour picker looks for', () => {
+    expect(tokens('skinparam backgroundColor #2B3E50')).toEqual([['skinparam', 'keyword'], ['#2B3E50', 'ColorLiteral']])
+    expect(tokens('participant Shop #99FF99')).toEqual([['participant', 'keyword'], ['#99FF99', 'ColorLiteral']])
+  })
+
+  it.each(['#ABC', '#abcd', '#A1B2C3', '#A1B2C3D4'])('takes %s as a colour', (hex) => {
+    expect(tokens(`node foo ${hex}`)).toEqual([['node', 'keyword'], [hex, 'ColorLiteral']])
+  })
+
+  it.each(['#Red', '#ABCDE', '#ABCDEFA', '#line:red', '#line.dashed'])('takes %s for something other than a hex colour', (word) => {
+    expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword']])
+  })
+
+  it('takes the colour out of an element style, and leaves its line and text parts', () => {
+    expect(tokens('node foo #FF0000;line:red;line.dashed;text:blue')).toEqual([['node', 'keyword'], ['#FF0000', 'ColorLiteral']])
+  })
+
+  it('highlights a ColorLiteral as a colour', () => {
+    const tree = plantumlMode.parser.parse('skinparam backgroundColor #2B3E50')
+    const styled = []
+    highlightTree(tree, tagHighlighter([{ tag: tags.color, class: 'colour' }]), (from, to, cls) => styled.push([from, to, cls]))
+    expect(styled).toEqual([[26, 33, 'colour']])
+  })
+})
+
+describe('plantumlMode Creole', () => {
+  /** The tokens of a link's label, after the link. */
+  const label = (text) => tokens(`A -> B : ${text}`).slice(1)
+
+  it('marks up a link label: bold, italic, monospace, underline and a link', () => {
+    expect(label('a **b** //c// ""d"" __e__ [[https://x.org/ y]]')).toEqual([
+      ['a ', 'labelName'],
+      ['**b**', 'strong_labelName'],
+      [' ', 'labelName'],
+      ['//c//', 'emphasis_labelName'],
+      [' ', 'labelName'],
+      ['""d""', 'monospace_labelName'],
+      [' ', 'labelName'],
+      ['__e__', 'underline_labelName'],
+      [' ', 'labelName'],
+      ['[[https://x.org/ y]]', 'link'],
+    ])
+  })
+
+  it('names Creole tags as tags, and a colour inside one as a colour', () => {
+    expect(label('<size:20>big</size> <b>x</b> <&clock> <:sunny:> <img:logo.png>')).toEqual([
+      ['<size:20>', 'tagName'],
+      ['big', 'labelName'],
+      ['</size>', 'tagName'],
+      [' ', 'labelName'],
+      ['<b>', 'tagName'],
+      ['x', 'labelName'],
+      ['</b>', 'tagName'],
+      [' ', 'labelName'],
+      ['<&clock>', 'tagName'],
+      [' ', 'labelName'],
+      ['<:sunny:>', 'tagName'],
+      [' ', 'labelName'],
+      ['<img:logo.png>', 'tagName'],
+    ])
+    expect(label('<color:#FF6F61>hot</color> <back:#2B3E50>x</back> <color:red>y</color>')).toEqual([
+      ['<color:', 'tagName'],
+      ['#FF6F61', 'ColorLiteral'],
+      ['>', 'tagName'],
+      ['hot', 'labelName'],
+      ['</color>', 'tagName'],
+      [' ', 'labelName'],
+      ['<back:', 'tagName'],
+      ['#2B3E50', 'ColorLiteral'],
+      ['>', 'tagName'],
+      ['x', 'labelName'],
+      ['</back>', 'tagName'],
+      [' ', 'labelName'],
+      ['<color:red>', 'tagName'],
+      ['y', 'labelName'],
+      ['</color>', 'tagName'],
+    ])
+  })
+
+  it('reads a URL in a label as text, not as the start of italics', () => {
+    expect(label('see https://x.org/a//b and //this//')).toEqual([
+      ['see https://x.org/a//b and ', 'labelName'],
+      ['//this//', 'emphasis_labelName'],
+    ])
+  })
+
+  it('leaves --strike-- and ~~wave~~ alone, as they would read as links', () => {
+    expect(label('--gone-- and ~~wavy~~')).toEqual([['--gone-- and ~~wavy~~', 'labelName']])
+  })
+
+  it('keeps Creole out of names and keywords', () => {
+    expect(tokens('participant **A**')).toEqual([['participant', 'keyword']])
+  })
+
+  it('marks up a note body down to its end, with table bars and rules', () => {
+    expect(tokens('note left of A', '**b** <i>x</i>', '|= h |= h2 |', '| a | b |', '----', 'end note', 'actor B')).toEqual([
+      ['note', 'keyword'],
+      ['**b**', 'strong'],
+      ['<i>', 'tagName'],
+      ['</i>', 'tagName'],
+      ['|=', 'punctuation'],
+      ['|=', 'punctuation'],
+      ['|', 'punctuation'],
+      ['|', 'punctuation'],
+      ['|', 'punctuation'],
+      ['|', 'punctuation'],
+      ['----', 'heading'],
+      ['end note', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+
+  it('marks up a single-line note after its colon, and an hnote or rnote body', () => {
+    expect(tokens('note right of A : **b**')).toEqual([['note', 'keyword'], ['**b**', 'strong']])
+    expect(tokens('hnote over A', '//idle//', 'endhnote')).toEqual([['hnote', 'keyword'], ['//idle//', 'emphasis'], ['endhnote', 'keyword']])
+    expect(tokens('note as N1 #FFAAAA', '""x""', 'end note')).toEqual([
+      ['note', 'keyword'],
+      ['as', 'keyword'],
+      ['#FFAAAA', 'ColorLiteral'],
+      ['""x""', 'monospace'],
+      ['end note', 'keyword'],
+    ])
+  })
+
+  it('marks up a legend and a description body down to their ends', () => {
+    expect(tokens('legend right', '__u__', '....', 'endlegend', 'actor B')).toEqual([
+      ['legend', 'keyword'],
+      ['__u__', 'underline'],
+      ['....', 'heading'],
+      ['endlegend', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+    expect(tokens('node web [', '//front// end', '====', ']', 'node db')).toEqual([
+      ['node', 'keyword'],
+      ['//front//', 'emphasis'],
+      ['====', 'heading'],
+      ['node', 'keyword'],
+    ])
+  })
+
+  it('marks up a title, header, footer and caption, on one line or down to the end', () => {
+    expect(tokens('title The **big** one')).toEqual([['title', 'keyword'], ['**big**', 'strong']])
+    expect(tokens('caption <&clock> 2026-10-14')).toEqual([['caption', 'keyword'], ['<&clock>', 'tagName']])
+    expect(tokens('title', '""x""', 'end title', 'actor B')).toEqual([
+      ['title', 'keyword'],
+      ['""x""', 'monospace'],
+      ['end title', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+    expect(tokens('header', '<b>h</b>', 'endheader')).toEqual([['header', 'keyword'], ['<b>', 'tagName'], ['</b>', 'tagName'], ['endheader', 'keyword']])
+    expect(tokens('footer page **1**')).toEqual([['footer', 'keyword'], ['**1**', 'strong']])
+  })
+
+  it('gives underline a tag of its own', () => {
+    const tree = plantumlMode.parser.parse('note left\n__u__\nend note')
+    const styled = []
+    highlightTree(tree, tagHighlighter([{ tag: underline, class: 'u' }]), (from, to, cls) => styled.push([from, to, cls]))
+    expect(styled).toEqual([[10, 15, 'u']])
   })
 })
 

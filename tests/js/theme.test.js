@@ -6,21 +6,39 @@
 import { describe, expect, it } from 'vitest'
 import { tags } from '@lezer/highlight'
 import { highlightStyle, surfaceRules } from '../../src/editor/theme.js'
+import { underline } from '../../src/editor/plantuml-mode.js'
 
 const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\b(?:white|black)\b/i
 
 describe('the editor highlight style', () => {
+  const styled = highlightStyle.specs.map((spec) => spec.tag)
+
   it('colours every token the PlantUML mode emits', () => {
-    const styled = highlightStyle.specs.map((spec) => spec.tag)
-    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading]) {
+    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation]) {
       expect(styled).toContain(tag)
+    }
+  })
+
+  // They modify the text they sit in, a label's violet included, so they set no colour.
+  it('marks bold, italic, monospace and underline Creole by the font alone', () => {
+    for (const tag of [tags.strong, tags.emphasis, tags.monospace, underline]) {
+      const spec = highlightStyle.specs.find((candidate) => candidate.tag === tag)
+      expect(spec, String(tag)).toBeDefined()
+      expect(spec.color).toBeUndefined()
     }
   })
 
   it('takes every colour from Nextcloud theme variables, never a literal', () => {
     for (const spec of highlightStyle.specs) {
-      expect(spec.color).toMatch(/var\(--color-[a-z-]+\)/)
-      expect(spec.color).not.toMatch(LITERAL)
+      const colours = Object.entries(spec).filter(([property]) => /color|background|decoration/i.test(property))
+      if (spec.color === undefined) {
+        expect([tags.strong, tags.emphasis, tags.monospace, underline]).toContain(spec.tag)
+      } else {
+        expect(spec.color).toMatch(/var\(--color-[a-z-]+\)/)
+      }
+      for (const [property, value] of colours) {
+        expect(value, property).not.toMatch(LITERAL)
+      }
     }
   })
 })
@@ -35,6 +53,7 @@ describe('the editor surface', () => {
     ['the search panel and its matches', ['.cm-panels', '.cm-search', '.cm-searchMatch', '.cm-selectionMatch']],
     ["the search panel's field and buttons", ['.cm-textfield', '.cm-button', '.cm-button:active', '[name=close]']],
     ['snippet fields and a disabled popup', ['.cm-snippetField', '.cm-snippetFieldPosition', '.cm-tooltip-autocomplete-disabled']],
+    ["the colour picker's swatch and its input", ['span[data-color]', 'span[data-color] input[type="color"]']],
     ['the diagnostics: underline, gutter mark, tooltip and panel', ['.cm-lintRange-error', '.cm-lintRange-warning', '.cm-lintRange-info', '.cm-lintPoint-warning', '.cm-lint-marker-error', '.cm-lint-marker-warning', '.cm-diagnostic-warning', '.cm-diagnosticAction', '.cm-panel-lint']],
   ])('styles %s', (_what, parts) => {
     const selectors = Object.keys(surfaceRules).join('\n')

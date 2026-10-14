@@ -9,6 +9,7 @@
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
+import { underline } from './plantuml-mode.js'
 
 /**
  * A status element colour pulled a quarter of the way to the text colour: the
@@ -32,6 +33,20 @@ export const highlightStyle = HighlightStyle.define([
   // toward the text). #9083ac at 5.1:1 on dark, #5b3148 at 10.7:1 on light.
   { tag: tags.labelName, color: 'color-mix(in srgb, color-mix(in srgb, var(--color-element-error) 50%, var(--color-primary-element)) 85%, var(--color-main-text))', fontStyle: 'italic' },
   { tag: tags.heading, color: 'var(--color-text-maxcontrast)', fontWeight: 'bold' },
+  // A colour is a literal value, as a string is; its swatch shows the colour itself.
+  { tag: tags.color, color: towardText('--color-element-success') },
+  // `bold`, `dashed` in a styled link are part of the link.
+  { tag: tags.attributeName, color: towardText('--color-element-warning') },
+  // Creole. The text styles set no colour, so they keep that of the text they sit in.
+  { tag: tags.strong, fontWeight: 'bold' },
+  { tag: tags.emphasis, fontStyle: 'italic' },
+  // The source is monospace already, so a faint ground sets it apart.
+  { tag: tags.monospace, fontFamily: MONO, backgroundColor: 'color-mix(in srgb, var(--color-main-text) 8%, transparent)' },
+  { tag: underline, textDecoration: 'underline' },
+  { tag: tags.link, color: towardText('--color-primary-element'), textDecoration: 'underline' },
+  // Markup recedes behind the text it marks up: tags, table bars.
+  { tag: tags.tagName, color: 'var(--color-text-maxcontrast)' },
+  { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
 ])
 
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */
@@ -206,6 +221,24 @@ export const surfaceRules = {
   '.cm-completionIcon-constant:after': { content: '"c"' },
   '.cm-completionIcon-operator': { color: towardText('--color-element-warning') },
   '.cm-completionIcon-operator:after': { content: '"→"' },
+
+  // The colour picker's swatch: the library paints the colour on the span and
+  // hides the native input's own swatch past its edge. Core's input rules give
+  // that input a margin and a 30px height, which are taken back.
+  'span[data-color]': {
+    width: '0.9em',
+    height: '0.9em',
+    marginRight: '0.4ch',
+    borderRadius: 'var(--border-radius-small, var(--border-radius))',
+    outline: '1px solid var(--color-border-maxcontrast)',
+  },
+  'span[data-color] input[type="color"]': {
+    width: 'auto',
+    height: '0.9em',
+    minHeight: '0',
+    margin: '0',
+    cursor: 'pointer',
+  },
 
   // Diagnostics. The stock wavy underline is an SVG with its colour baked in, so
   // it is redrawn as a wavy text-decoration, whose colour can be a variable.

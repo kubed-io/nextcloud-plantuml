@@ -22,6 +22,7 @@ import { bracketMatching } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import { closeLintPanel, lintKeymap } from '@codemirror/lint'
+import { color } from '@uiw/codemirror-extensions-color'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
@@ -472,6 +473,8 @@ export function openEditor(node) {
           plantumlLint,
           nameConfig.of(fileName.of(name)),
           plantumlTheme,
+          // A swatch before each ColorLiteral; picking a colour writes it back as #rrggbb.
+          color,
           // Long lines wrap, so the source pane never scrolls sideways.
           EditorView.lineWrapping,
           // Mod-s would otherwise be the browser's "Save page as". defaultKeymap

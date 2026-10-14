@@ -52,7 +52,8 @@ export async function saveFile(path, content, etag) {
 /**
  * Writes `content` to a new file beside `path`: `<name> (copy).<ext>`, else
  * `(copy 2)` up to `(copy 9)`. `If-None-Match: *` makes a taken name answer
- * 412 instead of being overwritten.
+ * 412 instead of being overwritten. If the stat after the PUT fails, the copy
+ * exists but this rejects.
  *
  * @param {string} path
  * @param {string} content

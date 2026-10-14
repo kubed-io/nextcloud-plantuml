@@ -27,6 +27,10 @@ beforeEach(async () => {
   document.head.innerHTML = ''
   window._oc_appswebroots = { plantuml: '/custom_apps/plantuml' }
   window.OCA = { Viewer: { open: vi.fn(), registerHandler: vi.fn() } }
+  // The tag Nextcloud wrote for the Files bundle, versioned by Util::addScript.
+  const filesBundle = document.createElement('script')
+  filesBundle.src = 'http://localhost/custom_apps/plantuml/dist/plantuml-files.js?v=1a2b3c'
+  vi.spyOn(document, 'currentScript', 'get').mockReturnValue(filesBundle)
   // files.js remembers the bundle it injected for the page's life.
   vi.resetModules()
   await import('../../src/files.js')
@@ -53,7 +57,7 @@ describe('Edit diagram', () => {
 
     const opening = [editDiagram(), editDiagram(other)]
     expect(scripts()).toHaveLength(1)
-    expect(scripts()[0].getAttribute('src')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js')
+    expect(scripts()[0].getAttribute('src')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c')
     editorBundleRuns()
     await Promise.all(opening)
 
@@ -86,5 +90,18 @@ describe('Edit diagram', () => {
     editorBundleRuns()
     await again
     expect(window.OCA.PlantUml.openEditor).toHaveBeenCalledWith(node)
+  })
+
+  it('tries again next time when the bundle loads but defines no editor', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const opening = editDiagram()
+    scripts()[0].dispatchEvent(new Event('load'))
+    await opening
+
+    expect(window.OCA.Viewer.open).toHaveBeenCalledWith({ path: node.path })
+    expect(scripts()).toHaveLength(0)
+    editDiagram()
+    expect(scripts()).toHaveLength(1)
   })
 })

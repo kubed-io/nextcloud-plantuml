@@ -47,6 +47,10 @@ describe('editorBundleUrl', () => {
   it('points at the editor bundle under the app\'s web root', () => {
     expect(editorBundleUrl()).toBe('/custom_apps/plantuml/dist/plantuml-editor.js')
   })
+
+  it('carries the version query it is given', () => {
+    expect(editorBundleUrl('?v=1a2b3c')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c')
+  })
 })
 
 describe('action gating', () => {

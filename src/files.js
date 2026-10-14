@@ -37,12 +37,14 @@ if (window.OCA?.Viewer) {
   window._oca_viewer_handlers = [...(window._oca_viewer_handlers ?? []), viewerHandler]
 }
 
+// Read now: currentScript is only set while this bundle first runs.
+const bundleQuery = document.currentScript?.src ? new URL(document.currentScript.src).search : ''
 let editorLoading = null
 
 /**
  * Puts the editor bundle on the page, once: it is most of the app's JavaScript
  * and most Files pages never open it. A failed load is forgotten, so the next
- * open tries again.
+ * open tries again. It carries the Files bundle's version query.
  *
  * @return {Promise<void>}
  */
@@ -52,19 +54,20 @@ function ensureEditor() {
   }
   editorLoading ??= new Promise((resolve, reject) => {
     const script = document.createElement('script')
-    script.src = editorBundleUrl()
+    script.src = editorBundleUrl(bundleQuery)
+    const fail = (message) => {
+      script.remove()
+      editorLoading = null
+      reject(new Error(message))
+    }
     script.addEventListener('load', () => {
       if (window.OCA?.PlantUml?.openEditor) {
         resolve()
       } else {
-        reject(new Error(`${script.src} did not define the editor`))
+        fail(`${script.src} did not define the editor`)
       }
     })
-    script.addEventListener('error', () => {
-      script.remove()
-      editorLoading = null
-      reject(new Error(`could not load ${script.src}`))
-    })
+    script.addEventListener('error', () => fail(`could not load ${script.src}`))
     document.head.append(script)
   })
   return editorLoading

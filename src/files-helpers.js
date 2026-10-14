@@ -45,7 +45,14 @@ export function renderUrl(path) {
   return OC.generateUrl(`/apps/${APP_ID}/render`) + '?path=' + encodeURIComponent(path)
 }
 
-/** The editor bundle, which files.js adds to the page the first time it is needed. */
-export function editorBundleUrl() {
-  return generateFilePath(APP_ID, 'dist', `${APP_ID}-editor.js`)
+/**
+ * The editor bundle, which files.js adds to the page the first time it is needed.
+ * `query` is the `?v=…` Nextcloud put on the Files bundle: without it the server
+ * caches the file for months and an upgrade never reaches the browser.
+ *
+ * @param {string} [query]
+ * @return {string}
+ */
+export function editorBundleUrl(query = '') {
+  return generateFilePath(APP_ID, 'dist', `${APP_ID}-editor.js`) + query
 }

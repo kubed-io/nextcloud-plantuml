@@ -9,6 +9,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { EditorView } from '@codemirror/view'
 import { completionStatus, startCompletion } from '@codemirror/autocomplete'
 import { forceLinting } from '@codemirror/lint'
+import { undo } from '@codemirror/commands'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -774,6 +775,37 @@ describe('when the file changes elsewhere', () => {
     seams.saveFile.mockResolvedValueOnce('"put"')
     await vi.advanceTimersByTimeAsync(2000)
     expect(seams.saveFile).toHaveBeenLastCalledWith(PATH, expect.stringContaining('B -> C'), '"theirs"')
+  })
+
+  it('keeps their version out of the undo history, and its tooltip on the last save of ours', async () => {
+    await open()
+    const before = q('.plantuml-editor__save').title
+    seams.currentEtag.mockResolvedValue('"theirs"')
+    seams.loadFile.mockResolvedValue({ content: THEIRS, etag: '"theirs"' })
+
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(source()).toBe(THEIRS)
+    expect(q('.plantuml-editor__save').title).toBe(before)
+
+    undo(view())
+    expect(source()).toBe(THEIRS)
+  })
+
+  it('still closes when a check fails while closing waits for it', async () => {
+    await open()
+    vi.spyOn(console, 'debug').mockImplementation(() => {})
+    type("' mine\n")
+    const looking = deferred()
+    seams.currentEtag.mockReturnValueOnce(looking.promise)
+    seams.saveFile.mockResolvedValue('"put"')
+
+    focusPage()
+    await settle()
+    q('.plantuml-editor__close').click()
+    looking.reject(new Error('404'))
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(q('.plantuml-editor')).toBeNull()
   })
 
   it('looks again as soon as the page has the focus back', async () => {

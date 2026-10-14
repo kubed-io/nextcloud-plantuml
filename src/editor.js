@@ -13,7 +13,7 @@
  * The Files bundle adds this bundle to the page the first time "Edit diagram"
  * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
  */
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, Transaction } from '@codemirror/state'
 import {
   EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers,
 } from '@codemirror/view'
@@ -154,9 +154,12 @@ export function openEditor(node) {
   }
 
   /** `doc` is what the file now holds, at `etag`. */
-  function markSaved(doc) {
+  /** `wrote` is false when the file came to us, so "Saved …" keeps our last save. */
+  function markSaved(doc, { wrote = true } = {}) {
     saved = doc
-    savedAt = Date.now()
+    if (wrote) {
+      savedAt = Date.now()
+    }
     conflict = false
     failure = notice = ''
     showState()
@@ -175,7 +178,7 @@ export function openEditor(node) {
    * differs: CodeMirror maps the cursor, and the line at the top of the view,
    * through a change that small, so both stay where they were.
    */
-  function replaceWith(content) {
+  function replaceWith(content, { history = true } = {}) {
     const old = view.state.doc.toString()
     const max = Math.min(old.length, content.length)
     let from = 0
@@ -188,6 +191,8 @@ export function openEditor(node) {
     }
     view.dispatch({
       changes: { from, to: old.length - end, insert: content.slice(from, content.length - end) },
+      // Their version is not an edit of ours to undo (and autosave back).
+      annotations: history ? [] : [Transaction.addToHistory.of(false)],
     })
   }
 
@@ -259,6 +264,10 @@ export function openEditor(node) {
       return
     }
     await exclusively(async () => {
+      // A check found theirs while this save waited: its PUT could only be refused.
+      if (conflict || closed) {
+        return
+      }
       const doc = view.state.doc
       try {
         etag = await saveFile(path, doc.toString(), etag)
@@ -276,10 +285,11 @@ export function openEditor(node) {
 
   /** Theirs replaces ours: the file as saved, at its new ETag. */
   async function reload() {
-    if (isDirty() && !window.confirm(t(APP_ID, 'Replace your changes with the saved file?'))) {
-      return
-    }
     await exclusively(async () => {
+      // Asked here, once any check has run: the source may have changed meanwhile.
+      if (isDirty() && !window.confirm(t(APP_ID, 'Replace your changes with the saved file?'))) {
+        return
+      }
       try {
         const file = await loadFile(path)
         if (closed) {
@@ -287,7 +297,7 @@ export function openEditor(node) {
         }
         etag = file.etag
         replaceWith(file.content)
-        markSaved(view.state.doc)
+        markSaved(view.state.doc, { wrote: false })
       } catch (e) {
         console.error(`[${APP_ID}] could not open ${path}`, e)
         fail(t(APP_ID, 'Could not open the file'))
@@ -323,8 +333,8 @@ export function openEditor(node) {
       }
       const changed = file.content !== view.state.doc.toString()
       etag = file.etag
-      replaceWith(file.content)
-      markSaved(view.state.doc)
+      replaceWith(file.content, { history: false })
+      markSaved(view.state.doc, { wrote: false })
       if (changed) {
         notice = t(APP_ID, 'Updated from the file')
         showState()
@@ -362,7 +372,8 @@ export function openEditor(node) {
     const saving = (async () => {
       while (!gaveUp && isDirty() && !conflict && !failure) {
         while (running) {
-          await running
+          // A check leaves its own failures to the watcher; one must not stop a close.
+          await running.catch(() => {})
         }
         if (gaveUp || conflict || failure) {
           break

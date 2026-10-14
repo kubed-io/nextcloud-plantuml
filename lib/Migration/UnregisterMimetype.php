@@ -55,7 +55,7 @@ final class UnregisterMimetype implements IRepairStep {
 
 		try {
 			foreach (self::FILE_EXTENSIONS as $extension) {
-				$this->removeJsonKey($configDir . 'mimetypemapping.json', $extension);
+				$this->removeJsonKey($configDir . 'mimetypemapping.json', $extension, [self::APP_MIMETYPE]);
 			}
 			$this->removeJsonKey($configDir . 'mimetypealiases.json', self::APP_MIMETYPE);
 		} catch (\Throwable $e) {
@@ -70,9 +70,9 @@ final class UnregisterMimetype implements IRepairStep {
 		}
 
 		// Re-stamp the filecache rows so nothing dangles on the now-removed
-		// mimetype id. The detector cache is primed because we just edited the
-		// on-disk config files.
-		$this->detector->getAllMappings(); // primes lazy load (no public reset)
+		// mimetype id. getAllMappings() forces the detector's lazy load now, after
+		// the config edit; there is no public reset.
+		$this->detector->getAllMappings();
 		$fallbackId = $this->loader->getId(self::FALLBACK_MIMETYPE);
 		$touched = 0;
 		foreach (self::FILE_EXTENSIONS as $extension) {
@@ -91,7 +91,10 @@ final class UnregisterMimetype implements IRepairStep {
 				$this->detector->getAllAliases(),
 				$this->detector->getAllNamings(),
 			);
-			@file_put_contents($serverRoot . '/core/js/mimetypelist.js', $js);
+			$target = $serverRoot . '/core/js/mimetypelist.js';
+			if (@file_put_contents($target, $js) === false) {
+				$output->warning('plantuml: could not write ' . $target);
+			}
 		} catch (\Throwable $e) {
 			$this->logger->error('plantuml: failed to regenerate mimetypelist.js', ['exception' => $e]);
 		}
@@ -99,9 +102,13 @@ final class UnregisterMimetype implements IRepairStep {
 
 	/**
 	 * Remove a single key from a JSON object file, atomically (tempfile + rename).
-	 * No-op when the file or key is absent. Leaves every other entry untouched.
+	 * No-op when the file or key is absent, or when `$ours` is given and the value
+	 * is no longer it (an admin's own override survives). Leaves every other
+	 * entry untouched.
+	 *
+	 * @param mixed $ours the value this app wrote, or null to remove regardless
 	 */
-	private function removeJsonKey(string $path, string $key): void {
+	private function removeJsonKey(string $path, string $key, mixed $ours = null): void {
 		if (!is_file($path)) {
 			return;
 		}
@@ -110,7 +117,8 @@ final class UnregisterMimetype implements IRepairStep {
 			return;
 		}
 		$decoded = json_decode($raw, true);
-		if (!is_array($decoded) || !array_key_exists($key, $decoded)) {
+		if (!is_array($decoded) || !array_key_exists($key, $decoded)
+			|| ($ours !== null && $decoded[$key] !== $ours)) {
 			return;
 		}
 		unset($decoded[$key]);

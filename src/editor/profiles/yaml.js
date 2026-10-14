@@ -8,8 +8,7 @@
  */
 import { yaml } from '@codemirror/legacy-modes/mode/yaml'
 import { yamlLint } from '../lint/yaml.js'
-
-const HIGHLIGHT = /^\s*#highlight\b/
+import { HIGHLIGHT } from './plantuml-lines.js'
 
 const mode = {
   ...yaml,

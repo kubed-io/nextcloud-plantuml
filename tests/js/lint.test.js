@@ -124,13 +124,13 @@ describe('yaml', () => {
     expect(found.some((d) => d.from >= doc.indexOf('b: : :'))).toBe(true)
   })
 
-  it('pins the position and the plain message of each error in a block that starts below line 1', () => {
+  it('marks each error from its position to the end of its line, in a block that starts below line 1', () => {
     const doc = '@startuml\nA -> B\n@enduml\n@startyaml\nb: : :\n@endyaml\n'
     const at = doc.indexOf('b: : :')
     const found = yamlLint(stateOf(doc))
 
     expect(found).toEqual([
-      { from: at + 3, to: at + 4, severity: 'error', message: 'Nested mappings are not allowed in compact mappings' },
+      { from: at + 3, to: at + 6, severity: 'error', message: 'Nested mappings are not allowed in compact mappings' },
       { from: at + 5, to: at + 6, severity: 'error', message: 'Nested mappings are not allowed in compact mappings' },
     ])
     expect(found.every((d) => !d.message.includes('at line'))).toBe(true)
@@ -146,6 +146,33 @@ describe('yaml', () => {
 
   it('leaves another diagram type alone, whatever its text', () => {
     expect(yamlLint(stateOf(bad.replace('yaml', 'uml')))).toEqual([])
+  })
+
+  it('marks to the parser\'s end when it lies past the end of the line, without the library\'s advice', () => {
+    const doc = '@startyaml\na: 1\n---\nb: 2\n@endyaml\n'
+
+    expect(yamlLint(stateOf(doc))).toEqual([{
+      from: doc.indexOf('---'),
+      to: doc.indexOf('b: 2') + 'b: 2'.length,
+      severity: 'error',
+      message: 'Source contains multiple documents',
+    }])
+  })
+
+  it.each([
+    ['a \' comment', "' the value comes later"],
+    ['a /\' comment \'/ on one line', "/' it's a note '/"],
+    ['a /\' comment \'/ over lines', "/' it's\nb: : :\n'/"],
+    ['a ! line', '!theme spacelab'],
+    ['a <style> block', "<style>\nyamlDiagram {\n  node { BackGroundColor 'red' }\n}\n</style>"],
+  ])('leaves %s in valid yaml alone', (_what, lines) => {
+    expect(yamlLint(stateOf(`@startyaml\n${lines}\na: 1\n@endyaml\n`))).toEqual([])
+  })
+
+  it('keeps the lines after a blanked range where they were', () => {
+    const doc = "@startyaml\n/' a\nnote '/\n<style>\n</style>\n' c\nb: : :\n@endyaml\n"
+
+    expect(yamlLint(stateOf(doc))[0].from).toBe(doc.indexOf('b: : :') + 3)
   })
 
   it('skips #highlight lines without moving the lines after them', () => {

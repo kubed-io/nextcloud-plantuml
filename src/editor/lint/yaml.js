@@ -8,8 +8,7 @@
  */
 import { parseDocument } from 'yaml'
 import { scan } from '../blocks.js'
-
-const HIGHLIGHT = /^\s*#highlight\b/
+import { dataLines } from '../profiles/plantuml-lines.js'
 
 /** @param {import('@codemirror/state').EditorState} state */
 export function yamlLint(state) {
@@ -20,23 +19,27 @@ export function yamlLint(state) {
       continue
     }
     const first = d.start + 1
-    const body = []
+    const lines = []
     for (let n = first; n <= d.to; n++) {
-      const text = doc.line(n).text
-      // A blanked line keeps every later line where it was.
-      body.push(HIGHLIGHT.test(text) ? '' : text)
+      lines.push(doc.line(n).text)
     }
-    for (const error of parseDocument(body.join('\n')).errors) {
-      const { line, col } = error.linePos[0]
-      const at = doc.line(first + line - 1)
-      const from = Math.min(at.from + col - 1, at.to)
+    // A blanked line keeps every later line where it was.
+    for (const error of parseDocument(dataLines(lines).join('\n')).errors) {
+      const [start, end = start] = error.linePos
+      const from = position(doc, first, start)
       found.push({
         from,
-        to: Math.min(Math.max(from + (error.pos[1] - error.pos[0]), from + 1), at.to),
+        to: Math.max(doc.lineAt(from).to, position(doc, first, end)),
         severity: 'error',
-        message: error.message.split('\n')[0].replace(/ at line \d+, column \d+:?$/, ''),
+        message: error.message.split('\n')[0].replace(/ at line \d+, column \d+:?$/, '').replace(/; please use .*$/, ''),
       })
     }
   }
   return found
+}
+
+/** The parser's 1-based line and column in the body, as a document position on that line. */
+function position(doc, first, { line, col }) {
+  const at = doc.line(first + line - 1)
+  return Math.min(at.from + col - 1, at.to)
 }

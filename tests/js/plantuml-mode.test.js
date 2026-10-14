@@ -56,6 +56,13 @@ describe('plantumlMode', () => {
     expect(tokens('A->B:hi')).toEqual([['->', 'operator'], ['hi', 'labelName']])
   })
 
+  it('finds no arrow inside a word or a URL, but keeps o and x heads', () => {
+    expect(tokens('database db [[https://www.postgresql.org/docs/ Postgres docs]]')).toEqual([['database', 'keyword']])
+    expect(tokens('A --o B')).toEqual([['--o', 'operator']])
+    expect(tokens('A ..x B')).toEqual([['..x', 'operator']])
+    expect(tokens('A-->B')).toEqual([['-->', 'operator']])
+  })
+
   it('leaves a lone dash, a member type and an activity action unlabelled', () => {
     expect(tokens('- item')).toEqual([])
     expect(tokens('class A', '-field : int')).toEqual([['class', 'keyword']])

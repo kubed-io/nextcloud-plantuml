@@ -377,6 +377,8 @@ export function openEditor(node) {
           plantumlLint,
           nameConfig.of(fileName.of(name)),
           plantumlTheme,
+          // Long lines wrap, so the source pane never scrolls sideways.
+          EditorView.lineWrapping,
           // Mod-s would otherwise be the browser's "Save page as". defaultKeymap
           // carries Mod-/ for comments; Ctrl-M (Shift-Alt-M on macOS) makes Tab
           // move focus again instead of indenting. lintKeymap opens the

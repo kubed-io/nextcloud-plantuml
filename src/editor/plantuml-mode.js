@@ -27,8 +27,9 @@ const arrowRight = /(?:>{1,2}|\/{1,2}|\\{1,2}|\|>|[#*^+{xo])/.source
 const arrowPrefix = /[[?]?[ox]?/.source
 const arrowSuffix = /[ox]?[\]?]?/.source
 // Prism's lookbehind is dropped: words are consumed whole below, so an arrow
-// is only ever tried where a token starts.
-export const arrow = new RegExp(`${arrowPrefix}(?:${arrowBody}${arrowRight}|${arrowLeft}${arrowBody}(?:${arrowRight})?|${headless})${arrowSuffix}(?![-.=~<>?|\\\\\\]ox])`)
+// is only ever tried where a token starts. An o or x head must not run into a
+// word, or `.org` in a URL would be a dotted arrow with an o head.
+export const arrow = new RegExp(`${arrowPrefix}(?:${arrowBody}${arrowRight}|${arrowLeft}${arrowBody}(?:${arrowRight})?|${headless})${arrowSuffix}(?![-.=~<>?|\\\\\\]ox])(?:(?<=[ox])(?!\\w)|(?<![ox]))`)
 
 // A link and the rest of its line: whatever stands before the first `:` is the
 // far end, everything after it the label. One group per token below.

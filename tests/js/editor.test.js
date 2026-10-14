@@ -67,7 +67,7 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:diagram')
   seams.answer = { error: null, svg: diagram() }
   // The answer never lands inside the change that asked for it.
-  seams.debouncedRender.mockImplementation((_source, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.svg, seams.answer.mistake ?? null)))
+  seams.debouncedRender.mockImplementation((_source, _index, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.svg, seams.answer.mistake ?? null)))
   seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
   // A test about changes elsewhere says what the file's ETag is; any other
   // test's checks fail, which the editor keeps to the debug console.
@@ -129,7 +129,7 @@ describe('the editor overlay', () => {
   it('keeps the diagram on screen until the next one is drawn, then swaps it', async () => {
     await open()
     let answer
-    seams.debouncedRender.mockImplementation((_source, cb) => { answer = cb })
+    seams.debouncedRender.mockImplementation((_source, _index, cb) => { answer = cb })
 
     type("' edit\n")
     expect(image().hidden).toBe(false)

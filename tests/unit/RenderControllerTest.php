@@ -24,6 +24,7 @@ use OCP\Files\NotPermittedException;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class RenderControllerTest extends TestCase {
@@ -141,7 +142,7 @@ final class RenderControllerTest extends TestCase {
 
 	public function testBySourceRendersVerbatim(): void {
 		$render = $this->createMock(RenderService::class);
-		$render->expects(self::once())->method('render')->with(self::SOURCE)->willReturn(new Rendered(self::SVG, 'image/svg+xml'));
+		$render->expects(self::once())->method('render')->with(self::SOURCE, 0)->willReturn(new Rendered(self::SVG, 'image/svg+xml'));
 
 		$response = $this->controller($render, new NotFoundException())->bySource(self::SOURCE);
 
@@ -155,6 +156,29 @@ final class RenderControllerTest extends TestCase {
 		$response = $this->controller($this->renderingNothing(), new NotFoundException())->bySource();
 
 		self::assertSame(400, $response->getStatus());
+	}
+
+	/** @return array<string, array{mixed}> */
+	public static function badIndexes(): array {
+		return ['negative' => [-1], 'past 999' => [1000], 'word' => ['x'], 'float' => [1.5], 'list' => [[]]];
+	}
+
+	#[DataProvider('badIndexes')]
+	public function testRefusesAnIndexOutsideZeroTo999(mixed $index): void {
+		$response = $this->controller($this->renderingNothing(), new NotFoundException())->bySource(self::SOURCE, $index);
+
+		self::assertSame(400, $response->getStatus());
+	}
+
+	public function testPassesTheIndexToTheService(): void {
+		$render = $this->createMock(RenderService::class);
+		$render->expects(self::exactly(2))->method('render')
+			->with(self::SOURCE, self::callback(static fn (int $index): bool => $index === 3))
+			->willReturn(new Rendered(self::SVG, 'image/svg+xml'));
+		$controller = $this->controller($render, new NotFoundException());
+
+		self::assertSame(200, $controller->bySource(self::SOURCE, 3)->getStatus());
+		self::assertSame(200, $controller->bySource(self::SOURCE, '3')->getStatus());
 	}
 
 	public function testBySourceServerProblemIs503WithProblem(): void {

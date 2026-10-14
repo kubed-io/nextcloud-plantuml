@@ -237,7 +237,7 @@ export function openEditor(node) {
       queueMicrotask(() => { if (!closed) view.dispatch({ effects: setServerError.of(null) }) })
       return
     }
-    debouncedRender(text, (error, svgText, mistake) => {
+    debouncedRender(text, 0, (error, svgText, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
       }

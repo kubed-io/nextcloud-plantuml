@@ -46,9 +46,13 @@ final class RenderService {
 	) {
 	}
 
-	/** @throws RenderException */
-	public function render(string $source): Rendered {
-		$response = $this->post('svg', $source);
+	/**
+	 * The server draws the n-th diagram of the file (0-based) at `svg/n`.
+	 *
+	 * @throws RenderException
+	 */
+	public function render(string $source, int $index = 0): Rendered {
+		$response = $this->post($index === 0 ? 'svg' : 'svg/' . $index, $source);
 		// An image is a render whatever the status: PlantUML answers a mistake in
 		// the diagram with a 400 and the error drawn in. Anything that is not an
 		// image, a 200 page from a catch-all web server included, is not PlantUML.

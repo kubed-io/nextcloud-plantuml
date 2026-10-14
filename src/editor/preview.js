@@ -16,19 +16,20 @@ const DELAY_MS = 300
 
 /**
  * @param {string} source
+ * @param {number} [index] which diagram of the file to draw, from 0
  * @return {Promise<string>} the SVG
  */
-export async function render(source) {
-  return (await request(source)).svg
+export async function render(source, index = 0) {
+  return (await request(source, index)).svg
 }
 
 /** @return {Promise<{svg: string, mistake: {message: string, line: number}|null}>} */
-async function request(source) {
+async function request(source, index) {
   const res = await fetch(OC.generateUrl(`/apps/${APP_ID}/render`), {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', requesttoken: OC.requestToken },
-    body: JSON.stringify({ source }),
+    body: JSON.stringify({ source, index }),
   })
   if (res.ok && res.headers.get('Content-Type')?.startsWith('image/')) {
     return { svg: await res.text(), mistake: mistakeOf(res.headers) }
@@ -72,11 +73,12 @@ let parked = null
  * lands; that answer is then stale and dropped.
  *
  * @param {string} source
+ * @param {number} index which diagram of the file to draw, from 0
  * @param {(error: Error|null, svg?: string, mistake?: {message: string, line: number}|null) => void} cb
  */
-export function debouncedRender(source, cb) {
+export function debouncedRender(source, index, cb) {
   clearTimeout(timer)
-  timer = setTimeout(() => send(source, cb), DELAY_MS)
+  timer = setTimeout(() => send(source, index, cb), DELAY_MS)
 }
 
 /** Drops the waiting source and the parked one; an answer already out still arrives. */
@@ -85,20 +87,20 @@ export function cancel() {
   parked = null
 }
 
-function send(source, cb) {
+function send(source, index, cb) {
   if (inFlight) {
-    parked = { source, cb }
+    parked = { source, index, cb }
     return
   }
   inFlight = true
-  request(source)
+  request(source, index)
     .then(({ svg, mistake }) => [null, svg, mistake], (error) => [error])
     .then(([error, svg, mistake]) => {
       inFlight = false
       if (parked) {
         const next = parked
         parked = null
-        send(next.source, next.cb)
+        send(next.source, next.index, next.cb)
       } else {
         cb(error, svg, mistake)
       }

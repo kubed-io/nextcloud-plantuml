@@ -140,6 +140,28 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame('image/svg+xml', $rendered->contentType);
 	}
 
+	public function testRendersTheDiagramAtAnIndex(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::once())
+			->method('post')
+			->with(self::URL . '/svg/2', self::callback(static fn (array $options): bool => $options['body'] === self::SOURCE))
+			->willReturn($this->response(200, '<svg/>', ['Content-Type' => 'image/svg+xml']));
+
+		$rendered = $this->service($client)->render(self::SOURCE, 2);
+
+		self::assertSame('<svg/>', $rendered->body);
+	}
+
+	public function testIndexZeroPostsToSvgAsBefore(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::once())
+			->method('post')
+			->with(self::URL . '/svg')
+			->willReturn($this->response(200, '<svg/>', ['Content-Type' => 'image/svg+xml']));
+
+		$this->service($client)->render(self::SOURCE, 0);
+	}
+
 	public function testUnsetUrlIsNotSet(): void {
 		$clients = $this->createMock(IClientService::class);
 		$clients->expects(self::never())->method('newClient');

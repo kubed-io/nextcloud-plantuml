@@ -103,8 +103,10 @@ describe('Edit diagram', () => {
     expect(console.error).toHaveBeenCalledTimes(1)
     expect(scripts()).toHaveLength(0)
 
+    // A module URL that failed is never fetched again in this page.
     const again = editDiagram()
     expect(scripts()).toHaveLength(1)
+    expect(scripts()[0].getAttribute('src')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c&r=1')
     editorBundleRuns()
     await again
     expect(window.OCA.PlantUml.openEditor).toHaveBeenCalledWith(node)
@@ -119,8 +121,14 @@ describe('Edit diagram', () => {
 
     expect(window.OCA.Viewer.open).toHaveBeenCalledWith({ path: node.path })
     expect(scripts()).toHaveLength(0)
-    editDiagram()
+    // A module that ran is never run again in this page, under the same URL.
+    const retrying = editDiagram()
     expect(scripts()).toHaveLength(1)
+    expect(scripts()[0].getAttribute('src')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c&r=1')
+    scripts()[0].dispatchEvent(new Event('error'))
+    await retrying
+    editDiagram()
+    expect(scripts()[0].getAttribute('src')).toBe('/custom_apps/plantuml/dist/plantuml-editor.js?v=1a2b3c&r=2')
   })
 
   // A Files bundle cached from before the editor was a module adds it as a

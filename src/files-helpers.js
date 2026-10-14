@@ -46,13 +46,23 @@ export function renderUrl(path) {
  * The editor bundle, which files.js adds to the page the first time it is needed.
  * `query` is the `?v=…` Nextcloud put on the Files bundle: without it the server
  * caches the file for months and an upgrade never reaches the browser. `hash` is
- * the editor build's own, since `v` changes only with the app version.
+ * the editor build's own, since `v` changes only with the app version. `retry`
+ * counts the failed loads before this one: the bundle is a module, and the
+ * browser never fetches or runs a module URL a second time in one page.
  *
  * @param {string} [query]
  * @param {string} [hash]
+ * @param {number} [retry]
  * @return {string}
  */
-export function editorBundleUrl(query = '', hash = '') {
-  const url = generateFilePath(APP_ID, 'dist', `${APP_ID}-editor.js`) + query
-  return hash ? `${url}${query ? '&' : '?'}h=${hash}` : url
+export function editorBundleUrl(query = '', hash = '', retry = 0) {
+  let url = generateFilePath(APP_ID, 'dist', `${APP_ID}-editor.js`) + query
+  const add = (param) => { url += `${url.includes('?') ? '&' : '?'}${param}` }
+  if (hash) {
+    add(`h=${hash}`)
+  }
+  if (retry) {
+    add(`r=${retry}`)
+  }
+  return url
 }

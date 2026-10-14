@@ -44,11 +44,12 @@ if (window.OCA?.Viewer) {
 // Read now: currentScript is only set while this bundle first runs.
 const bundleQuery = document.currentScript?.src ? new URL(document.currentScript.src).search : ''
 let editorLoading = null
+let editorFailures = 0
 
 /**
  * Puts the editor bundle on the page, once: it is most of the app's JavaScript
  * and most Files pages never open it. A failed load is forgotten, so the next
- * open tries again. It carries the Files bundle's version query.
+ * open tries again, under a new URL. It carries the Files bundle's version query.
  *
  * @return {Promise<void>}
  */
@@ -62,10 +63,11 @@ function ensureEditor() {
     script.type = 'module'
     // Replaced at build time (vite.config.js); absent under vitest.
     // eslint-disable-next-line no-undef
-    script.src = editorBundleUrl(bundleQuery, typeof __PLANTUML_EDITOR_HASH__ === 'string' ? __PLANTUML_EDITOR_HASH__ : '')
+    script.src = editorBundleUrl(bundleQuery, typeof __PLANTUML_EDITOR_HASH__ === 'string' ? __PLANTUML_EDITOR_HASH__ : '', editorFailures)
     const fail = (message) => {
       script.remove()
       editorLoading = null
+      editorFailures++
       reject(new Error(message))
     }
     script.addEventListener('load', () => {

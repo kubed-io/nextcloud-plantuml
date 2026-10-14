@@ -197,6 +197,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 2:** Export the changed boards as PNG into `docs/design/` and list them in the app spec's design table.
 - [ ] **Step 3: Commit** `docs(design): tabs, folding and the Source toggle`.
 
+### Task 9b: Penpot refactor — components, tokens, DRY
+
+Dr K, 2026-10-14: "take a penpot best practices round to refactor the design into an ideal and DRY state, using components", with the Penpot skills from the `kb` MCP server.
+
+**Files:** every PNG under `docs/design/` re-exported; `docs/design/README.md` and the app spec's design table if board names change.
+
+- [ ] **Step 1:** Read `skill://penpot/penpot-router/SKILL.md` (kb) and follow its routing; run `penpot-audit-tokens` on file "NXT PlantUML" first and keep its report.
+- [ ] **Step 2:** With `penpot-foundations`, tokens for every colour, radius and spacing the boards use, named after the Nextcloud variables they stand for (`color-primary-element`, `color-text-maxcontrast`, …), light and dark themes; no raw value left on a board.
+- [ ] **Step 3:** With `penpot-component-factory`, components with variants for each repeated part — at least the editor bar, the round icon button (default / hover / pressed / focus), the Source toggle, the tab strip and tab (active / inactive), the save indicator states, the Files row, menus — and every board rebuilt from instances; sibling editor boards (saving, saved, autocomplete, lint, dark) brought level with the tab strip, fold chevrons and Source toggle.
+- [ ] **Step 4:** `penpot-rename-layers` over every board; prototype links still work (editor ↔ diagram-only, editor → saving → saved, …).
+- [ ] **Step 5:** Re-export every board as PNG into `docs/design/` and compare each with its previous export: only the intended changes.
+- [ ] **Step 6: Commit** `docs(design): one component library, tokens throughout`.
+
 ### Task 10: Ship the round
 
 **Files:**

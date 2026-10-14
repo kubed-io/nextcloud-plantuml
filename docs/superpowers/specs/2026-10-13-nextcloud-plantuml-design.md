@@ -25,7 +25,7 @@ verb.
 | 3 | Click a `.puml` → its diagram opens in the image viewer | `diagrams/view.feature` |
 | 4 | A URL that names a `.puml` file answers with its image | `diagrams/view.feature` |
 | 5 | Right-click a `.puml` → edit it, source beside the live diagram | `diagrams/edit.feature` |
-| 6 | **+ New → Diagram** makes a `.puml` and opens the editor on it | `diagrams/create.feature` |
+| 6 | **+ New → UML Diagram** makes a `.puml` and opens the editor on it | `diagrams/create.feature` |
 | 7 | A folder README shows its ```` ```plantuml ```` fences and `![](x.puml)` images as diagrams | `readme/render.feature` |
 
 Delete, rename, move, copy, trash, restore, share: Nextcloud's, untouched. A `.puml` is
@@ -118,7 +118,7 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
                  │  Files app ─ src/files.js                         │
   .puml click ──▶│    default: Viewer handler ──▶ GET /render?path=… ┼──▶ POST /svg
   right-click ──▶│    Edit diagram ──▶ src/editor.js (source | diagram)
-  + New ───────▶│    Diagram ──▶ Files' create ──▶ editor            │
+  + New ────────▶│    UML Diagram ──▶ Files' create ──▶ editor        │
   README ───────▶│  Text workspace ─ src/readme.js (DOM observer)    │
    ```plantuml   │    fence  ──▶ POST /render  {source}              │
    ![](x.puml)   │    <img>  ──▶ GET  /render?path=…                 │
@@ -153,7 +153,7 @@ list, because the server draws it into the image and the app never paraphrases i
 
 | Unit | Does |
 |---|---|
-| `files.js` | Registers the Viewer handler for `text/x-plantuml`, which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions, hidden for a multi-selection: **Edit diagram** (ours) and **Open with text editor** (Text's plain editor, hosted through `OCA.Text.createEditor()` because Text claims a fixed mimetype list that does not include ours). Registers **Diagram** in the **+ New** menu: asks Files' create endpoint (fact 10) for `<name>.puml` in the current folder, which `NewDiagramListener` fills with an empty diagram, then stats it over WebDAV, announces it to the Files view and opens the editor on it. |
+| `files.js` | Registers the Viewer handler for `text/x-plantuml`, which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions, hidden for a multi-selection: **Edit diagram** (ours) and **Open with text editor** (Text's plain editor, hosted through `OCA.Text.createEditor()` because Text claims a fixed mimetype list that does not include ours). Registers **UML Diagram** in the **+ New** menu: asks Files' create endpoint (fact 10) for `<name>.puml` in the current folder, which `NewDiagramListener` fills with an empty diagram, then stats it over WebDAV, announces it to the Files view and opens the editor on it. |
 | `viewer.js` | The Viewer component: an `<img>` on `GET /render?path=…`, and the problem as a one-line message when the render fails. |
 | `editor.js` | The editor page: PlantUML source on the left in CodeMirror 6 with the app's own PlantUML mode, the diagram on the right, redrawn from `POST /render` as the source changes (debounced). Load and save go over WebDAV with the ETag as the conflict check. Its look comes from a Penpot design before it is built. |
 | `readme.js` | Loaded on Files pages. Waits for Text's read-only workspace to render, fetches the README's own text over WebDAV, and then: rewrites each `<img>` whose `src` ends in `.puml` to `GET /render?path=…`; replaces each ```` ```plantuml ```` block with an `<img>` of its source via `POST /render`, matching fences to code blocks by order (the `language-plantuml` class, if Text leaves it in the DOM, is a shortcut and not relied on). Both images swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. On a failed render it leaves Text's own rendering in place and adds nothing. |

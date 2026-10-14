@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// "Edit diagram" and + New → Diagram, driven through what files.js registers,
+// "Edit diagram" and + New → UML Diagram, driven through what files.js registers,
 // with the Nextcloud libraries mocked at the module boundary. jsdom fetches no
 // scripts, so each test plays the browser: it fires `load` or `error` on the tag.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -122,7 +122,7 @@ describe('Edit diagram', () => {
   })
 })
 
-describe('+ New → Diagram', () => {
+describe('+ New → UML Diagram', () => {
   const createUrl = /\/ocs\/v2\.php\/apps\/files\/api\/v1\/templates\/create$/
   const newDiagram = (path) => newEntries.find((e) => e.id === 'plantuml-new').handler({ path }, [])
 

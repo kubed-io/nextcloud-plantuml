@@ -176,7 +176,7 @@ THE SERVER WRITES THOSE LINES. Files' own create endpoint makes the file and
 Nextcloud for a new `.puml` get the same file. The step asks that endpoint, as
 the + New entry does, for `New diagram.puml` in the folder.
 
-Choosing **Diagram** creates `New diagram.puml` (`New diagram (1).puml` when that
+Choosing **UML Diagram** creates `New diagram.puml` (`New diagram (1).puml` when that
 is taken) and opens the editor on it, because nobody creates a diagram in order
 not to edit it; the name is given with Nextcloud's own rename.
 It needs no server: a `.puml` is plain text, and the editor says what is wrong.

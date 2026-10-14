@@ -215,11 +215,13 @@ until then.
 
 What the reviews deferred. None changes a scenario; each is work for a later round.
 
-* **No browser Behat leg.** Every `@blocked` and `@unbuilt` scenario here waits for
-  one; the homelab has a Selenium Grid that could supply it.
-* **The README's editable-state mitigation** (a drawn fence's `<pre>` and `<code>`
+* **No browser Behat leg** (#10). Every `@blocked` and `@unbuilt` scenario here waits
+  for one; the homelab has a Selenium Grid that could supply it.
+* **The README's editable-state mitigation** (#11; a drawn fence's `<pre>` and `<code>`
   made non-editable) awaits a check in a real browser.
-* **`UnregisterMimetype` has no unit test**; it runs for real only on a store
-  uninstall.
-* **Trash-bin and share edge cases** (a `.puml` in the trash, opened through a share)
-  are unexamined.
+* **The lazily added editor bundle** awaits a check in a real browser; the live CSP
+  (`strict-dynamic`) should allow it.
+* **The Viewer shows a non-JSON failure body's first line** (#16); the editor already
+  says `Could not draw the diagram`.
+* **Trash-bin and share edge cases** (#13; a `.puml` in the trash, opened through a
+  share) are unexamined.

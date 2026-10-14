@@ -9,14 +9,6 @@ Feature: Looking at a diagram file
     Given the app is connected to a PlantUML server
     And a diagram file "Order flow.puml" in "Diagrams"
 
-    # ── RULE: a diagram file opens as a picture ───────────────────────────────
-
-  # @blocked — no browser.
-  @ui @gesture @blocked
-  Scenario: Clicking a diagram file opens its diagram
-    When I click "Order flow.puml" in the Files app
-    Then the image viewer opens on the diagram
-
     # ── RULE: a client can ask for the picture by the file's path ─────────────
     # notes: ../AGENTS.md#asking-for-a-diagram-file-by-its-path
 

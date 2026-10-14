@@ -13,9 +13,6 @@ export const APP_ID = 'plantuml'
 /** The mimetype the app registers for .puml and .plantuml files. */
 export const MIMETYPE = 'text/x-plantuml'
 
-/** What + New → Diagram writes: an empty diagram, ready to write in. */
-export const NEW_DIAGRAM_CONTENT = '@startuml\n\n@enduml\n'
-
 /** True when a Files node is a diagram file. */
 export function isDiagram(node) {
   return node?.mime === MIMETYPE

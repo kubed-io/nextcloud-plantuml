@@ -11,14 +11,17 @@ namespace OCA\PlantUml\AppInfo;
 
 use OCA\Files\Event\LoadAdditionalScriptsEvent;
 use OCA\PlantUml\Listener\LoadFilesScriptListener;
+use OCA\PlantUml\Listener\NewDiagramListener;
 use OCA\PlantUml\Settings\InstanceSettings;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCP\Files\Template\FileCreatedFromTemplateEvent;
 
 /**
- * App bootstrap: the declarative admin card and the Files script listener.
+ * App bootstrap: the declarative admin card, the Files script listener and
+ * the listener that writes a new diagram's starting lines.
  */
 final class Application extends App implements IBootstrap {
 	public const APP_ID = 'plantuml';
@@ -31,6 +34,7 @@ final class Application extends App implements IBootstrap {
 	public function register(IRegistrationContext $context): void {
 		$context->registerDeclarativeSettings(InstanceSettings::class);
 		$context->registerEventListener(LoadAdditionalScriptsEvent::class, LoadFilesScriptListener::class);
+		$context->registerEventListener(FileCreatedFromTemplateEvent::class, NewDiagramListener::class);
 	}
 
 	#[\Override]

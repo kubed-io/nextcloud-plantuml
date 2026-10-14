@@ -14,11 +14,11 @@
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { translate as t } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
 import { plantumlMode } from './editor/plantuml-mode.js'
+import { plantumlTheme } from './editor/theme.js'
 import { ConflictError, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
@@ -255,7 +255,7 @@ export function openEditor(node) {
           lineNumbers(),
           history(),
           plantumlMode,
-          syntaxHighlighting(defaultHighlightStyle),
+          plantumlTheme,
           // Mod-s would otherwise be the browser's "Save page as".
           keymap.of([{ key: 'Mod-s', run: () => { save(); return true } }, ...defaultKeymap, ...historyKeymap]),
           EditorView.updateListener.of((update) => {

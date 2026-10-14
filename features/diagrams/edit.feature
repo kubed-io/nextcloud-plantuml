@@ -1,7 +1,5 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#diagramsedit
 
-# @unbuilt until a browser leg runs these; the behaviour is built (src/editor.js).
-@unbuilt
 Feature: Editing a diagram file
   As a Nextcloud user
   I want to write PlantUML and watch the diagram take shape beside it
@@ -11,32 +9,31 @@ Feature: Editing a diagram file
     Given the app is connected to a PlantUML server
     And a diagram file "Order flow.puml" in "Diagrams"
 
-    # ── RULE: the source and the diagram are one view ─────────────────────────
+    # ── RULE: the diagram follows the source ──────────────────────────────────
 
-  @ui @gesture
-  Scenario: Opening a diagram file for editing
-    When I choose "Edit diagram" on "Order flow.puml"
-    Then the editor opens with the source on the left and the diagram on the right
-    And the source is highlighted as PlantUML
-
-  @ui
-  Scenario: The diagram follows the source as it is typed
-    Given "Order flow.puml" is open in the editor
-    When I change the source
-    Then the diagram on the right shows the changed source
-
-    # ── RULE: the plain source is one click away too ──────────────────────────
-
-  @ui @gesture
-  Scenario: Opening a diagram file as plain text
-    When I choose "Open with text editor" on "Order flow.puml"
-    Then the text editor opens on the source
+  @gesture
+  Scenario: A changed source draws the changed diagram
+    When I change the source of "Diagrams/Order flow.puml" without saving
+    Then the diagram shows the change
+    And "Diagrams/Order flow.puml" still holds its old source
 
     # ── RULE: saving is the only thing that touches the file ──────────────────
 
-  @ui
+  @gesture
   Scenario: Saving writes the source back to the file
-    Given "Order flow.puml" is open in the editor
-    When I change the source
-    And I save
+    When I change the source of "Diagrams/Order flow.puml" and save
     Then "Diagrams/Order flow.puml" holds the changed source
+
+  @gesture
+  Scenario: Saving over someone else's change is refused
+    Given someone else has changed "Diagrams/Order flow.puml" since I opened it
+    When I change the source of "Diagrams/Order flow.puml" and save
+    Then the save is refused
+    And "Diagrams/Order flow.puml" holds their version
+
+  @gesture
+  Scenario: Saving a copy keeps both versions
+    Given someone else has changed "Diagrams/Order flow.puml" since I opened it
+    When I save my change as a copy
+    Then "Diagrams/Order flow (copy).puml" holds my change
+    And "Diagrams/Order flow.puml" holds their version

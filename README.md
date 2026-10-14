@@ -42,7 +42,7 @@ A URL does the same. Ask the app for the image of a file by its path and you get
 
 Prefer plain text? **Open with text editor** gives you Nextcloud's own editor on the source, as it would for any text file.
 
-**+ New → Diagram** starts one, already holding `@startuml` and `@enduml`, and opens the editor on it.
+**+ New → UML Diagram** starts one, already holding `@startuml` and `@enduml`, and opens the editor on it.
 
 ✍️ [`diagrams/edit.feature`](features/diagrams/edit.feature) · ➕ [`diagrams/create.feature`](features/diagrams/create.feature)
 

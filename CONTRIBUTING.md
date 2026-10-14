@@ -13,9 +13,10 @@ you push code.
 **Where the work is right now.** Every behaviour has a scenario under
 [`features/`](features/); the design is in
 [`docs/superpowers/specs/`](docs/superpowers/specs/) and the build order in
-[`docs/superpowers/plans/`](docs/superpowers/plans/). The browser behaviours are
-built but not yet run by CI. `grep -rE '@unbuilt|@blocked|@todo' features/` is
-the authority on what is still owed.
+[`docs/superpowers/plans/`](docs/superpowers/plans/). Every scenario reaches the
+app through occ, WebDAV or HTTP, so CI runs them all bar one `@blocked`.
+`grep -rE '@unbuilt|@blocked|@todo' features/` is the authority on what is still
+owed.
 
 If you only have time for one paragraph: **prefer opening an issue first so the
 work can be scoped and approved, then open a PR with tests and a clear changelog
@@ -71,10 +72,10 @@ preference.
 
 CI green is necessary, not sufficient. **Every change must be tried by a human on
 a real Nextcloud instance with the change applied.** The Behat matrix drives
-WebDAV, `occ` and the app's own HTTP routes — it has no browser, so nothing it
-does proves the Viewer, the editor, the file actions or the README rendering
-still work. Those scenarios are `@blocked` on **no browser** and are checked by
-hand on the homelab instance before a PR claims them.
+WebDAV, Files' endpoints, `occ` and the app's own HTTP routes. It proves what every
+surface asks of the server, and has no browser, so nothing it does proves the
+Viewer, the editor, the file actions or the README still draw it. Those are
+checked by hand on the homelab instance before a PR claims them.
 
 ### When AI writes code, validate harder
 

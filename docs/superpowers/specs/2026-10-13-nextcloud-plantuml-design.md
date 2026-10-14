@@ -25,7 +25,7 @@ verb.
 | 3 | Click a `.puml` → its diagram opens in the image viewer | `diagrams/view.feature` |
 | 4 | A URL that names a `.puml` file answers with its image | `diagrams/view.feature` |
 | 5 | Right-click a `.puml` → edit it, source beside the live diagram | `diagrams/edit.feature` |
-| 6 | **+ New → Diagram** makes a `.puml` and opens the editor on it | `diagrams/create.feature` |
+| 6 | **+ New → UML Diagram** makes a `.puml` and opens the editor on it | `diagrams/create.feature` |
 | 7 | A folder README shows its ```` ```plantuml ```` fences and `![](x.puml)` images as diagrams | `readme/render.feature` |
 
 Delete, rename, move, copy, trash, restore, share: Nextcloud's, untouched. A `.puml` is
@@ -101,6 +101,14 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
    and the VS Code extension's TextMate grammar (MIT, needs an Oniguruma wasm bridge). No
    Nextcloud app ships CodeMirror or Monaco. CodeMirror 6 core is ~200 kB gzipped against
    Monaco's ~1.7 MB.
+10. **Files has a create endpoint that announces what it made** (verified 2026-10-14).
+    `POST /ocs/v2.php/apps/files/api/v1/templates/create` with `filePath` (and no
+    `templatePath`) is `TemplateController::create`, open to any logged-in user. It creates
+    an empty file, dispatches `FileCreatedFromTemplateEvent` with a `null` template and the
+    new file as the target, and answers OCS 403 "File already exists" for a taken path.
+    It has been there since Nextcloud 21. Registering a `TemplateFileCreator` would add a
+    second **+ New** entry, and Files opens a file made that way with its default action,
+    the Viewer, not our editor.
 
 ## Architecture
 
@@ -110,7 +118,7 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
                  │  Files app ─ src/files.js                         │
   .puml click ──▶│    default: Viewer handler ──▶ GET /render?path=… ┼──▶ POST /svg
   right-click ──▶│    Edit diagram ──▶ src/editor.js (source | diagram)
-  + New ───────▶│    Diagram ──▶ new .puml ──▶ editor                │
+  + New ────────▶│    UML Diagram ──▶ Files' create ──▶ editor        │
   README ───────▶│  Text workspace ─ src/readme.js (DOM observer)    │
    ```plantuml   │    fence  ──▶ POST /render  {source}              │
    ![](x.puml)   │    <img>  ──▶ GET  /render?path=…                 │
@@ -129,6 +137,7 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
 | `Settings/InstanceSettings` + `AdminSection` | One declarative-settings card, "Instance": the server URL. Same section id and priority as the siblings so an admin who knows one knows this one. | `ServerConfig` |
 | `Controller/ConfigController` | The **Test connection** endpoint behind `#[AuthorizedAdminSetting]`: calls `RenderService::version()` and answers success + version, or error + problem. | `RenderService` |
 | `Command/SetUrl`, `Command/TestConnection`, `Command/ShowConfig` | The `occ` twins. CLI-first is the house style and is what the integration suite drives. | the services above |
+| `Listener/NewDiagramListener` | On `FileCreatedFromTemplateEvent` with no template, writes the empty diagram into a new, empty `.puml` or `.plantuml` (any case). Anything else it leaves alone. The empty diagram is defined here and nowhere else. | Files' create endpoint (fact 10) |
 | `Migration/RegisterMimetype`, `Migration/UnregisterMimetype` | `puml` and `plantuml` → `text/x-plantuml`, alias → icon `plantuml`. Copied from the siblings, extension and names changed. | core detection |
 
 The POST route grants a logged-in user nothing the GET route did not: anyone who can
@@ -144,7 +153,7 @@ list, because the server draws it into the image and the app never paraphrases i
 
 | Unit | Does |
 |---|---|
-| `files.js` | Registers the Viewer handler for `text/x-plantuml`, which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions, hidden for a multi-selection: **Edit diagram** (ours) and **Open with text editor** (Text's plain editor, hosted through `OCA.Text.createEditor()` because Text claims a fixed mimetype list that does not include ours). Registers **Diagram** in the **+ New** menu: creates `<name>.puml` holding an empty diagram in the current folder and opens the editor on it. |
+| `files.js` | Registers the Viewer handler for `text/x-plantuml`, which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions, hidden for a multi-selection: **Edit diagram** (ours) and **Open with text editor** (Text's plain editor, hosted through `OCA.Text.createEditor()` because Text claims a fixed mimetype list that does not include ours). Registers **UML Diagram** in the **+ New** menu: asks Files' create endpoint (fact 10) for `<name>.puml` in the current folder, which `NewDiagramListener` fills with an empty diagram, then stats it over WebDAV, announces it to the Files view and opens the editor on it. |
 | `viewer.js` | The Viewer component: an `<img>` on `GET /render?path=…`, and the problem as a one-line message when the render fails. |
 | `editor.js` | The editor page: PlantUML source on the left in CodeMirror 6 with the app's own PlantUML mode, the diagram on the right, redrawn from `POST /render` as the source changes (debounced). Load and save go over WebDAV with the ETag as the conflict check. Its look comes from a Penpot design before it is built. |
 | `readme.js` | Loaded on Files pages. Waits for Text's read-only workspace to render, fetches the README's own text over WebDAV, and then: rewrites each `<img>` whose `src` ends in `.puml` to `GET /render?path=…`; replaces each ```` ```plantuml ```` block with an `<img>` of its source via `POST /render`, matching fences to code blocks by order (the `language-plantuml` class, if Text leaves it in the DOM, is a shortcut and not relied on). Both images swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. On a failed render it leaves Text's own rendering in place and adds nothing. |
@@ -228,8 +237,8 @@ which is Text's own rendering with our images in it.
 | Suite | Covers |
 |---|---|
 | Unit (`tests/unit/`) | `RenderService` request shape and problem classification (405 → not a PlantUML server, connect failure → unreachable, empty URL → not set); version parsing; `ServerConfig` normalisation; `RenderController` path rules (outside the user folder, not `.puml`, ETag/304). OCP stubbed as in the siblings. |
-| Behat (`tests/integration/`) | A real Nextcloud + a `plantuml/plantuml-server` container. `connection/admin.feature` over `occ`; `lifecycle.feature`; `diagrams/view.feature`'s endpoint scenarios over HTTP; `diagrams/edit.feature`'s and `create.feature`'s file outcomes over WebDAV. |
-| `@blocked` — no browser | Every scenario that is a click, a menu entry, the Viewer, the editor or the README. A named wall; removable with a Selenium leg, which the homelab Grid can supply. |
+| Behat (`tests/integration/`) | A real Nextcloud + a `plantuml/plantuml-server` container. `connection/admin.feature` over `occ`; `lifecycle.feature`; `diagrams/view.feature`'s endpoint scenarios over HTTP; `diagrams/edit.feature`, `create.feature` and `readme/render.feature` through what the editor, the + New entry and the README observer send: WebDAV with ETags, Files' create endpoint, the render routes. |
+| `@ui @blocked` — no browser | A scenario that cannot be run without a page. None, since Dr K's ruling of 2026-10-14; what only a page shows is checked by hand. |
 
 Suites partition `features/` by path; the three quality-job guards from the siblings
 (`check-suites.sh`, `check-notes-anchors.sh`, `check-step-definitions.sh`) come across
@@ -252,6 +261,8 @@ unchanged.
 | README image click | swallowed, so Text's lightbox cannot show a broken `.puml` | open the file in the Viewer — a link nobody asked for |
 | Admin surface | URL + Test connection, nothing else | a format or timeout setting — neither is a decision an admin makes per instance |
 | Error vocabulary | three fixed problems, shared by every surface | per-surface wording |
+| A new diagram's starting lines | written by the server, `NewDiagramListener` on Files' create endpoint (Dr K, 2026-10-14: "regardless of an api call or click in the UI you would get the same start/end uml tags") | the + New handler PUTting them from JavaScript — only that one client would get them |
+| The **+ New** entry | our own, opening the editor | a `TemplateFileCreator` — a second entry, and the new file opens in the Viewer (fact 10) |
 
 ## Rulings from Dr K (2026-10-13)
 
@@ -265,6 +276,20 @@ unchanged.
 
 - **The editor's left pane is CodeMirror 6** (ruled 2026-10-13, "the lightest-weight
   option"). Highlighting wins over Text's free save path; the save path is ours to write.
+
+## Rulings from Dr K (2026-10-14)
+
+- **"The behat tests should not need the browser."** Gherkin never names the medium: it
+  states what holds before and after, and the step definition picks how to get there.
+  "If you think a browser is needed in behat it's because of how you worded the feature."
+  `edit`, `create` and `readme/render` were reworded and run over WebDAV, Files' create
+  endpoint and the render routes; the scenarios about layout ("Opening a diagram file for
+  editing"), Text's editor ("Opening a diagram file as plain text") and the Viewer's click
+  were dropped.
+- **`@ui` only when a browser is unavoidable**, and then also `@blocked`, untested for now.
+  It no longer means "has a user interface"; `connection/admin.feature` lost it.
+- **The backend writes a new diagram's starting lines**, so an API call and a click give
+  the same file (see the decisions table).
 
 ### The editor choice, as it was weighed
 

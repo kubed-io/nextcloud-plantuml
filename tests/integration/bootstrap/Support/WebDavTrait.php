@@ -82,4 +82,18 @@ XML;
 			}
 		}
 	}
+
+	private function assertFileHolds(string $path, string $expected): void {
+		$response = $this->davGet($path);
+		$body = (string)$response->getBody();
+		if ($response->getStatusCode() !== 200 || $body !== $expected) {
+			throw new \RuntimeException(sprintf(
+				"expected %s to hold:\n%s\ngot HTTP %d:\n%s",
+				$path,
+				$expected,
+				$response->getStatusCode(),
+				$body,
+			));
+		}
+	}
 }

@@ -7,8 +7,10 @@
  *  - the Viewer handler for text/x-plantuml, which makes a plain click open the
  *    diagram in Nextcloud's image lightbox (the menu's "View", named by Nextcloud);
  *  - "Edit diagram" and "Open with text editor", for one diagram at a time;
- *  - "Diagram" in the + New menu, which writes an empty "New diagram.puml" and
- *    opens the editor on it; naming it is Nextcloud's own rename.
+ *  - "Diagram" in the + New menu, which asks Files' create endpoint for
+ *    "New diagram.puml" and opens the editor on it. The server writes the
+ *    starting lines (lib/Listener/NewDiagramListener.php), so every client gets
+ *    the same file; naming it is Nextcloud's own rename.
  *
  * Without a server URL only "Edit diagram" hides. A .puml is plain text, so
  * + New and "Open with text editor" need no server, and the Viewer says "not set".
@@ -16,10 +18,12 @@
  */
 import { registerFileAction, addNewFileMenuEntry, getUniqueName, NewMenuEntryCategory } from '@nextcloud/files'
 import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextcloud/files/dav'
+import axios from '@nextcloud/axios'
+import { generateOcsUrl } from '@nextcloud/router'
 import { loadState } from '@nextcloud/initial-state'
 import { translate as t } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
-import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, canEditDiagram, canOpenAsText, editorBundleUrl } from './files-helpers.js'
+import { APP_ID, MIMETYPE, canEditDiagram, canOpenAsText, editorBundleUrl } from './files-helpers.js'
 import component from './viewer-component.js'
 // Menu glyphs are fill="currentColor" files under img/icons/, inlined by Vite
 // (?raw), because Nextcloud themes menu icons to the surface they land on.
@@ -119,12 +123,11 @@ addNewFileMenuEntry({
   async handler(context, content) {
     const name = getUniqueName(t(APP_ID, 'New diagram') + '.puml', (content || []).map((n) => n.basename))
     const dir = context.path === '/' ? '' : context.path
-    const davPath = `${getRootPath()}${dir}/${name}`
     try {
-      const client = getClient()
-      await client.putFileContents(davPath, NEW_DIAGRAM_CONTENT, { overwrite: false })
+      // A name taken since getUniqueName looked is a 403, never an overwrite.
+      await axios.post(generateOcsUrl('apps/files/api/v1/templates/create'), { filePath: `${dir}/${name}` })
       // Stat it back and announce it so the Files view shows it.
-      const res = await client.stat(davPath, { details: true, data: getDefaultPropfind() })
+      const res = await getClient().stat(`${getRootPath()}${dir}/${name}`, { details: true, data: getDefaultPropfind() })
       const node = resultToNode(res.data)
       emit('files:node:created', node)
       await openEditor(node)

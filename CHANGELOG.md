@@ -26,6 +26,7 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - The editor loads the first time you open it, not on every Files page.
+- A new diagram gets its starting lines from the server, so any client creating one through Nextcloud gets the same file.
 
 ### Fixed
 

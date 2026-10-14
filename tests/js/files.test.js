@@ -2,19 +2,33 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// "Edit diagram" driven through the action files.js registers, with the
-// Nextcloud libraries mocked at the module boundary. jsdom fetches no scripts,
-// so each test plays the browser: it fires `load` or `error` on the tag.
+// "Edit diagram" and + New → Diagram, driven through what files.js registers,
+// with the Nextcloud libraries mocked at the module boundary. jsdom fetches no
+// scripts, so each test plays the browser: it fires `load` or `error` on the tag.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const actions = []
+const newEntries = []
 vi.mock('@nextcloud/files', () => ({
   registerFileAction: (action) => actions.push(action),
-  addNewFileMenuEntry: () => {},
+  addNewFileMenuEntry: (entry) => newEntries.push(entry),
   getUniqueName: (name) => name,
   NewMenuEntryCategory: { CreateNew: 0 },
 }))
-vi.mock('@nextcloud/files/dav', () => ({}))
+const dav = vi.hoisted(() => ({
+  putFileContents: vi.fn(),
+  stat: vi.fn(),
+}))
+vi.mock('@nextcloud/files/dav', () => ({
+  getClient: () => dav,
+  getDefaultPropfind: () => '<propfind/>',
+  getRootPath: () => '/files/drk',
+  resultToNode: (data) => ({ ...data, fromDav: true }),
+}))
+const axios = vi.hoisted(() => ({ post: vi.fn() }))
+vi.mock('@nextcloud/axios', () => ({ default: axios }))
+const emit = vi.hoisted(() => vi.fn())
+vi.mock('@nextcloud/event-bus', () => ({ emit }))
 vi.mock('@nextcloud/initial-state', () => ({ loadState: () => true }))
 vi.mock('@nextcloud/l10n', () => ({ translate: (_app, text) => text }))
 
@@ -24,6 +38,7 @@ let editDiagram
 
 beforeEach(async () => {
   actions.length = 0
+  newEntries.length = 0
   document.head.innerHTML = ''
   window._oc_appswebroots = { plantuml: '/custom_apps/plantuml' }
   window.OCA = { Viewer: { open: vi.fn(), registerHandler: vi.fn() } }
@@ -39,6 +54,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.clearAllMocks()
 })
 
 /** What the editor bundle does when it runs: define the opener. */
@@ -103,5 +119,62 @@ describe('Edit diagram', () => {
     expect(scripts()).toHaveLength(0)
     editDiagram()
     expect(scripts()).toHaveLength(1)
+  })
+})
+
+describe('+ New → Diagram', () => {
+  const createUrl = /\/ocs\/v2\.php\/apps\/files\/api\/v1\/templates\/create$/
+  const newDiagram = (path) => newEntries.find((e) => e.id === 'plantuml-new').handler({ path }, [])
+
+  beforeEach(() => {
+    window.OCA.PlantUml = { openEditor: vi.fn() }
+    window.OC = { Notification: { showTemporary: vi.fn() } }
+    dav.stat.mockResolvedValue({ data: { basename: 'New diagram.puml' } })
+  })
+
+  afterEach(() => {
+    delete window.OC
+  })
+
+  it('asks the server to create the file, and writes no content itself', async () => {
+    axios.post.mockResolvedValue({ data: {} })
+
+    await newDiagram('/Diagrams')
+
+    expect(axios.post).toHaveBeenCalledTimes(1)
+    const [url, body] = axios.post.mock.calls[0]
+    expect(url).toMatch(createUrl)
+    expect(body).toEqual({ filePath: '/Diagrams/New diagram.puml' })
+    expect(dav.putFileContents).not.toHaveBeenCalled()
+  })
+
+  it('creates it at the top of the user\'s files from the root folder', async () => {
+    axios.post.mockResolvedValue({ data: {} })
+
+    await newDiagram('/')
+
+    expect(axios.post.mock.calls[0][1]).toEqual({ filePath: '/New diagram.puml' })
+  })
+
+  it('shows the new file in the view and opens the editor on it', async () => {
+    axios.post.mockResolvedValue({ data: {} })
+
+    await newDiagram('/Diagrams')
+
+    expect(dav.stat).toHaveBeenCalledWith('/files/drk/Diagrams/New diagram.puml', expect.objectContaining({ details: true }))
+    const created = { basename: 'New diagram.puml', fromDav: true }
+    expect(emit).toHaveBeenCalledWith('files:node:created', created)
+    expect(window.OCA.PlantUml.openEditor).toHaveBeenCalledWith(created)
+  })
+
+  it('says it could not create the diagram when the server refuses', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    axios.post.mockRejectedValue(new Error('Request failed with status code 403'))
+
+    await newDiagram('/Diagrams')
+
+    expect(window.OC.Notification.showTemporary).toHaveBeenCalledWith('Could not create the diagram')
+    expect(dav.stat).not.toHaveBeenCalled()
+    expect(window.OCA.PlantUml.openEditor).not.toHaveBeenCalled()
   })
 })

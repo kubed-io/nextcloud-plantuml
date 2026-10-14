@@ -169,7 +169,11 @@ rather than nothing, so the file opens ready to write in and the right pane has
 something to draw from the first keystroke. The editor opening on it is part of
 the same gesture: nobody creates a diagram in order to not edit it.
 
-Choosing **Diagram** writes `New diagram.puml` (`New diagram (1).puml` when that
+THE SERVER WRITES THOSE LINES. Files' own create endpoint makes the file and
+`NewDiagramListener` fills it, so the + New entry and any other client that asks
+Nextcloud for a new `.puml` get the same file.
+
+Choosing **Diagram** creates `New diagram.puml` (`New diagram (1).puml` when that
 is taken) and opens the editor; the name is given with Nextcloud's own rename.
 It needs no server: a `.puml` is plain text, and the editor says what is wrong.
 

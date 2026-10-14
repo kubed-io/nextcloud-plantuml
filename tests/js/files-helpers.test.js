@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, canEditDiagram, canOpenAsText, editorBundleUrl, isDiagram, renderUrl } from '../../src/files-helpers.js'
+import { APP_ID, MIMETYPE, canEditDiagram, canOpenAsText, editorBundleUrl, isDiagram, renderUrl } from '../../src/files-helpers.js'
 
 describe('files-helpers', () => {
   it('names the app', () => {
@@ -13,10 +13,6 @@ describe('files-helpers', () => {
     expect(isDiagram({ mime: 'text/x-plantuml' })).toBe(true)
     expect(isDiagram({ mime: 'text/plain' })).toBe(false)
     expect(isDiagram(undefined)).toBe(false)
-  })
-
-  it('holds the empty diagram a new file starts with', () => {
-    expect(NEW_DIAGRAM_CONTENT).toBe('@startuml\n\n@enduml\n')
   })
 })
 

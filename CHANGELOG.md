@@ -22,9 +22,11 @@ All notable changes to this project are documented here. The format follows
 - A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`; diagram text renders through `POST /apps/plantuml/render`.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon.
 - When someone else changed the file you are editing, Reload or Save as copy.
+- The editor saves by itself two seconds after you stop typing, and at least every 30 seconds while you keep going.
 
 ### Changed
 
+- The editor's Save button is Text's save indicator: a check when saved, a dot on it while changes are unsaved.
 - The editor loads the first time you open it, not on every Files page.
 - A new diagram gets its starting lines from the server, so any client creating one through Nextcloud gets the same file.
 

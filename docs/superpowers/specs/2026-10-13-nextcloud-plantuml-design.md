@@ -155,7 +155,7 @@ list, because the server draws it into the image and the app never paraphrases i
 |---|---|
 | `files.js` | Registers the Viewer handler for `text/x-plantuml`, which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions, hidden for a multi-selection: **Edit diagram** (ours) and **Open with text editor** (Text's plain editor, hosted through `OCA.Text.createEditor()` because Text claims a fixed mimetype list that does not include ours). Registers **UML Diagram** in the **+ New** menu: asks Files' create endpoint (fact 10) for `<name>.puml` in the current folder, which `NewDiagramListener` fills with an empty diagram, then stats it over WebDAV, announces it to the Files view and opens the editor on it. |
 | `viewer.js` | The Viewer component: an `<img>` on `GET /render?path=…`, and the problem as a one-line message when the render fails. |
-| `editor.js` | The editor page: PlantUML source on the left in CodeMirror 6 with the app's own PlantUML mode, the diagram on the right, redrawn from `POST /render` as the source changes (debounced). Load and save go over WebDAV with the ETag as the conflict check. Its look comes from a Penpot design before it is built. |
+| `editor.js` | The editor page: PlantUML source on the left in CodeMirror 6 with the app's own PlantUML mode, the diagram on the right, redrawn from `POST /render` as the source changes (debounced). Load and save go over WebDAV with the ETag as the conflict check; `editor/autosave.js` saves two seconds after the last change, at least every 30 s, and the save indicator is Text's check-and-dot button. Its look comes from a Penpot design before it is built. |
 | `readme.js` | Loaded on Files pages. Waits for Text's read-only workspace to render, fetches the README's own text over WebDAV, and then: rewrites each `<img>` whose `src` ends in `.puml` to `GET /render?path=…`; replaces each ```` ```plantuml ```` block with an `<img>` of its source via `POST /render`, matching fences to code blocks by order (the `language-plantuml` class, if Text leaves it in the DOM, is a shortcut and not relied on). Both images swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. On a failed render it leaves Text's own rendering in place and adds nothing. |
 
 ### Why the README is a DOM observer, and the exit
@@ -263,6 +263,8 @@ unchanged.
 | Error vocabulary | three fixed problems, shared by every surface | per-surface wording |
 | A new diagram's starting lines | written by the server, `NewDiagramListener` on Files' create endpoint (Dr K, 2026-10-14: "regardless of an api call or click in the UI you would get the same start/end uml tags") | the + New handler PUTting them from JavaScript — only that one client would get them |
 | The **+ New** entry | our own, opening the editor | a `TemplateFileCreator` — a second entry, and the new file opens in the Viewer (fact 10) |
+| Saving in the editor | by itself as Text does (Dr K, 2026-10-14): 2 s after the last change, at least every 30 s, stopped by a conflict; closing saves first | Save only — a long edit all at risk until a click; Text's 5 s session sync — there is no session to sync to |
+| The save indicator | Text's: one icon button, check when saved, a primary dot while not, core's `icon-loading-small` while saving, the time since the last save as its tooltip | a "Save" pill and status words — Dr K's terse-UI rule, a dot not a word |
 
 ## Rulings from Dr K (2026-10-13)
 

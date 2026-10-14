@@ -30,3 +30,7 @@ All notable changes to this project are documented here. The format follows
 
 - The editor loads the first time you open it, not on every Files page.
 
+### Fixed
+
+- The editor no longer shows a raw error page when the server answers something other than a diagram.
+

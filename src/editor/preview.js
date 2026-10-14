@@ -4,9 +4,11 @@
  *
  * The editor's right pane: source text to an SVG through POST /render. The
  * route keeps core's CSRF check, so the request token rides along. A failure
- * rejects with the one line to show: the route's `{"problem": …}`, else the
- * body's first line, else the status.
+ * rejects with the one line to show: the route's `{"problem": …}`, else one
+ * fixed line, since anything else (a proxy's error page, an expired session)
+ * is no diagram's problem.
  */
+import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../files-helpers.js'
 
 const DELAY_MS = 300
@@ -22,11 +24,11 @@ export async function render(source) {
     headers: { 'Content-Type': 'application/json', requesttoken: OC.requestToken },
     body: JSON.stringify({ source }),
   })
-  if (res.ok) {
+  if (res.ok && res.headers.get('Content-Type')?.startsWith('image/')) {
     return res.blob()
   }
-  const body = await res.text()
-  throw new Error(problemOf(body) || body.split('\n')[0].trim() || res.statusText || String(res.status))
+  const problem = res.ok ? '' : problemOf(await res.text())
+  throw new Error(problem || t(APP_ID, 'Could not draw the diagram'))
 }
 
 function problemOf(body) {

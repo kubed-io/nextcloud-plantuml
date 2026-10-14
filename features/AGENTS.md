@@ -215,8 +215,6 @@ until then.
 
 What the reviews deferred. None changes a scenario; each is work for a later round.
 
-* **Non-JSON failure bodies.** A proxy's HTML error page reaching the preview pane
-  is not mapped to the error vocabulary.
 * **No browser Behat leg.** Every `@blocked` and `@unbuilt` scenario here waits for
   one; the homelab has a Selenium Grid that could supply it.
 * **The README's editable-state mitigation** (a drawn fence's `<pre>` and `<code>`

@@ -79,9 +79,9 @@ final class RegisterMimetype implements IRepairStep {
 		$this->installIcon($serverRoot, $output);
 
 		// update-db: insert the mimetype row, then rewrite the filecache rows whose
-		// extension matches. The detector cache is primed because we just touched
-		// the on-disk config files.
-		$this->detector->getAllMappings(); // primes lazy load (no public reset)
+		// extension matches. getAllMappings() forces the detector's lazy load now,
+		// after the config write; there is no public reset.
+		$this->detector->getAllMappings();
 		$id = $this->loader->getId(self::APP_MIMETYPE);
 		$touched = 0;
 		foreach (self::FILE_EXTENSIONS as $extension) {
@@ -101,7 +101,10 @@ final class RegisterMimetype implements IRepairStep {
 				$this->detector->getAllAliases(),
 				$this->detector->getAllNamings(),
 			);
-			@file_put_contents($serverRoot . '/core/js/mimetypelist.js', $js);
+			$target = $serverRoot . '/core/js/mimetypelist.js';
+			if (@file_put_contents($target, $js) === false) {
+				$output->warning('plantuml: could not write ' . $target);
+			}
 		} catch (\Throwable $e) {
 			$this->logger->error('plantuml: failed to regenerate mimetypelist.js', ['exception' => $e]);
 		}

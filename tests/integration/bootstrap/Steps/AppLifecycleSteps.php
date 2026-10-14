@@ -69,9 +69,10 @@ trait AppLifecycleSteps {
 	public function filesAreRegisteredAsTheirOwnFileType(string $extension): void {
 		$ext = ltrim(trim($extension), '.');
 		$path = 'probe.' . $ext;
-		$this->davPut($path, "@startuml\n\n@enduml\n");
+		$status = $this->davPut($path, "@startuml\n\n@enduml\n")->getStatusCode();
 
 		try {
+			Assert::assertContains($status, [201, 204], "upload failed: PUT $path answered HTTP $status");
 			// The parameters are dropped first: a server may append `; charset=...`,
 			// which is not part of what was registered.
 			$type = $this->davContentType($path);

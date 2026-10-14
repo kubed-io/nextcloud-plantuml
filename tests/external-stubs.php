@@ -182,3 +182,14 @@ namespace OC\Core\Command\Maintenance\Mimetype {
 		}
 	}
 }
+
+namespace {
+	// Core's bootstrap class; the repair steps read two paths off it. Tests point
+	// them at a temp tree.
+	if (!class_exists(\OC::class, false)) {
+		class OC {
+			public static string $SERVERROOT = '';
+			public static string $configDir = '';
+		}
+	}
+}

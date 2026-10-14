@@ -22,3 +22,6 @@ All notable changes to this project are documented here. The format follows
 - A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`; diagram text renders through `POST /apps/plantuml/render`.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon.
 
+### Fixed
+
+- Removing the app keeps a `.puml` or `.plantuml` file type you set yourself in `config/mimetypemapping.json`, and repair now warns when it cannot write `core/js/mimetypelist.js`.

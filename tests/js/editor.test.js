@@ -9,27 +9,32 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { EditorView } from '@codemirror/view'
 import { completionStatus, startCompletion } from '@codemirror/autocomplete'
 import { forceLinting } from '@codemirror/lint'
+import { undo } from '@codemirror/commands'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
   return {
     ConflictError,
     loadFile: vi.fn(),
+    currentEtag: vi.fn(),
     saveFile: vi.fn(),
     saveCopy: vi.fn(),
     debouncedRender: vi.fn(),
     cancel: vi.fn(),
     emit: vi.fn(),
+    listen: vi.fn(),
     answer: {},
   }
 })
 vi.mock('../../src/editor/save.js', () => ({
   ConflictError: seams.ConflictError,
   loadFile: seams.loadFile,
+  currentEtag: seams.currentEtag,
   saveFile: seams.saveFile,
   saveCopy: seams.saveCopy,
 }))
 vi.mock('@nextcloud/event-bus', () => ({ emit: seams.emit }))
+vi.mock('@nextcloud/notify_push', () => ({ listen: seams.listen }))
 vi.mock('../../src/editor/preview.js', () => ({
   debouncedRender: seams.debouncedRender,
   cancel: seams.cancel,
@@ -43,6 +48,7 @@ const saveButton = () => q('.plantuml-editor__save')
 const indicator = () => saveButton().dataset.state
 const reloadButton = () => q('.plantuml-editor__reload')
 const copyButton = () => q('.plantuml-editor__copy')
+const refreshButton = () => q('.plantuml-editor__refresh')
 const source = () => EditorView.findFromDOM(q('.cm-editor')).state.doc.toString()
 
 beforeAll(async () => {
@@ -58,6 +64,10 @@ beforeEach(() => {
   // The answer never lands inside the change that asked for it.
   seams.debouncedRender.mockImplementation((_source, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.blob, seams.answer.mistake ?? null)))
   seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+  // A test about changes elsewhere says what the file's ETag is; any other
+  // test's checks fail, which the editor keeps to the debug console.
+  seams.currentEtag.mockRejectedValue(new Error('not asked in this test'))
+  vi.spyOn(console, 'debug').mockImplementation(() => {})
   document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button></div>'
 })
 
@@ -730,5 +740,217 @@ describe('closing', () => {
 
     type("' edit\n")
     expect(leave()).toBe(true)
+  })
+})
+
+describe('when the file changes elsewhere', () => {
+  const CONFLICT = 'Someone else changed this file'
+  const PATH = '/Diagrams/Order flow.puml'
+  const THEIRS = '@startuml\nA -> B\nB -> C\n@enduml\n'
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+  const focusPage = () => window.dispatchEvent(new Event('focus'))
+
+  beforeEach(() => vi.useFakeTimers())
+
+  it('takes the new version into a clean editor, the cursor where it was, and says so until the next change', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: '@startuml\nA -> B\n@'.length } })
+    seams.currentEtag.mockResolvedValue('"theirs"')
+    seams.loadFile.mockResolvedValue({ content: THEIRS, etag: '"theirs"' })
+
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(source()).toBe(THEIRS)
+    expect(view().state.selection.main.head).toBe('@startuml\nA -> B\nB -> C\n@'.length)
+    expect(status()).toBe('Updated from the file')
+    expect(indicator()).toBe('saved')
+    expect(q('.plantuml-editor__image').hidden).toBe(false)
+
+    // Taking their version is no edit of ours: nothing is written back.
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(seams.saveFile).not.toHaveBeenCalled()
+    expect(seams.loadFile).toHaveBeenCalledTimes(2)
+
+    type("' mine\n")
+    expect(status()).toBe('')
+    seams.saveFile.mockResolvedValueOnce('"put"')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(seams.saveFile).toHaveBeenLastCalledWith(PATH, expect.stringContaining('B -> C'), '"theirs"')
+  })
+
+  it('keeps their version out of the undo history, and its tooltip on the last save of ours', async () => {
+    await open()
+    const before = q('.plantuml-editor__save').title
+    seams.currentEtag.mockResolvedValue('"theirs"')
+    seams.loadFile.mockResolvedValue({ content: THEIRS, etag: '"theirs"' })
+
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(source()).toBe(THEIRS)
+    expect(q('.plantuml-editor__save').title).toBe(before)
+
+    undo(view())
+    expect(source()).toBe(THEIRS)
+  })
+
+  it('still closes when a check fails while closing waits for it', async () => {
+    await open()
+    vi.spyOn(console, 'debug').mockImplementation(() => {})
+    type("' mine\n")
+    const looking = deferred()
+    seams.currentEtag.mockReturnValueOnce(looking.promise)
+    seams.saveFile.mockResolvedValue('"put"')
+
+    focusPage()
+    await settle()
+    q('.plantuml-editor__close').click()
+    looking.reject(new Error('404'))
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('looks again as soon as the page has the focus back', async () => {
+    await open()
+    seams.currentEtag.mockResolvedValue('"theirs"')
+    seams.loadFile.mockResolvedValue({ content: THEIRS, etag: '"theirs"' })
+
+    focusPage()
+    await settle()
+    expect(seams.currentEtag).toHaveBeenCalledWith(PATH)
+    expect(source()).toBe(THEIRS)
+  })
+
+  it('does not take its own save for a change elsewhere', async () => {
+    await open()
+    type("' mine\n")
+    seams.saveFile.mockResolvedValueOnce('"put"')
+    seams.currentEtag.mockResolvedValue('"put"')
+
+    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(seams.currentEtag).toHaveBeenCalled()
+    expect(seams.loadFile).toHaveBeenCalledTimes(1)
+    expect(source()).toContain("' mine")
+    expect(status()).toBe('')
+  })
+
+  it('leaves unsaved changes alone and offers Reload and Save as copy, autosaving nothing', async () => {
+    await open()
+    type("' mine\n")
+    seams.currentEtag.mockResolvedValue('"theirs"')
+
+    focusPage()
+    await settle()
+    expect(status()).toBe(CONFLICT)
+    expect(reloadButton().hidden).toBe(false)
+    expect(copyButton().hidden).toBe(false)
+    expect(source()).toContain("' mine")
+
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(seams.saveFile).not.toHaveBeenCalled()
+    expect(seams.loadFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a change typed while the new version was loading, and offers the way out', async () => {
+    await open()
+    seams.currentEtag.mockResolvedValue('"theirs"')
+    let arrive
+    seams.loadFile.mockReturnValueOnce(new Promise((resolve) => { arrive = resolve }))
+
+    focusPage()
+    await settle()
+    type("' mine\n")
+    arrive({ content: THEIRS, etag: '"theirs"' })
+    await settle()
+
+    expect(source()).toContain("' mine")
+    expect(source()).not.toContain('B -> C')
+    expect(status()).toBe(CONFLICT)
+  })
+
+  it('shows no spinner while it looks, and a Save clicked meanwhile still lands', async () => {
+    await open()
+    type("' mine\n")
+    let answer
+    seams.currentEtag.mockReturnValueOnce(new Promise((resolve) => { answer = resolve }))
+    seams.saveFile.mockResolvedValueOnce('"put"')
+
+    focusPage()
+    await settle()
+    expect(indicator()).toBe('unsaved')
+    saveButton().click()
+    await settle()
+    expect(seams.saveFile).not.toHaveBeenCalled()
+
+    answer('"get"')
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledWith(PATH, expect.stringContaining("' mine"), '"get"')
+    expect(indicator()).toBe('saved')
+  })
+
+  it('says nothing when the check fails', async () => {
+    await open()
+    seams.currentEtag.mockRejectedValue(new Error('503'))
+
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(seams.currentEtag).toHaveBeenCalled()
+    expect(console.debug).toHaveBeenCalled()
+    expect(status()).toBe('')
+    expect(seams.loadFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops looking once closed', async () => {
+    await open()
+    seams.currentEtag.mockResolvedValue('"theirs"')
+    q('.plantuml-editor__close').click()
+    await settle()
+
+    await vi.advanceTimersByTimeAsync(60000)
+    focusPage()
+    await settle()
+    expect(seams.currentEtag).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('the Reload button', () => {
+  const THEIRS = '@startuml\nA -> C\n@enduml\n'
+
+  it('is in the bar all the time, as an icon named for what it does', async () => {
+    await open()
+
+    expect(refreshButton().hidden).toBe(false)
+    expect(refreshButton().getAttribute('aria-label')).toBe('Reload from the file')
+    expect(refreshButton().title).toBe('Reload from the file')
+    expect(refreshButton().querySelector('svg')).not.toBeNull()
+  })
+
+  it('reloads at once when nothing is unsaved', async () => {
+    await open()
+    vi.spyOn(window, 'confirm')
+    seams.loadFile.mockResolvedValue({ content: THEIRS, etag: '"theirs"' })
+
+    refreshButton().click()
+    await settle()
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect(source()).toBe(THEIRS)
+    expect(indicator()).toBe('saved')
+  })
+
+  it('asks before replacing unsaved changes', async () => {
+    await open()
+    type("' mine\n")
+    seams.loadFile.mockResolvedValue({ content: THEIRS, etag: '"theirs"' })
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    refreshButton().click()
+    await settle()
+    expect(window.confirm).toHaveBeenCalledWith('Replace your changes with the saved file?')
+    expect(source()).toContain("' mine")
+
+    window.confirm.mockReturnValue(true)
+    refreshButton().click()
+    await settle()
+    expect(source()).toBe(THEIRS)
+    expect(indicator()).toBe('saved')
   })
 })

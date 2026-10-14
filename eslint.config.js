@@ -37,8 +37,9 @@ export default [
     rules: {
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       // console.log is the classic leftover-debug crumb — flag it.
-      // info/warn/error are legitimate runtime signals; keep them.
-      'no-console': ['warn', { allow: ['info', 'warn', 'error'] }],
+      // info/warn/error are legitimate runtime signals; keep them, and debug
+      // for a background failure the user is not told about.
+      'no-console': ['warn', { allow: ['debug', 'info', 'warn', 'error'] }],
     },
   },
 ]

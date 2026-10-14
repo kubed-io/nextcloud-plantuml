@@ -46,9 +46,9 @@ raised or was offered, not yet agreed).
 
 | # | Requirement | Source | Status |
 |---|---|---|---|
-| E1 | The editor notices when the file changed elsewhere (VS Code over WebDAV, another browser) without closing. It uses `@nextcloud/notify_push` when that app is installed, otherwise it polls the ETag every 10 s and whenever the page becomes visible again. | Dr K | building |
-| E2 | A clean editor quietly loads the new version and keeps the cursor and scroll position. A dirty editor goes into the S6 conflict state. | Dr K | building |
-| E3 | A **Reload** button that is always there, not only in a conflict. It confirms first when there are unsaved changes. | Dr K | building |
+| E1 | The editor notices when the file changed elsewhere (VS Code over WebDAV, another browser) without closing. It uses `@nextcloud/notify_push` when that app is installed, otherwise it polls the ETag every 10 s and whenever the page becomes visible again. | Dr K | shipped (#28) |
+| E2 | A clean editor quietly loads the new version and keeps the cursor and scroll position. A dirty editor goes into the S6 conflict state. | Dr K | shipped (#28) |
+| E3 | A **Reload** button that is always there, not only in a conflict. It confirms first when there are unsaved changes. | Dr K | shipped (#28) |
 
 ### Highlighting
 

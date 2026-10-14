@@ -28,6 +28,24 @@ export async function loadFile(path) {
   return { content: res.data, etag: res.headers.etag }
 }
 
+const ETAG_PROPFIND = `<?xml version="1.0"?>
+<d:propfind xmlns:d="DAV:"><d:prop><d:getetag/></d:prop></d:propfind>`
+
+/**
+ * The cheap look at whether the file changed: its ETag alone.
+ *
+ * @param {string} path
+ * @return {Promise<string>} the ETag, quoted as loadFile and saveFile have it
+ */
+export async function currentEtag(path) {
+  const stat = await getClient().stat(getRootPath() + path, { data: ETAG_PROPFIND })
+  // webdav strips the quotes Sabre sends; the GET and PUT headers keep them.
+  if (!stat.etag) {
+    throw new Error('The server named no ETag')
+  }
+  return `"${stat.etag}"`
+}
+
 /**
  * @param {string} path
  * @param {string} content

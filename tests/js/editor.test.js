@@ -96,6 +96,11 @@ describe('the editor overlay', () => {
     expect(q('#content').hasAttribute('inert')).toBe(true)
   })
 
+  it('wraps long lines, so the source never scrolls sideways', async () => {
+    await open()
+    expect(q('.cm-editor .cm-content').classList.contains('cm-lineWrapping')).toBe(true)
+  })
+
   it('saves with the ETag it read, then with the one the save returned, and states a conflict', async () => {
     await open()
 

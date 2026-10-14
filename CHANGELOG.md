@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Long lines in the editor wrap instead of scrolling sideways.
 - Links without a head (`--`, `..`, `~~`, `==`) are coloured like arrows, a link's label is shown in italics, and `== separators ==` stand out.
 - Drag the line between the source and the diagram to resize them; the split is remembered.
 - A folder README shows its ```plantuml fences and `![](<diagram.puml>)` images as diagrams.

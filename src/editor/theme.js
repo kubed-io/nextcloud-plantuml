@@ -27,9 +27,10 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.string, color: towardText('--color-element-success') },
   { tag: tags.operator, color: towardText('--color-element-warning') },
   { tag: tags.comment, color: 'var(--color-text-maxcontrast)', fontStyle: 'italic' },
-  // A link's label reads as an annotation: italic like a caption, in a primary
-  // tint so it is never mistaken for a grey comment.
-  { tag: tags.labelName, color: 'color-mix(in srgb, var(--color-primary-element) 60%, var(--color-main-text))', fontStyle: 'italic' },
+  // A link's label reads as an annotation: italic like a caption, in violet,
+  // the one hue no other token uses (error red with primary blue, pulled 15%
+  // toward the text). #9083ac at 5.1:1 on dark, #5b3148 at 10.7:1 on light.
+  { tag: tags.labelName, color: 'color-mix(in srgb, color-mix(in srgb, var(--color-element-error) 50%, var(--color-primary-element)) 85%, var(--color-main-text))', fontStyle: 'italic' },
   { tag: tags.heading, color: 'var(--color-text-maxcontrast)', fontWeight: 'bold' },
 ])
 

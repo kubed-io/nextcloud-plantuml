@@ -236,6 +236,32 @@ describe('blocks', () => {
     expect(apply(doc, diagnostic)).toBe('@startjson a\n{}\n  @endjson  \n')
   })
 
+  // CodeMirror maps a diagnostic through the edits made after the lint ran, and hands its action where it now is.
+  describe('after an edit above the block, before the click', () => {
+    const NOTE = "' a note\n"
+    const applyAfterEdit = (doc, diagnostic) => {
+      const view = new EditorView({ state: stateOf(doc), parent: document.body })
+      const edit = view.state.update({ changes: { from: 0, insert: NOTE } })
+      view.dispatch(edit)
+      diagnostic.actions[0].apply(view, edit.changes.mapPos(diagnostic.from, 1), edit.changes.mapPos(diagnostic.to, -1))
+      const result = view.state.doc.toString()
+      view.destroy()
+      return result
+    }
+
+    it('still adds the end before the next start', () => {
+      const doc = '@startjson a\n{}\n@startuml b\nA -> B\n@enduml\n'
+
+      expect(applyAfterEdit(doc, run(doc)[0])).toBe(`${NOTE}@startjson a\n{}\n@endjson\n@startuml b\nA -> B\n@enduml\n`)
+    })
+
+    it('still changes the end it marked', () => {
+      const doc = '@startjson a\n{}\n  @endyaml  \n'
+
+      expect(applyAfterEdit(doc, run(doc)[0])).toBe(`${NOTE}@startjson a\n{}\n  @endjson  \n`)
+    })
+  })
+
   it('warns on an end outside every diagram', () => {
     const doc = '@enduml\n@startuml a\n@enduml\n  @endjson\n'
     const found = run(doc)

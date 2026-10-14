@@ -17,13 +17,12 @@ export function blocksLint(state) {
   const blocks = blocksOf(scan(state.doc.toString()))
   const found = []
 
-  blocks.forEach((block, i) => {
+  blocks.forEach((block) => {
     const open = state.doc.line(block.start)
     const from = open.from + open.text.indexOf('@start')
     const to = from + '@start'.length + block.type.length
     const type = block.type
     if (block.end === null) {
-      const next = blocks[i + 1]
       found.push({
         from,
         to,
@@ -31,8 +30,11 @@ export function blocksLint(state) {
         message: t(APP_ID, 'No @end{type} for this diagram', { type }),
         actions: [{
           name: t(APP_ID, 'Add @end{type}', { type }),
-          apply(view) {
+          // Read at click time: an edit since the lint ran moves the lines.
+          apply(view, from) {
             const doc = view.state.doc
+            const line = doc.lineAt(from).number
+            const next = blocksOf(scan(doc.toString())).find((candidate) => candidate.start > line)
             const at = next ? doc.line(next.start).from : doc.length
             const lead = !next && doc.length && doc.sliceString(doc.length - 1) !== '\n' ? '\n' : ''
             view.dispatch({ changes: { from: at, insert: `${lead}@end${type}\n` } })
@@ -52,8 +54,8 @@ export function blocksLint(state) {
         message: t(APP_ID, 'This closes @start{type}', { type }),
         actions: [{
           name: t(APP_ID, 'Change to @end{type}', { type }),
-          apply(view, _from, end) {
-            view.dispatch({ changes: { from: start, to: end, insert: `@end${type}` } })
+          apply(view, from, to) {
+            view.dispatch({ changes: { from, to, insert: `@end${type}` } })
           },
         }],
       })

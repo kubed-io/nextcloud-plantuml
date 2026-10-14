@@ -501,8 +501,9 @@ export function openEditor(node) {
   // CodeMirror marks an Escape it used (closing the completion popup, the
   // search or diagnostics panel, dropping a multi-selection) as handled.
   function onKeydown(event) {
-    // The editor's own Mod-s has handled it already when the focus is in the source.
-    if ((event.key === 's' || event.key === 'S') && (event.ctrlKey || event.metaKey) && !event.altKey && !event.defaultPrevented) {
+    // The editor's own Mod-s has handled it already when the focus is in the
+    // source. 'S' is Caps Lock's; Shift is another shortcut's.
+    if ((event.key === 's' || event.key === 'S') && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && !event.defaultPrevented) {
       event.preventDefault()
       save()
       return

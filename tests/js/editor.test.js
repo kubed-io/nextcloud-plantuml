@@ -646,6 +646,42 @@ describe('the save indicator', () => {
     await settle()
     expect(seams.saveFile).toHaveBeenCalledTimes(1)
   })
+
+  it('saves exactly once on Ctrl+S from the source, the browser\'s Save page kept away', async () => {
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockResolvedValue('"put"')
+    const save = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+
+    q('.cm-content').dispatchEvent(save)
+    await settle()
+
+    expect(save.defaultPrevented).toBe(true)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves Ctrl+Shift+S alone, in the source or out of it, Caps Lock or not', async () => {
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockResolvedValue('"put"')
+    const presses = [
+      [q('.cm-content'), { key: 'S', ctrlKey: true, shiftKey: true }],
+      [saveButton(), { key: 'S', ctrlKey: true, shiftKey: true }],
+      [saveButton(), { key: 's', metaKey: true, shiftKey: true }],
+    ].map(([target, init]) => {
+      const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+      target.dispatchEvent(event)
+      return event
+    })
+    await settle()
+
+    expect(presses.map((event) => event.defaultPrevented)).toEqual([false, false, false])
+    expect(seams.saveFile).not.toHaveBeenCalled()
+
+    saveButton().dispatchEvent(new KeyboardEvent('keydown', { key: 'S', ctrlKey: true, bubbles: true, cancelable: true }))
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('closing', () => {

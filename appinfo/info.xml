@@ -11,7 +11,7 @@
   <description><![CDATA[
 PlantUML Diagrams shows PlantUML where people already read it: a `.puml` file in the Files app, and a folder README that quotes or embeds one.
 
-Point the app at a PlantUML server once. From then on a `.puml` file opens as a picture in the image viewer, **Edit diagram** gives you a side-by-side editor with highlighting and the diagram redrawing as you type, **+ New → Diagram** starts one, and a folder README shows its ```plantuml fences and `![](diagram.puml)` images as diagrams.
+Point the app at a PlantUML server once. From then on a `.puml` file opens as a picture in the image viewer, **Edit diagram** gives you a side-by-side editor with highlighting and the diagram redrawing as you type, **+ New → UML Diagram** starts one, and a folder README shows its ```plantuml fences and `![](diagram.puml)` images as diagrams.
 
 The app holds no diagrams of its own. A `.puml` is an ordinary Nextcloud file — share it, version it, trash it like any other.
 

@@ -14,40 +14,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Completion for Creole tags, OpenIconic icons and emoji.
-- Creole markup is highlighted in the editor: bold, italic, monospace, underline, `[[links]]`, tags such as `<size:20>` and `<&clock>`, and tables, in link labels, notes, legends and titles.
-- A colour picker on `#hex` colours in the editor, such as `skinparam backgroundColor #2B3E50` or `-[#FF6F61,bold]->`.
-- The editor picks up changes made to the file elsewhere, and has a Reload button.
-- Long lines in the editor wrap instead of scrolling sideways.
-- Links without a head (`--`, `..`, `~~`, `==`) are coloured like arrows, a link's label is shown in italics, and `== separators ==` stand out.
-- Drag the line between the source and the diagram to resize them; the split is remembered.
-- A folder README shows its ```plantuml fences and `![](<diagram.puml>)` images as diagrams.
-- **Edit diagram**: PlantUML source on the left with highlighting, the diagram redrawing on the right as you type; Save (or Ctrl/Cmd+S) refuses to overwrite a file someone else changed.
-- A `.puml` opens as its diagram in the image viewer, and its menu offers **Edit diagram** and **Open with text editor**.
-- **+ New → UML Diagram** creates `New diagram.puml` holding an empty diagram and opens the editor on it.
-- Admin settings: point the app at a PlantUML server and test the connection; `occ plantuml:set-url`, `test-connection` and `show-config`.
-- A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`; diagram text renders through `POST /apps/plantuml/render`.
-- `.puml` and `.plantuml` files are their own file type, with the app's icon.
-- When someone else changed the file you are editing, Reload or Save as copy.
-- The editor saves by itself two seconds after you stop typing, and at least every 30 seconds while you keep going.
-- Autocomplete in the editor: `@start`/`@end` lines, keywords, the names the diagram already uses, and blocks such as `alt` and `loop` to fill in.
-- Autocomplete offers the PlantUML server's own themes after `!theme`.
-- Autocomplete offers the connectors (`-->`, `..`, `~~`, `==`, …) after the first name on a line.
+- `.puml` and `.plantuml` files are their own file type, with the app's icon. Removing the app reverts that and leaves alone a mapping you set yourself in `config/mimetypemapping.json`; repair warns when it cannot write `core/js/mimetypelist.js`.
+- Admin settings: point the app at a PlantUML server and test the connection, which names the server's PlantUML version or says what is wrong; `occ plantuml:set-url`, `test-connection` and `show-config` do the same from the command line.
+- A `.puml` opens as its diagram in the image viewer, which says "Could not draw the diagram" rather than showing a raw error page; its menu offers **Edit diagram** and **Open with text editor**.
+- A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`, and diagram text through `POST /apps/plantuml/render`; both pass on PlantUML's error and its line in `X-PlantUML-Diagram-Error` headers.
+- **+ New → UML Diagram** creates `New diagram.puml` holding an empty diagram and opens the editor on it. The app writes the starting lines on the server, so any client creating a `.puml` through Files' create endpoint gets the same file, on object storage too.
+- **Edit diagram**: PlantUML source on the left, the diagram on the right redrawing as you type, drawn inline so its links open in a new tab; when the server cannot draw, the pane says why.
+- The editor loads the first time you open it, not with every Files page, and a new build of it reaches the browser without a hard refresh.
+- Drag the line between the source and the diagram to resize them; the split is remembered. A long source scrolls in its pane and its lines wrap; a big diagram is fitted to its pane.
+- The editor saves by itself two seconds after you stop typing, and at least every 30 seconds while you keep going. Text's save indicator shows it (a check, a dot while unsaved, a spinner while saving) and saves at once when clicked, as Ctrl/Cmd+S does; closing saves first.
+- A save never overwrites someone else's change: the editor says so and offers Reload or Save as copy.
+- The editor picks up changes made to the file elsewhere, reading past the browser's cache, and has a Reload button.
+- Highlighting in Nextcloud's theme colours, readable on light and dark: keywords, arrows and every kind of link (never one inside a URL), a link's label in violet italics, `== separators ==`, and Creole markup (bold, italic, monospace, underline, `[[links]]`, tags, tables) in labels, notes, legends and titles.
+- A colour picker on `#hex` colours, such as `skinparam backgroundColor #2B3E50` or `-[#FF6F61,bold]->`.
+- Autocomplete: `@start`/`@end` lines, keywords, the names the diagram already uses, and blocks such as `alt` and `loop` to fill in.
+- Autocomplete from your PlantUML server: its themes after `!theme`, its OpenIconic icons after `<&` and its emoji after `<:`.
+- Autocomplete offers the connectors (`-->`, `..`, `~~`, `==`, …) after the first name on a line, the Creole tags after `<`, and their closers after `</`.
 - The editor underlines a diagram with no name after `@startuml`, offering to name it after the file, and the line where the server finds a mistake.
 - Editor conveniences: the current line highlighted, matching brackets outlined and closed as you type, Ctrl/Cmd+F to search, Ctrl/Cmd+/ to comment a line, Tab to indent.
-
-### Changed
-
-- The editor draws the diagram inline, so its links work.
-- The editor's Save button is Text's save indicator: a check when saved, a dot on it while changes are unsaved.
-- The editor loads the first time you open it, not on every Files page.
-- A new diagram gets its starting lines from the server, so any client creating one through Nextcloud gets the same file.
-
-### Fixed
-
-- The image viewer says "Could not draw the diagram" instead of showing a raw error page, as the editor does.
-- The editor reads a changed file fresh instead of from the browser's cache, so a change made elsewhere shows up.
-- A long source scrolls inside the editor, and a big diagram is fitted to its pane instead of running off the bottom.
-- The editor's source is readable on a dark theme: its text and highlighting follow Nextcloud's theme colours.
-- Removing the app keeps a `.puml` or `.plantuml` file type you set yourself in `config/mimetypemapping.json`, and repair now warns when it cannot write `core/js/mimetypelist.js`.
-- The editor no longer shows a raw error page when the server answers something other than a diagram.
+- A folder README shows its ```plantuml fences and `![](<diagram.puml>)` images as diagrams.

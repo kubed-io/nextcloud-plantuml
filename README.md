@@ -38,9 +38,13 @@ A URL does the same. Ask the app for the image of a file by its path and you get
 
 ## ✍️ Edit it, and watch it change
 
-**Edit diagram** opens the source on the left and the diagram on the right, redrawing as you type. PlantUML keywords, arrows and messages are highlighted, Creole markup included, and a `#hex` colour has a swatch you can click to pick another; **Save** writes the file; and if someone else saved it while you were typing, you're told rather than overwritten. **Ctrl/Cmd+S** saves too, and closing with unsaved changes asks first. Save the file from somewhere else, a desktop editor say, and the editor picks it up without being closed.
+**Edit diagram** opens the source on the left and the diagram on the right, redrawing as you type. Drag the line between them to suit; long lines wrap, a big diagram shrinks to fit its pane, and the links in it open in a new tab.
 
-Autocomplete knows your server's themes after `!theme`, its icons after `<&` and emoji after `<:`, the Creole tags after `<`, and the arrows between two names, and the editor underlines what PlantUML would complain about: a diagram with no name, and the line with the mistake on it.
+Nothing to remember to save. Like Nextcloud's own Text, it saves a couple of seconds after you stop typing, with Text's check mark to show it, and **Ctrl/Cmd+S** saves at once if you can't wait. Change the file somewhere else, a desktop editor over WebDAV say, and the open editor picks it up. If you both changed it, you're told rather than overwritten: take theirs, or keep yours as a copy.
+
+Highlighting knows PlantUML, Creole markup included, and follows Nextcloud's light and dark themes. Every `#hex` colour wears a swatch: click it to pick another. 🎨
+
+Autocomplete knows your server: its themes after `!theme`, its icons after `<&`, its emoji after `<:`. It offers the arrows between two names, the Creole tags after `<`, keywords, the names already in the diagram, and whole `alt` and `loop` blocks to fill in. And the editor underlines what PlantUML would complain about: a diagram with no name, and the line with the mistake on it.
 
 Prefer plain text? **Open with text editor** gives you Nextcloud's own editor on the source, as it would for any text file.
 

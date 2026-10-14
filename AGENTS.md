@@ -87,7 +87,10 @@ decides whether it goes in.
 4. **Before anything design-relevant, read the spec**:
    [`docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`](docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md).
    It carries the verified platform facts (what Text and the Viewer do and do not
-   expose), the rulings, and the Penpot design. The plan beside it in
+   expose), the rulings, and the Penpot design. Anything in the **Edit diagram**
+   overlay has its own spec beside it,
+   [`2026-10-14-editor-design.md`](docs/superpowers/specs/2026-10-14-editor-design.md):
+   every requirement with its PR, and the traps the live instance set. The plan in
    [`docs/superpowers/plans/`](docs/superpowers/plans/) is the build order.
 
 ---
@@ -96,16 +99,17 @@ decides whether it goes in.
 
 | Path | What's there |
 |---|---|
-| `appinfo/info.xml`, `appinfo/routes.php` | App metadata, settings and commands registration, repair steps; the two render routes |
+| `appinfo/info.xml`, `appinfo/routes.php` | App metadata, settings and commands registration, repair steps; the routes: test connection, the two render routes, and the server's lists (`/themes`, `/icons`, `/emoji`) |
 | `lib/AppInfo/Application.php` | Bootstrap: declarative settings, event listeners |
 | `lib/Service/` | `ServerConfig`, `RenderService` (+ `Rendered`), the behaviour |
 | `lib/Exception/RenderException.php` | The three problems: `not set`, `unreachable`, `not a PlantUML server` |
-| `lib/Controller/` | `RenderController` (path + source routes), `ConfigController` (test connection) |
+| `lib/Controller/` | `RenderController` (path + source routes, the server's lists), `ConfigController` (test connection) |
 | `lib/Settings/`, `templates/`, `js/`, `css/` | The admin card and its test panel |
 | `lib/Command/` | `plantuml:set-url`, `plantuml:test-connection`, `plantuml:show-config` |
 | `lib/Migration/` | `RegisterMimetype` / `UnregisterMimetype` |
-| `lib/Listener/` | `LoadFilesScriptListener` — the Files bundles and their initial state |
-| `src/` | `files.js` (Viewer handler, actions, + New), `editor.js` (CodeMirror), `readme.js` (workspace observer), pure helpers beside them |
+| `lib/Listener/` | `LoadFilesScriptListener` (the Files bundles and their initial state), `NewDiagramListener` (a new `.puml`'s starting lines) |
+| `src/` | `files.js` (Viewer handler, actions, + New), `editor.js` (the overlay, lazily loaded), `readme.js` (workspace observer) |
+| `src/editor/` | The editor's parts: save, watch, autosave, preview, inline SVG, splitter, theme, the PlantUML mode; `completion/` and `lint/` hold one file per source or rule |
 | `features/` | The spec; `README.md` is the map, `AGENTS.md` the notes |
 | `tests/unit/`, `tests/js/`, `tests/integration/` | PHPUnit, vitest, Behat |
 | `docs/superpowers/` | Spec and plan |
@@ -122,8 +126,17 @@ bash tests/integration/bin/check-step-definitions.sh
 ```
 
 The code-server pod this app is developed in has PHP 8.4, Composer and Node, so
-every command above runs there. Behat runs only in CI, against a real Nextcloud and
-PlantUML server, and nothing here runs inside the Nextcloud pod.
+every command above runs there, Psalm and php-cs-fixer included. Behat runs only in
+CI, against a real Nextcloud and PlantUML server, and none of these ever runs inside
+the Nextcloud pod.
+
+## Trying it on the live instance
+
+CI proves the HTTP; only a browser proves the Files page, so a change is deployed by
+hand before a PR claims it: `npm run build`, then tar the repo without
+`node_modules`, `vendor` and `.git` into the Nextcloud pod's `custom_apps/plantuml`,
+owned by `www-data`. The two caches that then lie, and the browser trap, are in
+[CONTRIBUTING.md § Validate on a real Nextcloud instance](CONTRIBUTING.md#validate-on-a-real-nextcloud-instance).
 
 ## Architectural non-negotiables
 
@@ -141,6 +154,15 @@ Rulings, not preferences. Each has its reasoning in the spec.
 - **No thumbnails, SVG everywhere.** A preview provider would be code written for
   a behaviour nobody asked for.
 - **CodeMirror 6 on the left of the editor**, with the app's own PlantUML mode.
-  Highlighting won over Text's free save path, and the save path is ours.
+  Highlighting won over Text's free save path, and the save path is ours. Before
+  writing an editor feature by hand, look for a CodeMirror extension that does it.
+- **What the server knows, the app asks it.** The themes, icons and emoji the
+  editor offers come from the configured PlantUML server, cached a day, never a
+  fixed list. A new diagram's starting lines are written by `NewDiagramListener`
+  on the server, not by the JavaScript, so every client gets the same file.
+- **Scenarios go through the API.** Behat reaches the app by occ, WebDAV, Files'
+  endpoints and the app's routes, never a browser. A scenario that seems to need
+  one is worded for a screen and gets reworded, proposed to Dr K; one that truly
+  cannot run without a page is `@ui @blocked`, and there are none today.
 - **`readme.js` is a DOM observer** over Text's workspace, because Text has no
   hook for code fences. The exit is an upstream Text PR, not a cleverer observer.

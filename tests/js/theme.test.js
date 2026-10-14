@@ -4,9 +4,9 @@
 // The source pane follows Nextcloud's theme: every colour is a theme variable,
 // so a dark theme never gets CodeMirror's dark-on-white defaults.
 import { describe, expect, it } from 'vitest'
-import { tags } from '@lezer/highlight'
+import { highlightTree, tags } from '@lezer/highlight'
 import { highlightStyle, surfaceRules } from '../../src/editor/theme.js'
-import { underline } from '../../src/editor/plantuml-mode.js'
+import { plantumlLanguage, underline } from '../../src/editor/plantuml-mode.js'
 
 const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\b(?:white|black)\b/i
 
@@ -17,6 +17,15 @@ describe('the editor highlight style', () => {
     for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation]) {
       expect(styled).toContain(tag)
     }
+  })
+
+  // The names CodeMirror's legacy modes emit, as a nested profile's mode would.
+  it.each(['atom', 'number', 'property', 'def', 'variable-2', 'meta', 'string', 'keyword', 'comment'])('colours a nested mode\'s %s token', (name) => {
+    const inner = { token: (stream) => { stream.skipToEnd(); return name } }
+    const tree = plantumlLanguage({ yaml: inner }).parser.parse('@startyaml\nx\n@endyaml')
+    const styled = []
+    highlightTree(tree, highlightStyle, (from, to) => styled.push([from, to]))
+    expect(styled).toContainEqual([11, 12])
   })
 
   // They modify the text they sit in, a label's violet included, so they set no colour.

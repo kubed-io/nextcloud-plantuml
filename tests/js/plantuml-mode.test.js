@@ -7,14 +7,20 @@ import { describe, expect, it } from 'vitest'
 import { EditorState, Text } from '@codemirror/state'
 import { toggleComment } from '@codemirror/commands'
 import { closeBrackets, insertBracket } from '@codemirror/autocomplete'
+import { StringStream } from '@codemirror/language'
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight'
-import { plantumlMode, underline } from '../../src/editor/plantuml-mode.js'
+import { plantumlLanguage, plantumlMode, underline } from '../../src/editor/plantuml-mode.js'
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {
+  return tokensOf(plantumlMode, lines)
+}
+
+/** The same, read by `language`. */
+function tokensOf(language, lines) {
   const doc = Text.of(lines)
   const out = []
-  plantumlMode.parser.parse(doc.toString()).iterate({
+  language.parser.parse(doc.toString()).iterate({
     enter(node) {
       if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
     },
@@ -304,5 +310,103 @@ describe('plantumlMode language data', () => {
       expect(insertBracket(state(''), open).state.doc.toString()).toBe(pair)
     }
     expect(insertBracket(state(''), "'")).toBeNull()
+  })
+})
+
+describe('plantumlLanguage with an inner mode', () => {
+  const whole = (token) => ({ token: (stream) => { stream.skipToEnd(); return token }, startState: () => ({}) })
+  const nested = (...lines) => tokensOf(plantumlLanguage({ yaml: whole('atom') }), lines)
+
+  it("hands the lines between @start<type> and @end<type> to the type's mode", () => {
+    expect(nested('@startyaml', 'fruits:', '  - apple', '@endyaml')).toEqual([
+      ['@startyaml', 'keyword'],
+      ['fruits:', 'atom'],
+      ['  - apple', 'atom'],
+      ['@endyaml', 'keyword'],
+    ])
+  })
+
+  it('ends the block at an indented @end, and keeps the indentation plain', () => {
+    expect(nested('@startyaml', 'a: 1', '  @endyaml')).toEqual([['@startyaml', 'keyword'], ['a: 1', 'atom'], ['@endyaml', 'keyword']])
+  })
+
+  it('reads a quote-led line and a preprocessor line inside the block as PlantUML', () => {
+    expect(nested('@startyaml', "' a note", '  !include x.puml', 'a: 1', '@endyaml')).toEqual([
+      ['@startyaml', 'keyword'],
+      ["' a note", 'comment'],
+      ['!include x.puml', 'meta'],
+      ['a: 1', 'atom'],
+      ['@endyaml', 'keyword'],
+    ])
+  })
+
+  it('reads PlantUML again after the block', () => {
+    expect(nested('@startyaml', 'a: 1', '@endyaml', 'actor A').slice(3)).toEqual([['actor', 'keyword']])
+  })
+
+  it('keeps the inner mode to the end of the file when the block is never closed', () => {
+    expect(nested('@startyaml', 'a: 1', 'actor A')).toEqual([['@startyaml', 'keyword'], ['a: 1', 'atom'], ['actor A', 'atom']])
+  })
+
+  it('reads a block of a type it has no mode for as it always has', () => {
+    const lines = ['@startyaml', 'fruits:', '  - "apple"', "' a note", '@endyaml', 'actor A']
+    const expected = [['"apple"', 'string'], ["' a note", 'comment'], ['actor', 'keyword']]
+    expect(tokensOf(plantumlLanguage({}), lines)).toEqual(expected)
+    expect(tokensOf(plantumlLanguage({ json: whole('atom') }), lines)).toEqual(expected)
+  })
+
+  it('leaves the text an inner mode names nothing plain, with or without a start state', () => {
+    const plain = { token: (stream) => { stream.next(); return null } }
+    expect(tokensOf(plantumlLanguage({ yaml: plain }), ['@startyaml', 'a: 1', '@endyaml'])).toEqual([['@startyaml', 'keyword'], ['@endyaml', 'keyword']])
+  })
+
+  it("passes a blank line inside the block to the inner mode's blankLine", () => {
+    const counting = {
+      startState: () => ({ blanks: 0 }),
+      blankLine: (state) => { state.blanks++ },
+      token: (stream, state) => { stream.skipToEnd(); return state.blanks ? 'number' : 'atom' },
+    }
+    expect(tokensOf(plantumlLanguage({ yaml: counting }), ['@startyaml', 'a', '', 'b', '@endyaml'])).toEqual([
+      ['@startyaml', 'keyword'],
+      ['a', 'atom'],
+      ['b', 'number'],
+      ['@endyaml', 'keyword'],
+    ])
+  })
+
+  /** The parser's state after reading `lines`. */
+  function stateAfter(parser, lines) {
+    const state = parser.startState(2)
+    for (const line of lines) {
+      const stream = new StringStream(line, 4, 2)
+      if (stream.eol()) parser.blankLine(state, 2)
+      while (!stream.eol()) {
+        stream.start = stream.pos
+        parser.token(stream, state)
+      }
+    }
+    return state
+  }
+
+  it('copies the inner state, so a copy read on leaves the original where it was', () => {
+    const { streamParser } = plantumlLanguage({ yaml: whole('atom') })
+    const state = stateAfter(streamParser, ['@startyaml', 'a: 1'])
+    const copy = streamParser.copyState(state)
+
+    expect(copy.inner).toEqual(state.inner)
+    copy.inner.state.mark = 1
+    expect(state.inner.state.mark).toBeUndefined()
+  })
+
+  it("copies the inner state with the inner mode's own copyState when it has one", () => {
+    const mode = { ...whole('atom'), startState: () => ({ depth: 1 }), copyState: (state) => ({ depth: state.depth, copied: true }) }
+    const { streamParser } = plantumlLanguage({ yaml: mode })
+    const state = stateAfter(streamParser, ['@startyaml', 'a: 1'])
+
+    expect(streamParser.copyState(state).inner.state).toEqual({ depth: 1, copied: true })
+  })
+
+  it('builds a new language on every call', () => {
+    expect(plantumlLanguage({})).not.toBe(plantumlLanguage({}))
   })
 })

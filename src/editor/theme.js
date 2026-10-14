@@ -21,7 +21,7 @@ const towardText = (variable) => `color-mix(in srgb, var(${variable}) 75%, var(-
 /** Nextcloud names no monospace face, so the system's own. */
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
 
-/** One rule per token plantuml-mode.js emits. */
+/** One rule per token plantuml-mode.js emits, its nested modes' included. */
 export const highlightStyle = HighlightStyle.define([
   { tag: tags.meta, color: 'var(--color-primary-element)', fontWeight: 'bold' },
   { tag: tags.keyword, color: 'var(--color-info-text)', fontWeight: 'bold' },
@@ -47,6 +47,10 @@ export const highlightStyle = HighlightStyle.define([
   // Markup recedes behind the text it marks up: tags, table bars.
   { tag: tags.tagName, color: 'var(--color-text-maxcontrast)' },
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
+  // A nested mode's values and names (YAML's keys are atoms). Atom would
+  // otherwise inherit the keyword's bold.
+  { tag: [tags.atom, tags.special(tags.variableName)], color: towardText('--color-element-success') },
+  { tag: [tags.number, tags.propertyName, tags.definition(tags.variableName)], color: 'var(--color-info-text)' },
 ])
 
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */

@@ -5,10 +5,10 @@
 // Each completion source against a real EditorState: `|` in a document marks
 // the cursor, and what is asserted is what the popup would offer from where.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { CompletionContext, completionStatus, insertCompletionText } from '@codemirror/autocomplete'
-import { plantumlMode } from '../../src/editor/plantuml-mode.js'
+import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
 import { keywords } from '../../src/editor/completion/keywords.js'
@@ -37,6 +37,16 @@ describe('the completion sources', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
     expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors, creole, icons, emoji])
+  })
+
+  it('stay registered when the language is swapped for one with an inner mode', () => {
+    const language = new Compartment()
+    const before = EditorState.create({ doc: '@st', extensions: [language.of(plantumlMode), plantumlCompletion] })
+    const yaml = { token: (stream) => { stream.skipToEnd(); return 'atom' } }
+    const { state } = before.update({ effects: language.reconfigure(plantumlLanguage({ yaml })) })
+
+    expect(state.languageDataAt('autocomplete', 3)).toEqual(sources)
+    expect(labels(directives(new CompletionContext(state, 3, false)))).toContain('@startuml')
   })
 })
 

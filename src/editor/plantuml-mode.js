@@ -15,6 +15,10 @@
  * which a stream mode cannot look back for. Those rules match at the start of
  * the line instead and capture the indentation as a group of its own, so only
  * the word is coloured.
+ *
+ * `plantumlLanguage(inner)` nests other stream modes: between `@start<type>`
+ * and the next line starting `@end`, a type with a mode in `inner` is read by
+ * that mode, except for `'` comment and `!` preprocessor lines.
  */
 import { StreamLanguage } from '@codemirror/language'
 import { simpleMode } from '@codemirror/legacy-modes/mode/simple-mode'
@@ -166,17 +170,80 @@ const base = simpleMode({
 // Without this a label or a styled link left open would run on into it.
 const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody' }
 
-export const plantumlMode = StreamLanguage.define({
-  ...base,
-  token(stream, state) {
-    // A rule matched at the start of a line hands back its groups one at a
-    // time (`pending`), all still at the start: they belong to the state it set.
-    if (stream.sol() && !state.pending && Object.hasOwn(nextLine, state.state)) {
-      state.state = nextLine[state.state]
-    }
-    return base.token(stream, state)
-  },
-  // StreamLanguage names a node after its token, and takes the highlight from
-  // here for a name @lezer/highlight has no tag for.
-  tokenTable: { ColorLiteral: tags.color, underline },
-})
+/** CodeMirror's own copy for a stream mode without copyState: the object, and any array in it. */
+const copyOf = (state) => (state && typeof state === 'object'
+  ? Object.fromEntries(Object.entries(state).map(([key, value]) => [key, Array.isArray(value) ? value.slice() : value]))
+  : state)
+
+/**
+ * Hands back `parts` ([text, token] pairs, as they come on the line) one at a
+ * time, the way simple-mode hands back a rule's groups.
+ */
+function emit(stream, state, parts) {
+  const [[text, token], ...rest] = parts.filter(([part]) => part)
+  stream.pos += text.length
+  state.pending = rest.length ? rest.map(([part, style]) => ({ text: part, token: style })) : null
+  return token
+}
+
+/**
+ * PlantUML, with each `@start<type>` … `@end` block of a type in `inner` read
+ * by that type's stream mode. A fresh language on every call, so a profile
+ * arriving swaps it in a Compartment and the document is read again.
+ */
+export function plantumlLanguage(inner = {}) {
+  const modeOf = (block) => inner[block.type]
+
+  return StreamLanguage.define({
+    ...base,
+    startState: () => ({ ...base.startState(), inner: null }),
+    copyState(state) {
+      const copy = base.copyState(state)
+      const block = state.inner
+      const mode = block && modeOf(block)
+      copy.inner = block && { type: block.type, state: mode.copyState ? mode.copyState(block.state) : copyOf(block.state) }
+      return copy
+    },
+    token(stream, state) {
+      // A rule matched at the start of a line hands back its groups one at a
+      // time (`pending`), all still at the start: they belong to the state it set.
+      if (state.pending) return base.token(stream, state)
+      if (state.inner) {
+        if (stream.sol()) {
+          const end = stream.match(/^([ \t]*)(@end\w*)/, false)
+          if (end) {
+            state.inner = null
+            return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
+          }
+          // Comment and preprocessor lines are PlantUML's in any diagram.
+          if (stream.match(/^[ \t]*['!]/, false)) return base.token(stream, state)
+        }
+        return modeOf(state.inner).token(stream, state.inner.state)
+      }
+      if (stream.sol() && Object.hasOwn(nextLine, state.state)) {
+        state.state = nextLine[state.state]
+      }
+      const start = stream.sol() && state.state === 'start' && stream.match(/^([ \t]*)(@start(\w+))(.*)/, false)
+      if (start && Object.hasOwn(inner, start[3])) {
+        const mode = inner[start[3]]
+        state.inner = { type: start[3], state: mode.startState ? mode.startState(stream.indentUnit) : {} }
+        // The block starts on the next line: the rest of this one is plain.
+        return emit(stream, state, [[start[1], null], [start[2], 'keyword'], [start[4], null]])
+      }
+      return base.token(stream, state)
+    },
+    blankLine(state, indentUnit) {
+      if (state.inner) modeOf(state.inner).blankLine?.(state.inner.state, indentUnit)
+    },
+    indent(state, textAfter, context) {
+      if (!state.inner) return base.indent(state, textAfter, context)
+      return modeOf(state.inner).indent?.(state.inner.state, textAfter, context) ?? null
+    },
+    // StreamLanguage names a node after its token, and takes the highlight from
+    // here for a name @lezer/highlight has no tag for. The legacy names an inner
+    // mode emits (`atom`, `number`, `property`, `def`, `variable-2`, …) map already.
+    tokenTable: { ColorLiteral: tags.color, underline },
+  })
+}
+
+export const plantumlMode = plantumlLanguage({})

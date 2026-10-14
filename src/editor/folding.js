@@ -4,10 +4,9 @@
  *
  * Each `@start` line folds its block, down to the line before `@end` so the
  * `@end` stays visible. The stream mode has no syntax tree, so the ranges
- * come from blocks.js. Keys are B6's, spelled out because `foldKeymap` binds
- * Cmd+Alt+[ on macOS, not Cmd+Shift+[.
+ * come from blocks.js. The keys are CodeMirror's own `foldKeymap`.
  */
-import { foldAll, foldCode, foldGutter, foldService, unfoldAll, unfoldCode } from '@codemirror/language'
+import { foldGutter, foldKeymap, foldService } from '@codemirror/language'
 import { keymap } from '@codemirror/view'
 import { blocksOf, scan } from './blocks.js'
 
@@ -34,10 +33,5 @@ function foldRange(state, lineStart) {
 export const plantumlFolding = [
   foldService.of(foldRange),
   foldGutter(),
-  keymap.of([
-    { key: 'Mod-Shift-[', run: foldCode },
-    { key: 'Mod-Shift-]', run: unfoldCode },
-    { key: 'Mod-Alt-[', run: foldAll },
-    { key: 'Mod-Alt-]', run: unfoldAll },
-  ]),
+  keymap.of(foldKeymap),
 ]

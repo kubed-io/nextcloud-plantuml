@@ -5,7 +5,8 @@
 // Each @start line folds its block, @end excluded; the keys are B6's.
 import { afterEach, describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
-import { EditorView, runScopeHandlers } from '@codemirror/view'
+import { defaultKeymap } from '@codemirror/commands'
+import { EditorView, keymap, runScopeHandlers } from '@codemirror/view'
 import { foldable, foldedRanges } from '@codemirror/language'
 import { plantumlFolding } from '../../src/editor/folding.js'
 
@@ -39,7 +40,7 @@ describe('folding', () => {
       view = new EditorView({ state: stateOf(DOC + '@startyaml c\nx\n@endyaml\n'), parent: document.body })
     }
 
-    it('fold and unfold the block at the cursor on Ctrl+Shift+[ and ]', () => {
+    it('fold and unfold the block at the cursor on Ctrl-Shift-[ and ]', () => {
       open()
       view.dispatch({ selection: { anchor: 3 } })
 
@@ -49,7 +50,7 @@ describe('folding', () => {
       expect(foldedRanges(view.state).size).toBe(0)
     })
 
-    it('fold and unfold every block on Ctrl+Alt+[ and ]', () => {
+    it('fold and unfold every block on Ctrl-Alt-[ and ]', () => {
       open()
 
       expect(press({ key: '[', code: 'BracketLeft', keyCode: 219, ctrlKey: true, altKey: true })).toBe(true)
@@ -57,5 +58,16 @@ describe('folding', () => {
       expect(press({ key: ']', code: 'BracketRight', keyCode: 221, ctrlKey: true, altKey: true })).toBe(true)
       expect(foldedRanges(view.state).size).toBe(0)
     })
+  })
+
+  it('leaves Ctrl-[ and Ctrl-] to indent', () => {
+    const view = new EditorView({ state: EditorState.create({ doc: 'x', extensions: [plantumlFolding, keymap.of(defaultKeymap)] }), parent: document.body })
+    const press = (key, keyCode) => runScopeHandlers(view, new KeyboardEvent('keydown', { key, code: key === '[' ? 'BracketLeft' : 'BracketRight', keyCode, ctrlKey: true }), 'editor')
+
+    expect(press(']', 221)).toBe(true)
+    expect(view.state.doc.toString()).toBe('  x')
+    expect(press('[', 219)).toBe(true)
+    expect(view.state.doc.toString()).toBe('x')
+    view.destroy()
   })
 })

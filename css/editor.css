@@ -133,14 +133,65 @@
 
 .plantuml-editor__panes {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	/* --plantuml-split is the source pane's share, set by src/editor/splitter.js. */
+	grid-template-columns: minmax(0, var(--plantuml-split, 50%)) 9px minmax(0, 1fr);
 	flex: 1;
 	min-height: 0;
 }
 
 .plantuml-editor__source {
 	min-width: 0;
-	border-right: 1px solid var(--color-border-dark);
+}
+
+/* A 9px grab area drawing a 1px line, and a pill while it is hovered, focused
+ * or dragged. */
+.plantuml-editor__splitter {
+	position: relative;
+	cursor: col-resize;
+	touch-action: none;
+}
+
+.plantuml-editor__splitter::before {
+	content: '';
+	position: absolute;
+	inset: 0 4px;
+	background: var(--color-border-dark);
+}
+
+.plantuml-editor__splitter::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 2px;
+	width: 5px;
+	height: 36px;
+	border-radius: var(--border-radius-pill, 100px);
+	background: var(--color-border-maxcontrast);
+	opacity: 0;
+	transform: translateY(-50%);
+	transition: opacity var(--animation-quick, 100ms);
+}
+
+.plantuml-editor__splitter:hover::after,
+.plantuml-editor__splitter:focus-visible::after,
+.plantuml-editor__splitter--dragging::after {
+	opacity: 1;
+}
+
+.plantuml-editor__splitter:hover::before,
+.plantuml-editor__splitter--dragging::before {
+	background: var(--color-primary-element);
+}
+
+.plantuml-editor__splitter:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+/* No text selection and one cursor while dragging across either pane. */
+.plantuml-editor__panes:has(.plantuml-editor__splitter--dragging) {
+	cursor: col-resize;
+	user-select: none;
 }
 
 .plantuml-editor__diagram {

@@ -8,7 +8,8 @@ board. The spec's "The design" section says what each board shows and what the p
 | Admin | the card before Test connection | [admin.png](admin.png) |
 | Admin | after Test connection | [admin-success.png](admin-success.png) |
 | Admin | the four lines the health check can show | [admin-health-check-states.png](admin-health-check-states.png) |
-| Editor | unsaved: the check with a dot, the divider's drag handle | [editor.png](editor.png) |
+| Editor | unsaved: the check with a dot, the divider's drag handle, the diagram tabs, fold chevrons and the Source toggle pressed | [editor.png](editor.png) |
+| Editor | the source hidden: the Source toggle unpressed, the diagram full width | [editor-diagram-only.png](editor-diagram-only.png) |
 | Editor | saving: the spinner | [editor-saving.png](editor-saving.png) |
 | Editor | saved: the plain check | [editor-saved.png](editor-saved.png) |
 | Editor | the connector completions after `node1 ` | [editor-autocomplete.png](editor-autocomplete.png) |

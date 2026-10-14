@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, canEditDiagram, canOpenAsText, isDiagram, renderUrl } from '../../src/files-helpers.js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { APP_ID, MIMETYPE, NEW_DIAGRAM_CONTENT, canEditDiagram, canOpenAsText, editorBundleUrl, isDiagram, renderUrl } from '../../src/files-helpers.js'
 
 describe('files-helpers', () => {
   it('names the app', () => {
@@ -32,6 +32,20 @@ describe('renderUrl', () => {
   it('asks the render route for the file by its encoded path', () => {
     expect(renderUrl('Diagrams/Order flow.puml'))
       .toBe('/index.php/apps/plantuml/render?path=Diagrams%2FOrder%20flow.puml')
+  })
+})
+
+describe('editorBundleUrl', () => {
+  // The web roots are page globals Nextcloud injects; node has no window.
+  beforeEach(() => {
+    vi.stubGlobal('window', { _oc_webroot: '', _oc_appswebroots: { plantuml: '/custom_apps/plantuml' } })
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('points at the editor bundle under the app\'s web root', () => {
+    expect(editorBundleUrl()).toBe('/custom_apps/plantuml/dist/plantuml-editor.js')
   })
 })
 

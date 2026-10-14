@@ -213,9 +213,6 @@ until then.
 
 What the reviews deferred. None changes a scenario; each is work for a later round.
 
-* **The editor bundle is eager.** `editor.js` is about 163 kB gzipped and loads
-  with the Files page; it should load on the first **Edit diagram** or **+ New →
-  Diagram**.
 * **A 412 is a dead end.** "Someone else changed this file" leaves the editor with
   no way forward; it wants **Reload** and **Save as copy**.
 * **Non-JSON failure bodies.** A proxy's HTML error page reaching the preview pane

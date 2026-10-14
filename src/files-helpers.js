@@ -2,10 +2,12 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Pure helpers for the Files bundle: no imports and no DOM, so they run under
- * vitest in a plain node environment. The one Nextcloud global, OC, is read at
- * call time by renderUrl() and lent to it by the test.
+ * Pure helpers for the Files bundle: no DOM, so they run under vitest in a
+ * plain node environment. The Nextcloud globals, OC and the app web roots, are
+ * read at call time and lent by the test.
  */
+import { generateFilePath } from '@nextcloud/router'
+
 export const APP_ID = 'plantuml'
 
 /** The mimetype the app registers for .puml and .plantuml files. */
@@ -41,4 +43,9 @@ export function canEditDiagram(nodes, serverConfigured) {
  */
 export function renderUrl(path) {
   return OC.generateUrl(`/apps/${APP_ID}/render`) + '?path=' + encodeURIComponent(path)
+}
+
+/** The editor bundle, which files.js adds to the page the first time it is needed. */
+export function editorBundleUrl() {
+  return generateFilePath(APP_ID, 'dist', `${APP_ID}-editor.js`)
 }

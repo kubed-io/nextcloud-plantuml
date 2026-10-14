@@ -25,3 +25,7 @@ All notable changes to this project are documented here. The format follows
 ### Fixed
 
 - Removing the app keeps a `.puml` or `.plantuml` file type you set yourself in `config/mimetypemapping.json`, and repair now warns when it cannot write `core/js/mimetypelist.js`.
+### Changed
+
+- The editor loads the first time you open it, not on every Files page.
+

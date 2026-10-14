@@ -41,7 +41,7 @@ final class LoadFilesScriptListenerTest extends TestCase {
 		(new LoadFilesScriptListener($serverConfig, $initialState))->handle(new LoadAdditionalScriptsEvent());
 	}
 
-	public function testAddsTheFilesTheEditorThenTheReadmeBundle(): void {
+	public function testAddsTheFilesThenTheReadmeBundleAndLeavesTheEditorToItsFirstUse(): void {
 		$listener = new LoadFilesScriptListener(
 			$this->createStub(ServerConfig::class),
 			$this->createStub(IInitialState::class),
@@ -50,7 +50,7 @@ final class LoadFilesScriptListenerTest extends TestCase {
 		$listener->handle(new LoadAdditionalScriptsEvent());
 
 		self::assertSame(
-			['plantuml/js/../dist/plantuml-files', 'plantuml/js/../dist/plantuml-editor', 'plantuml/js/../dist/plantuml-readme'],
+			['plantuml/js/../dist/plantuml-files', 'plantuml/js/../dist/plantuml-readme'],
 			Util::getScripts(),
 		);
 	}

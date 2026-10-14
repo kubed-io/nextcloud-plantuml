@@ -6,8 +6,8 @@
  * source in CodeMirror on the left, the diagram redrawn from it on the right.
  * The file is touched only by Save, guarded by the ETag it was read with.
  *
- * The Files bundle's "Edit diagram" and + New call window.OCA.PlantUml.openEditor
- * once this bundle has defined it.
+ * The Files bundle adds this bundle to the page the first time "Edit diagram"
+ * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
  */
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'

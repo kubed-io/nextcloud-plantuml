@@ -13,10 +13,11 @@
  *   editor  → dist/plantuml-editor.js   CodeMirror split pane
  *   readme  → dist/plantuml-readme.js   the Text workspace observer
  *
- * Loaded by Listener\LoadFilesScriptListener via Util::addScript('plantuml',
- * '../dist/plantuml-<entry>'): NC's loader appends `js/<file>.js` to the app
- * root, so the `../dist/` prefix walks back out of `js/`. `emptyOutDir` is off
- * because the three builds share `dist/`.
+ * files and readme are loaded by Listener\LoadFilesScriptListener via
+ * Util::addScript('plantuml', '../dist/plantuml-<entry>'): NC's loader appends
+ * `js/<file>.js` to the app root, so the `../dist/` prefix walks back out of
+ * `js/`. The files bundle adds the editor's `<script>` itself, on first use.
+ * `emptyOutDir` is off because the three builds share `dist/`.
  */
 import { defineConfig } from 'vite'
 

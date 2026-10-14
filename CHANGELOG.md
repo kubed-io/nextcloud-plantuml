@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Links without a head (`--`, `..`, `~~`, `==`) are coloured like arrows, a link's label is shown in italics, and `== separators ==` stand out.
 - Drag the line between the source and the diagram to resize them; the split is remembered.
 - A folder README shows its ```plantuml fences and `![](<diagram.puml>)` images as diagrams.
 - **Edit diagram**: PlantUML source on the left with highlighting, the diagram redrawing on the right as you type; Save (or Ctrl/Cmd+S) refuses to overwrite a file someone else changed.

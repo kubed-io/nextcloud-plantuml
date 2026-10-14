@@ -12,7 +12,7 @@ const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\b(?:white|black)\b/i
 describe('the editor highlight style', () => {
   it('colours every token the PlantUML mode emits', () => {
     const styled = highlightStyle.specs.map((spec) => spec.tag)
-    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment]) {
+    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading]) {
       expect(styled).toContain(tag)
     }
   })

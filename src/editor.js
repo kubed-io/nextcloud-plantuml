@@ -20,6 +20,7 @@ import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
 import { plantumlMode } from './editor/plantuml-mode.js'
 import { plantumlTheme } from './editor/theme.js'
+import { plantumlCompletion } from './editor/completion/index.js'
 import { ConflictError, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { createAutosave } from './editor/autosave.js'
@@ -280,7 +281,8 @@ export function openEditor(node) {
     opener?.focus?.()
   }
 
-  // CodeMirror marks an Escape it used (dropping a multi-selection) as handled.
+  // CodeMirror marks an Escape it used (closing the completion popup, dropping
+  // a multi-selection) as handled.
   function onKeydown(event) {
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
@@ -315,6 +317,7 @@ export function openEditor(node) {
           lineNumbers(),
           history(),
           plantumlMode,
+          plantumlCompletion,
           plantumlTheme,
           // Mod-s would otherwise be the browser's "Save page as".
           keymap.of([{ key: 'Mod-s', run: () => { save(); return true } }, ...defaultKeymap, ...historyKeymap]),

@@ -162,6 +162,10 @@ posted to `POST /render`, as the right pane posts it; a save is a WebDAV PUT wit
 PUT between the opening and the save. A change adds one participant, so the
 changed diagram can be told from the old one.
 
+Autocomplete has no scenario: what the popup offers is a rule with no I/O, so
+each source in `src/editor/completion/` is unit-tested against a real editor
+state, and adding one is a file there and a line in its `index.js`.
+
 The right pane redraws 300 ms after typing stops. When the server cannot draw,
 the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)
 where the diagram was, and the source stays editable.

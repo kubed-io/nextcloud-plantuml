@@ -7,6 +7,7 @@
 // and what would be written.
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorView } from '@codemirror/view'
+import { completionStatus, startCompletion } from '@codemirror/autocomplete'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -141,6 +142,26 @@ describe('the editor overlay', () => {
     expect(seams.cancel).toHaveBeenCalled()
     expect(q('#content').hasAttribute('inert')).toBe(false)
     expect(document.activeElement).toBe(q('#opener'))
+  })
+})
+
+describe('Escape', () => {
+  const escape = () => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+
+  it('closes the completion popup first, and the editor only after', async () => {
+    await open()
+    const view = EditorView.findFromDOM(q('.cm-editor'))
+    view.dispatch({ selection: { anchor: 0 } })
+    startCompletion(view)
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+
+    escape()
+    expect(completionStatus(view.state)).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    escape()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
   })
 })
 

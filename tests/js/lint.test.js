@@ -1,0 +1,108 @@
+// @vitest-environment jsdom
+// SPDX-FileCopyrightText: 2026 kubed-io
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Each lint rule against a real EditorState: what is asserted is what the
+// editor would underline, and what a diagnostic's action writes.
+import { describe, expect, it } from 'vitest'
+import { EditorState } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
+import { rules } from '../../src/editor/lint/index.js'
+import { fileName, serverError, setServerError } from '../../src/editor/lint/state.js'
+import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.js'
+import { serverMistake } from '../../src/editor/lint/server-error.js'
+
+const stateOf = (doc, name = 'Order flow.puml') => EditorState.create({ doc, extensions: [fileName.of(name), serverError] })
+
+describe('the lint rules', () => {
+  it('are listed in order', () => {
+    expect(rules).toEqual([unnamedStart, serverMistake])
+  })
+})
+
+describe('unnamed-start', () => {
+  it('warns on a diagram opened without a name', () => {
+    const [diagnostic, ...rest] = unnamedStart(stateOf('@startuml\nA -> B\n@enduml\n'))
+
+    expect(rest).toEqual([])
+    expect(diagnostic).toMatchObject({ from: 0, to: '@startuml'.length, severity: 'warning', message: 'Name the diagram: @startuml <name>' })
+    expect(diagnostic.actions.map((action) => action.name)).toEqual(['Add name'])
+  })
+
+  it('knows every diagram the directives complete, after any indentation and before trailing space', () => {
+    const doc = "' notes\n  @startmindmap  \n* root\n@endmindmap\n"
+    const [diagnostic] = unnamedStart(stateOf(doc))
+
+    expect(diagnostic.from).toBe(doc.indexOf('@startmindmap'))
+    expect(diagnostic.to).toBe(doc.indexOf('@startmindmap') + '@startmindmap'.length)
+    expect(diagnostic.message).toBe('Name the diagram: @startmindmap <name>')
+  })
+
+  it('leaves a named diagram, an end line and other text alone', () => {
+    expect(unnamedStart(stateOf('@startuml Order_flow\nA -> B\n@enduml\n'))).toEqual([])
+    expect(unnamedStart(stateOf('@startuml(id=flow)\n@enduml\n'))).toEqual([])
+    expect(unnamedStart(stateOf("A -> B : @startuml\n' @startuml\n"))).toEqual([])
+  })
+
+  it('names it after the file when its action is taken', () => {
+    const view = new EditorView({ state: stateOf('  @startuml   \nA -> B\n@enduml\n', 'Order flow (copy).puml'), parent: document.body })
+    const [diagnostic] = unnamedStart(view.state)
+
+    diagnostic.actions[0].apply(view, diagnostic.from, diagnostic.to)
+
+    expect(view.state.doc.toString()).toBe('  @startuml Order_flow_copy\nA -> B\n@enduml\n')
+    expect(unnamedStart(view.state)).toEqual([])
+    view.destroy()
+  })
+
+  it.each([
+    ['Order flow.puml', 'Order_flow'],
+    ['Order flow (copy).puml', 'Order_flow_copy'],
+    ['Ünïcode flow.plantuml', 'Ünïcode_flow'],
+    ['v1.2 plan.puml', 'v1.2_plan'],
+    ['no-extension', 'no-extension'],
+    ['.puml', 'diagram'],
+    ['', 'diagram'],
+  ])('makes %j into the name %j', (file, name) => {
+    expect(diagramName(file)).toBe(name)
+  })
+})
+
+describe('server-error', () => {
+  const doc = '@startuml\nA -> B\nthis is (( bad\n@enduml\n'
+  const reported = (state, mistake) => state.update({ effects: setServerError.of(mistake) }).state
+
+  it('says nothing until the server names a mistake', () => {
+    expect(serverMistake(stateOf(doc))).toEqual([])
+  })
+
+  it('marks the whole line the server named as an error, in its words', () => {
+    const state = reported(stateOf(doc), { message: 'Syntax Error? (Assumed diagram type: sequence)', line: 3 })
+
+    expect(serverMistake(state)).toEqual([{
+      from: doc.indexOf('this'),
+      to: doc.indexOf('this') + 'this is (( bad'.length,
+      severity: 'error',
+      message: 'Syntax Error? (Assumed diagram type: sequence)',
+    }])
+  })
+
+  it('follows the line as lines are added above it, until the next answer', () => {
+    let state = reported(stateOf(doc), { message: 'Syntax Error?', line: 3 })
+    state = state.update({ changes: { from: 0, insert: "' a comment\n" } }).state
+
+    expect(state.sliceDoc(serverMistake(state)[0].from, serverMistake(state)[0].to)).toBe('this is (( bad')
+  })
+
+  it('names the last line when the source has since grown shorter', () => {
+    const state = reported(stateOf('@startuml\n@enduml'), { message: 'Syntax Error?', line: 9 })
+
+    expect(state.sliceDoc(serverMistake(state)[0].from, serverMistake(state)[0].to)).toBe('@enduml')
+  })
+
+  it('clears when a render comes back clean', () => {
+    const state = reported(reported(stateOf(doc), { message: 'Syntax Error?', line: 3 }), null)
+
+    expect(serverMistake(state)).toEqual([])
+  })
+})

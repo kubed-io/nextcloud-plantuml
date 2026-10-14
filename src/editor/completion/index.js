@@ -13,8 +13,10 @@ import { directives } from './directives.js'
 import { keywords } from './keywords.js'
 import { names } from './names.js'
 import { snippets } from './snippets.js'
+import { themes } from './themes.js'
+import { connectors } from './connectors.js'
 
-export const sources = [directives, keywords, names, snippets]
+export const sources = [directives, keywords, names, snippets, themes, connectors]
 
 // One data entry per source: an array under `autocomplete` is read as a list
 // of completions, not of sources. autocompletion() binds completionKeymap

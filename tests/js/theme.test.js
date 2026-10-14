@@ -35,6 +35,7 @@ describe('the editor surface', () => {
     ['the search panel and its matches', ['.cm-panels', '.cm-search', '.cm-searchMatch', '.cm-selectionMatch']],
     ["the search panel's field and buttons", ['.cm-textfield', '.cm-button', '.cm-button:active', '[name=close]']],
     ['snippet fields and a disabled popup', ['.cm-snippetField', '.cm-snippetFieldPosition', '.cm-tooltip-autocomplete-disabled']],
+    ['the diagnostics: underline, gutter mark, tooltip and panel', ['.cm-lintRange-error', '.cm-lintRange-warning', '.cm-lintRange-info', '.cm-lintPoint-warning', '.cm-lint-marker-error', '.cm-lint-marker-warning', '.cm-diagnostic-warning', '.cm-diagnosticAction', '.cm-panel-lint']],
   ])('styles %s', (_what, parts) => {
     const selectors = Object.keys(surfaceRules).join('\n')
     for (const part of parts) {

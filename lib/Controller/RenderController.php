@@ -27,12 +27,14 @@ use OCP\IRequest;
 use OCP\IUserSession;
 
 /**
- * The two render routes. Both are for logged-in users only (no #[PublicPage]).
+ * The two render routes and the server's themes, all for logged-in users only
+ * (no #[PublicPage]).
  *
  * GET takes a path, resolved in the caller's own folder: you can have drawn
  * exactly what you can read. POST takes text for the README fences and the
  * editor's preview; it grants nothing GET does not, since anyone who can send
- * text can upload it as a .puml, and it keeps the CSRF check.
+ * text can upload it as a .puml, and it keeps the CSRF check. Both pass on
+ * PlantUML's error headers, which the editor turns into an underlined line.
  */
 final class RenderController extends Controller {
 	public const MIMETYPE = 'text/x-plantuml';
@@ -91,8 +93,26 @@ final class RenderController extends Controller {
 		}
 	}
 
+	/** The editor's `!theme` completion. A GET that changes nothing, so no CSRF token. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function themes(): JSONResponse {
+		try {
+			return new JSONResponse(['themes' => $this->render->themes()]);
+		} catch (RenderException $e) {
+			return $this->problem($e);
+		}
+	}
+
 	private function image(Rendered $rendered): DataDisplayResponse {
-		return new DataDisplayResponse($rendered->body, Http::STATUS_OK, ['Content-Type' => $rendered->contentType]);
+		$headers = ['Content-Type' => $rendered->contentType];
+		if ($rendered->error !== '') {
+			$headers['X-PlantUML-Diagram-Error'] = $rendered->error;
+			if ($rendered->errorLine !== null) {
+				$headers['X-PlantUML-Diagram-Error-Line'] = (string)$rendered->errorLine;
+			}
+		}
+		return new DataDisplayResponse($rendered->body, Http::STATUS_OK, $headers);
 	}
 
 	/**

@@ -166,7 +166,20 @@ changed diagram can be told from the old one.
 
 Autocomplete has no scenario: what the popup offers is a rule with no I/O, so
 each source in `src/editor/completion/` is unit-tested against a real editor
-state, and adding one is a file there and a line in its `index.js`.
+state, and adding one is a file there and a line in its `index.js`. The themes
+after `!theme` are the server's own, from `GET /apps/plantuml/themes`, asked once
+per page; connectors are offered after a line's first element and a space,
+unless that first word is a keyword such as `node` or `loop`.
+
+Validation is the same pattern: one rule per file in `src/editor/lint/`, each a
+pure function of the editor state, unit-tested the same way. A diagram opened
+without a name is a warning whose action names it after the file (its base name,
+spaces as `_`), and the name follows a Save as copy. The mistake PlantUML finds
+is an error on the line it names: the render route passes on the server's
+`X-PlantUML-Diagram-Error` and `X-PlantUML-Diagram-Error-Line`, which counts from
+0 at the top of the source, blank lines and comments before `@startuml` included.
+It clears when a render comes back clean. Ctrl/Cmd+Shift+M lists them in a panel
+that Escape closes before it closes the editor.
 
 The right pane redraws 300 ms after typing stops. When the server cannot draw,
 the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)

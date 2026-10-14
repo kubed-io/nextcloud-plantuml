@@ -8,6 +8,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorView } from '@codemirror/view'
 import { completionStatus, startCompletion } from '@codemirror/autocomplete'
+import { forceLinting } from '@codemirror/lint'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -54,7 +55,8 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:diagram')
   URL.revokeObjectURL = vi.fn()
   seams.answer = { error: null, blob: new Blob(['<svg/>'], { type: 'image/svg+xml' }) }
-  seams.debouncedRender.mockImplementation((_source, cb) => cb(seams.answer.error, seams.answer.blob))
+  // The answer never lands inside the change that asked for it.
+  seams.debouncedRender.mockImplementation((_source, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.blob, seams.answer.mistake ?? null)))
   seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
   document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button></div>'
 })
@@ -119,6 +121,7 @@ describe('the editor overlay', () => {
 
     seams.answer = { error: new Error('not set') }
     type("' edit\n")
+    await settle()
 
     expect(q('.plantuml-editor__problem').textContent).toBe('not set')
     expect(q('.plantuml-editor__problem').getAttribute('role')).toBe('status')
@@ -164,6 +167,28 @@ describe('Escape', () => {
     expect(q('.plantuml-editor')).toBeNull()
   })
 
+  it('closes the diagnostics panel first, and the editor only after', async () => {
+    await open()
+    const key = (target, init) => target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
+
+    key(q('.cm-content'), { key: 'M', keyCode: 77, ctrlKey: true, shiftKey: true })
+    expect(q('.cm-panel-lint')).not.toBeNull()
+
+    key(q('.cm-panel-lint ul'), { key: 'Escape', keyCode: 27 })
+    expect(q('.cm-panel-lint')).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    // Escape typed in the source closes an open panel too, not the editor.
+    key(q('.cm-content'), { key: 'M', keyCode: 77, ctrlKey: true, shiftKey: true })
+    key(q('.cm-content'), { key: 'Escape', keyCode: 27 })
+    expect(q('.cm-panel-lint')).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    escape()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
   it('closes the search panel first, and the editor only after', async () => {
     await open()
     const key = (target, init) => target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
@@ -178,6 +203,85 @@ describe('Escape', () => {
     escape()
     await settle()
     expect(q('.plantuml-editor')).toBeNull()
+  })
+})
+
+describe('validation', () => {
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+  const lint = async () => {
+    await settle()
+    forceLinting(view())
+    await settle()
+  }
+  const openPanel = () => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'M', keyCode: 77, ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }))
+
+  it('warns that the diagram has no name, and names it after the file', async () => {
+    await open()
+    await lint()
+
+    expect(q('.cm-lintRange-warning').textContent).toBe('@startuml')
+    expect(q('.cm-lint-marker-warning')).not.toBeNull()
+    openPanel()
+    expect(q('.cm-panel-lint').textContent).toContain('Name the diagram: @startuml <name>')
+    q('.cm-panel-lint .cm-diagnosticAction').click()
+
+    expect(source().split('\n')[0]).toBe('@startuml Order_flow')
+  })
+
+  it('names it after the copy once the source is saved as one', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+    await open()
+    type("' mine\n")
+    seams.saveFile.mockRejectedValueOnce(new seams.ConflictError())
+    saveButton().click()
+    await settle()
+    seams.saveCopy.mockResolvedValue({ node: { path: '/Diagrams/Order flow (copy).puml', basename: 'Order flow (copy).puml' }, etag: '"copy"' })
+    copyButton().click()
+    await lint()
+
+    openPanel()
+    q('.cm-panel-lint .cm-diagnosticAction').click()
+
+    expect(source().split('\n')[1]).toBe('@startuml Order_flow_copy')
+  })
+
+  it('underlines the line the server names as a mistake, until a render comes back clean', async () => {
+    await open()
+    seams.answer = { ...seams.answer, mistake: { message: 'Syntax Error? (Assumed diagram type: sequence)', line: 3 } }
+    type("' edit\n")
+    await lint()
+
+    expect(q('.cm-lintRange-error').textContent).toBe('A -> B')
+    openPanel()
+    expect(q('.cm-panel-lint').textContent).toContain('Syntax Error? (Assumed diagram type: sequence)')
+
+    seams.answer = { ...seams.answer, mistake: null }
+    type("' fixed\n")
+    await lint()
+    expect(q('.cm-lintRange-error')).toBeNull()
+  })
+
+  it('forgets the mistake once the source is emptied, as there is nothing left to draw', async () => {
+    await open()
+    seams.answer = { ...seams.answer, mistake: { message: 'Syntax Error?', line: 1 } }
+    type("' edit\n")
+    await lint()
+    expect(q('.cm-lintRange-error, .cm-lintPoint-error')).not.toBeNull()
+
+    view().dispatch({ changes: { from: 0, to: view().state.doc.length } })
+    await lint()
+
+    expect(q('.cm-lintRange-error, .cm-lintPoint-error')).toBeNull()
+  })
+
+  it('underlines nothing when the server cannot draw, and still says why', async () => {
+    await open()
+    seams.answer = { error: new Error('unreachable'), mistake: { message: 'stale', line: 1 } }
+    type("' edit\n")
+    await lint()
+
+    expect(q('.cm-lintRange-error')).toBeNull()
+    expect(q('.plantuml-editor__problem').textContent).toBe('unreachable')
   })
 })
 

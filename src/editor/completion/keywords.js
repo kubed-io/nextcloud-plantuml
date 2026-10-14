@@ -26,6 +26,10 @@ const DETAILS = {
 }
 
 const labels = [...new Set([...PARTICIPANTS, ...STRUCTURES, ...SEQUENCE, ...ACTIVITY])]
+
+/** Every word a line can start with; `connectors.js` offers nothing after one. */
+export const KEYWORDS = labels.filter((label) => !label.includes(' '))
+
 const options = labels.map((label) => ({ label, type: 'keyword', ...(DETAILS[label] && { detail: DETAILS[label] }) }))
 
 /** The first words of the keywords that have a second, such as `end fork`. */

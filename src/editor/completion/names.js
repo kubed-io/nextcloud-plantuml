@@ -5,7 +5,8 @@
  * The names the diagram already uses, offered wherever a word is typed:
  * each declared participant or element (its alias, when it has one) and both
  * ends of every arrow, found with the grammar's own arrow. Not in a comment,
- * a directive, a string or an arrow's message, where a name is not wanted.
+ * a directive or preprocessor line, a string or an arrow's message, where a
+ * name is not wanted.
  */
 import { arrow } from '../plantuml-mode.js'
 import { PARTICIPANTS, STRUCTURES } from './keywords.js'
@@ -18,7 +19,7 @@ const MESSAGE = new RegExp(`${arrow.source}[^:]*:`)
 
 /** Where a name is not wanted: a comment, a directive, a string, a message. */
 function unwanted(lineBefore) {
-  return /^\s*['@]/.test(lineBefore) || lineBefore.split('"').length % 2 === 0 || MESSAGE.test(lineBefore)
+  return /^\s*['@!]/.test(lineBefore) || lineBefore.split('"').length % 2 === 0 || MESSAGE.test(lineBefore)
 }
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */

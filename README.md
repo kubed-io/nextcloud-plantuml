@@ -40,6 +40,8 @@ A URL does the same. Ask the app for the image of a file by its path and you get
 
 **Edit diagram** opens the source on the left and the diagram on the right, redrawing as you type. PlantUML keywords, arrows and messages are highlighted; **Save** writes the file; and if someone else saved it while you were typing, you're told rather than overwritten. **Ctrl/Cmd+S** saves too, and closing with unsaved changes asks first.
 
+Autocomplete knows your server's themes after `!theme` and the arrows between two names, and the editor underlines what PlantUML would complain about: a diagram with no name, and the line with the mistake on it.
+
 Prefer plain text? **Open with text editor** gives you Nextcloud's own editor on the source, as it would for any text file.
 
 **+ New → UML Diagram** starts one, already holding `@startuml` and `@enduml`, and opens the editor on it.

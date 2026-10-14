@@ -12,7 +12,7 @@
  * The Files bundle adds this bundle to the page the first time "Edit diagram"
  * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
  */
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import {
   EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers,
 } from '@codemirror/view'
@@ -20,12 +20,15 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { bracketMatching } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
+import { closeLintPanel, lintKeymap } from '@codemirror/lint'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
 import { plantumlMode } from './editor/plantuml-mode.js'
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
+import { plantumlLint } from './editor/lint/index.js'
+import { fileName, setServerError } from './editor/lint/state.js'
 import { ConflictError, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { createAutosave } from './editor/autosave.js'
@@ -102,6 +105,7 @@ export function openEditor(node) {
   let closing = false
   let closed = false
   let imageUrl = ''
+  const nameConfig = new Compartment()
 
   const isDirty = () => view !== null && !view.state.doc.eq(saved)
 
@@ -172,14 +176,21 @@ export function openEditor(node) {
   const ticker = setInterval(showButtons, MINUTE / 2)
 
   function draw(text) {
-    // The route answers a blank source with 400; there is nothing to draw.
+    // The route answers a blank source with 400; there is nothing to draw, and
+    // no mistake left. draw() runs inside an update, which a dispatch must wait out.
     if (!text.trim()) {
       image.hidden = problem.hidden = true
+      queueMicrotask(() => { if (!closed) view.dispatch({ effects: setServerError.of(null) }) })
       return
     }
-    debouncedRender(text, (error, blob) => {
+    debouncedRender(text, (error, blob, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
+      }
+      // A server problem is no mistake in the source: the pane says what it is.
+      // An answer for an older source leaves the mapped mark to the render on its way.
+      if (text === view.state.doc.toString()) {
+        view.dispatch({ effects: setServerError.of(error ? null : mistake) })
       }
       if (error) {
         problem.textContent = error.message
@@ -249,6 +260,7 @@ export function openEditor(node) {
         path = copy.node.path
         title.textContent = image.alt = copy.node.basename
         overlay.setAttribute('aria-label', copy.node.basename)
+        view.dispatch({ effects: nameConfig.reconfigure(fileName.of(copy.node.basename)) })
         etag = copy.etag
         markSaved(doc)
       } catch (e) {
@@ -317,8 +329,8 @@ export function openEditor(node) {
     opener?.focus?.()
   }
 
-  // CodeMirror marks an Escape it used (closing the completion popup or the
-  // search panel, dropping a multi-selection) as handled.
+  // CodeMirror marks an Escape it used (closing the completion popup, the
+  // search or diagnostics panel, dropping a multi-selection) as handled.
   function onKeydown(event) {
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
@@ -361,16 +373,22 @@ export function openEditor(node) {
           history(),
           plantumlMode,
           plantumlCompletion,
+          plantumlLint,
+          nameConfig.of(fileName.of(name)),
           plantumlTheme,
           // Mod-s would otherwise be the browser's "Save page as". defaultKeymap
           // carries Mod-/ for comments; Ctrl-M (Shift-Alt-M on macOS) makes Tab
-          // move focus again instead of indenting.
+          // move focus again instead of indenting. lintKeymap opens the
+          // diagnostics panel on Mod-Shift-m and steps through them on F8.
           keymap.of([
             { key: 'Mod-s', run: () => { save(); return true } },
             ...closeBracketsKeymap,
             ...defaultKeymap,
             ...searchKeymap,
             ...historyKeymap,
+            ...lintKeymap,
+            // An open diagnostics panel takes Escape before the editor does.
+            { key: 'Escape', run: closeLintPanel },
             indentWithTab,
           ]),
           EditorView.updateListener.of((update) => {

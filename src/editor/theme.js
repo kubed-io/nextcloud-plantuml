@@ -114,6 +114,16 @@ export const surfaceRules = {
     outline: '1px solid color-mix(in srgb, var(--color-primary-element) 50%, transparent)',
   },
   '.cm-selectionMatch.cm-selectionMatch-main': { backgroundColor: 'transparent', outline: 'none' },
+  // The fold chevrons recede until pointed at; the placeholder is a pill, as a tag.
+  '.cm-foldGutter span': { color: 'var(--color-text-maxcontrast)' },
+  '.cm-foldGutter span:hover': { color: 'var(--color-main-text)' },
+  '.cm-foldPlaceholder': {
+    color: 'var(--color-text-maxcontrast)',
+    backgroundColor: 'var(--color-background-dark)',
+    border: 'none',
+    borderRadius: 'var(--border-radius-pill, 100px)',
+    padding: '0 8px',
+  },
   '.cm-snippetField': { backgroundColor: tint(12) },
   '.cm-snippetFieldPosition': { borderLeft: '1.4px dotted var(--color-text-maxcontrast)' },
   '.cm-searchMatch': {

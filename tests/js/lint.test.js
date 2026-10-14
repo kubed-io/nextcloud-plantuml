@@ -10,6 +10,7 @@ import { EditorView } from '@codemirror/view'
 import { rules } from '../../src/editor/lint/index.js'
 import { fileName, serverError, setServerError } from '../../src/editor/lint/state.js'
 import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.js'
+import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
 import { yamlLint } from '../../src/editor/lint/yaml.js'
 
@@ -17,7 +18,7 @@ const stateOf = (doc, name = 'Order flow.puml') => EditorState.create({ doc, ext
 
 describe('the lint rules', () => {
   it('are listed in order', () => {
-    expect(rules).toEqual([unnamedStart, serverMistake])
+    expect(rules).toEqual([unnamedStart, blocksLint, serverMistake])
   })
 })
 
@@ -154,5 +155,66 @@ describe('yaml', () => {
     expect(found.length).toBeGreaterThan(0)
     expect(found.every((d) => d.from >= doc.indexOf('b: : :'))).toBe(true)
     expect(yamlLint(stateOf('@startyaml\n#highlight "a" / "b"\na: 1\n@endyaml\n'))).toEqual([])
+  })
+})
+
+describe('blocks', () => {
+  const run = (doc) => blocksLint(stateOf(doc))
+  const apply = (doc, diagnostic) => {
+    const view = new EditorView({ state: stateOf(doc), parent: document.body })
+    diagnostic.actions[0].apply(view, diagnostic.from, diagnostic.to)
+    const result = view.state.doc.toString()
+    view.destroy()
+    return result
+  }
+
+  it('leaves closed diagrams alone', () => {
+    expect(run('@startuml a\nA -> B\n@enduml\n@startjson b\n{}\n@endjson\n')).toEqual([])
+    expect(run('A -> B\n')).toEqual([])
+  })
+
+  it('errors on a start nothing closes, and adds the end at the end of the file', () => {
+    const doc = '@startuml a\nA -> B\n'
+    const [diagnostic, ...rest] = run(doc)
+
+    expect(rest).toEqual([])
+    expect(diagnostic).toMatchObject({ from: 0, to: '@startuml'.length, severity: 'error', message: 'No @enduml for this diagram' })
+    expect(diagnostic.actions.map((action) => action.name)).toEqual(['Add @enduml'])
+    expect(apply(doc, diagnostic)).toBe('@startuml a\nA -> B\n@enduml\n')
+  })
+
+  it('adds the end on a line of its own when the file has no final newline', () => {
+    const doc = '@startuml a\nA -> B'
+    expect(apply(doc, run(doc)[0])).toBe('@startuml a\nA -> B\n@enduml\n')
+  })
+
+  it('adds the end before the next start', () => {
+    const doc = '@startjson a\n{}\n@startuml b\nA -> B\n@enduml\n'
+    const diagnostics = run(doc)
+
+    expect(diagnostics).toHaveLength(1)
+    expect(diagnostics[0].message).toBe('No @endjson for this diagram')
+    expect(apply(doc, diagnostics[0])).toBe('@startjson a\n{}\n@endjson\n@startuml b\nA -> B\n@enduml\n')
+  })
+
+  it('errors on an end of another type, and changes it', () => {
+    const doc = '@startjson a\n{}\n  @endyaml  \n'
+    const [diagnostic, ...rest] = run(doc)
+
+    expect(rest).toEqual([])
+    expect(diagnostic).toMatchObject({ severity: 'error', message: 'This closes @startjson', from: doc.indexOf('@endyaml'), to: doc.indexOf('@endyaml') + '@endyaml'.length })
+    expect(diagnostic.actions.map((action) => action.name)).toEqual(['Change to @endjson'])
+    expect(apply(doc, diagnostic)).toBe('@startjson a\n{}\n  @endjson  \n')
+  })
+
+  it('warns on an end outside every diagram', () => {
+    const doc = '@enduml\n@startuml a\n@enduml\n  @endjson\n'
+    const found = run(doc)
+
+    expect(found.map((d) => [d.severity, d.message, d.from])).toEqual([
+      ['warning', 'No diagram to end', 0],
+      ['warning', 'No diagram to end', doc.indexOf('@endjson')],
+    ])
+    expect(found[0].to).toBe('@enduml'.length)
   })
 })

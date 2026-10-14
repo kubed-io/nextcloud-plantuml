@@ -32,6 +32,7 @@ import { profileExtension, profileLoader, resetProfiles } from './editor/profile
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
 import { plantumlLint } from './editor/lint/index.js'
+import { plantumlFolding } from './editor/folding.js'
 import { fileName, setServerError } from './editor/lint/state.js'
 import { ConflictError, currentEtag, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
@@ -519,6 +520,7 @@ export function openEditor(node) {
           profilesConfig.of(profileExtension([])),
           plantumlCompletion,
           plantumlLint,
+          plantumlFolding,
           nameConfig.of(fileName.of(name)),
           plantumlTheme,
           // A swatch before each ColorLiteral; picking a colour writes it back as #rrggbb.

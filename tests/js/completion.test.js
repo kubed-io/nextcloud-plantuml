@@ -95,6 +95,38 @@ describe('directives', () => {
   })
 })
 
+describe('whole-block directives', () => {
+  it('offers salt, regex and ebnf, which the unnamed-start warning then covers', () => {
+    expect(labels(complete(directives, '@|'))).toEqual(expect.arrayContaining(['@startsalt', '@endsalt', '@startregex', '@endregex', '@startebnf', '@endebnf']))
+  })
+
+  it('inserts a salt block with the name selected first', () => {
+    const view = pick('@startsa|', directives, '@startsalt')
+
+    expect(view.state.doc.toString()).toBe('@startsalt name\n{\n  \n}\n@endsalt')
+    const { from, to } = view.state.selection.main
+    expect(view.state.sliceDoc(from, to)).toBe('name')
+    view.destroy()
+  })
+
+  it('inserts an empty line for a body that is not braces', () => {
+    const view = pick('@startum|', directives, '@startuml')
+
+    expect(view.state.doc.toString()).toBe('@startuml name\n\n@enduml')
+    view.destroy()
+  })
+
+  it('offers only the open block\'s end inside a block with no end yet', () => {
+    const ends = (marked) => labels(complete(directives, marked)).filter((label) => label.startsWith('@end'))
+
+    expect(ends('@startjson a\n{}\n@end|')).toEqual(['@endjson'])
+    expect(ends('@startjson a\n{}\n@|')).toEqual(['@endjson'])
+    expect(ends('@startjson a\n{}\n@endjson\n@end|')).toContain('@enduml')
+    expect(ends('@end|')).toContain('@enduml')
+    expect(ends('@startjson a\n{}\n@end|\n@endjson\n')).toContain('@enduml')
+  })
+})
+
 describe('themes', () => {
   const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
   let fetch

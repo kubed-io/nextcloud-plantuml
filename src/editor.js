@@ -246,7 +246,7 @@ export function openEditor(node) {
         view.dispatch({ effects: setServerError.of(error ? null : mistake) })
       }
       // Built before the old one goes, so the pane never flashes empty.
-      const svg = error ? null : toInlineSvg(svgText, { idPrefix: 'plantuml-editor-' })
+      const svg = error ? null : toInlineSvg(svgText, { idPrefix: 'plantuml-diagram-' })
       if (!svg) {
         problem.textContent = error ? error.message : t(APP_ID, 'Could not draw the diagram')
         problem.hidden = false

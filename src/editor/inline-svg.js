@@ -29,7 +29,7 @@ const DATA_IMAGE = /^data:image\//i
 // backslash is a CSS escape, which nothing PlantUML draws needs.
 const HARMLESS_CALL = /(?:rgba?|hsla?)\([^()\\]*\)|url\(\s*(['"]?)#[^'"()\s\\]+\1\s*\)/gi
 const PAINT = ['fill', 'stroke', 'filter', 'clip-path', 'mask', 'marker-start', 'marker-mid', 'marker-end', 'cursor']
-const REFERENCE = /url\(\s*(['"]?)#/g
+const REFERENCE = /url\(\s*(['"]?)#/gi
 
 const CONFIG = {
   USE_PROFILES: { svg: true, svgFilters: true },
@@ -53,7 +53,7 @@ function confine(node) {
       node.removeAttribute(name)
     }
   }
-  if (link && node.hasAttribute('href')) {
+  if (link && (node.hasAttribute('href') || node.hasAttribute('xlink:href'))) {
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer')
   }
@@ -76,7 +76,7 @@ function prefixIds(svg, prefix) {
         attr.value = prefix + attr.value
       } else if ((attr.name === 'href' || attr.name === 'xlink:href') && attr.value.startsWith('#')) {
         attr.value = `#${prefix}${attr.value.slice(1)}`
-      } else if (!attr.name.endsWith('title') && attr.value.includes('url(')) {
+      } else if (!attr.name.endsWith('title') && /url\(/i.test(attr.value)) {
         attr.value = attr.value.replace(REFERENCE, `$&${prefix}`)
       }
     }

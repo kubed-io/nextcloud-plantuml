@@ -199,6 +199,20 @@ describe('sanitising', () => {
     expect(second.hasAttribute('filter')).toBe(false)
   })
 
+  it('opens an xlink:href-only link in a new tab too', () => {
+    const svg = inline('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><a xlink:href="https://example.com/"><text>x</text></a></svg>')
+    const link = svg.querySelector('a')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  it('prefixes a reference written in capitals', () => {
+    const svg = inline('<svg xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g"/></defs><rect fill="URL(#g)" style="mask:URL(#g)"/></svg>')
+    const rect = svg.querySelector('rect')
+    expect(rect.getAttribute('fill')).toContain('#p-g')
+    expect(rect.getAttribute('style')).toContain('#p-g')
+  })
+
   it('is not loosened by a setConfig on the page-wide DOMPurify', () => {
     DOMPurify.setConfig({ ADD_TAGS: ['script'], ALLOW_UNKNOWN_PROTOCOLS: true })
     try {

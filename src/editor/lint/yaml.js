@@ -4,14 +4,15 @@
  *
  * A `@startyaml` block that is not YAML. The server draws a picture for it
  * anyway, with no error line, so this is the only signal. Errors only: the
- * parser's warnings are style.
+ * parser's warnings are style. Made from the core the profile is given,
+ * since importing blocks.js here would share it between the editor and this
+ * chunk.
  */
 import { parseDocument } from 'yaml'
-import { scan } from '../blocks.js'
 import { dataLines } from '../profiles/plantuml-lines.js'
 
-/** @param {import('@codemirror/state').EditorState} state */
-export function yamlLint(state) {
+/** @param {{ scan: typeof import('../blocks.js').scan }} core */
+export const yamlLint = ({ scan }) => (state) => {
   const { doc } = state
   const found = []
   for (const d of scan(doc.toString())) {

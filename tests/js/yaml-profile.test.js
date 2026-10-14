@@ -6,8 +6,10 @@
 import { describe, expect, it } from 'vitest'
 import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
-import profile from '../../src/editor/profiles/yaml.js'
-import { yamlLint } from '../../src/editor/lint/yaml.js'
+import { scan } from '../../src/editor/blocks.js'
+import yamlProfile from '../../src/editor/profiles/yaml.js'
+
+const profile = yamlProfile({ scan })
 
 /** [text, token class] for every highlighted span of the lines in a yaml block. */
 function tokens(...lines) {
@@ -22,8 +24,9 @@ function tokens(...lines) {
 }
 
 describe('the yaml profile', () => {
-  it('is the yaml type with its lint and no completions', () => {
-    expect(profile).toMatchObject({ type: 'yaml', completions: [], lints: [yamlLint] })
+  it('is made from the core it is given: the yaml type with its lint and no completions', () => {
+    expect(profile).toMatchObject({ type: 'yaml', completions: [], lints: [expect.any(Function)] })
+    expect(profile.lints[0]).not.toBe(yamlProfile({ scan }).lints[0])
   })
 
   it('names a key and leaves a plain value plain', () => {

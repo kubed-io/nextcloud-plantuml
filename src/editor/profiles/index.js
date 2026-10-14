@@ -7,6 +7,14 @@
  * an open file holds a block of that type. A new profile is a file here and a
  * line in `PROFILES`.
  *
+ * A profile module's default export is a factory given `Core`: a profile that
+ * imported core modules itself would make them a chunk the editor imports
+ * statically, which one failed download would then break whole. A profile
+ * imports libraries only.
+ *
+ * @typedef {object} Core
+ * @property {typeof scan} scan
+ *
  * @typedef {object} Profile
  * @property {string} type the word after `@start`
  * @property {object} [mode] a stream mode for the block's lines
@@ -15,10 +23,11 @@
  */
 import { EditorState } from '@codemirror/state'
 import { APP_ID } from '../../files-helpers.js'
+import { scan } from '../blocks.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
 import { profileRules } from '../lint/index.js'
 
-/** @type {Record<string, () => Promise<{ default: Profile }>>} */
+/** @type {Record<string, () => Promise<{ default: (core: Core) => Profile }>>} */
 export const PROFILES = {
   yaml: () => import('./yaml.js'),
 }
@@ -42,6 +51,7 @@ export function needed(diagrams, text) {
   return new Set([...types].filter((type) => Object.hasOwn(PROFILES, type)))
 }
 
+const core = { scan }
 const loading = new Map() // type → Promise<Profile|null>, for the page
 const failed = new Set()
 
@@ -56,7 +66,8 @@ export function loadProfile(type) {
   if (!loading.has(type)) {
     loading.set(type, Promise.resolve()
       .then(() => PROFILES[type]())
-      .then((module) => module.default, (e) => {
+      .then((module) => module.default(core))
+      .catch((e) => {
         console.error(`[${APP_ID}] could not load the ${type} profile`, e)
         failed.add(type)
         return null

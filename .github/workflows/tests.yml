@@ -89,6 +89,12 @@ jobs:
     - name: Build bundle
       run: npm run build
 
+    # The editor imports its profiles with import(); a static import of a chunk
+    # would make one failed chunk download break the whole editor.
+    - name: Editor entry has no static chunk import
+      run: |
+        ! grep -Eq "(^|[;}])import *([^(\"']*from *)?[\"']\./chunks/" dist/plantuml-editor.js
+
     # Pure-logic unit tests (Vitest) — fast regression net for the frontend
     # helpers (the PlantUML stream mode above all); the safety net that makes
     # dependency major-bumps safe to land.

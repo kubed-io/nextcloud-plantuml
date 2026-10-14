@@ -66,6 +66,18 @@ describe('loadProfile', () => {
     expect(typeof first.mode.token).toBe('function')
   })
 
+  it('makes the profile from its module\'s factory, handing it the core it needs', async () => {
+    const made = { type: 'yaml', completions: [], lints: [] }
+    const factory = vi.fn(() => made)
+    vi.spyOn(profiles.PROFILES, 'yaml').mockResolvedValue({ default: factory })
+
+    expect(await loadProfile('yaml')).toBe(made)
+    expect(factory).toHaveBeenCalledTimes(1)
+    const [[core]] = factory.mock.calls
+    expect(Object.keys(core)).toEqual(['scan'])
+    expect(core.scan('@startyaml\na: 1\n@endyaml')[0]).toMatchObject({ type: 'yaml', start: 1, end: 3 })
+  })
+
   it('logs a profile that will not load once, gives null, and tries again only after a reset', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const yaml = vi.spyOn(profiles.PROFILES, 'yaml').mockRejectedValue(new Error('404'))

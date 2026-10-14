@@ -12,8 +12,10 @@ import { fileName, serverError, setServerError } from '../../src/editor/lint/sta
 import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.js'
 import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
-import { yamlLint } from '../../src/editor/lint/yaml.js'
+import { yamlLint as yamlRule } from '../../src/editor/lint/yaml.js'
+import { scan } from '../../src/editor/blocks.js'
 
+const yamlLint = yamlRule({ scan })
 const stateOf = (doc, name = 'Order flow.puml') => EditorState.create({ doc, extensions: [fileName.of(name), serverError] })
 
 describe('the lint rules', () => {

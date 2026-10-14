@@ -47,13 +47,27 @@ describe('viewer component', () => {
     expect(vm.doneLoading).toHaveBeenCalled()
   })
 
-  it('falls back to the first line of a plain-text failure', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('Bad gateway\nupstream detail', { status: 502 })))
+  it.each([
+    ['a plain-text failure', () => new Response('Bad gateway\nupstream detail', { status: 502 })],
+    ['an HTML error page', () => new Response('<html><body>Internal Server Error</body></html>', { status: 500 })],
+    ['JSON that is not a problem', () => new Response('{"message":"CSRF check failed"}', { status: 412 })],
+    ['a 404 with no body', () => new Response('', { status: 404 })],
+  ])('shows one fixed line, as the editor does, for %s', async (_what, answer) => {
+    vi.stubGlobal('fetch', vi.fn(async () => answer()))
     const vm = instance()
 
     await component.methods.showProblem.call(vm)
 
-    expect(vm.problem).toBe('Bad gateway')
+    expect(vm.problem).toBe('Could not draw the diagram')
+  })
+
+  it('shows the fixed line when the request itself fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
+    const vm = instance()
+
+    await component.methods.showProblem.call(vm)
+
+    expect(vm.problem).toBe('Could not draw the diagram')
   })
 
   it('keeps the image when the render answers 2xx after all', async () => {

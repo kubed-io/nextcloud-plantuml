@@ -15,7 +15,8 @@
  * element and swaps in the Viewer's generic error page, which would hide the
  * problem this component exists to show.
  */
-import { renderUrl } from './files-helpers.js'
+import { translate as t } from '@nextcloud/l10n'
+import { APP_ID, renderUrl } from './files-helpers.js'
 
 function jsonProblem(body) {
   try {
@@ -35,17 +36,17 @@ export default {
 
   methods: {
     // An <img> never sees the response body, so the failed URL is asked once
-    // more for the problem: `{"problem": …}` from the render route, else the
-    // body's first line, else the status (a 404 has no body).
+    // more for the problem: the render route's `{"problem": …}`, and one fixed
+    // line for anything else, as the editor says (an error page is no message).
     async showProblem() {
+      const fixed = t(APP_ID, 'Could not draw the diagram')
       try {
         const res = await fetch(renderUrl(this.filename), { credentials: 'same-origin' })
         if (!res.ok) {
-          const body = await res.text()
-          this.problem = jsonProblem(body) || body.split('\n')[0].trim() || res.statusText || String(res.status)
+          this.problem = jsonProblem(await res.text()) || fixed
         }
-      } catch (e) {
-        this.problem = e.message
+      } catch {
+        this.problem = fixed
       }
       this.doneLoading()
     },

@@ -279,6 +279,153 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame(RenderException::PROBLEM_UNREACHABLE, $this->problemOf(fn () => $down->themes()));
 	}
 
+	/** `listopeniconic` as plantuml/plantuml-server 1.2026.8 draws it to SVG, the icons' paths removed. */
+	private static function listOpenIconic(): string {
+		return (string)file_get_contents(__DIR__ . '/fixtures/listopeniconic.svg');
+	}
+
+	public function testIconsAreTheNamesTheServerDraws(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::once())
+			->method('post')
+			->with(self::URL . '/svg', self::callback(
+				static fn (array $options): bool => $options['body'] === "@startuml\nlistopeniconic\n@enduml\n",
+			))
+			->willReturn($this->response(200, self::listOpenIconic(), ['Content-Type' => 'image/svg+xml']));
+
+		$icons = $this->service($client)->icons();
+
+		self::assertCount(223, $icons);
+		self::assertSame(['account-login', 'account-logout', 'action-redo'], array_slice($icons, 0, 3));
+		self::assertSame('zoom-out', end($icons));
+		self::assertContains('clock', $icons);
+		self::assertNotContains('List Open Iconic', $icons);
+		self::assertNotContains('https://useiconic.com/open', $icons);
+	}
+
+	public function testIconsAreOnlyNameLikeTextUniqueSortedAndCapped(): void {
+		$texts = '<text>zeta</text><text>&lt;b&gt;</text><text>alpha</text><text>alpha</text><text>Two words</text>';
+		for ($i = 0; $i < 600; $i++) {
+			$texts .= sprintf('<text x="1">n%03d</text>', $i);
+		}
+		$icons = $this->service($this->clientAnswering($this->response(200, "<svg>{$texts}</svg>")))->icons();
+
+		self::assertCount(500, $icons);
+		self::assertSame(['alpha', 'n000'], array_slice($icons, 0, 2));
+		self::assertNotContains('<b>', $icons);
+	}
+
+	public function testIconsAreAskedOncePerServerForADay(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::exactly(2))->method('post')->willReturn($this->response(200, self::listOpenIconic()));
+
+		$this->service($client)->icons();
+		$cached = $this->service($client)->icons();
+		$this->service($client, 'https://other.example.com')->icons();
+
+		self::assertCount(223, $cached);
+		self::assertSame([86400, 86400], array_values($this->cache->ttls));
+	}
+
+	public function testIconsWithoutNamesOrAnswered404AreNotPlantumlAndNotCached(): void {
+		$page = $this->service($this->clientAnswering($this->response(200, '<html><body>Welcome</body></html>')));
+		$missing = $this->service($this->clientAnswering($this->response(404, self::listOpenIconic())));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $page->icons()));
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $missing->icons()));
+		self::assertSame([], $this->cache->values);
+	}
+
+	/**
+	 * `emoji [block]` as plantuml/plantuml-server 1.2026.8 answers it as text, padding squeezed.
+	 * With no block it answers block 26 and names every block it has.
+	 */
+	private static function emojiBlock(string $block): string {
+		$name = $block === '' ? 'emoji' : "emoji-{$block}";
+		return (string)file_get_contents(__DIR__ . "/fixtures/{$name}.txt");
+	}
+
+	/**
+	 * A client answering each `emoji` diagram from its fixture, and noting the blocks asked for.
+	 *
+	 * @param list<string> $asked
+	 * @param array<string,IResponse> $instead a block's answer replaced
+	 */
+	private function emojiServer(array &$asked, array $instead = []): IClient {
+		$client = $this->createStub(IClient::class);
+		$client->method('post')->willReturnCallback(function (string $url, array $options) use (&$asked, $instead): IResponse {
+			self::assertStringEndsWith('/txt', $url);
+			self::assertSame(1, preg_match('/^@startuml\nemoji(?: (\w+))?\n@enduml\n$/', $options['body'], $m));
+			$m[1] ??= '';
+			$asked[] = $m[1];
+			return $instead[$m[1]] ?? $this->response(200, self::emojiBlock($m[1]));
+		});
+		return $client;
+	}
+
+	public function testEmojiAreTheNamesInEveryBlockTheServerHas(): void {
+		$asked = [];
+
+		$emoji = $this->service($this->emojiServer($asked))->emoji();
+
+		self::assertSame(['', '27', '1F3', '1F4', '1F5', '1F6', '1F9'], $asked);
+		self::assertCount(1163, $emoji);
+		self::assertSame(['100', '1234', '1st_place_medal'], array_slice($emoji, 0, 3));
+		self::assertSame('zzz', end($emoji));
+		foreach (['sunny', 'scissors', 'pinched_fingers', 'abcd', '8ball'] as $name) {
+			self::assertContains($name, $emoji);
+		}
+		// Each emoji is listed under its code point too; those are not names.
+		self::assertNotContains('2600', $emoji);
+		self::assertNotContains('1f90c', $emoji);
+	}
+
+	public function testEmojiAreAskedOncePerServerForADay(): void {
+		$asked = [];
+		$client = $this->emojiServer($asked);
+
+		$this->service($client)->emoji();
+		$this->service($client)->emoji();
+		$this->service($client, 'https://other.example.com')->emoji();
+
+		self::assertCount(14, $asked);
+		self::assertSame([86400, 86400], array_values($this->cache->ttls));
+	}
+
+	public function testEmojiAndTheirBlocksAreCapped(): void {
+		$names = implode(' ', array_map(static fn (int $i): string => sprintf('<:e%04d:>', $i), range(1, 2500)));
+		$blocks = implode(', ', array_map(static fn (int $i): string => sprintf('%X', 0x1F00 + $i), range(0, 39)));
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::exactly(16))->method('post')
+			->willReturn($this->response(200, "Emoji available on Unicode Block 1F00\n(Blocks available: {$blocks})\n{$names}\n"));
+
+		self::assertCount(2000, $this->service($client)->emoji());
+	}
+
+	public function testEmojiWhenABlockFailsAreNotPlantumlAndNotCached(): void {
+		$asked = [];
+		$service = $this->service($this->emojiServer($asked, ['1F5' => $this->response(500, 'Internal Server Error')]));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->emoji()));
+		self::assertSame([], $this->cache->values);
+	}
+
+	public function testEmojiWithoutTheirBlocksAreNotPlantuml(): void {
+		$service = $this->service($this->clientAnswering($this->response(200, '<html>')));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->emoji()));
+	}
+
+	public function testIconsAndEmojiFromAnUnsetOrUnreachableServer(): void {
+		$unset = $this->serviceWith($this->createStub(IClientService::class), '');
+		$down = $this->service($this->clientAnswering(new \Exception('cURL error 7')));
+
+		self::assertSame(RenderException::PROBLEM_NOT_SET, $this->problemOf(fn () => $unset->icons()));
+		self::assertSame(RenderException::PROBLEM_NOT_SET, $this->problemOf(fn () => $unset->emoji()));
+		self::assertSame(RenderException::PROBLEM_UNREACHABLE, $this->problemOf(fn () => $down->icons()));
+		self::assertSame(RenderException::PROBLEM_UNREACHABLE, $this->problemOf(fn () => $down->emoji()));
+	}
+
 	/** The header counts lines from 0 at the top of the source sent. */
 	public function testDiagramErrorCarriesTheServersMessageAndLine(): void {
 		$service = $this->service($this->clientAnswering($this->response(400, '<svg/>', [

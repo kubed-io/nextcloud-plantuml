@@ -1,0 +1,167 @@
+
+ Emoji available on Unicode Block 1f3
+ (Blocks available: 26, 27, 1F3, 1F4, 1F5, 1F6, 1F9)
+
+ <:1f300:> <:cyclone:> <:1f354:> <:hamburger:> <:1f3ab:> <:ticket:>
+
+ <:1f301:> <:foggy:> <:1f355:> <:pizza:> <:1f3ac:> <:clapper:>
+
+ <:1f302:> <:closed_umbrella:> <:1f356:> <:meat_on_bone:> <:1f3ad:> <:performing_arts:>
+
+ <:1f303:> <:night_with_stars:> <:1f357:> <:poultry_leg:> <:1f3ae:> <:video_game:>
+
+ <:1f304:> <:sunrise_over_mountains:> <:1f358:> <:rice_cracker:> <:1f3af:> <:dart:>
+
+ <:1f305:> <:sunrise:> <:1f359:> <:rice_ball:> <:1f3b0:> <:slot_machine:>
+
+ <:1f306:> <:city_sunset:> <:1f35a:> <:rice:> <:1f3b1:> <:8ball:>
+
+ <:1f307:> <:city_sunrise:> <:1f35b:> <:curry:> <:1f3b2:> <:game_die:>
+
+ <:1f308:> <:rainbow:> <:1f35c:> <:ramen:> <:1f3b3:> <:bowling:>
+
+ <:1f309:> <:bridge_at_night:> <:1f35d:> <:spaghetti:> <:1f3b4:> <:flower_playing_cards:>
+
+ <:1f30a:> <:ocean:> <:1f35e:> <:bread:> <:1f3b5:> <:musical_note:>
+
+ <:1f30b:> <:volcano:> <:1f35f:> <:fries:> <:1f3b6:> <:notes:>
+
+ <:1f30c:> <:milky_way:> <:1f360:> <:sweet_potato:> <:1f3b7:> <:saxophone:>
+
+ <:1f30d:> <:earth_africa:> <:1f361:> <:dango:> <:1f3b8:> <:guitar:>
+
+ <:1f30e:> <:earth_americas:> <:1f362:> <:oden:> <:1f3b9:> <:musical_keyboard:>
+
+ <:1f30f:> <:earth_asia:> <:1f363:> <:sushi:> <:1f3ba:> <:trumpet:>
+
+ <:1f310:> <:globe_with_meridians:> <:1f364:> <:fried_shrimp:> <:1f3bb:> <:violin:>
+
+ <:1f311:> <:new_moon:> <:1f365:> <:fish_cake:> <:1f3bc:> <:musical_score:>
+
+ <:1f312:> <:waxing_crescent_moon:> <:1f366:> <:icecream:> <:1f3bd:> <:running_shirt_with_sash:>
+
+ <:1f313:> <:first_quarter_moon:> <:1f367:> <:shaved_ice:> <:1f3be:> <:tennis:>
+
+ <:1f314:> <:moon:> <:1f368:> <:ice_cream:> <:1f3bf:> <:ski:>
+
+ <:1f315:> <:full_moon:> <:1f369:> <:doughnut:> <:1f3c0:> <:basketball:>
+
+ <:1f316:> <:waning_gibbous_moon:> <:1f36a:> <:cookie:> <:1f3c1:> <:checkered_flag:>
+
+ <:1f317:> <:last_quarter_moon:> <:1f36b:> <:chocolate_bar:> <:1f3c2:> <:snowboarder:>
+
+ <:1f318:> <:waning_crescent_moon:> <:1f36c:> <:candy:> <:1f3c3:> <:runner:>
+
+ <:1f319:> <:crescent_moon:> <:1f36d:> <:lollipop:> <:1f3c4:> <:surfer:>
+
+ <:1f31a:> <:new_moon_with_face:> <:1f36e:> <:custard:> <:1f3c5:> <:medal_sports:>
+
+ <:1f31b:> <:first_quarter_moon_with_face:> <:1f36f:> <:honey_pot:> <:1f3c6:> <:trophy:>
+
+ <:1f31c:> <:last_quarter_moon_with_face:> <:1f370:> <:cake:> <:1f3c7:> <:horse_racing:>
+
+ <:1f31d:> <:full_moon_with_face:> <:1f371:> <:bento:> <:1f3c8:> <:football:>
+
+ <:1f31e:> <:sun_with_face:> <:1f372:> <:stew:> <:1f3c9:> <:rugby_football:>
+
+ <:1f31f:> <:star2:> <:1f373:> <:fried_egg:> <:1f3ca:> <:swimmer:>
+
+ <:1f320:> <:stars:> <:1f374:> <:fork_and_knife:> <:1f3cb:> <:weight_lifting:>
+
+ <:1f321:> <:thermometer:> <:1f375:> <:tea:> <:1f3cc:> <:golfing:>
+
+ <:1f324:> <:sun_behind_small_cloud:> <:1f376:> <:sake:> <:1f3cd:> <:motorcycle:>
+
+ <:1f325:> <:sun_behind_large_cloud:> <:1f377:> <:wine_glass:> <:1f3ce:> <:racing_car:>
+
+ <:1f326:> <:sun_behind_rain_cloud:> <:1f378:> <:cocktail:> <:1f3cf:> <:cricket_game:>
+
+ <:1f327:> <:cloud_with_rain:> <:1f379:> <:tropical_drink:> <:1f3d0:> <:volleyball:>
+
+ <:1f328:> <:cloud_with_snow:> <:1f37a:> <:beer:> <:1f3d1:> <:field_hockey:>
+
+ <:1f329:> <:cloud_with_lightning:> <:1f37b:> <:beers:> <:1f3d2:> <:ice_hockey:>
+
+ <:1f32a:> <:tornado:> <:1f37c:> <:baby_bottle:> <:1f3d3:> <:ping_pong:>
+
+ <:1f32b:> <:fog:> <:1f37d:> <:plate_with_cutlery:> <:1f3d4:> <:mountain_snow:>
+
+ <:1f32c:> <:wind_face:> <:1f37e:> <:champagne:> <:1f3d5:> <:camping:>
+
+ <:1f32d:> <:hotdog:> <:1f37f:> <:popcorn:> <:1f3d6:> <:beach_umbrella:>
+
+ <:1f32e:> <:taco:> <:1f380:> <:ribbon:> <:1f3d7:> <:building_construction:>
+
+ <:1f32f:> <:burrito:> <:1f381:> <:gift:> <:1f3d8:> <:houses:>
+
+ <:1f330:> <:chestnut:> <:1f382:> <:birthday:> <:1f3d9:> <:cityscape:>
+
+ <:1f331:> <:seedling:> <:1f383:> <:jack_o_lantern:> <:1f3da:> <:derelict_house:>
+
+ <:1f332:> <:evergreen_tree:> <:1f384:> <:christmas_tree:> <:1f3db:> <:classical_building:>
+
+ <:1f333:> <:deciduous_tree:> <:1f385:> <:santa:> <:1f3dc:> <:desert:>
+
+ <:1f334:> <:palm_tree:> <:1f386:> <:fireworks:> <:1f3dd:> <:desert_island:>
+
+ <:1f335:> <:cactus:> <:1f387:> <:sparkler:> <:1f3de:> <:national_park:>
+
+ <:1f336:> <:hot_pepper:> <:1f388:> <:balloon:> <:1f3df:> <:stadium:>
+
+ <:1f337:> <:tulip:> <:1f389:> <:tada:> <:1f3e0:> <:house:>
+
+ <:1f338:> <:cherry_blossom:> <:1f38a:> <:confetti_ball:> <:1f3e1:> <:house_with_garden:>
+
+ <:1f339:> <:rose:> <:1f38b:> <:tanabata_tree:> <:1f3e2:> <:office:>
+
+ <:1f33a:> <:hibiscus:> <:1f38c:> <:crossed_flags:> <:1f3e3:> <:post_office:>
+
+ <:1f33b:> <:sunflower:> <:1f38d:> <:bamboo:> <:1f3e4:> <:european_post_office:>
+
+ <:1f33c:> <:blossom:> <:1f38e:> <:dolls:> <:1f3e5:> <:hospital:>
+
+ <:1f33d:> <:corn:> <:1f38f:> <:flags:> <:1f3e6:> <:bank:>
+
+ <:1f33e:> <:ear_of_rice:> <:1f390:> <:wind_chime:> <:1f3e7:> <:atm:>
+
+ <:1f33f:> <:herb:> <:1f391:> <:rice_scene:> <:1f3e8:> <:hotel:>
+
+ <:1f340:> <:four_leaf_clover:> <:1f392:> <:school_satchel:> <:1f3e9:> <:love_hotel:>
+
+ <:1f341:> <:maple_leaf:> <:1f393:> <:mortar_board:> <:1f3ea:> <:convenience_store:>
+
+ <:1f342:> <:fallen_leaf:> <:1f396:> <:medal_military:> <:1f3eb:> <:school:>
+
+ <:1f343:> <:leaves:> <:1f397:> <:reminder_ribbon:> <:1f3ec:> <:department_store:>
+
+ <:1f344:> <:mushroom:> <:1f399:> <:studio_microphone:> <:1f3ed:> <:factory:>
+
+ <:1f345:> <:tomato:> <:1f39a:> <:level_slider:> <:1f3ee:> <:izakaya_lantern:>
+
+ <:1f346:> <:eggplant:> <:1f39b:> <:control_knobs:> <:1f3ef:> <:japanese_castle:>
+
+ <:1f347:> <:grapes:> <:1f39e:> <:film_strip:> <:1f3f0:> <:european_castle:>
+
+ <:1f348:> <:melon:> <:1f39f:> <:tickets:> <:1f3f3:> <:white_flag:>
+
+ <:1f349:> <:watermelon:> <:1f3a0:> <:carousel_horse:> <:1f3f4:> <:black_flag:>
+
+ <:1f34a:> <:mandarin:> <:1f3a1:> <:ferris_wheel:> <:1f3f5:> <:rosette:>
+
+ <:1f34b:> <:lemon:> <:1f3a2:> <:roller_coaster:> <:1f3f7:> <:label:>
+
+ <:1f34c:> <:banana:> <:1f3a3:> <:fishing_pole_and_fish:> <:1f3f8:> <:badminton:>
+
+ <:1f34d:> <:pineapple:> <:1f3a4:> <:microphone:> <:1f3f9:> <:bow_and_arrow:>
+
+ <:1f34e:> <:apple:> <:1f3a5:> <:movie_camera:> <:1f3fa:> <:amphora:>
+
+ <:1f34f:> <:green_apple:> <:1f3a6:> <:cinema:> <:1f3fb:>
+
+ <:1f350:> <:pear:> <:1f3a7:> <:headphones:> <:1f3fc:>
+
+ <:1f351:> <:peach:> <:1f3a8:> <:art:> <:1f3fd:>
+
+ <:1f352:> <:cherries:> <:1f3a9:> <:tophat:> <:1f3fe:>
+
+ <:1f353:> <:strawberry:> <:1f3aa:> <:circus_tent:> <:1f3ff:>

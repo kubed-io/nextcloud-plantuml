@@ -16,6 +16,9 @@ import { names } from '../../src/editor/completion/names.js'
 import { snippets } from '../../src/editor/completion/snippets.js'
 import { themes } from '../../src/editor/completion/themes.js'
 import { connectors } from '../../src/editor/completion/connectors.js'
+import { creole } from '../../src/editor/completion/creole.js'
+import { icons } from '../../src/editor/completion/icons.js'
+import { emoji } from '../../src/editor/completion/emoji.js'
 
 function stateAt(marked) {
   const pos = marked.indexOf('|')
@@ -33,7 +36,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors])
+    expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors, creole, icons, emoji])
   })
 })
 
@@ -140,6 +143,180 @@ describe('themes', () => {
     fetch.mockRejectedValue(new TypeError('Failed to fetch'))
 
     expect(labels(await complete(themesSource, '!theme |'))).toEqual([])
+  })
+})
+
+/** A server list route answering `body`, as `GET /apps/plantuml/<name>` does. */
+function answering(body) {
+  return vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+}
+
+describe('icons', () => {
+  const ICONS = ['account-login', 'clock', 'cloud-download', 'zoom-out']
+  let fetch
+  let iconsSource
+
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    fetch = answering({ icons: ICONS })
+    vi.stubGlobal('fetch', fetch)
+    iconsSource = (await import('../../src/editor/completion/icons.js')).icons
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('offers the server\'s icons after <& anywhere in a line', async () => {
+    const marked = 'A -> B : <&cl|'
+    const result = await complete(iconsSource, marked)
+
+    expect(result.from).toBe('A -> B : <&'.length)
+    expect(labels(result)).toEqual(ICONS)
+    expect(result.options.every((option) => option.type === 'constant')).toBe(true)
+    expect(result.validFor.test('cloud-d')).toBe(true)
+    expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/icons', expect.objectContaining({ credentials: 'same-origin' }))
+  })
+
+  it('closes the tag when one is picked', async () => {
+    const { state, pos } = stateAt('title <&cl|')
+    const view = new EditorView({ state, parent: document.body })
+    const result = await iconsSource(new CompletionContext(view.state, pos, false))
+    const clock = result.options.find((option) => option.label === 'clock')
+
+    view.dispatch(insertCompletionText(view.state, clock.apply, result.from, pos))
+
+    expect(view.state.doc.toString()).toBe('title <&clock>')
+    view.destroy()
+  })
+
+  it('offers nothing without the <&, and asks the server only once', async () => {
+    expect(await complete(iconsSource, 'A -> B : & cl|')).toBeNull()
+    expect(await complete(iconsSource, 'A <- B|')).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+
+    await complete(iconsSource, '<&|')
+    await complete(iconsSource, 'x <&c|')
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers nothing when the server cannot answer', async () => {
+    fetch.mockImplementation(async () => new Response('{"problem":"unreachable"}', { status: 503 }))
+
+    expect(labels(await complete(iconsSource, '<&|'))).toEqual([])
+    expect(labels(await complete(iconsSource, '<&c|'))).toEqual([])
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('emoji', () => {
+  const EMOJI = ['+1', '1st_place_medal', 'smile', 'sunny']
+  let fetch
+  let emojiSource
+
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    fetch = answering({ emoji: EMOJI })
+    vi.stubGlobal('fetch', fetch)
+    emojiSource = (await import('../../src/editor/completion/emoji.js')).emoji
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('offers the server\'s emoji after <: anywhere in a line', async () => {
+    const result = await complete(emojiSource, 'note left: well done <:su|')
+
+    expect(result.from).toBe('note left: well done <:'.length)
+    expect(labels(result)).toEqual(EMOJI)
+    expect(result.validFor.test('1st_pl')).toBe(true)
+    expect(result.validFor.test('+1')).toBe(true)
+    expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/emoji', expect.objectContaining({ credentials: 'same-origin' }))
+  })
+
+  it('closes the tag when one is picked', async () => {
+    const { state, pos } = stateAt('<:su|')
+    const view = new EditorView({ state, parent: document.body })
+    const result = await emojiSource(new CompletionContext(view.state, pos, false))
+    const sunny = result.options.find((option) => option.label === 'sunny')
+
+    view.dispatch(insertCompletionText(view.state, sunny.apply, result.from, pos))
+
+    expect(view.state.doc.toString()).toBe('<:sunny:>')
+    view.destroy()
+  })
+
+  it('offers nothing without the <:, and nothing when the request fails', async () => {
+    expect(await complete(emojiSource, ':Customer: |')).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+    fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    expect(labels(await complete(emojiSource, '<:|'))).toEqual([])
+  })
+})
+
+describe('creole', () => {
+  it('offers the text tags after a < in text', () => {
+    const marked = 'A -> B : <|'
+    const result = complete(creole, marked)
+
+    expect(result.from).toBe(marked.indexOf('<'))
+    expect(labels(result)).toEqual(expect.arrayContaining([
+      '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>',
+    ]))
+    expect(result.options.every((option) => option.type === 'text' && option.detail)).toBe(true)
+    expect(result.validFor.test('<si')).toBe(true)
+    expect(result.validFor.test('<size:')).toBe(false)
+  })
+
+  it.each([
+    ['at the start of a line of text', '<|', 0],
+    ['over a half-typed tag', 'title Big <si|', 'title Big '.length],
+    ['after a keyword', 'title <|', 'title '.length],
+    ['inside a note', 'note right: a <|', 'note right: a '.length],
+  ])('offers them %s', (_where, marked, from) => {
+    expect(complete(creole, marked).from).toBe(from)
+  })
+
+  it.each([
+    ['in a stereotype', 'class Order <<|'],
+    ['on a <style> line', '<style> <|'],
+    ['on a line that starts with <<', '<<Entity>> <|'],
+    ['in a comment', "' a <|"],
+    ['where a connector is due', 'Customer <|'],
+    ['over an icon', 'title <&|'],
+    ['over an emoji', 'title <:|'],
+  ])('offers nothing %s', (_where, marked) => {
+    expect(complete(creole, marked)).toBeNull()
+  })
+
+  it('wraps the text in the tag, with the cursor between', () => {
+    const view = pick('title <b|', creole, '<b>')
+
+    expect(view.state.doc.toString()).toBe('title <b></b>')
+    expect(view.state.selection.main.head).toBe('title <b>'.length)
+    view.destroy()
+  })
+
+  it('selects a tag\'s value for typing over', () => {
+    const view = pick('title <si|', creole, '<size:12>')
+    const { from, to } = view.state.selection.main
+
+    expect(view.state.doc.toString()).toBe('title <size:12>')
+    expect(view.state.sliceDoc(from, to)).toBe('12')
+    view.destroy()
+  })
+
+  it('offers the closers of the tags still open on the line after </, innermost first', () => {
+    const marked = 'A -> B : <b>big <size:20><i>and</i> <color:red>loud</|'
+    const result = complete(creole, marked)
+
+    expect(result.from).toBe(marked.indexOf('</|'))
+    expect(labels(result)).toEqual(['</color>', '</size>', '</b>'])
+    expect(result.options[0].boost).toBeGreaterThan(result.options[2].boost)
+  })
+
+  it('offers no closer when nothing is open on the line', () => {
+    expect(complete(creole, '<b>bold</b>\nnext </|')).toBeNull()
+    expect(complete(creole, '<img:x.png> </|')).toBeNull()
   })
 })
 
@@ -258,6 +435,13 @@ describe('names', () => {
     expect(complete(names, diagram + '@start|')).toBeNull()
     expect(complete(names, diagram + 'participant "Cus|')).toBeNull()
     expect(complete(names, diagram + 'Customer -> Shop : order Cus|')).toBeNull()
+  })
+
+  it('offers nothing inside a Creole tag, an icon or an emoji', () => {
+    for (const marked of ['A -> B : <b|', 'A -> B : <b>x</b|', 'title <&cl|', 'title <:sm|']) {
+      expect(complete(names, diagram + marked)).toBeNull()
+    }
+    expect(labels(complete(names, diagram + 'Shop <-Ware|'))).toContain('Warehouse')
   })
 
   it('offers anywhere on a line, and nothing in a comment or a preprocessor line', () => {

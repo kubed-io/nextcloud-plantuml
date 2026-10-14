@@ -1,0 +1,125 @@
+
+ Emoji available on Unicode Block 1f6
+ (Blocks available: 26, 27, 1F3, 1F4, 1F5, 1F6, 1F9)
+
+ <:1f600:> <:grinning:> <:1f63d:> <:kissing_cat:> <:1f6aa:> <:door:>
+
+ <:1f601:> <:grin:> <:1f63e:> <:pouting_cat:> <:1f6ab:> <:no_entry_sign:>
+
+ <:1f602:> <:joy:> <:1f63f:> <:crying_cat_face:> <:1f6ac:> <:smoking:>
+
+ <:1f603:> <:smiley:> <:1f640:> <:scream_cat:> <:1f6ad:> <:no_smoking:>
+
+ <:1f604:> <:smile:> <:1f641:> <:slightly_frowning_face:> <:1f6ae:> <:put_litter_in_its_place:>
+
+ <:1f605:> <:sweat_smile:> <:1f642:> <:slightly_smiling_face:> <:1f6af:> <:do_not_litter:>
+
+ <:1f606:> <:laughing:> <:1f643:> <:upside_down_face:> <:1f6b0:> <:potable_water:>
+
+ <:1f607:> <:innocent:> <:1f644:> <:roll_eyes:> <:1f6b1:>
+
+ <:1f608:> <:smiling_imp:> <:1f645:> <:no_good:> <:1f6b2:> <:bike:>
+
+ <:1f609:> <:wink:> <:1f646:> <:ok_person:> <:1f6b3:> <:no_bicycles:>
+
+ <:1f60a:> <:blush:> <:1f647:> <:bow:> <:1f6b4:> <:bicyclist:>
+
+ <:1f60b:> <:yum:> <:1f648:> <:see_no_evil:> <:1f6b5:> <:mountain_bicyclist:>
+
+ <:1f60c:> <:relieved:> <:1f649:> <:hear_no_evil:> <:1f6b6:> <:walking:>
+
+ <:1f60d:> <:heart_eyes:> <:1f64a:> <:speak_no_evil:> <:1f6b7:> <:no_pedestrians:>
+
+ <:1f60e:> <:sunglasses:> <:1f64b:> <:raising_hand:> <:1f6b8:> <:children_crossing:>
+
+ <:1f60f:> <:smirk:> <:1f64c:> <:raised_hands:> <:1f6b9:> <:mens:>
+
+ <:1f610:> <:neutral_face:> <:1f64d:> <:frowning_person:> <:1f6ba:> <:womens:>
+
+ <:1f611:> <:expressionless:> <:1f64e:> <:pouting_face:> <:1f6bb:> <:restroom:>
+
+ <:1f612:> <:unamused:> <:1f64f:> <:pray:> <:1f6bc:> <:baby_symbol:>
+
+ <:1f613:> <:sweat:> <:1f680:> <:rocket:> <:1f6bd:> <:toilet:>
+
+ <:1f614:> <:pensive:> <:1f681:> <:helicopter:> <:1f6be:> <:wc:>
+
+ <:1f615:> <:confused:> <:1f682:> <:steam_locomotive:> <:1f6bf:> <:shower:>
+
+ <:1f616:> <:confounded:> <:1f683:> <:railway_car:> <:1f6c0:> <:bath:>
+
+ <:1f617:> <:kissing:> <:1f684:> <:bullettrain_side:> <:1f6c1:> <:bathtub:>
+
+ <:1f618:> <:kissing_heart:> <:1f685:> <:bullettrain_front:> <:1f6c2:> <:passport_control:>
+
+ <:1f619:> <:kissing_smiling_eyes:> <:1f686:> <:train2:> <:1f6c3:> <:customs:>
+
+ <:1f61a:> <:kissing_closed_eyes:> <:1f687:> <:metro:> <:1f6c4:> <:baggage_claim:>
+
+ <:1f61b:> <:stuck_out_tongue:> <:1f688:> <:light_rail:> <:1f6c5:> <:left_luggage:>
+
+ <:1f61c:> <:stuck_out_tongue_winking_eye:> <:1f689:> <:station:> <:1f6cb:> <:couch_and_lamp:>
+
+ <:1f61d:> <:stuck_out_tongue_closed_eyes:> <:1f68a:> <:tram:> <:1f6cc:> <:sleeping_bed:>
+
+ <:1f61e:> <:disappointed:> <:1f68b:> <:train:> <:1f6cd:> <:shopping:>
+
+ <:1f61f:> <:worried:> <:1f68c:> <:bus:> <:1f6ce:> <:bellhop_bell:>
+
+ <:1f620:> <:angry:> <:1f68d:> <:oncoming_bus:> <:1f6cf:> <:bed:>
+
+ <:1f621:> <:pout:> <:1f68e:> <:trolleybus:> <:1f6d0:> <:place_of_worship:>
+
+ <:1f622:> <:cry:> <:1f68f:> <:busstop:> <:1f6d1:> <:stop_sign:>
+
+ <:1f623:> <:persevere:> <:1f690:> <:minibus:> <:1f6d2:> <:shopping_cart:>
+
+ <:1f624:> <:triumph:> <:1f691:> <:ambulance:> <:1f6d5:> <:hindu_temple:>
+
+ <:1f625:> <:disappointed_relieved:> <:1f692:> <:fire_engine:> <:1f6d6:> <:hut:>
+
+ <:1f626:> <:frowning:> <:1f693:> <:police_car:> <:1f6d7:> <:elevator:>
+
+ <:1f627:> <:anguished:> <:1f694:> <:oncoming_police_car:> <:1f6e0:> <:hammer_and_wrench:>
+
+ <:1f628:> <:fearful:> <:1f695:> <:taxi:> <:1f6e1:> <:shield:>
+
+ <:1f629:> <:weary:> <:1f696:> <:oncoming_taxi:> <:1f6e2:> <:oil_drum:>
+
+ <:1f62a:> <:sleepy:> <:1f697:> <:car:> <:1f6e3:> <:motorway:>
+
+ <:1f62b:> <:tired_face:> <:1f698:> <:oncoming_automobile:> <:1f6e4:> <:railway_track:>
+
+ <:1f62c:> <:grimacing:> <:1f699:> <:blue_car:> <:1f6e5:> <:motor_boat:>
+
+ <:1f62d:> <:sob:> <:1f69a:> <:truck:> <:1f6e9:> <:small_airplane:>
+
+ <:1f62e:> <:open_mouth:> <:1f69b:> <:articulated_lorry:> <:1f6eb:> <:flight_departure:>
+
+ <:1f62f:> <:hushed:> <:1f69c:> <:tractor:> <:1f6ec:> <:flight_arrival:>
+
+ <:1f630:> <:cold_sweat:> <:1f69d:> <:monorail:> <:1f6f0:> <:artificial_satellite:>
+
+ <:1f631:> <:scream:> <:1f69e:> <:mountain_railway:> <:1f6f3:> <:passenger_ship:>
+
+ <:1f632:> <:astonished:> <:1f69f:> <:suspension_railway:> <:1f6f4:> <:kick_scooter:>
+
+ <:1f633:> <:flushed:> <:1f6a0:> <:mountain_cableway:> <:1f6f5:> <:motor_scooter:>
+
+ <:1f634:> <:sleeping:> <:1f6a1:> <:aerial_tramway:> <:1f6f6:> <:canoe:>
+
+ <:1f635:> <:dizzy_face:> <:1f6a2:> <:ship:> <:1f6f7:> <:sled:>
+
+ <:1f636:> <:no_mouth:> <:1f6a3:> <:rowboat:> <:1f6f8:> <:flying_saucer:>
+
+ <:1f637:> <:mask:> <:1f6a4:> <:speedboat:> <:1f6f9:> <:skateboard:>
+
+ <:1f638:> <:smile_cat:> <:1f6a5:> <:traffic_light:> <:1f6fa:> <:auto_rickshaw:>
+
+ <:1f639:> <:joy_cat:> <:1f6a6:> <:vertical_traffic_light:> <:1f6fb:> <:pickup_truck:>
+
+ <:1f63a:> <:smiley_cat:> <:1f6a7:> <:construction:> <:1f6fc:> <:roller_skate:>
+
+ <:1f63b:> <:heart_eyes_cat:> <:1f6a8:> <:rotating_light:>
+
+ <:1f63c:> <:smirk_cat:> <:1f6a9:> <:triangular_flag_on_post:>

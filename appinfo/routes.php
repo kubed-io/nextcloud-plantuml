@@ -14,5 +14,8 @@ return [
 		['name' => 'render#bySource', 'url' => '/render', 'verb' => 'POST'],
 		// {"themes": [...]}, for the editor's `!theme` completion
 		['name' => 'render#themes', 'url' => '/themes', 'verb' => 'GET'],
+		// {"icons": [...]} and {"emoji": [...]}, for `<&icon>` and `<:emoji:>`
+		['name' => 'render#icons', 'url' => '/icons', 'verb' => 'GET'],
+		['name' => 'render#emoji', 'url' => '/emoji', 'verb' => 'GET'],
 	],
 ];

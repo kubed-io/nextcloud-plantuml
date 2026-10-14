@@ -179,8 +179,11 @@ Autocomplete has no scenario: what the popup offers is a rule with no I/O, so
 each source in `src/editor/completion/` is unit-tested against a real editor
 state, and adding one is a file there and a line in its `index.js`. The themes
 after `!theme` are the server's own, from `GET /apps/plantuml/themes`, asked once
-per page; connectors are offered after a line's first element and a space,
-unless that first word is a keyword such as `node` or `loop`.
+per page, and so are the icons after `<&` and the emoji after `<:`
+(`/icons`, `/emoji`); connectors are offered after a line's first element and a
+space, unless that first word is a keyword such as `node` or `loop`. A `<` there
+is an arrow, so the Creole tags are offered after any other `<` in text, and
+`</` offers the closers of the tags still open on the line.
 
 Validation is the same pattern: one rule per file in `src/editor/lint/`, each a
 pure function of the editor state, unit-tested the same way. A diagram opened

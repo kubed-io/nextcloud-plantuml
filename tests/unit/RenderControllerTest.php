@@ -228,6 +228,27 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
 	}
 
+	public function testIconsAndEmojiAreTheServersLists(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('icons')->willReturn(['account-login', 'clock']);
+		$render->method('emoji')->willReturn(['smile', 'sunny']);
+		$controller = $this->controller($render, new NotFoundException());
+
+		self::assertSame(['icons' => ['account-login', 'clock']], $controller->icons()->getData());
+		self::assertSame(['emoji' => ['smile', 'sunny']], $controller->emoji()->getData());
+		self::assertSame(200, $controller->emoji()->getStatus());
+	}
+
+	public function testIconsAndEmojiFromAServerThatCannotAnswerAre503WithProblem(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('icons')->willThrowException(new RenderException(RenderException::PROBLEM_UNREACHABLE));
+		$render->method('emoji')->willThrowException(new RenderException(RenderException::PROBLEM_NOT_SET));
+		$controller = $this->controller($render, new NotFoundException());
+
+		self::assertSame([503, ['problem' => 'unreachable']], [$controller->icons()->getStatus(), $controller->icons()->getData()]);
+		self::assertSame([503, ['problem' => 'not set']], [$controller->emoji()->getStatus(), $controller->emoji()->getData()]);
+	}
+
 	public function testSyntaxErrorIsStillAnImage(): void {
 		$errorImage = '<svg xmlns="http://www.w3.org/2000/svg"><text>Syntax Error?</text></svg>';
 

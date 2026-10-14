@@ -12,7 +12,10 @@ namespace OCA\PlantUml\Tests\Integration;
 use Behat\Behat\Context\Context;
 use OCA\PlantUml\Tests\Integration\Steps\AppLifecycleSteps;
 use OCA\PlantUml\Tests\Integration\Steps\ConnectionSteps;
+use OCA\PlantUml\Tests\Integration\Steps\CreateSteps;
 use OCA\PlantUml\Tests\Integration\Steps\DiagramFileSteps;
+use OCA\PlantUml\Tests\Integration\Steps\EditSteps;
+use OCA\PlantUml\Tests\Integration\Steps\ReadmeSteps;
 use OCA\PlantUml\Tests\Integration\Steps\RenderApiSteps;
 use OCA\PlantUml\Tests\Integration\Support\OccTrait;
 use OCA\PlantUml\Tests\Integration\Support\WebDavTrait;
@@ -26,8 +29,11 @@ use OCA\PlantUml\Tests\Integration\Support\WebDavTrait;
 final class FeatureContext implements Context {
 	use AppLifecycleSteps;
 	use ConnectionSteps;
+	use CreateSteps;
 	use DiagramFileSteps;
+	use EditSteps;
 	use OccTrait;
+	use ReadmeSteps;
 	use RenderApiSteps;
 	use WebDavTrait;
 

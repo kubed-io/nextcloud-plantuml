@@ -1,7 +1,5 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#readmerender
 
-# @unbuilt until a browser leg runs these; the behaviour is built (src/readme/).
-@unbuilt
 Feature: Diagrams in a folder README
   As someone reading a folder in the Files app
   I want the README to show its diagrams drawn, not as source
@@ -13,19 +11,19 @@ Feature: Diagrams in a folder README
 
     # ── RULE: a plantuml fence is a picture ───────────────────────────────────
 
-  @ui
-  Scenario: A plantuml code fence in the README shows the diagram
+  @gesture
+  Scenario: A plantuml code fence in the README is drawn as its diagram
     Given the README in "Diagrams" holds a plantuml code fence
-    When I open "Diagrams" in the Files app
-    Then the README shows the fence as its diagram
+    When I read the README in "Diagrams"
+    Then the fence is drawn as its diagram
 
     # ── RULE: an image that names a diagram file is that file's picture ───────
 
-  @ui
-  Scenario: An image that points at a diagram file shows its diagram
+  @gesture
+  Scenario: An image that points at a diagram file is drawn as that diagram
     Given the README in "Diagrams" embeds the image "Order flow.puml"
-    When I open "Diagrams" in the Files app
-    Then the README shows the diagram of "Order flow.puml" where the image is
+    When I read the README in "Diagrams"
+    Then the image is drawn as the diagram of "Diagrams/Order flow.puml"
 
     # Only the fence tag "plantuml" is recognised; it is the one every other tool
     # agrees on. The image is handled as Text handles any image: inline, no link.

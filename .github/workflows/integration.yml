@@ -14,14 +14,14 @@ name: 🔗 Integration
 # The partition is by PATH, not by tag:
 #
 #   admin     connection/*.feature + lifecycle.feature   (occ, admin)
-#   diagrams  diagrams/*.feature                         (DAV, the render route)
-#   readme    readme/*.feature                           (@ui today — a browser leg later)
+#   diagrams  diagrams/*.feature                         (DAV, OCS, the render routes)
+#   readme    readme/*.feature                           (DAV, the render routes)
 #
 # SCOPE: behat.dist.yml holds the leg list and the live counts. Deliberately NOT
 # repeated here — a count in a second file is a count nobody thinks to update.
 # `behat --tags @todo` is the queue; behat.dist.yml says what the other three
-# status tags mean. Today every scenario is @unbuilt: the app is specified ahead
-# of its code, so every leg is an empty, reporting leg (next paragraph).
+# status tags mean. A leg whose scenarios are all status-tagged is still an
+# empty, reporting leg (next paragraph).
 #
 # A ZERO-SCENARIO LEG IS STILL A REPORTING LEG, which is what keeps the guards
 # below honest: Behat fires its suite events even when the filter matches nothing,

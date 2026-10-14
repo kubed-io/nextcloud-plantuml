@@ -93,7 +93,9 @@ spec: [Platform facts, 5](../docs/superpowers/specs/2026-10-13-nextcloud-plantum
 
 A DIAGRAM FILE OPENS AS A PICTURE, in Nextcloud's own image viewer, because that
 is where every other picture opens. The click is the whole gesture; there is no
-"render" button.
+"render" button. The Viewer asks the path route below for the picture, so the
+route's scenarios are the click's outcome; the lightbox itself is the Viewer's,
+and has no scenario of its own.
 
 The Viewer opens it because the app registers a Viewer handler for
 `text/x-plantuml`; the menu's "View" entry is the Viewer's own. With no server
@@ -118,9 +120,7 @@ caller already holds that ETag. A diagram with a mistake in it is still a 200:
 PlantUML draws the error into the image. Only a server problem is not an image — a
 503 whose body names it in the shared vocabulary.
 
-The two `@api` scenarios are the harness-reachable half of this file, asked over
-HTTP as the admin. The click is `@blocked`: it is a browser behaviour and waits for
-a browser leg.
+Both scenarios are asked over HTTP as the admin.
 
 ## diagrams/edit
 
@@ -128,11 +128,9 @@ a browser leg.
 
 spec: [Decisions → Editor engine](../docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md#decisions-taken-in-this-spec) · [The editor choice](../docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md#the-editor-choice-as-it-was-weighed)
 
-THE SOURCE AND THE DIAGRAM ARE ONE VIEW. The point of the editor is seeing the
-picture change as you type, so "the diagram follows the source" is its own
-scenario and not an `And` on opening. Highlighting is an `And` on opening, because
-it is what you see the moment the editor appears, and it is the reason the editor
-is ours rather than Text's.
+THE DIAGRAM FOLLOWS THE SOURCE. The point of the editor is seeing the picture
+change as you type, so a changed source is drawn at once, and the file still
+holds what it held: the scenario asserts both halves.
 
 SAVING IS THE ONLY THING THAT TOUCHES THE FILE. The live preview sends text to
 the server, never to the file; the file changes when the user says so.
@@ -145,18 +143,23 @@ Text's editor offers and this one gave up for highlighting. The way out is besid
 the message until it is used: **Reload** takes their version, after a confirm, and
 **Save as copy** writes ours to `<name> (copy).puml` and carries on there.
 
+THE STEPS SEND WHAT THE EDITOR SENDS. A change without saving is the source
+posted to `POST /render`, as the right pane posts it; a save is a WebDAV PUT with
+`If-Match` and the ETag the file was opened with; a copy is the PUT with
+`If-None-Match: *` that **Save as copy** sends first. "Someone else" is a plain
+PUT between the opening and the save. A change adds one participant, so the
+changed diagram can be told from the old one.
+
 The right pane redraws 300 ms after typing stops. When the server cannot draw,
 the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)
-where the diagram was, and the source stays editable. The "Saving writes the
-source back to the file" outcome is a WebDAV read, but reaching it takes a
-keystroke and a click in the overlay, so it waits for a browser leg too.
+where the diagram was, and the source stays editable.
 
-THE PLAIN-TEXT OPENER IS TEXT'S OWN EDITOR, offered beside ours because some
-people want the raw file and Nextcloud already has an editor for that.
-
-Both are menu entries on one diagram, never on a multi-selection. "Edit diagram"
-hides while no server is set, since its right pane would have nothing to draw;
-"Open with text editor" needs no server and stays.
+The menu entries have no scenario: how the editor is laid out, and Text's own
+editor opening a file, are not this app's outcomes to assert. **Edit diagram**
+and **Open with text editor** (Text's plain editor, beside ours because some
+people want the raw file) are on one diagram, never on a multi-selection. "Edit
+diagram" hides while no server is set, since its right pane would have nothing to
+draw; "Open with text editor" needs no server and stays.
 
 ## diagrams/create
 
@@ -166,15 +169,16 @@ spec: [Rulings](../docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.m
 
 A NEW DIAGRAM HOLDS AN EMPTY DIAGRAM — `@startuml`, a blank line, `@enduml` —
 rather than nothing, so the file opens ready to write in and the right pane has
-something to draw from the first keystroke. The editor opening on it is part of
-the same gesture: nobody creates a diagram in order to not edit it.
+something to draw from the first keystroke.
 
 THE SERVER WRITES THOSE LINES. Files' own create endpoint makes the file and
 `NewDiagramListener` fills it, so the + New entry and any other client that asks
-Nextcloud for a new `.puml` get the same file.
+Nextcloud for a new `.puml` get the same file. The step asks that endpoint, as
+the + New entry does, for `New diagram.puml` in the folder.
 
 Choosing **Diagram** creates `New diagram.puml` (`New diagram (1).puml` when that
-is taken) and opens the editor; the name is given with Nextcloud's own rename.
+is taken) and opens the editor on it, because nobody creates a diagram in order
+not to edit it; the name is given with Nextcloud's own rename.
 It needs no server: a `.puml` is plain text, and the editor says what is wrong.
 
 ## readme/render
@@ -211,9 +215,10 @@ README's folder as Text resolves it. Markdown ends a link at a bare space, so a
 file name with one is written `![Order flow](<Order flow.puml>)` or
 `![Order flow](Order%20flow.puml)`; `![Order flow](Order flow.puml)` is text.
 
-Both scenarios are browser behaviours: the README is only ever rendered in a
-page. They wait for a browser leg and are checked by hand on the live instance
-until then.
+THE STEPS READ THE README AS THE OBSERVER DOES: its text over WebDAV, a fence
+found by `src/readme/markdown.js`'s rule and drawn through `POST /render`, an
+image's destination resolved against the README's folder and drawn through
+`GET /render?path=…`. Where the drawing lands in Text's page is checked by hand.
 
 ## Known limitations and next
 

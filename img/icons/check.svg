@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: 2026 kubed-io
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  The editor's save indicator, Material Design's check as Text draws it. Themed
+  via currentColor. Imported (?raw) by src/editor.js.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/>
+</svg>

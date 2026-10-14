@@ -4,25 +4,39 @@
  *
  * The side-by-side diagram editor, a full-page overlay over the Files app: the
  * source in CodeMirror on the left, the diagram redrawn from it on the right.
- * The file is touched only by Save, guarded by the ETag it was read with; when
- * someone else changed it meanwhile, Reload takes theirs and Save as copy keeps
- * ours in a new file beside it.
+ * The file is written by Save, and by itself two seconds after typing stops,
+ * always guarded by the ETag it was read with; when someone else changed it
+ * meanwhile, saving stops until Reload takes theirs or Save as copy keeps ours
+ * in a new file beside it.
  *
  * The Files bundle adds this bundle to the page the first time "Edit diagram"
  * or + New needs it, then calls the window.OCA.PlantUml.openEditor it defines.
  */
 import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { translate as t } from '@nextcloud/l10n'
+import {
+  EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers,
+} from '@codemirror/view'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { bracketMatching } from '@codemirror/language'
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
+import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
+import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
 import { plantumlMode } from './editor/plantuml-mode.js'
 import { plantumlTheme } from './editor/theme.js'
+import { plantumlCompletion } from './editor/completion/index.js'
 import { ConflictError, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
+import { createAutosave } from './editor/autosave.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
+import checkIcon from '../img/icons/check.svg?raw'
+
+const IDLE_MS = 2000
+const MAX_WAIT_MS = 30000
+const MINUTE = 60000
+const CLOSE_WAIT_MS = 10000
 
 function el(tag, className, attrs = {}) {
   const node = document.createElement(tag)
@@ -50,8 +64,9 @@ export function openEditor(node) {
   reloadButton.textContent = t(APP_ID, 'Reload')
   const copyButton = el('button', 'plantuml-editor__copy', { type: 'button', hidden: '' })
   copyButton.textContent = t(APP_ID, 'Save as copy')
-  const saveButton = el('button', 'plantuml-editor__save', { type: 'button', disabled: '' })
-  saveButton.textContent = t(APP_ID, 'Save')
+  // Text's indicator: a check when saved, a dot on it while not, a spinner while saving.
+  const saveButton = el('button', 'plantuml-editor__save', { type: 'button', 'aria-label': t(APP_ID, 'Save'), hidden: '' })
+  saveButton.innerHTML = checkIcon
   const closeButton = el('button', 'plantuml-editor__close', { type: 'button', 'aria-label': t(APP_ID, 'Close') })
   closeButton.innerHTML = closeIcon
   const bar = el('header', 'plantuml-editor__bar')
@@ -80,51 +95,81 @@ export function openEditor(node) {
   let view = null
   let etag = ''
   let saved = null // the Text last read or written
-  let cleanStatus = ''
+  let savedAt = 0 // when this editor last wrote it
   let conflict = false // a save met someone else's change; lasts until resolved
-  let busy = false
+  let failure = '' // what went wrong last; lasts until the next change
+  let running = null // the file operation in flight
+  let closing = false
   let closed = false
   let imageUrl = ''
 
   const isDirty = () => view !== null && !view.state.doc.eq(saved)
 
+  function savedTitle() {
+    if (!savedAt) {
+      return t(APP_ID, 'Saved')
+    }
+    const minutes = Math.floor((Date.now() - savedAt) / MINUTE)
+    if (minutes < 1) {
+      return t(APP_ID, 'Saved just now')
+    }
+    return minutes < 60
+      ? n(APP_ID, 'Saved %n min ago', 'Saved %n min ago', minutes)
+      : n(APP_ID, 'Saved %n h ago', 'Saved %n h ago', Math.floor(minutes / 60))
+  }
+
   function showButtons() {
-    saveButton.disabled = busy || !isDirty()
+    const state = running ? 'saving' : isDirty() ? 'unsaved' : 'saved'
+    saveButton.dataset.state = state
+    saveButton.classList.toggle('icon-loading-small', state === 'saving')
+    saveButton.title = state === 'saved' ? savedTitle() : t(APP_ID, 'Unsaved changes')
     reloadButton.hidden = copyButton.hidden = !conflict
-    reloadButton.disabled = copyButton.disabled = busy
+    reloadButton.disabled = copyButton.disabled = running !== null
   }
 
   function showState() {
-    if (conflict) {
-      status.textContent = t(APP_ID, 'Someone else changed this file')
-    } else {
-      status.textContent = isDirty() ? t(APP_ID, 'Unsaved changes') : cleanStatus
-    }
+    status.textContent = failure || (conflict ? t(APP_ID, 'Someone else changed this file') : '')
     showButtons()
+  }
+
+  function fail(message) {
+    failure = message
+    showState()
   }
 
   /** `doc` is what the file now holds, at `etag`. */
   function markSaved(doc) {
     saved = doc
+    savedAt = Date.now()
     conflict = false
-    cleanStatus = t(APP_ID, 'Saved')
+    failure = ''
     showState()
   }
 
-  /** One file operation at a time; a failure's message stays until the next change. */
+  /**
+   * One file operation at a time. A change that lands meanwhile, or an
+   * autosave that found one running, is saved once it is done.
+   */
   async function exclusively(task) {
-    if (busy) {
+    if (running) {
       return
     }
-    busy = true
+    running = task()
     showButtons()
     try {
-      await task()
+      await running
     } finally {
-      busy = false
+      running = null
       showButtons()
+      if (!closed && !conflict && !failure && isDirty()) {
+        autosave.schedule()
+      }
     }
   }
+
+  // A conflict stops it until resolved; a failure until the next change.
+  const autosave = createAutosave({ idleMs: IDLE_MS, maxWaitMs: MAX_WAIT_MS, save: () => (conflict ? Promise.resolve() : save()) })
+  const ticker = setInterval(showButtons, MINUTE / 2)
 
   function draw(text) {
     // The route answers a blank source with 400; there is nothing to draw.
@@ -151,7 +196,8 @@ export function openEditor(node) {
   }
 
   async function save() {
-    if (!isDirty()) {
+    // Once closed, a discard was chosen: a hanging save that settles late writes nothing more.
+    if (closed || !isDirty()) {
       return
     }
     await exclusively(async () => {
@@ -162,11 +208,12 @@ export function openEditor(node) {
       } catch (e) {
         if (e instanceof ConflictError) {
           conflict = true
+          autosave.cancel()
           showState()
           return
         }
         console.error(`[${APP_ID}] could not save ${path}`, e)
-        status.textContent = t(APP_ID, 'Could not save the file')
+        fail(t(APP_ID, 'Could not save the file'))
       }
     })
   }
@@ -187,7 +234,7 @@ export function openEditor(node) {
         markSaved(view.state.doc)
       } catch (e) {
         console.error(`[${APP_ID}] could not open ${path}`, e)
-        status.textContent = t(APP_ID, 'Could not open the file')
+        fail(t(APP_ID, 'Could not open the file'))
       }
     })
   }
@@ -206,18 +253,61 @@ export function openEditor(node) {
         markSaved(doc)
       } catch (e) {
         console.error(`[${APP_ID}] could not save a copy of ${path}`, e)
-        status.textContent = t(APP_ID, 'Could not save a copy')
+        fail(t(APP_ID, 'Could not save a copy'))
       }
     })
   }
 
-  function close() {
+  /**
+   * Saves until the file holds the source, including a change typed meanwhile,
+   * or until a save does not land, or CLOSE_WAIT_MS pass with one hanging.
+   */
+  function saveBeforeClose() {
+    let timer
+    let gaveUp = false
+    const saving = (async () => {
+      while (!gaveUp && isDirty() && !conflict && !failure) {
+        while (running) {
+          await running
+        }
+        if (gaveUp || conflict || failure) {
+          break
+        }
+        await autosave.flush()
+      }
+    })()
+    const timeout = new Promise((resolve) => {
+      timer = setTimeout(() => { gaveUp = true; resolve() }, CLOSE_WAIT_MS)
+    })
+    return Promise.race([saving, timeout]).finally(() => clearTimeout(timer))
+  }
+
+  /**
+   * Saves first. A refused save stays open on the conflict line, whose buttons
+   * are the way out; a save that cannot land (a read-only share, a full quota,
+   * an outage) asks before discarding instead of trapping the user.
+   */
+  async function close() {
+    if (closing) {
+      return
+    }
+    if (isDirty() && !conflict && !failure) {
+      closing = true
+      await saveBeforeClose()
+      closing = false
+      if (conflict) {
+        return
+      }
+    }
     if (isDirty() && !window.confirm(t(APP_ID, 'Discard unsaved changes?'))) {
       return
     }
     closed = true
+    autosave.cancel()
+    clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onKeydown)
+    window.removeEventListener('beforeunload', onBeforeUnload)
     view?.destroy()
     URL.revokeObjectURL(imageUrl)
     overlay.remove()
@@ -227,7 +317,8 @@ export function openEditor(node) {
     opener?.focus?.()
   }
 
-  // CodeMirror marks an Escape it used (dropping a multi-selection) as handled.
+  // CodeMirror marks an Escape it used (closing the completion popup or the
+  // search panel, dropping a multi-selection) as handled.
   function onKeydown(event) {
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
@@ -236,11 +327,18 @@ export function openEditor(node) {
     }
   }
 
+  function onBeforeUnload(event) {
+    if (isDirty()) {
+      event.preventDefault()
+    }
+  }
+
   saveButton.addEventListener('click', save)
   reloadButton.addEventListener('click', reload)
   copyButton.addEventListener('click', saveAsCopy)
   closeButton.addEventListener('click', close)
   document.addEventListener('keydown', onKeydown)
+  window.addEventListener('beforeunload', onBeforeUnload)
 
   loadFile(path).then(({ content, etag: loadedEtag }) => {
     if (closed) {
@@ -253,26 +351,49 @@ export function openEditor(node) {
         doc: content,
         extensions: [
           lineNumbers(),
+          highlightActiveLineGutter(),
+          highlightActiveLine(),
+          drawSelection(),
+          bracketMatching(),
+          closeBrackets(),
+          highlightSelectionMatches(),
+          search({ top: true }),
           history(),
           plantumlMode,
+          plantumlCompletion,
           plantumlTheme,
-          // Mod-s would otherwise be the browser's "Save page as".
-          keymap.of([{ key: 'Mod-s', run: () => { save(); return true } }, ...defaultKeymap, ...historyKeymap]),
+          // Mod-s would otherwise be the browser's "Save page as". defaultKeymap
+          // carries Mod-/ for comments; Ctrl-M (Shift-Alt-M on macOS) makes Tab
+          // move focus again instead of indenting.
+          keymap.of([
+            { key: 'Mod-s', run: () => { save(); return true } },
+            ...closeBracketsKeymap,
+            ...defaultKeymap,
+            ...searchKeymap,
+            ...historyKeymap,
+            indentWithTab,
+          ]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
+              failure = ''
               showState()
               draw(update.state.doc.toString())
+              if (!conflict) {
+                autosave.schedule()
+              }
             }
           }),
         ],
       }),
     })
     saved = view.state.doc
+    saveButton.hidden = false
+    showButtons()
     view.focus()
     draw(content)
   }, (e) => {
     console.error(`[${APP_ID}] could not open ${path}`, e)
-    status.textContent = t(APP_ID, 'Could not open the file')
+    fail(t(APP_ID, 'Could not open the file'))
   })
 }
 

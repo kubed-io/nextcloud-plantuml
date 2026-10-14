@@ -7,6 +7,7 @@
 // and what would be written.
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorView } from '@codemirror/view'
+import { completionStatus, startCompletion } from '@codemirror/autocomplete'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -34,10 +35,11 @@ vi.mock('../../src/editor/preview.js', () => ({
 }))
 
 const q = (selector) => document.querySelector(selector)
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+const settle = () => (vi.isFakeTimers() ? vi.advanceTimersByTimeAsync(0) : new Promise((resolve) => setTimeout(resolve, 0)))
 const type = (text) => EditorView.findFromDOM(q('.cm-editor')).dispatch({ changes: { from: 0, insert: text } })
 const status = () => q('.plantuml-editor__status').textContent
 const saveButton = () => q('.plantuml-editor__save')
+const indicator = () => saveButton().dataset.state
 const reloadButton = () => q('.plantuml-editor__reload')
 const copyButton = () => q('.plantuml-editor__copy')
 const source = () => EditorView.findFromDOM(q('.cm-editor')).state.doc.toString()
@@ -57,12 +59,22 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button></div>'
 })
 
-// Close what a test left open, so its Escape listener goes with it.
-afterEach(() => {
+// Close what a test left open, so its listeners and timers go with it.
+afterEach(async () => {
   vi.spyOn(window, 'confirm').mockReturnValue(true)
   q('.plantuml-editor__close')?.click()
+  await settle()
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
+
+/** A promise the test settles itself, for a save still in flight. */
+function deferred() {
+  let resolve
+  let reject
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
 
 async function open() {
   q('#opener').focus()
@@ -78,7 +90,7 @@ describe('the editor overlay', () => {
     expect(q('.cm-content').textContent).toContain('A -> B')
     expect(q('.plantuml-editor__image').hidden).toBe(false)
     expect(q('.plantuml-editor__image').src).toBe('blob:diagram')
-    expect(saveButton().disabled).toBe(true)
+    expect(indicator()).toBe('saved')
     expect(q('#content').hasAttribute('inert')).toBe(true)
   })
 
@@ -86,13 +98,13 @@ describe('the editor overlay', () => {
     await open()
 
     type("' first\n")
-    expect(status()).toBe('Unsaved changes')
+    expect(indicator()).toBe('unsaved')
     seams.saveFile.mockResolvedValueOnce('"put"')
     saveButton().click()
     await settle()
     expect(seams.saveFile).toHaveBeenLastCalledWith('/Diagrams/Order flow.puml', expect.stringContaining("' first"), '"get"')
-    expect(status()).toBe('Saved')
-    expect(saveButton().disabled).toBe(true)
+    expect(indicator()).toBe('saved')
+    expect(status()).toBe('')
 
     type("' second\n")
     seams.saveFile.mockRejectedValueOnce(new seams.ConflictError())
@@ -115,22 +127,88 @@ describe('the editor overlay', () => {
     expect(q('.cm-content').getAttribute('contenteditable')).toBe('true')
   })
 
-  it('asks before Escape discards changes, and closes back to where it was opened', async () => {
+  it('saves a change on Escape, then closes back to where it was opened', async () => {
     await open()
     type("' edit\n")
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.spyOn(window, 'confirm')
+    seams.saveFile.mockResolvedValueOnce('"put"')
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    expect(window.confirm).toHaveBeenCalledTimes(1)
-    expect(q('.plantuml-editor')).not.toBeNull()
+    await settle()
 
-    window.confirm.mockReturnValue(true)
-    q('.plantuml-editor__close').click()
-
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/Order flow.puml', expect.stringContaining("' edit"), '"get"')
+    expect(window.confirm).not.toHaveBeenCalled()
     expect(q('.plantuml-editor')).toBeNull()
     expect(seams.cancel).toHaveBeenCalled()
     expect(q('#content').hasAttribute('inert')).toBe(false)
     expect(document.activeElement).toBe(q('#opener'))
+  })
+})
+
+describe('Escape', () => {
+  const escape = () => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+
+  it('closes the completion popup first, and the editor only after', async () => {
+    await open()
+    const view = EditorView.findFromDOM(q('.cm-editor'))
+    view.dispatch({ selection: { anchor: 0 } })
+    startCompletion(view)
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+
+    escape()
+    expect(completionStatus(view.state)).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    escape()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('closes the search panel first, and the editor only after', async () => {
+    await open()
+    const key = (target, init) => target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
+
+    key(q('.cm-content'), { key: 'f', ctrlKey: true })
+    expect(q('.cm-search')).not.toBeNull()
+
+    key(q('.cm-search input'), { key: 'Escape' })
+    expect(q('.cm-search')).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    escape()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+})
+
+describe('the source pane', () => {
+  const key = (init) => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+
+  it('marks the line the cursor is on, in the text and in the gutter', async () => {
+    await open()
+
+    expect(q('.cm-activeLine')).not.toBeNull()
+    expect(q('.cm-activeLineGutter')).not.toBeNull()
+  })
+
+  it('indents with Tab and toggles a comment with Ctrl+/', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: '@startuml\n'.length } })
+
+    key({ key: 'Tab' })
+    expect(source().split('\n')[1]).toBe('  A -> B')
+
+    key({ key: '/', ctrlKey: true })
+    expect(source().split('\n')[1]).toBe("  ' A -> B")
+  })
+
+  it('outlines the bracket matching the one at the cursor', async () => {
+    seams.loadFile.mockResolvedValue({ content: 'class A {\n}\n', etag: '"get"' })
+    await open()
+    view().dispatch({ selection: { anchor: 'class A {'.length } })
+
+    expect(q('.cm-matchingBracket')).not.toBeNull()
   })
 })
 
@@ -184,8 +262,8 @@ describe('after someone else changed the file', () => {
     await settle()
     expect(seams.loadFile).toHaveBeenLastCalledWith('/Diagrams/Order flow.puml')
     expect(source()).toBe("@startuml\nA -> C\n@enduml\n")
-    expect(status()).toBe('Saved')
-    expect(saveButton().disabled).toBe(true)
+    expect(status()).toBe('')
+    expect(indicator()).toBe('saved')
     expect(reloadButton().hidden).toBe(true)
     expect(copyButton().hidden).toBe(true)
 
@@ -208,8 +286,8 @@ describe('after someone else changed the file', () => {
     expect(seams.emit).toHaveBeenCalledWith('files:node:created', copy)
     expect(q('.plantuml-editor__name').textContent).toBe('Order flow (copy).puml')
     expect(q('.plantuml-editor').getAttribute('aria-label')).toBe('Order flow (copy).puml')
-    expect(status()).toBe('Saved')
-    expect(saveButton().disabled).toBe(true)
+    expect(status()).toBe('')
+    expect(indicator()).toBe('saved')
     expect(reloadButton().hidden).toBe(true)
     expect(copyButton().hidden).toBe(true)
 
@@ -232,5 +310,316 @@ describe('after someone else changed the file', () => {
     expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml')
     expect(reloadButton().hidden).toBe(false)
     expect(copyButton().hidden).toBe(false)
+  })
+
+  it('autosaves nothing until it is resolved, then saves on again', async () => {
+    vi.useFakeTimers()
+    await conflict()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    type("' more\n")
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    seams.saveCopy.mockResolvedValue({ node: { path: '/Diagrams/Order flow (copy).puml', basename: 'Order flow (copy).puml' }, etag: '"copy"' })
+    copyButton().click()
+    await settle()
+    type("' after\n")
+    seams.saveFile.mockResolvedValueOnce('"next"')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(2)
+    expect(seams.saveFile).toHaveBeenLastCalledWith('/Diagrams/Order flow (copy).puml', expect.stringContaining("' after"), '"copy"')
+  })
+
+  it('asks before closing discards the changes', async () => {
+    await conflict()
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await settle()
+    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+    expect(q('.plantuml-editor')).not.toBeNull()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    window.confirm.mockReturnValue(true)
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+})
+
+describe('saving by itself', () => {
+  beforeEach(() => vi.useFakeTimers())
+
+  it('saves a change once typing has paused for two seconds, without a click', async () => {
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockResolvedValueOnce('"put"')
+
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(seams.saveFile).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/Order flow.puml', expect.stringContaining("' edit"), '"get"')
+    expect(indicator()).toBe('saved')
+  })
+
+  it('saves a change made while a save was in flight with the next save', async () => {
+    await open()
+    const first = deferred()
+    seams.saveFile.mockReturnValueOnce(first.promise).mockResolvedValueOnce('"second"')
+
+    type("' one\n")
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(indicator()).toBe('saving')
+    type("' two\n")
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    first.resolve('"first"')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(2)
+    expect(seams.saveFile).toHaveBeenLastCalledWith('/Diagrams/Order flow.puml', expect.stringContaining("' two"), '"first"')
+    expect(indicator()).toBe('saved')
+  })
+
+  it('keeps a failed save unsaved, says so, and tries again on the next change only', async () => {
+    await open()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    seams.saveFile.mockRejectedValueOnce(new Error('503'))
+
+    type("' edit\n")
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(status()).toBe('Could not save the file')
+    expect(indicator()).toBe('unsaved')
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    seams.saveFile.mockResolvedValueOnce('"put"')
+    type("' again\n")
+    expect(status()).toBe('')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(2)
+    expect(indicator()).toBe('saved')
+  })
+})
+
+describe('the save indicator', () => {
+  it('is one Save button: a check when saved, a dot when not, a spinner while saving', async () => {
+    await open()
+    expect(saveButton().getAttribute('aria-label')).toBe('Save')
+    expect(saveButton().querySelector('svg')).not.toBeNull()
+    expect(indicator()).toBe('saved')
+
+    type("' edit\n")
+    expect(indicator()).toBe('unsaved')
+    expect(saveButton().title).toBe('Unsaved changes')
+
+    const pending = deferred()
+    seams.saveFile.mockReturnValueOnce(pending.promise)
+    saveButton().click()
+    expect(indicator()).toBe('saving')
+    expect(saveButton().classList.contains('icon-loading-small')).toBe(true)
+
+    pending.resolve('"put"')
+    await settle()
+    expect(indicator()).toBe('saved')
+    expect(saveButton().classList.contains('icon-loading-small')).toBe(false)
+    expect(saveButton().title).toBe('Saved just now')
+  })
+
+  it('says how long ago the last save was', async () => {
+    vi.useFakeTimers()
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockResolvedValueOnce('"put"')
+    saveButton().click()
+    await settle()
+    expect(saveButton().title).toBe('Saved just now')
+
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(saveButton().title).toBe('Saved 1 min ago')
+    await vi.advanceTimersByTimeAsync(4 * 60000)
+    expect(saveButton().title).toBe('Saved 5 min ago')
+    await vi.advanceTimersByTimeAsync(55 * 60000)
+    expect(saveButton().title).toBe('Saved 1 h ago')
+    await vi.advanceTimersByTimeAsync(2 * 60 * 60000)
+    expect(saveButton().title).toBe('Saved 3 h ago')
+  })
+
+  it('saves at once on Ctrl+S', async () => {
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockResolvedValueOnce('"put"')
+
+    q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }))
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('closing', () => {
+  it('saves unsaved changes first, then closes', async () => {
+    await open()
+    type("' edit\n")
+    vi.spyOn(window, 'confirm')
+    seams.saveFile.mockResolvedValueOnce('"put"')
+
+    q('.plantuml-editor__close').click()
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/Order flow.puml', expect.stringContaining("' edit"), '"get"')
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('stays open and says so when that save is refused', async () => {
+    await open()
+    type("' edit\n")
+    seams.saveFile.mockRejectedValueOnce(new seams.ConflictError())
+
+    q('.plantuml-editor__close').click()
+    await settle()
+
+    expect(q('.plantuml-editor')).not.toBeNull()
+    expect(status()).toBe('Someone else changed this file')
+    expect(source()).toContain("' edit")
+  })
+
+  it('asks before discarding when that save fails, and on a later close asks without saving again', async () => {
+    await open()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    type("' edit\n")
+    seams.saveFile.mockRejectedValueOnce(new Error('403'))
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+    expect(q('.plantuml-editor')).not.toBeNull()
+    expect(status()).toBe('Could not save the file')
+
+    window.confirm.mockReturnValue(true)
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(window.confirm).toHaveBeenCalledTimes(2)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('asks before discarding when the save is still hanging after ten seconds', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    type("' edit\n")
+    seams.saveFile.mockReturnValueOnce(new Promise(() => {}))
+
+    q('.plantuml-editor__close').click()
+    await vi.advanceTimersByTimeAsync(9999)
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('sends nothing after a discard, when the hanging save later fails', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const hung = deferred()
+    seams.saveFile.mockReturnValueOnce(hung.promise)
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(q('.plantuml-editor')).toBeNull()
+
+    hung.reject(new Error('504'))
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends nothing after a discard, when the hanging save later lands with an edit typed meanwhile', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const hung = deferred()
+    seams.saveFile.mockReturnValueOnce(hung.promise)
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await vi.advanceTimersByTimeAsync(5000)
+    type("' late\n")
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(q('.plantuml-editor')).toBeNull()
+
+    hung.resolve('"late"')
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for a save already in flight, then closes without another', async () => {
+    await open()
+    const pending = deferred()
+    seams.saveFile.mockReturnValueOnce(pending.promise)
+    type("' edit\n")
+    saveButton().click()
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    pending.resolve('"put"')
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('saves a change typed while it was saving, then closes', async () => {
+    await open()
+    const first = deferred()
+    seams.saveFile.mockReturnValueOnce(first.promise).mockResolvedValueOnce('"second"')
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    type("' late\n")
+    first.resolve('"first"')
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledTimes(2)
+    expect(seams.saveFile).toHaveBeenLastCalledWith('/Diagrams/Order flow.puml', expect.stringContaining("' late"), '"first"')
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('saves nothing once closed', async () => {
+    vi.useFakeTimers()
+    await open()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    seams.saveFile.mockRejectedValueOnce(new Error('503'))
+    type("' edit\n")
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+
+    await vi.advanceTimersByTimeAsync(120000)
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('has the browser ask before leaving the page with unsaved changes', async () => {
+    await open()
+    const leave = () => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    expect(leave()).toBe(false)
+
+    type("' edit\n")
+    expect(leave()).toBe(true)
   })
 })

@@ -133,7 +133,18 @@ change as you type, so a changed source is drawn at once, and the file still
 holds what it held: the scenario asserts both halves.
 
 SAVING IS THE ONLY THING THAT TOUCHES THE FILE. The live preview sends text to
-the server, never to the file; the file changes when the user says so.
+the server, never to the file. The editor saves as Text does, by itself: two
+seconds after the last change, and at least every 30 seconds while changes keep
+coming, through the same guarded PUT as Save. "Without saving" in a step is the
+state before that, which the step reaches by never sending the PUT.
+
+The indicator is Text's: one icon button, a check when the file holds the
+source, a dot on the check while it does not, a spinner while a save is in
+flight; its tooltip says when the last save was. Clicking it, or Ctrl/Cmd+S,
+saves at once. Closing saves first. A refused save keeps the editor open on the
+conflict line; a save that fails, or still hangs after 10 s, asks before
+discarding rather than trapping the user (a read-only share, a full quota).
+Leaving the page with unsaved changes gets the browser's own prompt.
 
 A SAVE NEVER OVERWRITES SOMEONE ELSE'S CHANGE. The editor reads the file over
 WebDAV with its ETag and writes it back with `If-Match`; a file changed in the
@@ -141,7 +152,10 @@ meantime answers 412, the top bar says "Someone else changed this file", and the
 file stays as the other person left it. There is no merge: collaboration is what
 Text's editor offers and this one gave up for highlighting. The way out is beside
 the message until it is used: **Reload** takes their version, after a confirm, and
-**Save as copy** writes ours to `<name> (copy).puml` and carries on there.
+**Save as copy** writes ours to `<name> (copy).puml` and carries on there. Autosave
+stops until one of them (or a Save that lands) resolves it, and closing asks before
+discarding. A save that fails for any other reason says "Could not save the file"
+and is tried again on the next change, not in a loop.
 
 THE STEPS SEND WHAT THE EDITOR SENDS. A change without saving is the source
 posted to `POST /render`, as the right pane posts it; a save is a WebDAV PUT with
@@ -149,6 +163,10 @@ posted to `POST /render`, as the right pane posts it; a save is a WebDAV PUT wit
 `If-None-Match: *` that **Save as copy** sends first. "Someone else" is a plain
 PUT between the opening and the save. A change adds one participant, so the
 changed diagram can be told from the old one.
+
+Autocomplete has no scenario: what the popup offers is a rule with no I/O, so
+each source in `src/editor/completion/` is unit-tested against a real editor
+state, and adding one is a file there and a line in its `index.js`.
 
 The right pane redraws 300 ms after typing stops. When the server cannot draw,
 the pane shows the problem (`not set`, `unreachable`, `not a PlantUML server`)

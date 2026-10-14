@@ -40,6 +40,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- A long source scrolls inside the editor, and a big diagram is fitted to its pane instead of running off the bottom.
 - The editor's source is readable on a dark theme: its text and highlighting follow Nextcloud's theme colours.
 - Removing the app keeps a `.puml` or `.plantuml` file type you set yourself in `config/mimetypemapping.json`, and repair now warns when it cannot write `core/js/mimetypelist.js`.
 - The editor no longer shows a raw error page when the server answers something other than a diagram.

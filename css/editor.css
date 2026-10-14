@@ -135,12 +135,17 @@
 	display: grid;
 	/* --plantuml-split is the source pane's share, set by src/editor/splitter.js. */
 	grid-template-columns: minmax(0, var(--plantuml-split, 50%)) 9px minmax(0, 1fr);
+	/* One row of exactly the space left: an auto row grew to the content, so the
+	 * source never scrolled and the diagram ran off the bottom. */
+	grid-template-rows: minmax(0, 1fr);
 	flex: 1;
 	min-height: 0;
 }
 
 .plantuml-editor__source {
 	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
 }
 
 /* A 9px grab area drawing a 1px line, and a pill while it is hovered, focused
@@ -199,13 +204,16 @@
 	align-items: center;
 	justify-content: center;
 	min-width: 0;
+	min-height: 0;
 	padding: 20px;
 	overflow: auto;
 }
 
+/* Fitted to the pane, never cropped or stretched past its own size. */
 .plantuml-editor__image {
 	max-width: 100%;
 	max-height: 100%;
+	object-fit: contain;
 }
 
 .plantuml-editor__problem {

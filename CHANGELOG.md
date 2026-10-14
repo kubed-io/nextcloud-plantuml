@@ -42,6 +42,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The image viewer says "Could not draw the diagram" instead of showing a raw error page, as the editor does.
 - The editor reads a changed file fresh instead of from the browser's cache, so a change made elsewhere shows up.
 - A long source scrolls inside the editor, and a big diagram is fitted to its pane instead of running off the bottom.
 - The editor's source is readable on a dark theme: its text and highlighting follow Nextcloud's theme colours.

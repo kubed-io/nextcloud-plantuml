@@ -1,0 +1,9 @@
+@startuml big
+A -> B
+newpage
+B -> C
+  newpage
+C -> D
+newpage Second
+D -> E
+@enduml

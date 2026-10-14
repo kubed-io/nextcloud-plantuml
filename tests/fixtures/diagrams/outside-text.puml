@@ -1,0 +1,9 @@
+before
+@startuml
+A -> B
+@enduml
+between
+@startmindmap
+* root
+@endmindmap
+after

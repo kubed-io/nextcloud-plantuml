@@ -1,0 +1,6 @@
+@startuml nodes
+A -> B
+@enduml
+@startuml(id=nodes)
+C -> D
+@enduml

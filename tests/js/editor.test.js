@@ -1025,6 +1025,105 @@ describe('the Reload button', () => {
   })
 })
 
+describe('the diagram tabs', () => {
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+  const tabs = () => [...document.querySelectorAll('.plantuml-editor__diagram [role="tab"]')]
+  const selected = () => tabs().map((tab) => tab.getAttribute('aria-selected') === 'true')
+  const lastIndex = () => seams.debouncedRender.mock.calls.at(-1)[1]
+  const lineStart = (n) => view().state.doc.line(n).from
+  const DOC = '@startuml first\nA -> B\n@enduml\n\nnote between\n\n@startuml second\nB -> C\n@enduml\n@startsalt third\n{\n}\n@endsalt\n'
+
+  beforeEach(() => {
+    seams.loadFile.mockResolvedValue({ content: DOC, etag: '"get"' })
+  })
+
+  it('opens on the first diagram, one tab per diagram, at the top of the diagram pane', async () => {
+    await open()
+
+    expect(q('.plantuml-editor__diagram').firstElementChild.getAttribute('role')).toBe('tablist')
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['first', 'second', 'third'])
+    expect(selected()).toEqual([true, false, false])
+    expect(lastIndex()).toBe(0)
+    expect(tabs()[0].getAttribute('aria-controls')).toBe(image().id)
+  })
+
+  it('draws no strip for a file of one diagram', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+    await open()
+
+    expect(q('.plantuml-editor__diagram [role="tablist"]').hidden).toBe(true)
+  })
+
+  it('follows the cursor into the second block, and draws it', async () => {
+    await open()
+
+    view().dispatch({ selection: { anchor: lineStart(8) } })
+
+    expect(selected()).toEqual([false, true, false])
+    expect(seams.debouncedRender).toHaveBeenLastCalledWith(DOC, 1, expect.any(Function))
+  })
+
+  it('draws nothing again while the cursor stays in the same diagram', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: lineStart(8) } })
+    const renders = seams.debouncedRender.mock.calls.length
+
+    view().dispatch({ selection: { anchor: lineStart(9) } })
+
+    expect(seams.debouncedRender.mock.calls.length).toBe(renders)
+  })
+
+  it('keeps the tab on a line between blocks', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: lineStart(8) } })
+    const renders = seams.debouncedRender.mock.calls.length
+
+    view().dispatch({ selection: { anchor: lineStart(5) } })
+
+    expect(selected()).toEqual([false, true, false])
+    expect(seams.debouncedRender.mock.calls.length).toBe(renders)
+  })
+
+  it('puts the cursor at the end of the @start line of the tab activated, and the focus in the source', async () => {
+    await open()
+    tabs()[1].focus()
+
+    tabs()[1].click()
+
+    expect(view().state.selection.main.head).toBe(view().state.doc.line(7).to)
+    expect(document.activeElement).toBe(q('.cm-content'))
+    expect(selected()).toEqual([false, true, false])
+    expect(lastIndex()).toBe(1)
+  })
+
+  it('moves to the last diagram when the active one is deleted, never past it', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: lineStart(11) } })
+    expect(lastIndex()).toBe(2)
+
+    view().dispatch({ changes: { from: lineStart(10), to: view().state.doc.length } })
+
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['first', 'second'])
+    expect(selected()).toEqual([false, true])
+    expect(lastIndex()).toBe(1)
+  })
+
+  it('marks no mistake from an answer for the tab left behind', async () => {
+    await open()
+    const answers = []
+    seams.debouncedRender.mockImplementation((_source, _index, cb) => answers.push(cb))
+    type("' edit\n")
+    view().dispatch({ selection: { anchor: lineStart(9) } })
+
+    answers[0](null, diagram(), { message: 'Syntax Error?', line: 3 })
+    await settle()
+    forceLinting(view())
+    await settle()
+
+    expect(q('.cm-lintRange-error')).toBeNull()
+  })
+})
+
 describe('profiles', () => {
   const view = () => EditorView.findFromDOM(q('.cm-editor'))
   const DOC = '@startuml flow\nA -> B\n@enduml\n@startyaml config\nkey: value\n@endyaml\n'

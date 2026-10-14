@@ -27,7 +27,7 @@ import { color } from '@uiw/codemirror-extensions-color'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
-import { scan } from './editor/blocks.js'
+import { diagramAt, scan } from './editor/blocks.js'
 import { profileExtension, profileLoader, resetProfiles } from './editor/profiles/index.js'
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
@@ -38,6 +38,7 @@ import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { toInlineSvg } from './editor/inline-svg.js'
 import { createAutosave } from './editor/autosave.js'
 import { createSplitter } from './editor/splitter.js'
+import { createTabs } from './editor/tabs.js'
 import { watchFile } from './editor/watch.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
@@ -90,10 +91,11 @@ export function openEditor(node) {
 
   const source = el('div', 'plantuml-editor__source', { id: 'plantuml-editor-source' })
   // The diagram is drawn inline, so its links work; to a screen reader it is one picture.
-  const image = el('div', 'plantuml-editor__image', { role: 'img', 'aria-label': name, hidden: '' })
+  const image = el('div', 'plantuml-editor__image', { id: 'plantuml-editor-image', role: 'img', 'aria-label': name, hidden: '' })
   const problem = el('p', 'plantuml-editor__problem', { role: 'status', hidden: '' })
+  const tabs = createTabs({ onActivate: showDiagram, controls: image.id })
   const diagram = el('div', 'plantuml-editor__diagram')
-  diagram.append(image, problem)
+  diagram.append(tabs.element, image, problem)
   const panes = el('div', 'plantuml-editor__panes')
   panes.append(source, createSplitter(panes, source), diagram)
 
@@ -121,6 +123,8 @@ export function openEditor(node) {
   let watcher = null
   let closing = false
   let closed = false
+  let diagrams = [] // the file's, from blocks.js; the one drawn is diagrams[active]
+  let active = 0
   const nameConfig = new Compartment()
   const profilesConfig = new Compartment()
   const wantProfiles = profileLoader((extension) => {
@@ -246,13 +250,15 @@ export function openEditor(node) {
       queueMicrotask(() => { if (!closed) view.dispatch({ effects: setServerError.of(null) }) })
       return
     }
-    debouncedRender(text, 0, (error, svgText, mistake) => {
+    const index = active
+    debouncedRender(text, index, (error, svgText, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
       }
       // A server problem is no mistake in the source: the pane says what it is.
-      // An answer for an older source leaves the mapped mark to the render on its way.
-      if (text === view.state.doc.toString()) {
+      // An answer for an older source or another tab leaves the mapped mark to
+      // the render on its way.
+      if (text === view.state.doc.toString() && index === active) {
         view.dispatch({ effects: setServerError.of(error ? null : mistake) })
       }
       // Built before the old one goes, so the pane never flashes empty.
@@ -267,6 +273,38 @@ export function openEditor(node) {
       image.hidden = false
       problem.hidden = true
     })
+  }
+
+  /**
+   * The tab follows the cursor (B3), staying put on a line outside every block;
+   * the diagram is drawn again when the source or the tab changed. A deleted
+   * block can leave `active` past the end, which falls back to the last.
+   */
+  function follow(state, docChanged) {
+    const at = diagramAt(diagrams, state.doc.lineAt(state.selection.main.head).number)
+    const next = at ? at.index : Math.min(active, diagrams.length - 1)
+    if (!docChanged && next === active) {
+      return
+    }
+    active = next
+    tabs.update(diagrams, active)
+    draw(state.doc.toString())
+  }
+
+  /** The cursor follows the tab (B4): to the end of its `@start` or `newpage` line. */
+  function showDiagram(index) {
+    const target = diagrams[index]
+    if (!view || !target) {
+      return
+    }
+    const pos = view.state.doc.line(target.from).to
+    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: 20 }) })
+    focusAfterTab()
+  }
+
+  /** Where the focus goes from an activated tab: the one place to keep it on the tab instead. */
+  function focusAfterTab() {
+    view.focus()
   }
 
   async function save() {
@@ -507,11 +545,14 @@ export function openEditor(node) {
               failure = notice = ''
               showState()
               const text = update.state.doc.toString()
-              draw(text)
-              wantProfiles(scan(text), text)
+              diagrams = scan(text)
+              wantProfiles(diagrams, text)
               if (!conflict) {
                 autosave.schedule()
               }
+            }
+            if (update.docChanged || update.selectionSet) {
+              follow(update.state, update.docChanged)
             }
           }),
         ],
@@ -522,8 +563,9 @@ export function openEditor(node) {
     showButtons()
     watcher = watchFile({ check })
     view.focus()
-    draw(content)
-    wantProfiles(scan(content), content)
+    diagrams = scan(content)
+    follow(view.state, true)
+    wantProfiles(diagrams, content)
   }, (e) => {
     console.error(`[${APP_ID}] could not open ${path}`, e)
     fail(t(APP_ID, 'Could not open the file'))

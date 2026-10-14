@@ -34,7 +34,7 @@ export function yamlLint(state) {
         from,
         to: Math.min(Math.max(from + (error.pos[1] - error.pos[0]), from + 1), at.to),
         severity: 'error',
-        message: error.message.split('\n')[0],
+        message: error.message.split('\n')[0].replace(/ at line \d+, column \d+:?$/, ''),
       })
     }
   }

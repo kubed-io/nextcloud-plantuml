@@ -123,6 +123,18 @@ describe('yaml', () => {
     expect(found.some((d) => d.from >= doc.indexOf('b: : :'))).toBe(true)
   })
 
+  it('pins the position and the plain message of each error in a block that starts below line 1', () => {
+    const doc = '@startuml\nA -> B\n@enduml\n@startyaml\nb: : :\n@endyaml\n'
+    const at = doc.indexOf('b: : :')
+    const found = yamlLint(stateOf(doc))
+
+    expect(found).toEqual([
+      { from: at + 3, to: at + 4, severity: 'error', message: 'Nested mappings are not allowed in compact mappings' },
+      { from: at + 5, to: at + 6, severity: 'error', message: 'Nested mappings are not allowed in compact mappings' },
+    ])
+    expect(found.every((d) => !d.message.includes('at line'))).toBe(true)
+  })
+
   it('reads a block that is never closed to the end of the file', () => {
     expect(yamlLint(stateOf('@startyaml\nb: : :\n')).length).toBeGreaterThan(0)
   })

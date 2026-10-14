@@ -77,6 +77,61 @@ describe('render', () => {
   })
 })
 
+describe('a mistake in the diagram', () => {
+  // Header values read off plantuml/plantuml-server 1.2026.8 for each source:
+  // it counts lines from 0 at the top of the source, blank lines and comments too.
+  const BAD = 'this is (( bad'
+  const mistaken = (line) => new Response('<svg/>', {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/svg+xml',
+      'X-PlantUML-Diagram-Error': 'Syntax Error? (Assumed diagram type: sequence)',
+      'X-PlantUML-Diagram-Error-Line': line,
+    },
+  })
+
+  beforeEach(() => vi.useFakeTimers())
+
+  it.each([
+    ['@startuml on the first line', `@startuml\nA -> B\n${BAD}\n@enduml\n`, '2'],
+    ['blank lines before @startuml', `\n\n@startuml\nA -> B\n${BAD}\n@enduml\n`, '4'],
+    ['a comment before @startuml', `' comment\n\n@startuml\nA -> B\n${BAD}\n@enduml\n`, '4'],
+    ['a block comment inside', `@startuml\n/' a\nb\n'/\nA -> B\n${BAD}\n@enduml\n`, '5'],
+  ])('is handed over with the document line it is on, with %s', async (_what, source, header) => {
+    vi.stubGlobal('fetch', vi.fn(async () => mistaken(header)))
+    const cb = vi.fn()
+
+    debouncedRender(source, cb)
+    await vi.advanceTimersByTimeAsync(300)
+
+    const [error, blob, mistake] = cb.mock.calls[0]
+    expect(error).toBeNull()
+    expect(blob.type).toBe('image/svg+xml')
+    expect(mistake.message).toBe('Syntax Error? (Assumed diagram type: sequence)')
+    expect(source.split('\n')[mistake.line - 1]).toBe(BAD)
+  })
+
+  it('is no mistake when the server names none, or no line for it', async () => {
+    const cb = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(async () => svg()))
+    debouncedRender('a', cb)
+    await vi.advanceTimersByTimeAsync(300)
+    vi.stubGlobal('fetch', vi.fn(async () => mistaken('')))
+    debouncedRender('b', cb)
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(cb.mock.calls.map((call) => call[2])).toEqual([null, null])
+  })
+
+  it('still resolves render() with the image alone', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => mistaken('2')))
+
+    const blob = await render('@startuml\n@enduml\n')
+
+    expect(blob).toBeInstanceOf(Blob)
+  })
+})
+
 describe('debouncedRender', () => {
   beforeEach(() => vi.useFakeTimers())
 

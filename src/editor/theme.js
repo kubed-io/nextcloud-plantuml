@@ -32,6 +32,11 @@ export const highlightStyle = HighlightStyle.define([
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */
 const tint = (percent) => `color-mix(in srgb, var(--color-main-text) ${percent}%, transparent)`
 
+/** One colour per diagnostic severity; a hint is drawn as info. */
+const ERROR = 'var(--color-element-error, var(--color-error))'
+const WARNING = 'var(--color-element-warning, var(--color-warning))'
+const INFO = 'var(--color-element-info, var(--color-info))'
+
 /**
  * Over CodeMirror's base theme, which assumes a white page, wherever the editor
  * shows its colours; and over core's input and button rules, which reach in.
@@ -192,6 +197,65 @@ export const surfaceRules = {
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--border-radius-large)',
   },
+  '.cm-completionIcon-constant': { color: towardText('--color-element-success') },
+  '.cm-completionIcon-constant:after': { content: '"c"' },
+  '.cm-completionIcon-operator': { color: towardText('--color-element-warning') },
+  '.cm-completionIcon-operator:after': { content: '"→"' },
+
+  // Diagnostics. The stock wavy underline is an SVG with its colour baked in, so
+  // it is redrawn as a wavy text-decoration, whose colour can be a variable.
+  '.cm-lintRange, .cm-lintRange-error, .cm-lintRange-warning, .cm-lintRange-info, .cm-lintRange-hint': {
+    backgroundImage: 'none',
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'wavy',
+    textDecorationSkipInk: 'none',
+  },
+  '.cm-lintRange-error': { textDecorationColor: ERROR },
+  '.cm-lintRange-warning': { textDecorationColor: WARNING },
+  '.cm-lintRange-info, .cm-lintRange-hint': { textDecorationColor: INFO },
+  '.cm-lintRange-active': { backgroundColor: tint(12) },
+  // A mistake on an empty line is a caret under it.
+  '.cm-lintPoint:after': { borderBottomColor: ERROR },
+  '.cm-lintPoint-warning:after': { borderBottomColor: WARNING },
+  '.cm-lintPoint-info:after, .cm-lintPoint-hint:after': { borderBottomColor: INFO },
+  // The gutter marks keep the stock shapes (circle, triangle, square), filled
+  // by the severity's colour instead of the base theme's SVG.
+  '.cm-lint-marker': { content: 'normal', width: '0.8em', height: '0.8em', margin: '0.1em' },
+  '.cm-lint-marker-error': { backgroundColor: ERROR, borderRadius: '50%' },
+  '.cm-lint-marker-warning': { backgroundColor: WARNING, clipPath: 'polygon(50% 5%, 100% 95%, 0 95%)' },
+  '.cm-lint-marker-info, .cm-lint-marker-hint': { backgroundColor: INFO, borderRadius: '2px' },
+  // The tooltip is the popover above; each message is edged in its colour.
+  '.cm-tooltip-lint': { padding: '4px 0' },
+  '.cm-diagnostic': { padding: '2px 8px' },
+  '.cm-diagnostic-error': { borderLeftColor: ERROR },
+  '.cm-diagnostic-warning': { borderLeftColor: WARNING },
+  '.cm-diagnostic-info, .cm-diagnostic-hint': { borderLeftColor: INFO },
+  '& .cm-diagnosticAction, & .cm-diagnosticAction:active': {
+    minHeight: '0',
+    margin: '0 0 0 8px',
+    padding: '2px 10px',
+    color: 'var(--color-primary-element-light-text)',
+    backgroundColor: 'var(--color-primary-element-light)',
+    border: 'none',
+    borderRadius: 'var(--border-radius-element, var(--border-radius-large))',
+    fontWeight: 'bold',
+  },
+  '& .cm-diagnosticAction:hover': { backgroundColor: 'var(--color-primary-element-light-hover)' },
+  // The diagnostics panel (Ctrl/Cmd+Shift+M), below the source.
+  '.cm-panels.cm-panels-bottom': { borderTop: '1px solid var(--color-border)' },
+  '& .cm-panel.cm-panel-lint ul [aria-selected], & .cm-panel.cm-panel-lint ul:focus [aria-selected]': {
+    color: 'var(--color-primary-element-light-text)',
+    backgroundColor: 'var(--color-primary-element-light)',
+  },
+  '& .cm-panel.cm-panel-lint [name=close]': {
+    minHeight: '0',
+    padding: '0 8px',
+    color: 'var(--color-text-maxcontrast)',
+    backgroundColor: 'transparent',
+    border: 'none',
+    fontSize: '20px',
+  },
+  '& .cm-panel.cm-panel-lint [name=close]:hover': { color: 'var(--color-main-text)' },
 }
 
 export const plantumlTheme = [EditorView.theme(surfaceRules), syntaxHighlighting(highlightStyle)]

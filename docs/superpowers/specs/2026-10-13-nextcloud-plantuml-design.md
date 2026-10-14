@@ -297,7 +297,9 @@ Four pages, one per surface, drawn on 2026-10-13 against Nextcloud 34's light th
 (50px primary header, 300px navigation, 44px controls, 8px element radius and pill
 buttons, Noto Sans); the Editor page and the + New menu were redrawn on 2026-10-14 to
 match what ships (#23). Each page has its own prototype flow; links change state within a
-page and never cross one. A fifth page, Components, holds the library and no board.
+page and never cross one. A fifth page, Components, holds the library: five `library / …`
+boards (icons, controls, navigation and files, admin, editor) that hold the component mains
+and are not screens.
 
 | Page | Boards | What the click does |
 |---|---|---|
@@ -309,19 +311,24 @@ page and never cross one. A fifth page, Components, holds the library and no boa
 Copy on the admin card: section title "PlantUML", subtitle "Point to your PlantUML server",
 field label "Server URL", button "Test connection". Nothing else.
 
-Every board is built from library components, and every colour, radius and spacing is a
-token (2026-10-14). Colour tokens carry the names of the Nextcloud variables they stand for
-(`color-main-text`, `color-primary-element-light`, …) in a `Light` and a `Dark` theme; the
-dark board binds pinned `dark.*` tokens so it stays dark whichever theme is active, and the
-PlantUML drawing has its own `plantuml.*` tokens because it is the server's picture, not
-the theme's. The components are on the Components page as `Name / Property=Value`: the
-icons, `icon-button` (Default, Hover, Pressed, Focus), `source-toggle`, `save-indicator`
-(Unsaved, Saving, Saved), `tab` (Active, Inactive), `tab-strip`, `editor-bar`,
-`fold-placeholder`, `navigation-item`, `files-row`, `menu-item`, `menu-separator`,
-`button`, `text-field` and `health-check`. Two older mains stay where they were drawn:
-`header` (Admin board) and `order-flow`, the rendered diagram (the editor's right pane),
-drawn from shapes in PlantUML's default style because the Penpot backend could not fetch a
-render from any server.
+Every board is built from library components, and every fill, stroke, radius, shadow and
+flex spacing on a layer is a token (2026-10-14), with one exception: the syntax colours in
+the editor boards' `source / code` texts are per-character fills, which Penpot cannot bind
+to a token. They copy the token values. Colour tokens carry the names of the Nextcloud
+variables they stand for (`color-main-text`, `color-primary-element-light`, …) in a `Light`
+and a `Dark` theme. Switching to `Dark` flips every board except two: `editor-dark` binds
+pinned `dark.*` tokens so it stays dark whichever theme is active, and the code texts keep
+their light syntax colours. The PlantUML drawing has its own `plantuml.*` tokens because it
+is the server's picture, not the theme's. The components are on the Components page as
+`Name / Property=Value`: the icons, `icon-button` (Default, Hover, Pressed, Focus),
+`source-toggle` (Pressed), `save-indicator` (Unsaved, Saving, Saved), `tab` (Active,
+Inactive), `tab-strip`, `editor-bar`, `source-pane`, `splitter`, `fold-placeholder`,
+`completion-row` (Default, Selected), `checkbox`, `app-navigation` (Heading),
+`navigation-item`, `files-table-head`, `files-row`, `menu-item`, `menu-separator`, `button`
+(Primary, Secondary, PrimaryLight), `text-field` and `health-check`. Two older mains stay
+where they were drawn: `header` (Admin board) and `order-flow`, the rendered diagram (the
+editor's right pane), drawn from shapes in PlantUML's default style because the Penpot
+backend could not fetch a render from any server.
 
 Not drawn: the editor's right pane when the server is down (one line of the error
 vocabulary where the diagram would be), and the README surface, which is Text's own

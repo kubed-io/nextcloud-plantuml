@@ -1,7 +1,7 @@
 # Notes, decisions and history for this feature: ../AGENTS.md#readmerender
 
 Feature: Diagrams in a folder README
-  As someone reading a folder in the Files app
+  As someone reading a folder
   I want the README to show its diagrams drawn, not as source
   So that a folder explains itself with pictures
 

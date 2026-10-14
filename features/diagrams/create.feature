@@ -2,7 +2,7 @@
 
 Feature: Creating a diagram file
   As a Nextcloud user
-  I want to start a new diagram from the Files app
+  I want to start a new diagram in the folder I am working in
   So that a diagram begins in the folder it belongs to
 
   Background:

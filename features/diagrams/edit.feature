@@ -37,3 +37,15 @@ Feature: Editing a diagram file
     When I save my change as a copy
     Then "Diagrams/Order flow (copy).puml" holds my change
     And "Diagrams/Order flow.puml" holds their version
+
+    # ── RULE: the editor knows what the server knows ──────────────────────────
+
+  @api
+  Scenario: Asking for the server's themes
+    When I ask for the themes the server offers
+    Then I receive the themes the PlantUML server lists
+
+  @gesture
+  Scenario: A mistake in the source names its line
+    When I change the source of "Diagrams/Order flow.puml" to one with a mistake, without saving
+    Then the diagram names the line the mistake is on

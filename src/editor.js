@@ -32,6 +32,7 @@ import { fileName, setServerError } from './editor/lint/state.js'
 import { ConflictError, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { createAutosave } from './editor/autosave.js'
+import { createSplitter } from './editor/splitter.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
 import checkIcon from '../img/icons/check.svg?raw'
@@ -75,13 +76,13 @@ export function openEditor(node) {
   const bar = el('header', 'plantuml-editor__bar')
   bar.append(icon, title, status, reloadButton, copyButton, saveButton, closeButton)
 
-  const source = el('div', 'plantuml-editor__source')
+  const source = el('div', 'plantuml-editor__source', { id: 'plantuml-editor-source' })
   const image = el('img', 'plantuml-editor__image', { alt: name, hidden: '' })
   const problem = el('p', 'plantuml-editor__problem', { role: 'status', hidden: '' })
   const diagram = el('div', 'plantuml-editor__diagram')
   diagram.append(image, problem)
   const panes = el('div', 'plantuml-editor__panes')
-  panes.append(source, diagram)
+  panes.append(source, createSplitter(panes, source), diagram)
 
   const overlay = el('div', 'plantuml-editor', { role: 'dialog', 'aria-modal': 'true', 'aria-label': name })
   overlay.append(bar, panes)

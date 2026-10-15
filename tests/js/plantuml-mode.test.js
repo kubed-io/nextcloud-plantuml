@@ -1153,6 +1153,25 @@ describe('plantumlMode a diagram\'s name (H12)', () => {
     ])
   })
 
+  it('greys what the server cannot draw, comments and `!` lines included (T26)', () => {
+    expect(tokens('@startchronology x', '[A] happens on 2026-10-14', "' note", '!include a', '@endchronology')).toEqual([
+      ['@startchronology', 'keyword'], ['x', 'DiagramName'], ['[A] happens on 2026-10-14', 'Inactive'], ["' note", 'Inactive'],
+      ['!include a', 'Inactive'], ['@endchronology', 'keyword'],
+    ])
+    expect(tokens('@startjcckit(300,200)', 'data/curves = curve', '@endjcckit').slice(-3)).toEqual([
+      [')', 'paren'], ['data/curves = curve', 'Inactive'], ['@endjcckit', 'keyword'],
+    ])
+  })
+
+  it('leaves a ditaa block plain, and a def block uml (T26)', () => {
+    const names = tokens('@startditaa', '+--+   +--+', '|ab|-->|cd|', '@endditaa').map(([, name]) => name)
+    expect(names).not.toContain('LinkOperator')
+    expect(names).not.toContain('list')
+    expect(tokens('@startdef(id=a)', 'actor Bob', '@enddef').slice(-4)).toEqual([
+      [')', 'paren'], ['actor', 'keyword'], ['Bob', 'typeName'], ['@enddef', 'keyword'],
+    ])
+  })
+
   it('makes a file:// name a url too', () => {
     expect(tokens('@startuml file://out/diagram')).toEqual([['@startuml', 'keyword'], ['file://out/diagram', 'DiagramName_url']])
   })

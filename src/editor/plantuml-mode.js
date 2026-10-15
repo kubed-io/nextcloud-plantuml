@@ -263,6 +263,14 @@ export function inStyleBody(state, pos) {
   return open
 }
 
+// What the server cannot draw (1.2026.8 answers "Diagram not supported by this release") is
+// grey between its `@start` and `@end` lines; ditaa is drawn by another tool, so its lines are plain.
+const INACTIVE = new Set(['chronology', 'jcckit'])
+const PLAIN = new Set(['ditaa'])
+const grey = { inactive: true, token: (stream) => (stream.skipToEnd(), 'Inactive') }
+const plain = { token: (stream) => (stream.skipToEnd(), null) }
+const builtIn = Object.fromEntries([...INACTIVE].map((type) => [type, grey]).concat([...PLAIN].map((type) => [type, plain])))
+
 /** CodeMirror's own copy for a stream mode without copyState: the object, and any array in it. */
 const copyOf = (state) => (state && typeof state === 'object'
   ? Object.fromEntries(Object.entries(state).map(([key, value]) => [key, Array.isArray(value) ? value.slice() : value]))
@@ -284,11 +292,13 @@ function emit(stream, state, parts) {
  * by that type's stream mode. A fresh language on every call, so a profile
  * arriving swaps it in a Compartment and the document is read again.
  */
-export function plantumlLanguage(inner = {}) {
+export function plantumlLanguage(profiles = {}) {
+  // A profile's mode of the same type overrides a built-in one.
+  const inner = { ...builtIn, ...profiles }
   const modeOf = (block) => inner[block.type]
-  const style = inner.style
-  const math = inner.math
-  const latex = inner.latex
+  const style = profiles.style
+  const math = profiles.math
+  const latex = profiles.latex
   const copyIn = (mode, state) => (mode?.copyState ? mode.copyState(state) : copyOf(state))
 
   /**
@@ -470,6 +480,7 @@ export function plantumlLanguage(inner = {}) {
           }
         }
         // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
+        if (modeOf(state.inner).inactive) return innerToken(stream, state.inner)
         if (state.state === 'blockComment') return base.token(stream, state)
         if (stream.sol()) {
           const tags = styleStart(stream, state)

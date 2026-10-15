@@ -1510,6 +1510,9 @@ describe('tag attributes', () => {
     ['<font size=12 col|', ['color=']],
     ['<img src="a b.png" |', ['vspace=', 'valign=']],
     ['A -> B : <font |', ['size=', 'color=']],
+    ['A <font |', ['size=', 'color=']],
+    ['Hello <font |', ['size=', 'color=']],
+    ['Hello <&star{|', ['scale=', 'color=']],
   ])('offers the attributes not yet written (%s)', (marked, expected) => {
     const result = complete(tagAttributes, marked)
 
@@ -1525,11 +1528,11 @@ describe('tag attributes', () => {
 
   it.each([
     '<img src="a |',
+    '<img src= |',
     '<text |',
     '<b |',
     'A <|',
     'A <- B |',
-    'A <font |',
     'class A <<|',
     "' <font |",
     '!include <font |',

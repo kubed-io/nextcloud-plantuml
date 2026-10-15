@@ -7,9 +7,8 @@
  * a space, those the tag takes and has not got; the same inside the `{…}`
  * after an icon, emoji, sprite, `<img:…>` or `<qrcode:…>`. Each is inserted as
  * `name=` and opens the value's completion. Not on a `!` line, in a comment or
- * a style block, inside a quoted value, or where a connector is due.
+ * a style block, or inside a quoted value.
  */
-import { connectorTyped } from './connectors.js'
 import { reopen } from './local-files.js'
 import { inStyleBody } from '../plantuml-mode.js'
 
@@ -19,7 +18,7 @@ const STYLE = ['file']
 const ICON = ['scale', 'color']
 const SCALE = ['scale']
 
-const VALUE = '(?:"[^"]*"|\'[^\']*\'|[^\\s"\'<>]*)'
+const VALUE = '(?:"[^"]*"|\'[^\']*\'|[^\\s"\'<>]+)'
 // `<name`, the attributes written (each `name=value`), a space, the name being typed.
 const TAG = new RegExp(`(?:^|[^<])<(font|img|style)((?:\\s+[\\w-]+=${VALUE})*)\\s+([\\w-]*)$`)
 // `<&icon{`, `<:emoji:{`, `<$sprite{`, `<img:path{`, `<qrcode:text{`, the keys written (each `key=value,`), the key being typed.
@@ -27,18 +26,18 @@ const BRACE = /<(?:#\w+)?(&[-\w]+|:[^:\s<>]+:|\$[\w-]+|img:[^>{}]+|qrcode:[^>{}]
 
 const TAKEN = /([\w-]+)=/g
 
-/** The open tag at the end of `lead`: where its `<` is, the attributes it takes, those written and the part typed; or null. */
+/** The open tag at the end of `lead`: the attributes it takes, those written and the part typed; or null. */
 function openTag(lead) {
   const tag = TAG.exec(lead)
   if (tag) {
     const at = tag.index + tag[0].indexOf('<')
     return tag[1] === 'style' && lead.slice(0, at).trim() !== ''
       ? null
-      : { at, names: { font: FONT, img: IMG, style: STYLE }[tag[1]], written: tag[2], typed: tag[3] }
+      : { names: { font: FONT, img: IMG, style: STYLE }[tag[1]], written: tag[2], typed: tag[3] }
   }
   const brace = BRACE.exec(lead)
   if (brace) {
-    return { at: brace.index, names: /^(?:img|qrcode):/.test(brace[1]) ? SCALE : ICON, written: brace[2], typed: brace[3] }
+    return { names: /^(?:img|qrcode):/.test(brace[1]) ? SCALE : ICON, written: brace[2], typed: brace[3] }
   }
   return null
 }
@@ -51,7 +50,7 @@ export function tagAttributes(context) {
     return null
   }
   const open = openTag(before)
-  if (!open || connectorTyped(before.slice(0, open.at)) !== null) {
+  if (!open) {
     return null
   }
   const written = new Set([...open.written.matchAll(TAKEN)].map((m) => m[1]))

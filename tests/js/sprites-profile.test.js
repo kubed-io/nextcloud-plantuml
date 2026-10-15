@@ -57,6 +57,13 @@ describe('the sprites profile', () => {
     ])
   })
 
+  it('keeps a payload whole, whatever it begins with', () => {
+    for (const payload of ['xTLabc', '40abc', '/abc', '12ab34', 'zz']) {
+      expect(spriteTokens(`sprite $c [16x16/16z] ${payload}`).slice(-1)).toEqual([[payload, 'SpriteData']])
+      expect(umlTokens(`sprite $c [16x16/16z] ${payload}`).slice(-1)).toEqual([[payload, 'SpriteData']])
+    }
+  })
+
   it('names a colour sprite: color a keyword', () => {
     expect(spriteTokens('sprite $s [2x1/color] GHab').slice(-3)).toEqual([['color', 'keyword'], [']', 'punctuation'], ['GHab', 'SpriteData']])
   })
@@ -109,6 +116,18 @@ describe('a sprite in a uml block', () => {
 
   it('reads a multi-line svg sprite down to </svg>, then uml again', () => {
     expect(umlTokens('sprite foo <svg viewBox="0 0 8 8">', '<path d="M1 0l-1 1"/>', '</svg>', 'A -> B').slice(-3)).toEqual([['/>', 'tagName'], ['</svg>', 'tagName'], ['->', 'operator']])
+  })
+
+  it('greys the rows of an unclosed sprite to the end of the block and reads the next block as ever', () => {
+    const doc = Text.of(['@startuml', 'sprite $a {', 'FF', '@enduml', '@startuml', 'A -> B', '@enduml'])
+    const out = []
+    plantumlLanguage({}).parser.parse(doc.toString()).iterate({ enter(n) { if (!n.type.isTop) out.push([doc.sliceString(n.from, n.to), n.type.name]) } })
+    expect(out.slice(4, 6)).toEqual([['FF', 'SpriteData'], ['@enduml', 'keyword']])
+    expect(out.slice(-3)).toEqual([['@startuml', 'keyword'], ['->', 'operator'], ['@enduml', 'keyword']])
+  })
+
+  it('leaves a package brace alone', () => {
+    expect(umlTokens('package X {', 'A -> B', '}')).toEqual([['package', 'keyword'], ['->', 'operator']])
   })
 
   it('names listsprites a keyword', () => {

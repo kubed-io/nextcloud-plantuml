@@ -6,7 +6,9 @@
  * a `sprite` definition or `listsprites`; any other (a title, a skinparam) is
  * plain. A definition's `[WxH/16z]` size, `{` rows `}`, payload and inline
  * `<svg>` are read as the PlantUML mode reads them in a uml block: a profile
- * imports no core module, so the rules are written out again here.
+ * imports no core module, so the rules are written out again here: keep them
+ * in step with the `spriteHead`, `spriteRows` and `spriteSvg` states of
+ * `../plantuml-mode.js`.
  */
 const ATTRIBUTE = /[\w:-]+(?=\s*=)/
 
@@ -39,6 +41,8 @@ const mode = {
       return 'VariableName'
     case 'head':
       return head(stream, state)
+    case 'size':
+      return size(stream, state)
     case 'rows':
       if (stream.match(/\}/)) {
         state.phase = 'top'
@@ -58,17 +62,10 @@ const mode = {
 
 /** The rest of a header: size, `{`, `<svg`, `data:…,` and a payload. */
 function head(stream, state) {
+  // A whole `[WxH/N(z)]` or `[WxH/color]` is the size, as in the core; inside it `size` lexes the parts.
   if (stream.match(/\[(?=\d+x\d+\/(?:\d+z?|color)\])/)) {
+    state.phase = 'size'
     return 'punctuation'
-  }
-  if (stream.match(/\d+/)) {
-    return 'number'
-  }
-  if (stream.match(/[x/\]]/)) {
-    return 'punctuation'
-  }
-  if (stream.match(/(?:z|color)(?=\])/)) {
-    return 'keyword'
   }
   if (stream.match(/\{(?=\s*$)/)) {
     state.phase = 'rows'
@@ -83,6 +80,22 @@ function head(stream, state) {
   }
   stream.match(/\S+/)
   return 'SpriteData'
+}
+
+/** The inside of a size, up to its `]`. */
+function size(stream, state) {
+  if (stream.match(/\d+/)) {
+    return 'number'
+  }
+  if (stream.match(/(?:z|color)(?=\])/)) {
+    return 'keyword'
+  }
+  if (stream.match(']')) {
+    state.phase = 'head'
+    return 'punctuation'
+  }
+  stream.next()
+  return 'punctuation'
 }
 
 /** A tag's parts: its name and `>` tags, an attribute's name an attribute, a value a string. */

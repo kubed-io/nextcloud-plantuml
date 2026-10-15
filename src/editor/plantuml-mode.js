@@ -279,6 +279,8 @@ const base = simpleMode({
     { regex: /,/, token: 'punctuation' },
     ...attributes(/(?=[\s,}>]|$)/.source),
   ],
+  // The sprite states are written out again in profiles/sprites.js (a profile imports no core
+  // module): change one, change the other.
   // The rest of a sprite's header: its size, then a `{` that ends the line and opens
   // the rows, or a payload, or an svg. Ends with its line, see `nextLine`.
   spriteHead: [

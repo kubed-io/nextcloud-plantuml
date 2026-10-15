@@ -5,7 +5,7 @@
  * Reads a document into its diagrams: one per `@start…` block, one per
  * `newpage` page of a uml block, in PlantUML's own order. Pure, no editor.
  */
-const START = /^\s*@start(\w+)(?:\(id=([^)]*)\)|\s+(.*?))?\s*$/
+const START = /^\s*@start(\w+)(?:\((?:id=([^)]*)|[^)]*)\)|\s+(.*?))?\s*$/
 const END = /^\s*@end\w*\s*$/
 const NEWPAGE = /^\s*newpage(?:\s.*)?$/
 

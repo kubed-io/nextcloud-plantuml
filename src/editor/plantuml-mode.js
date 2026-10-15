@@ -183,7 +183,7 @@ const base = simpleMode({
     atLineStart(/!.*/.source, 'meta'),
     atLineStart(/@startcreole\b/.source, 'keyword', { next: 'creoleHead' }),
     atLineStart(/@startfiles\b/.source, 'keyword', { next: 'filesHead' }),
-    atLineStart(/@(?:end|start)uml\b/.source, 'keyword'),
+    atLineStart(/@(?:end|start)\w+\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
     // A note's text follows a colon on its own line, or else fills the lines
     // down to `end note`. A quoted note (`note "x" as N`) is neither.

@@ -33,6 +33,12 @@ describe('plantumlMode', () => {
     expect(tokens('@startuml', '@enduml')).toEqual([['@startuml', 'keyword'], ['@enduml', 'keyword']])
   })
 
+  it('names every @start<type> and @end<type> line as a keyword and leaves its arguments plain', () => {
+    expect(tokens('@startsalt login', '@endsalt', '@startmindmap', '@endgantt', '@startwire x')).toEqual([
+      ['@startsalt', 'keyword'], ['@endsalt', 'keyword'], ['@startmindmap', 'keyword'], ['@endgantt', 'keyword'], ['@startwire', 'keyword'],
+    ])
+  })
+
   it('names a participant declaration as a keyword and leaves the name plain', () => {
     expect(tokens('participant Shop')).toEqual([['participant', 'keyword']])
   })
@@ -584,7 +590,7 @@ describe('plantumlLanguage with an inner mode', () => {
 
   it('reads a block of a type it has no mode for as it always has', () => {
     const lines = ['@startyaml', 'fruits:', '  - "apple"', "' a note", '@endyaml', 'actor A']
-    const expected = [['"apple"', 'string'], ["' a note", 'comment'], ['actor', 'keyword']]
+    const expected = [['@startyaml', 'keyword'], ['"apple"', 'string'], ["' a note", 'comment'], ['@endyaml', 'keyword'], ['actor', 'keyword']]
     expect(tokensOf(plantumlLanguage({}), lines)).toEqual(expected)
     expect(tokensOf(plantumlLanguage({ json: whole('atom') }), lines)).toEqual(expected)
   })
@@ -627,7 +633,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['a {', 'atom'],
       ['</style>', 'tagName'],
     ])
-    expect(styled('@startstyle', 'a {', '@endstyle')).toEqual([])
+    expect(styled('@startstyle', 'a {', '@endstyle')).toEqual([['@startstyle', 'keyword'], ['@endstyle', 'keyword']])
   })
 
   it('hands the middle of a one-line block to the style mode, never its tags, at top level and in a nested mode', () => {

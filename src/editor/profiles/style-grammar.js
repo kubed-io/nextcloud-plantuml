@@ -77,7 +77,7 @@ export const styleMode = {
     if (stream.match(/^\.[^\s{},;.:]+/) || stream.match(/^:[\w-]+(?:\([^)]*\))?/)) return 'className'
     const word = stream.match(/^[A-Za-z_][\w-]*/)
     if (word) {
-      if (state.depth === 0 || /^[^;}]*\{/.test(stream.string.slice(stream.pos))) return 'tagName'
+      if (state.depth === 0 || /^[^;}]*\{/.test(stream.string.slice(stream.pos))) return 'typeName'
       state.at = 'value'
       state.property = word[0]
       return 'propertyName'

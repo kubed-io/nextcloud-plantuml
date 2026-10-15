@@ -84,7 +84,7 @@ describe('the style profile', () => {
     )).toEqual([
       ['@startuml', 'keyword'],
       ['<style>', 'tagName'],
-      ['root', 'tagName'],
+      ['root', 'typeName'],
       ['{', 'bracket'],
       ['FontSize', 'propertyName'],
       ['22', 'number'],
@@ -97,7 +97,7 @@ describe('the style profile', () => {
       ['LineColor', 'propertyName'],
       ['red', 'ColorLiteral'],
       ['}', 'bracket'],
-      ['node', 'tagName'],
+      ['node', 'typeName'],
       [':depth(1)', 'className'],
       ['{', 'bracket'],
       ["' a comment", 'comment'],
@@ -110,9 +110,9 @@ describe('the style profile', () => {
   it('tells a nested selector from a property by the brace after it, and reads declarations split by ;', () => {
     expect(tokens('<style>', 'mindmapDiagram {', '  node { FontSize 1; LineColor #ABC }', '  arrow {', '  }', '}', '</style>')).toEqual([
       ['<style>', 'tagName'],
-      ['mindmapDiagram', 'tagName'],
+      ['mindmapDiagram', 'typeName'],
       ['{', 'bracket'],
-      ['node', 'tagName'],
+      ['node', 'typeName'],
       ['{', 'bracket'],
       ['FontSize', 'propertyName'],
       ['1', 'number'],
@@ -120,7 +120,7 @@ describe('the style profile', () => {
       ['LineColor', 'propertyName'],
       ['#ABC', 'ColorLiteral'],
       ['}', 'bracket'],
-      ['arrow', 'tagName'],
+      ['arrow', 'typeName'],
       ['{', 'bracket'],
       ['}', 'bracket'],
       ['}', 'bracket'],
@@ -131,7 +131,8 @@ describe('the style profile', () => {
   // CodeMirror makes one node of two tokens of one name side by side.
   it('reads the middle of a one-line block with the style grammar', () => {
     expect(tokens('<style>note { BackgroundColor red }</style>', 'actor A')).toEqual([
-      ['<style>note', 'tagName'],
+      ['<style>', 'tagName'],
+      ['note', 'typeName'],
       ['{', 'bracket'],
       ['BackgroundColor', 'propertyName'],
       ['red', 'ColorLiteral'],
@@ -143,7 +144,7 @@ describe('the style profile', () => {
 
   it('takes a word for a colour in a property whose name ends in Color, and for a word elsewhere', () => {
     const values = tokens('<style>', 'node {', '  FontColor Navy; BackGroundColor #AliceBlue', '  FontStyle bold; LineStyle dashed', '}', '</style>')
-      .filter(([, name]) => !['tagName', 'bracket', 'propertyName', 'punctuation'].includes(name))
+      .filter(([, name]) => !['tagName', 'typeName', 'bracket', 'propertyName', 'punctuation'].includes(name))
     expect(values).toEqual([['Navy', 'ColorLiteral'], ['#AliceBlue', 'ColorLiteral'], ['bold', 'atom'], ['dashed', 'atom']])
   })
 
@@ -155,7 +156,7 @@ describe('the style profile', () => {
   })
 
   it('reads a dash pattern, 8.0;3.0 or 8-3, as one value of two numbers, not a separator', () => {
-    const named = (...lines) => tokens('<style>', 'node {', ...lines, '}', '</style>').filter(([, name]) => name !== 'tagName' && name !== 'bracket')
+    const named = (...lines) => tokens('<style>', 'node {', ...lines, '}', '</style>').filter(([, name]) => !['tagName', 'typeName', 'bracket'].includes(name))
     expect(named('  LineStyle 8.0;3.0', '  LineColor red')).toEqual([
       ['LineStyle', 'propertyName'], ['8.0', 'number'], [';', 'operator'], ['3.0', 'number'],
       ['LineColor', 'propertyName'], ['red', 'ColorLiteral'],
@@ -165,7 +166,7 @@ describe('the style profile', () => {
   })
 
   it('starts each line with no dash pattern open', () => {
-    const named = tokens('<style>', 'node {', '  LineStyle 8', '-3', '}', '</style>').filter(([, name]) => name !== 'tagName' && name !== 'bracket')
+    const named = tokens('<style>', 'node {', '  LineStyle 8', '-3', '}', '</style>').filter(([, name]) => !['tagName', 'typeName', 'bracket'].includes(name))
     expect(named).not.toContainEqual(['-', 'operator'])
   })
 
@@ -180,7 +181,7 @@ describe('the style profile', () => {
     expect(tokens('<style>', "/' node { FontSise 1 } '/", "node { /' a", "  LineColor red '/ FontSize 2 }", '</style>')).toEqual([
       ['<style>', 'tagName'],
       ["/' node { FontSise 1 } '/", 'comment'],
-      ['node', 'tagName'],
+      ['node', 'typeName'],
       ['{', 'bracket'],
       ["/' a", 'comment'],
       ["  LineColor red '/", 'comment'],

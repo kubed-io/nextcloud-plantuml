@@ -9,6 +9,7 @@ import { highlightStyle, surfaceRules } from '../../src/editor/theme.js'
 import { plantumlLanguage, underline } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import styleProfile from '../../src/editor/profiles/style.js'
+import yamlProfile from '../../src/editor/profiles/yaml.js'
 
 const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\b(?:white|black)\b/i
 
@@ -70,6 +71,63 @@ describe('the editor highlight style', () => {
         expect(value, property).not.toMatch(LITERAL)
       }
     }
+  })
+})
+
+// H11: a style block has colours of its own; nothing else may move with them.
+describe('the colours of a style block', () => {
+  const MOSS = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-success) 55%, var(--color-element-warning)) 72%, var(--color-main-text))'
+  const SLATE = 'color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))'
+  const ORANGE = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-warning) 75%, var(--color-element-error)) 75%, var(--color-main-text))'
+  const GREEN = 'color-mix(in srgb, var(--color-element-success) 75%, var(--color-main-text))'
+  const MAROON = 'color-mix(in srgb, var(--color-element-error) 75%, var(--color-main-text))'
+
+  /** The colour each word of `doc` is drawn in, found by the class the highlighter gives it. */
+  function colours(doc, profiles) {
+    const out = {}
+    const classes = new Map(highlightStyle.specs.map((spec) => [highlightStyle.style([[spec.tag].flat()[0]]), spec.color]))
+    highlightTree(plantumlLanguage(profiles).parser.parse(doc), highlightStyle, (from, to, cls) => {
+      out[doc.slice(from, to)] = classes.get(cls)
+    })
+    return out
+  }
+
+  const style = { style: styleProfile({ scan }).mode }
+  const sheet = colours('<style>\n.server mindmapDiagram {\n  node:depth(1) { BackgroundColor #FFF3B0; FontSize 14; FontStyle bold }\n  arrow { LineColor red }\n}\n</style>', style)
+
+  it('draws selectors in moss, property names in slate and every value in the string green', () => {
+    for (const word of ['mindmapDiagram', 'node', 'arrow']) {
+      expect(sheet[word], word).toBe(MOSS)
+    }
+    expect(sheet.BackgroundColor).toBe(SLATE)
+    expect(sheet.FontSize).toBe(SLATE)
+    for (const word of ['14', 'bold']) {
+      expect(sheet[word], word).toBe(GREEN)
+    }
+  })
+
+  it('draws .class and :depth(n) in the attribute orange, and a colour as a swatch value', () => {
+    expect(sheet['.server']).toBe(ORANGE)
+    expect(sheet[':depth(1)']).toBe(ORANGE)
+    expect(sheet['#FFF3B0']).toBe(GREEN)
+  })
+
+  it('keeps <style> and <b> maroon, and tag attributes the attribute orange', () => {
+    const plain = colours('@startuml\n<style>\n</style>\nA -> B : <b>x</b> <font color=red>y</font>\n@enduml', style)
+    expect(plain['<style>']).toBe(MAROON)
+    expect(plain['<b>']).toBe(MAROON)
+    expect(plain.color).toBe(ORANGE)
+  })
+
+  it('leaves a YAML block as it was: keys green, list markers the directive blue', () => {
+    const yaml = colours('@startyaml\nkey: value\n- item\n@endyaml', { yaml: yamlProfile({ scan }).mode })
+    expect(yaml.key).toBe(GREEN)
+    expect(yaml['- ']).toBe('var(--color-primary-element)')
+  })
+
+  it('keeps arrows on their own warning colour', () => {
+    const arrow = highlightStyle.specs.find((spec) => [spec.tag].flat().includes(tags.operator))
+    expect(arrow.color).toBe('color-mix(in srgb, var(--color-element-warning) 75%, var(--color-main-text))')
   })
 })
 

@@ -13,11 +13,22 @@ import yamlProfile from '../../src/editor/profiles/yaml.js'
 
 const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\b(?:white|black)\b/i
 
+/** The colour each word of `doc` is drawn in, found by the class the highlighter gives it. */
+function colours(doc, profiles) {
+  const out = {}
+  // A rule's first tag stands for it: the highlighter's class belongs to the whole rule.
+  const classes = new Map(highlightStyle.specs.map((spec) => [highlightStyle.style([[spec.tag].flat()[0]]), spec.color]))
+  highlightTree(plantumlLanguage(profiles).parser.parse(doc), highlightStyle, (from, to, cls) => {
+    out[doc.slice(from, to)] = classes.get(cls)
+  })
+  return out
+}
+
 describe('the editor highlight style', () => {
   const styled = highlightStyle.specs.flatMap((spec) => spec.tag)
 
   it('colours every token the PlantUML mode emits', () => {
-    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation]) {
+    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation, tags.variableName, tags.function(tags.variableName)]) {
       expect(styled).toContain(tag)
     }
   })
@@ -81,17 +92,6 @@ describe('the colours of a style block', () => {
   const ORANGE = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-warning) 75%, var(--color-element-error)) 75%, var(--color-main-text))'
   const GREEN = 'color-mix(in srgb, var(--color-element-success) 75%, var(--color-main-text))'
   const MAROON = 'color-mix(in srgb, var(--color-element-error) 75%, var(--color-main-text))'
-
-  /** The colour each word of `doc` is drawn in, found by the class the highlighter gives it. */
-  function colours(doc, profiles) {
-    const out = {}
-    // A rule's first tag stands for it: the highlighter's class belongs to the whole rule.
-    const classes = new Map(highlightStyle.specs.map((spec) => [highlightStyle.style([[spec.tag].flat()[0]]), spec.color]))
-    highlightTree(plantumlLanguage(profiles).parser.parse(doc), highlightStyle, (from, to, cls) => {
-      out[doc.slice(from, to)] = classes.get(cls)
-    })
-    return out
-  }
 
   const style = { style: styleProfile({ scan }).mode }
   const sheet = colours('<style>\n.server mindmapDiagram {\n  node:depth(1) { BackgroundColor #FFF3B0; FontSize 14; FontStyle bold }\n  arrow { LineColor red }\n}\n</style>', style)
@@ -163,5 +163,28 @@ describe('the editor surface', () => {
         expect(value, `${selector} ${property}`).toMatch(/var\(--[a-z-]+/)
       }
     }
+  })
+})
+
+// X7: a preprocessor line's directive keeps its bold blue; its names are coloured as editors colour them.
+describe('the colours of the preprocessor', () => {
+  const SLATE = 'color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))'
+  const OCHRE = 'color-mix(in srgb, var(--color-favorite) 55%, var(--color-text-maxcontrast))'
+  const pre = colours('!procedure $ask($to)\n  A -> $to : $ask(1)\n!endprocedure\n!if %strlen("a") > 3\n!endif', {})
+
+  it('draws variables in slate and functions, declared, called or built in, in the muted ochre', () => {
+    expect(pre.$to).toBe(SLATE)
+    expect(pre.$ask).toBe(OCHRE)
+    expect(pre['%strlen']).toBe(OCHRE)
+  })
+
+  it('keeps the directive word bold blue, strings green and numbers info blue', () => {
+    const directive = highlightStyle.specs.find((spec) => [spec.tag].flat().includes(tags.meta))
+    expect(directive.fontWeight).toBe('bold')
+    for (const word of ['!procedure', '!endprocedure', '!if', '!endif']) {
+      expect(pre[word], word).toBe('var(--color-primary-element)')
+    }
+    expect(pre['"a"']).toBe('color-mix(in srgb, var(--color-element-success) 75%, var(--color-main-text))')
+    expect(pre['3']).toBe('var(--color-info-text)')
   })
 })

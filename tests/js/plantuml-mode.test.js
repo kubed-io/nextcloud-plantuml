@@ -130,12 +130,69 @@ describe('plantumlMode', () => {
     ])
   })
 
-  it('names a preprocessor line as meta', () => {
-    expect(tokens('!include x.puml')).toEqual([['!include x.puml', 'meta']])
-  })
-
   it('keeps indentation out of a keyword', () => {
     expect(tokens('  note left of A')).toEqual([['note', 'keyword']])
+  })
+})
+
+// X7: the directive word is meta; variables and functions are coloured as editors colour them.
+describe('plantumlMode preprocessor', () => {
+  it('names the directive word meta, a variable a variable and its value a string', () => {
+    expect(tokens('!$app = "Nextcloud"')).toEqual([['!', 'meta'], ['$app', 'variableName'], ['=', 'punctuation'], ['"Nextcloud"', 'string']])
+  })
+
+  it('names a procedure where it is declared a function, and its parameters variables', () => {
+    expect(tokens('!procedure $ask($from, $to, $what)')).toEqual([
+      ['!procedure', 'meta'],
+      ['$ask', 'FunctionName'],
+      ['(', 'punctuation'],
+      ['$from', 'variableName'],
+      [',', 'punctuation'],
+      ['$to', 'variableName'],
+      [',', 'punctuation'],
+      ['$what', 'variableName'],
+      [')', 'punctuation'],
+    ])
+  })
+
+  it('names variables on a body line too, a label and a note included', () => {
+    expect(tokens('  $from -> $to : $what')).toEqual([['$from', 'variableName'], ['->', 'operator'], ['$to', 'variableName'], ['$what', 'variableName']])
+    expect(tokens('note over $to : sent by $from')).toEqual([['note', 'keyword'], ['$to', 'variableName'], ['$from', 'variableName']])
+    expect(tokens('note left of $to', 'by $from', 'end note')).toEqual([['note', 'keyword'], ['$to', 'variableName'], ['$from', 'variableName'], ['end note', 'keyword']])
+  })
+
+  it('names a built-in and a call functions, strings strings and numbers numbers', () => {
+    expect(tokens('!if %strlen("stdlib") > 3', '$ask(nc, db, "x")', '!endif')).toEqual([
+      ['!if', 'meta'],
+      ['%strlen', 'FunctionName'],
+      ['(', 'punctuation'],
+      ['"stdlib"', 'string'],
+      [')', 'punctuation'],
+      ['>', 'punctuation'],
+      ['3', 'number'],
+      ['$ask', 'FunctionName'],
+      ['"x"', 'string'],
+      ['!endif', 'meta'],
+    ])
+  })
+
+  it('names the <…> after an include a link, and leaves a theme\'s name and a path plain', () => {
+    expect(tokens('!include <C4/C4_Container>')).toEqual([['!include', 'meta'], ['<C4/C4_Container>', 'link']])
+    expect(tokens('  !theme sunlust')).toEqual([['!theme', 'meta']])
+    expect(tokens('!include x.puml')).toEqual([['!include', 'meta']])
+  })
+
+  it('ends with its line', () => {
+    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'variableName'], ['=', 'punctuation'], ['1', 'number'], ['actor', 'keyword']])
+  })
+
+  it('leaves a price, a sprite, a string, a link and a comment as they were', () => {
+    expect(tokens('A -> B : costs $5 or 50%')).toEqual([['->', 'operator'], ['costs $5 or 50%', 'labelName']])
+    expect(tokens('note right of A : costs $5')).toEqual([['note', 'keyword']])
+    expect(tokens('A -> B : <$foo>')).toEqual([['->', 'operator'], ['<$foo>', 'tagName']])
+    expect(tokens('participant "a $b"')).toEqual([['participant', 'keyword'], ['"a $b"', 'string']])
+    expect(tokens('A -> B : [[http://x/$y $z]]')).toEqual([['->', 'operator'], ['[[http://x/$y $z]]', 'link']])
+    expect(tokens("' $x and %f(1)")).toEqual([["' $x and %f(1)", 'comment']])
   })
 })
 
@@ -574,7 +631,7 @@ describe('plantumlLanguage with an inner mode', () => {
     expect(nested('@startyaml', "' a note", '  !include x.puml', 'a: 1', '@endyaml')).toEqual([
       ['@startyaml', 'keyword'],
       ["' a note", 'comment'],
-      ['!include x.puml', 'meta'],
+      ['!include', 'meta'],
       ['a: 1', 'atom'],
       ['@endyaml', 'keyword'],
     ])
@@ -629,7 +686,10 @@ describe('plantumlLanguage with an inner mode', () => {
     expect(styled('<style>', "' a note", '  !$x = 1', 'a {', '</style>')).toEqual([
       ['<style>', 'tagName'],
       ["' a note", 'comment'],
-      ['!$x = 1', 'meta'],
+      ['!', 'meta'],
+      ['$x', 'variableName'],
+      ['=', 'punctuation'],
+      ['1', 'number'],
       ['a {', 'atom'],
       ['</style>', 'tagName'],
     ])

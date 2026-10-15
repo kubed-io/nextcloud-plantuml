@@ -28,6 +28,8 @@ const towardText = (variable) => `color-mix(in srgb, var(${variable}) 75%, var(-
 const MOSS = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-success) 55%, var(--color-element-warning)) 72%, var(--color-main-text))'
 const SLATE = 'color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))'
 const ATTRIBUTE = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-warning) 75%, var(--color-element-error)) 75%, var(--color-main-text))'
+/** A preprocessor function's name, a muted ochre, as VS Code draws functions brown. */
+const OCHRE = 'color-mix(in srgb, var(--color-favorite) 55%, var(--color-text-maxcontrast))'
 
 /** Nextcloud names no monospace face, so the system's own. */
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
@@ -62,6 +64,9 @@ export const highlightStyle = HighlightStyle.define([
   // A style block's selectors (`node`, `arrow`) and property names (`BackgroundColor`).
   { tag: tags.typeName, color: MOSS },
   { tag: tags.propertyName, color: SLATE },
+  // The preprocessor's `$variables`, and its procedures' and built-ins' names (`$ask(`, `%strlen(`).
+  { tag: tags.variableName, color: SLATE },
+  { tag: tags.function(tags.variableName), color: OCHRE },
   // Table bars and the like recede behind the text they mark up.
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
   // A nested mode's values and names (YAML's keys are atoms). Atom would

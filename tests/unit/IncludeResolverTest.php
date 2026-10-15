@@ -187,12 +187,27 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame([], $expanded->missing);
 	}
 
-	public function testIncludesubOfAFileWithoutANameIsLeftForTheServer(): void {
-		$expanded = $this->expand("!includesub ./parts.puml\n", ['docs/parts.puml' => "!startsub ACTORS\nactor A\n!endsub\n"]);
+	// Dr K: PlantUML's own "cannot include ./parts.puml" does not say what is missing.
+	public function testIncludesubOfAFileWithoutANameNamesItsSections(): void {
+		$parts = "!startsub ACTORS\nactor A\n!endsub\n!startsub LEGEND\nlegend\n!endsub\n!startsub ACTORS\nactor B\n!endsub\n";
+		$expanded = $this->expand("A -> B\n!includesub ./parts.puml\n", ['docs/parts.puml' => $parts]);
 
-		self::assertSame("!includesub ./parts.puml\n", $expanded->source);
-		self::assertSame([], $expanded->mistakes);
-		self::assertSame([], $this->asked);
+		self::assertSame("A -> B\n!includesub ./parts.puml\n", $expanded->source);
+		self::assertSame([['line' => 1, 'message' => './parts.puml needs a section name: add !ACTORS or !LEGEND']], $expanded->mistakes);
+		self::assertSame(['etag:docs/parts.puml'], $expanded->etags);
+	}
+
+	public function testIncludesubOfAFileWithoutSectionsSaysItHasNone(): void {
+		$expanded = $this->expand("!includesub parts.puml\n", ['docs/parts.puml' => "actor A\n"]);
+
+		self::assertSame([['line' => 0, 'message' => 'parts.puml needs a section name, but it has no !startsub']], $expanded->mistakes);
+	}
+
+	public function testIncludesubOfAMissingFileWithoutANameCannotFindIt(): void {
+		$expanded = $this->expand("!includesub ./nope.puml\n", []);
+
+		self::assertSame([['line' => 0, 'message' => 'Cannot find ./nope.puml']], $expanded->mistakes);
+		self::assertSame(['./nope.puml'], $expanded->missing);
 	}
 
 	public function testAStyleFileBecomesAStyleBlock(): void {

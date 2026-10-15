@@ -37,6 +37,8 @@ import { valuesFacet } from '../values/index.js'
 export const PROFILES = {
   yaml: () => import('./yaml.js'),
   style: () => import('./style.js'),
+  board: () => import('./board.js'),
+  git: () => import('./git.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

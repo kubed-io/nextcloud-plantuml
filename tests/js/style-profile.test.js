@@ -6,9 +6,8 @@
 import { describe, expect, it } from 'vitest'
 import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
-import { scan } from '../../src/editor/blocks.js'
+import { core } from './helpers/core.js'
 import styleProfile from '../../src/editor/profiles/style.js'
-import { translate } from '@nextcloud/l10n'
 
 const WORD_WRAP = `<style>
 node {
@@ -44,7 +43,7 @@ arrow {
 }
 </style>`
 
-const profile = styleProfile({ scan, t: translate })
+const profile = styleProfile(core)
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {
@@ -61,7 +60,7 @@ function tokens(...lines) {
 describe('the style profile', () => {
   it('is made from the core it is given, translator included: the style type with its mode, completion, lint and values', () => {
     expect(profile).toMatchObject({ type: 'style', completions: [expect.any(Function)], lints: [expect.any(Function)], values: [{ match: expect.any(Function) }] })
-    expect(profile.lints[0]).not.toBe(styleProfile({ scan, t: translate }).lints[0])
+    expect(profile.lints[0]).not.toBe(styleProfile(core).lints[0])
     expect(typeof profile.mode.token).toBe('function')
   })
 

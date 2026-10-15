@@ -7,8 +7,8 @@
  * plain. A definition's `[WxH/16z]` size, `{` rows `}`, payload and inline
  * `<svg>` are read as the PlantUML mode reads them in a uml block: a profile
  * imports no core module, so the rules are written out again here: keep them
- * in step with the `spriteHead`, `spriteRows` and `spriteSvg` states of
- * `../plantuml-mode.js`.
+ * in step with `spriteStates` (`spriteHead`, `spriteRows`, `spriteSvg`) in
+ * `../lexicon/rules.js`.
  */
 const ATTRIBUTE = /[\w:-]+(?=\s*=)/
 

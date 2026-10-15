@@ -7,10 +7,11 @@ import { describe, expect, it } from 'vitest'
 import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
+import { core } from './helpers/core.js'
 import { loadProfile, needed } from '../../src/editor/profiles/index.js'
 import latexProfile from '../../src/editor/profiles/latex.js'
 
-const latex = latexProfile({ scan })
+const latex = latexProfile(core)
 const language = plantumlLanguage({ latex: latex.mode })
 
 /** [text, token class] for every highlighted span of `lines`. */

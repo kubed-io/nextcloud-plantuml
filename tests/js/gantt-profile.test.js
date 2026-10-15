@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { EditorState, Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
+import { core } from './helpers/core.js'
 import { loadProfile, needed, profileExtension } from '../../src/editor/profiles/index.js'
 import { valuesOn } from '../../src/editor/values/index.js'
 import { serverColors } from '../../src/editor/completion/server-list.js'
@@ -17,13 +18,13 @@ import ganttProfile, { project as projectProfile } from '../../src/editor/profil
 import styleProfile from '../../src/editor/profiles/style.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 
-const gantt = ganttProfile({ scan })
-const project = projectProfile({ scan })
+const gantt = ganttProfile(core)
+const project = projectProfile(core)
 const language = plantumlLanguage({
   gantt: gantt.mode,
   project: project.mode,
-  yaml: yamlProfile({ scan }).mode,
-  style: styleProfile({ scan, t: (app, text) => text }).mode,
+  yaml: yamlProfile(core).mode,
+  style: styleProfile(core).mode,
 })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */

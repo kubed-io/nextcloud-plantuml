@@ -7,12 +7,13 @@ import { describe, expect, it } from 'vitest'
 import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
+import { core } from './helpers/core.js'
 import { needed } from '../../src/editor/profiles/index.js'
 import boardProfile from '../../src/editor/profiles/board.js'
 import gitProfile from '../../src/editor/profiles/git.js'
 
-const board = boardProfile({ scan })
-const git = gitProfile({ scan })
+const board = boardProfile(core)
+const git = gitProfile(core)
 const language = plantumlLanguage({ board: board.mode, git: git.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */

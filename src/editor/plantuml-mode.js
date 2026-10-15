@@ -11,12 +11,9 @@
  * `~~`, `==`), bodies of `=` and `~`, a link's label, separator lines, colours (hex,
  * named, gradients and automatic: each a `ColorLiteral`, the node the colour
  * swatches look for), and Creole in labels, notes, legends, `[ … ]`
- * descriptions and titles.
- *
- * Prism anchors several rules to the start of a line after any indentation,
- * which a stream mode cannot look back for. Those rules match at the start of
- * the line instead and capture the indentation as a group of its own, so only
- * the word is coloured.
+ * descriptions and titles. The rules other grammars share (arrows, colours,
+ * names, Creole, a body's lines, a sprite's states) are the lexicon's
+ * (`lexicon/rules.js`); the states and the regions are this module's.
  *
  * `plantumlLanguage(inner)` nests other stream modes: between `@start<type>`
  * and the next line starting `@end`, a type with a mode in `inner` is read by
@@ -28,187 +25,25 @@
  * is paths and `<note>` bodies.
  */
 import { StreamLanguage } from '@codemirror/language'
-import { simpleMode } from '@codemirror/legacy-modes/mode/simple-mode'
-import { Tag, tags } from '@lezer/highlight'
+import {
+  arrow, atLineStart, body, codeLines, colours, creole, head, hex, lines, named, names,
+  patterns, spriteStates, styledClose, styledOpen, tagStates, toColon,
+} from './lexicon/rules.js'
+import { table } from './lexicon/table.js'
+import { tokenTable } from './lexicon/tags.js'
 
-const arrowAttr = /\[[^[\]]*\]/.source
-const arrowDirection = /(?:[drlu]|do|down|le|left|ri|right|up)/.source
-const arrowBody = `(?:-+${arrowDirection}-+|\\.+${arrowDirection}\\.+|-+(?:${arrowAttr}-*)?|${arrowAttr}-+|\\.+(?:${arrowAttr}\\.*)?|${arrowAttr}\\.+|=+|~+)`
-// A line without a head: two or more of one stroke, or a placed or styled one.
-const headless = `(?:-{2,}|\\.{2,}|={2,}|~{2,}|-+${arrowDirection}-+|\\.+${arrowDirection}\\.+|-+${arrowAttr}-+|\\.+${arrowAttr}\\.+)`
-const arrowLeft = /(?:<{1,2}|\/{1,2}|\\{1,2}|<\||[#*^+}xo])/.source
-const arrowRight = /(?:>{1,2}|\/{1,2}|\\{1,2}|\|>|[#*^+{xo])/.source
-const arrowPrefix = /[[?]?[ox]?/.source
-const arrowSuffix = /[ox]?[\]?]?/.source
-// Prism's lookbehind is dropped: words are consumed whole below, so an arrow
-// is only ever tried where a token starts. An o or x head must not run into a
-// word, or `.org` in a URL would be a dotted arrow with an o head.
-const arrowEnd = /(?![-.=~<>?|\\\]ox])(?:(?<=[ox])(?!\w)|(?<![ox]))/.source
-export const arrow = new RegExp(`${arrowPrefix}(?:${arrowBody}${arrowRight}|${arrowLeft}${arrowBody}(?:${arrowRight})?|${headless})${arrowSuffix}${arrowEnd}`)
+// The rule and tags importers took from here before the lexicon held them.
+export { arrow }
+export { spriteData, underline, variable } from './lexicon/tags.js'
 
-// A styled link (`-[#FF6F61,bold]->`) is the same shape with the bracket made
-// compulsory. It is read in pieces, so a colour in it is a node of its own.
-const styledBody = `(?:-+${arrowAttr}-*|${arrowAttr}-+|\\.+${arrowAttr}\\.*|${arrowAttr}\\.+)`
-const styledHeadless = `(?:-+${arrowAttr}-+|\\.+${arrowAttr}\\.+)`
-const styled = `${arrowPrefix}(?:${styledBody}${arrowRight}|${arrowLeft}${styledBody}(?:${arrowRight})?|${styledHeadless})${arrowSuffix}${arrowEnd}`
-const styledOpen = new RegExp(`(?=${styled})${arrowPrefix}(?:${arrowLeft})?(?:-+|\\.+)?\\[`)
-const styledClose = new RegExp(`\\](?:-+|\\.+)?(?:${arrowRight})?${arrowSuffix}${arrowEnd}`)
-
-// #RGB, #RGBA, #RRGGBB or #RRGGBBAA.
-const hexDigits = /(?:[\dA-Fa-f]{8}|[\dA-Fa-f]{6}|[\dA-Fa-f]{3,4})(?!\w)/.source
-const hex = new RegExp(`#${hexDigits}`)
-// A colour's name is a word, never all hex digits (`#ABCDE` is a broken hex);
-// a style part (`#line:red`, `#line.dashed`) is a word with `:` or `.` after it.
-const colourName = /(?![\dA-Fa-f]+(?!\w))[A-Za-z]\w*/.source
-const colourPart = `(?:${hexDigits}|${colourName})`
-const notStylePart = /(?![\w.:])/.source
-const named = new RegExp(`#${colourName}${notStylePart}`)
-
-/**
- * Colours where one goes: gradients (`#Red/Yellow`, `|`, `-`, `\`, the second
- * part without its `#`), the automatic text colour (`#?black:white`), a hex
- * and a name; each part a `ColorLiteral`.
- */
-const colours = [
-  { regex: new RegExp(`(#${colourPart})([/|\\\\-])(${colourPart})${notStylePart}`), token: ['ColorLiteral', 'punctuation', 'ColorLiteral'] },
-  { regex: new RegExp(`(#\\?)(${colourPart})(:)(${colourPart})${notStylePart}`), token: ['punctuation', 'ColorLiteral', 'punctuation', 'ColorLiteral'] },
-  { regex: hex, token: 'ColorLiteral' },
-  { regex: named, token: 'ColorLiteral' },
-]
+const { colourPart, notStylePart } = patterns
 
 // `== Section ==`, and a delay: `...` alone or `... 5 minutes later ...`.
 const separator = /={2,}[^=].*?={2,}\s*$|\.{3,}(?:.*?\.{3,})?\s*$/.source
 
 const lineKeywords = /abstract\s+class|end\s+(?:box|fork|group|merge|note|ref|split|title)|(?:fork|split)(?:\s+again)?|activate|actor|agent|alt|annotation|artifact|autoactivate|autonumber|backward|binary|boundary|box|break|caption|card|case|circle|class|clock|cloud|collections|component|concise|control|create|critical|database|deactivate|destroy|detach|diamond|else|elseif|end|end[hr]note|endif|endswitch|endwhile|entity|enum|file|folder|footer|frame|group|[hr]?note|header|hexagon|hide|if|interface|label|legend|loop|map|namespace|network|newpage|node|nwdiag|object|opt|package|page|par|participant|person|queue|rectangle|ref|remove|repeat|restore|return|robust|scale|set|show|skinparam|stack|start|state|stop|storage|switch|title|together|usecase|usecase\/|while/.source
 
-/** A rule for the start of a line: indentation plain, the rest as `token`. */
-const atLineStart = (pattern, token, extra = {}) => ({
-  regex: new RegExp(`([ \\t]*)(${pattern})`),
-  sol: true,
-  token: [null, token],
-  ...extra,
-})
-
-/**
- * The preprocessor's names, on any line (X7): a function's name before its `(`, where it is
- * declared or called (`$ask(`) and a built-in (`%strlen(`), and a variable. `$5` is a price.
- */
-const names = [
-  { regex: /[$%][A-Za-z_]\w*(?=\()/, token: 'FunctionName' },
-  { regex: /\$[A-Za-z_]\w*/, token: 'VariableName' },
-]
-
-/** PlantUML's `__underline__`, which no tag in @lezer/highlight names. */
-export const underline = Tag.define()
-
-/** A sprite's pixel rows and payloads: data, which no other tag names. */
-export const spriteData = Tag.define()
-
-/** A preprocessor variable: its own tag, so a nested mode's `variable` (YAML's `&anchor`) keeps its colour. */
-export const variable = Tag.define(tags.variableName)
-
-/**
- * Creole, in any text. Runs of plain text are `base`, and so are bold, italic,
- * monospace and underline, as modifiers on it. `--strike--` and `~~wave~~` are
- * Creole too, but are left as text: they read as the links `--` and `~~`.
- */
-function creole(base) {
-  const on = (style) => (base ? `${style} ${base}` : style)
-  return [
-    { regex: /\[\[[^\]]*\]\]/, token: 'link' },
-    // `~~` is a wave, left as text; `~` before any other character escapes it.
-    { regex: /~~/, token: base },
-    { regex: /(~)([^~])/, token: ['punctuation', base] },
-    // A URL's `//` starts no italics.
-    { regex: /[a-z][\w+.-]*:\/\/[^\s\]]*/i, token: base },
-    { regex: /\*\*.+?\*\*/, token: on('strong') },
-    { regex: /\/\/.+?\/\//, token: on('emphasis') },
-    { regex: /"".+?""/, token: on('monospace') },
-    { regex: /__.+?__/, token: on('underline') },
-    // An inline formula, PlantUML's `<math>(.+?)</math>` on one line: its middle is the
-    // state `math`'s, see `inlineMiddle`.
-    { regex: /<math>(?=.+?<\/math>)/, token: 'tagName', push: 'math' },
-    { regex: /<latex>(?=.+?<\/latex>)/, token: 'tagName', push: 'latex' },
-    // A tag's parts (H10): its name and `>` are tags, `:`, `{`, `,` and `}` punctuation, an
-    // attribute's name an attribute and its value a string, or a colour.
-    { regex: new RegExp(`(<(?:color|back|u|s|w))(:)(#?${colourPart})(>)`), token: ['tagName', 'punctuation', 'ColorLiteral', 'tagName'] },
-    { regex: /(<(?:size|color|back|font|u|s|w|space|img|qrcode))(:)([^>{}]+)(>)/, token: ['tagName', 'punctuation', 'string', 'tagName'] },
-    { regex: /(<(?:img|qrcode))(:)([^>{}]+)(\{)/, token: ['tagName', 'punctuation', 'string', 'punctuation'], push: 'tagBraces' },
-    { regex: /(<&[^>\s{}]+|<:[^>\s{}]+:|<\$[^>\s{}]+)(\{)/, token: ['tagName', 'punctuation'], push: 'tagBraces' },
-    { regex: /<(?:font|img|text)(?=\s)/, token: 'tagName', push: 'tagAttrs' },
-    // A table row or cell colour (`<#lightblue,#red>`) and a coloured emoji (`<#green:sunny:>`).
-    { regex: new RegExp(`(<)(#${colourPart})(?:(,)(#${colourPart}))?(:[^>\\s]+:)?(>)`), token: ['tagName', 'ColorLiteral', 'tagName', 'ColorLiteral', 'tagName', 'tagName'] },
-    { regex: /<\/?(?:b|i|u|s|w|r|code|plain|sub|sup|size|font|color|back)(?:[:\s][^>]*)?>/, token: 'tagName' },
-    // An OpenIconic icon, an emoji, an image, a Unicode character.
-    { regex: /<(?:&[^>\s]+|:[^>\s]+:|\$[^>\s]+|U\+[\dA-Fa-f]+)>|&#(?:\d+|x[\dA-Fa-f]+);/, token: 'tagName' },
-    ...names,
-    { regex: /\|=?/, token: 'punctuation' },
-    { regex: /\w+|[^\w[*/"<|~&$%]+/, token: base },
-    { regex: /./, token: base },
-  ]
-}
-
-/** The pieces of `name=value`, as they stand in a tag; `end` is what may follow a value. */
-const attributes = (end) => [
-  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(#?${colourPart})${end}`), token: ['attributeName', null, 'punctuation', null, 'ColorLiteral'] },
-  // A quoted colour keeps its swatch (C6), its quotes a string.
-  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(["'])(#?${colourPart})(\\5)`), token: ['attributeName', null, 'punctuation', null, 'string', 'ColorLiteral', 'string'] },
-  { regex: /[\w-]+(?=\s*=)/, token: 'attributeName' },
-  { regex: /=/, token: 'punctuation' },
-  { regex: /"[^"]*"|'[^']*'/, token: 'string' },
-  { regex: /[^\s>"',}]+/, token: 'string' },
-  { regex: /./, token: null },
-]
-
-/**
- * What Creole reads at the start of a line in a body, not in a one-line label (where a `#` is
- * a colour): rules, headings, list items and tree lines; `<code>` opens the state `code`.
- */
-const lines = (code) => [
-  atLineStart(/(?:-{4,}|\.{4,}|={4,}|_{4,})(?=\s*$)/.source, 'heading'),
-  // No group in these: a rule's groups are its tokens.
-  atLineStart(/(?:\.\..+\.\.|==.+==|--.+--)\s*$/.source, 'heading'),
-  atLineStart(/={1,3}[ \t].*/.source, 'heading'),
-  atLineStart(/(?:\*{1,2}|#{1,2})(?=[ \t])/.source, 'punctuation'),
-  atLineStart(/\|_/.source, 'punctuation'),
-  atLineStart(/<code>(?=\s*$)/.source, 'tagName', { next: code }),
-  // A formula over several lines: exactly `<latex>`, down to a line that is exactly `</latex>`.
-  { regex: /<latex>$/, sol: true, token: 'tagName', push: 'latexBlock' },
-]
-
-/** The lines of a `<code>` block: monospace down to `</code>`, or to the end of the body. */
-const codeLines = (closer, back) => [
-  atLineStart(/<\/code>(?=\s*$)/.source, 'tagName', { next: back }),
-  ...(closer ? [atLineStart(closer, 'keyword', { next: 'start' })] : []),
-  { regex: /.+/, token: 'monospace' },
-]
-
-/** Creole on the lines down to `closer`, and the state `key`Code for its `<code>` blocks. */
-const body = (key, closer, token = 'keyword') => ({
-  [key]: [
-    atLineStart(closer, token, { next: 'start' }),
-    ...lines(`${key}Code`),
-    ...creole(null),
-  ],
-  [`${key}Code`]: codeLines(closer, key),
-})
-
-/** The rest of a line whose text starts on the next one: `note left of A #pink`. */
-const head = [
-  ...colours,
-  ...names,
-  { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
-  { regex: /\w+/, token: null },
-]
-
-/** The rest of a line up to the colon that starts its text, read by the state `next`. */
-const toColon = (next) => [
-  { regex: /\s*:\s*/, token: null, next },
-  ...names,
-  { regex: /[^:$%]+/, token: null },
-]
-
-const base = simpleMode({
+const states = {
   start: [
     atLineStart(/\/'.*?'\//.source, 'comment'),
     atLineStart(/\/'.*/.source, 'comment', { next: 'blockComment' }),
@@ -273,50 +108,10 @@ const base = simpleMode({
   // colon starts its text.
   afterLink: toColon('label'),
   noteLine: toColon('text'),
-  // A tag's attributes (`<font size=12 color=red>`), and an icon's (`<&star{scale=2}>`): both
-  // end with their line, see `tagStates`.
-  tagAttrs: [
-    { regex: /\s+/, token: null },
-    { regex: /\/?>/, token: 'tagName', pop: true },
-    ...attributes(/(?=\s|\/?>|$)/.source),
-  ],
-  tagBraces: [
-    { regex: /\s+/, token: null },
-    { regex: /(\})(>)/, token: ['punctuation', 'tagName'], pop: true },
-    { regex: /\}/, token: 'punctuation', pop: true },
-    { regex: /,/, token: 'punctuation' },
-    ...attributes(/(?=[\s,}>]|$)/.source),
-  ],
-  // The sprite states are written out again in profiles/sprites.js (a profile imports no core
-  // module): change one, change the other.
-  // The rest of a sprite's header: its size, then a `{` that ends the line and opens
-  // the rows, or a payload, or an svg. Ends with its line, see `nextLine`.
-  spriteHead: [
-    { regex: /\s+/, token: null },
-    { regex: /(\[)(\d+)(x)(\d+)(\/)(\d+)(z)?(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'number', 'keyword', 'punctuation'] },
-    { regex: /(\[)(\d+)(x)(\d+)(\/)(color)(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'keyword', 'punctuation'] },
-    { regex: /\{(?=\s*$)/, token: 'punctuation', next: 'spriteRows' },
-    { regex: /<svg(?=[\s>])/, token: 'tagName', next: 'spriteSvg' },
-    { regex: /data:[^,\s]*,/, token: 'attributeName' },
-    { regex: /\S+/, token: 'SpriteData' },
-  ],
-  // Pixel rows are data, down to the closing `}` or `end sprite`.
-  spriteRows: [
-    atLineStart(/\}/.source, 'punctuation', { next: 'start' }),
-    atLineStart(/end[ \t]*sprite\b/.source, 'keyword', { next: 'start' }),
-    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
-    atLineStart(/'.*/.source, 'comment'),
-    { regex: /\s+/, token: null },
-    { regex: /\S+/, token: 'SpriteData' },
-  ],
-  // An svg sprite, down to the line that ends with `</svg>`.
-  spriteSvg: [
-    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
-    { regex: /\s+/, token: null },
-    { regex: /<\/svg>/, token: 'tagName', next: 'start' },
-    { regex: /<\/?[\w:-]+|\/?>/, token: 'tagName' },
-    ...attributes(/(?=\s|\/?>|$)/.source),
-  ],
+  // A tag's attributes and an icon's: both end with their line, see `base`.
+  ...tagStates,
+  // A sprite's header, pixel rows and svg. Its header ends with its line, see `nextLine`.
+  ...spriteStates,
   label: creole('labelName'),
   text: creole(null),
   // Read by the language's token (`inlineMiddle`, `latexBody`); simple-mode wants the state to exist.
@@ -356,13 +151,13 @@ const base = simpleMode({
     // `'` starts a comment, so it is never paired.
     closeBrackets: { brackets: ['(', '[', '{', '"'] },
   },
-})
+}
 
 // The states that end with their line, and the state the next line starts in.
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
-const tagStates = ['tagAttrs', 'tagBraces']
 const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
+const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a
@@ -619,10 +414,8 @@ export function plantumlLanguage(inner = {}) {
         }
         return innerToken(stream, state.inner)
       }
-      if (stream.sol() && tagStates.includes(state.state)) state.state = state.stack.pop()
-      if (stream.sol() && Object.hasOwn(nextLine, state.state)) {
-        state.state = nextLine[state.state]
-      }
+      // The line's state, before its `<style>` or `@start` is looked for (see `table`).
+      if (stream.sol()) base.startLine(state)
       if (stream.sol() && state.state === 'start') {
         const tags = styleStart(stream, state)
         if (tags !== undefined) return tags
@@ -646,10 +439,8 @@ export function plantumlLanguage(inner = {}) {
       if (!state.inner) return base.indent(state, textAfter, context)
       return modeOf(state.inner).indent?.(state.inner.state, textAfter, context) ?? null
     },
-    // StreamLanguage names a node after its token, and takes the highlight from
-    // here for a name @lezer/highlight has no tag for. The legacy names an inner
-    // mode emits (`atom`, `number`, `property`, `def`, `variable-2`, …) map already.
-    tokenTable: { SpriteData: spriteData, ColorLiteral: tags.color, StyleNumber: tags.string, VariableName: variable, FunctionName: tags.function(tags.variableName), underline },
+    // The highlight of a token @lezer/highlight has no tag for (lexicon/tags.js).
+    tokenTable,
   })
 }
 

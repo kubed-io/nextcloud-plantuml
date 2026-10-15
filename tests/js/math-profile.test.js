@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { EditorState, Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
+import { core } from './helpers/core.js'
 import { loadProfile, needed, profileExtension } from '../../src/editor/profiles/index.js'
 import { valuesOn } from '../../src/editor/values/index.js'
 import { serverColors } from '../../src/editor/completion/server-list.js'
@@ -15,7 +16,7 @@ import mathProfile from '../../src/editor/profiles/math.js'
 vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
 vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ colors: { red: '#FF0000' } }), { status: 200 }))
 
-const math = mathProfile({ scan })
+const math = mathProfile(core)
 const language = plantumlLanguage({ math: math.mode })
 
 /** [text, token class] for every highlighted span of `lines`. */

@@ -115,7 +115,7 @@ describe('loadProfile', () => {
     expect(typeof first.mode.token).toBe('function')
   })
 
-  it('makes the profile from its module\'s factory, handing it the core it needs: the scan and the translator', async () => {
+  it('makes the profile from its module\'s factory, handing it the core it needs: the scan, the translator and the lexicon', async () => {
     const made = { type: 'yaml', completions: [], lints: [] }
     const factory = vi.fn(() => made)
     vi.spyOn(profiles.PROFILES, 'yaml').mockResolvedValue({ default: factory })
@@ -123,7 +123,7 @@ describe('loadProfile', () => {
     expect(await loadProfile('yaml')).toBe(made)
     expect(factory).toHaveBeenCalledTimes(1)
     const [[core]] = factory.mock.calls
-    expect(Object.keys(core)).toEqual(['scan', 't'])
+    expect(Object.keys(core)).toEqual(['scan', 't', 'lex'])
     expect(core.t).toBe(translate)
     expect(core.scan('@startyaml\na: 1\n@endyaml')[0]).toMatchObject({ type: 'yaml', start: 1, end: 3 })
   })

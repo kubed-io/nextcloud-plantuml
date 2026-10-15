@@ -6,10 +6,10 @@
 import { describe, expect, it } from 'vitest'
 import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
-import { scan } from '../../src/editor/blocks.js'
+import { core } from './helpers/core.js'
 import spritesProfile from '../../src/editor/profiles/sprites.js'
 
-const sprites = spritesProfile({ scan })
+const sprites = spritesProfile(core)
 const language = plantumlLanguage({ sprites: sprites.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */

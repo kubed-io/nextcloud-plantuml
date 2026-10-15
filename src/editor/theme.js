@@ -9,7 +9,7 @@
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { underline } from './plantuml-mode.js'
+import { underline, variable } from './plantuml-mode.js'
 
 /**
  * A status element colour pulled a quarter of the way to the text colour: the
@@ -17,6 +17,19 @@ import { underline } from './plantuml-mode.js'
  * and `*-warning-text` variables are near-white on dark, made for status chips.)
  */
 const towardText = (variable) => `color-mix(in srgb, var(${variable}) 75%, var(--color-main-text))`
+
+/**
+ * A style block's own hues, each a mix of theme variables as the rest are.
+ * Moss, a green leaning to olive, is its selectors. Slate, the primary pulled
+ * toward the text, is its property names (and a preprocessor's `$variables`).
+ * The attribute orange, warning leaning to red, is every attribute and every
+ * `.class` or `:depth(n)`; arrows keep the plain warning orange beside it.
+ */
+const MOSS = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-success) 55%, var(--color-element-warning)) 72%, var(--color-main-text))'
+const SLATE = 'color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))'
+const ATTRIBUTE = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-warning) 75%, var(--color-element-error)) 75%, var(--color-main-text))'
+/** A preprocessor function's name, a muted ochre, as VS Code draws functions brown. */
+const OCHRE = 'color-mix(in srgb, var(--color-favorite) 55%, var(--color-text-maxcontrast))'
 
 /** Nextcloud names no monospace face, so the system's own. */
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
@@ -37,7 +50,7 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.color, color: towardText('--color-element-success') },
   // `bold`, `dashed` in a styled link are part of the link; a style's
   // `.stereotype` and `:depth(n)` are part of its selector.
-  { tag: [tags.attributeName, tags.className], color: towardText('--color-element-warning') },
+  { tag: [tags.attributeName, tags.className], color: ATTRIBUTE },
   // Creole. The text styles set no colour, so they keep that of the text they sit in.
   { tag: tags.strong, fontWeight: 'bold' },
   { tag: tags.emphasis, fontStyle: 'italic' },
@@ -45,15 +58,21 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.monospace, fontFamily: MONO, backgroundColor: 'color-mix(in srgb, var(--color-main-text) 8%, transparent)' },
   { tag: underline, textDecoration: 'underline' },
   { tag: tags.link, color: towardText('--color-primary-element'), textDecoration: 'underline' },
-  // Tags (`<style …>`, `<b>`, `<&icon>`, a style's selectors) in maroon, as
+  // Tags (`<style …>`, `<b>`, `<&icon>`) in maroon, as
   // VS Code's light theme draws HTML tags: in grey they read as comments.
   { tag: tags.tagName, color: towardText('--color-element-error') },
+  // A style block's selectors (`node`, `arrow`) and property names (`BackgroundColor`).
+  { tag: tags.typeName, color: MOSS },
+  { tag: tags.propertyName, color: SLATE },
+  // The preprocessor's `$variables`, and its procedures' and built-ins' names (`$ask(`, `%strlen(`).
+  { tag: variable, color: SLATE },
+  { tag: tags.function(tags.variableName), color: OCHRE },
   // Table bars and the like recede behind the text they mark up.
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
   // A nested mode's values and names (YAML's keys are atoms). Atom would
   // otherwise inherit the keyword's bold.
   { tag: [tags.atom, tags.special(tags.variableName)], color: towardText('--color-element-success') },
-  { tag: [tags.number, tags.propertyName, tags.definition(tags.variableName)], color: 'var(--color-info-text)' },
+  { tag: [tags.number, tags.definition(tags.variableName)], color: 'var(--color-info-text)' },
 ])
 
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */

@@ -5,9 +5,10 @@
  * PlantUML for CodeMirror 6, as a simple-mode rule table. The rules are ported
  * from Prism's `plant-uml` grammar (components/prism-plant-uml.js at v1.30.0,
  * MIT, Copyright (c) 2012 Lea Verou): its comments, preprocessor lines,
- * @start/@enduml, arrows, strings and keywords. Its times, variables and
- * punctuation are left plain. Added here: headless links (`--`, `..`, `~~`,
- * `==`), bodies of `=` and `~`, a link's label, separator lines, colours (hex,
+ * @start/@enduml, arrows, strings and keywords. Its times and punctuation are
+ * left plain. Added here: a `!` line's parts, the preprocessor's names on every
+ * line (`$variable`, `$procedure(`, `%builtin(`), headless links (`--`, `..`,
+ * `~~`, `==`), bodies of `=` and `~`, a link's label, separator lines, colours (hex,
  * named, gradients and automatic: each a `ColorLiteral`, the node the colour
  * swatches look for), and Creole in labels, notes, legends, `[ … ]`
  * descriptions and titles.
@@ -86,8 +87,20 @@ const atLineStart = (pattern, token, extra = {}) => ({
   ...extra,
 })
 
+/**
+ * The preprocessor's names, on any line (X7): a function's name before its `(`, where it is
+ * declared or called (`$ask(`) and a built-in (`%strlen(`), and a variable. `$5` is a price.
+ */
+const names = [
+  { regex: /[$%][A-Za-z_]\w*(?=\()/, token: 'FunctionName' },
+  { regex: /\$[A-Za-z_]\w*/, token: 'VariableName' },
+]
+
 /** PlantUML's `__underline__`, which no tag in @lezer/highlight names. */
 export const underline = Tag.define()
+
+/** A preprocessor variable: its own tag, so a nested mode's `variable` (YAML's `&anchor`) keeps its colour. */
+export const variable = Tag.define(tags.variableName)
 
 /**
  * Creole, in any text. Runs of plain text are `base`, and so are bold, italic,
@@ -119,8 +132,9 @@ function creole(base) {
     { regex: /<\/?(?:b|i|u|s|w|r|code|plain|sub|sup|size|font|color|back)(?:[:\s][^>]*)?>/, token: 'tagName' },
     // An OpenIconic icon, an emoji, an image, a Unicode character.
     { regex: /<(?:&[^>\s]+|:[^>\s]+:|\$[^>\s]+|U\+[\dA-Fa-f]+)>|&#(?:\d+|x[\dA-Fa-f]+);/, token: 'tagName' },
+    ...names,
     { regex: /\|=?/, token: 'punctuation' },
-    { regex: /\w+|[^\w[*/"<|~&]+/, token: base },
+    { regex: /\w+|[^\w[*/"<|~&$%]+/, token: base },
     { regex: /./, token: base },
   ]
 }
@@ -171,8 +185,16 @@ const body = (key, closer, token = 'keyword') => ({
 /** The rest of a line whose text starts on the next one: `note left of A #pink`. */
 const head = [
   ...colours,
+  ...names,
   { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
   { regex: /\w+/, token: null },
+]
+
+/** The rest of a line up to the colon that starts its text, read by the state `next`. */
+const toColon = (next) => [
+  { regex: /\s*:\s*/, token: null, next },
+  ...names,
+  { regex: /[^:$%]+/, token: null },
 ]
 
 const base = simpleMode({
@@ -180,14 +202,17 @@ const base = simpleMode({
     atLineStart(/\/'.*?'\//.source, 'comment'),
     atLineStart(/\/'.*/.source, 'comment', { next: 'blockComment' }),
     atLineStart(/'.*/.source, 'comment'),
-    atLineStart(/!.*/.source, 'meta'),
+    // A `!` line: its directive word (`!procedure`, the `!` of `!$x`), then the state
+    // `preprocessor` to the line's end.
+    { regex: /([ \t]*)(!include\w*)(\s+)(<[^>\s]+>)/, sol: true, token: [null, 'meta', null, 'link'], next: 'preprocessor' },
+    atLineStart(/!\w*/.source, 'meta', { next: 'preprocessor' }),
     atLineStart(/@startcreole\b/.source, 'keyword', { next: 'creoleHead' }),
     atLineStart(/@startfiles\b/.source, 'keyword', { next: 'filesHead' }),
-    atLineStart(/@(?:end|start)uml\b/.source, 'keyword'),
+    atLineStart(/@(?:end|start)\w+\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
     // A note's text follows a colon on its own line, or else fills the lines
     // down to `end note`. A quoted note (`note "x" as N`) is neither.
-    { regex: /([ \t]*)([hr]?note\b)([^:"]*?)(\s*:\s*)/, sol: true, token: [null, 'keyword', null, null], next: 'text' },
+    atLineStart(/[hr]?note\b(?=[^:"]*:)/.source, 'keyword', { next: 'noteLine' }),
     atLineStart(/[hr]?note(?=(?:\s[^:"]*)?$)/.source, 'keyword', { next: 'noteHead' }),
     atLineStart(/legend\b/.source, 'keyword', { next: 'legendHead' }),
     ...['title', 'header', 'footer'].map((word) => atLineStart(`${word}(?=\\s*$)`, 'keyword', { next: `${word}Body` })),
@@ -195,6 +220,8 @@ const base = simpleMode({
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
+    // A sprite's name where it is declared is no variable.
+    atLineStart(/sprite\s+\$?\w+/.source, null),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     { regex: styledOpen, token: 'operator', next: 'arrowAttr' },
@@ -206,6 +233,17 @@ const base = simpleMode({
     { regex: /\[(?=\s*$)/, token: null, next: 'descBody' },
     { regex: /\b(?:elseif|equals|not|while)(?=\s*\()/, token: 'keyword' },
     { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
+    // A sprite used as an element's icon (`rectangle <$foo> as r`).
+    { regex: /<\$[^>\s]+>/, token: 'tagName' },
+    ...names,
+    { regex: /\w+/, token: null },
+  ],
+  // The rest of a `!` line; it ends with its line, see `token`.
+  preprocessor: [
+    { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+    ...names,
+    { regex: /\d+(?:\.\d+)?(?!\w)/, token: 'number' },
+    { regex: /[(),]|[=!<>?]=|&&|\|\||[=<>]/, token: 'punctuation' },
     { regex: /\w+/, token: null },
   ],
   blockComment: [
@@ -219,11 +257,10 @@ const base = simpleMode({
     { regex: named, token: 'ColorLiteral' },
     { regex: /[^,\]\s][^,\]]*/, token: 'attributeName' },
   ],
-  // The far end of a link is plain; a colon starts its label.
-  afterLink: [
-    { regex: /\s*:\s*/, token: null, next: 'label' },
-    { regex: /[^:]+/, token: null },
-  ],
+  // The far end of a link is plain but for its names; a colon starts its label. A note's
+  // colon starts its text.
+  afterLink: toColon('label'),
+  noteLine: toColon('text'),
   // A tag's attributes (`<font size=12 color=red>`), and an icon's (`<&star{scale=2}>`): both
   // end with their line, see `tagStates`.
   tagAttrs: [
@@ -279,7 +316,7 @@ const base = simpleMode({
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
 const tagStates = ['tagAttrs', 'tagBraces']
-const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
+const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a
@@ -416,6 +453,11 @@ export function plantumlLanguage(inner = {}) {
       // A rule matched at the start of a line hands back its groups one at a
       // time (`pending`), all still at the start: they belong to the state it set.
       if (state.pending) return base.token(stream, state)
+      // A `!` line is PlantUML's to its end, in a nested mode or a style block too.
+      if (state.state === 'preprocessor') {
+        if (!stream.sol()) return base.token(stream, state)
+        state.state = 'start'
+      }
       if (state.style) {
         const token = styleBody(stream, state)
         // A block left open ends at `@end`, which is then read as ever.
@@ -465,7 +507,7 @@ export function plantumlLanguage(inner = {}) {
     // StreamLanguage names a node after its token, and takes the highlight from
     // here for a name @lezer/highlight has no tag for. The legacy names an inner
     // mode emits (`atom`, `number`, `property`, `def`, `variable-2`, …) map already.
-    tokenTable: { ColorLiteral: tags.color, underline },
+    tokenTable: { ColorLiteral: tags.color, StyleNumber: tags.string, VariableName: variable, FunctionName: tags.function(tags.variableName), underline },
   })
 }
 

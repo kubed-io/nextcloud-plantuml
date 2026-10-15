@@ -993,6 +993,27 @@ describe('names', () => {
     expect(labels(complete(names, 'Shop -> Cus|'))).toContain('Shop')
   })
 
+  // C2: no element name inside an open Creole tag, wherever its value is typed.
+  it.each([
+    'Hello <font color=a|',
+    'Hello <font size=12 color=a|',
+    '<&a|',
+    '<color:a|',
+    '<img src=a|',
+  ])('offers no name inside the open tag in `%s`', (marked) => {
+    expect(complete(names, 'participant api\n' + marked)).toBeNull()
+  })
+
+  it('still offers names after an arrow, after a closed tag and after a left arrow', () => {
+    for (const marked of ['api -> b|', '<b>x</b> api -> b|', 'api <-- b|', 'A <|-- b|', 'A <.. b|', 'A <- b|', 'class A <<x>> -- b|']) {
+      // The cursor is the last character, as `A <|-- ` holds a `|` of its own.
+      const doc = 'participant api\nparticipant bee\n' + marked.slice(0, -1)
+      const state = EditorState.create({ doc, extensions: [plantumlMode, plantumlCompletion] })
+      const result = names(new CompletionContext(state, doc.length, false))
+      expect([marked, result && labels(result)]).toEqual([marked, expect.arrayContaining(['bee'])])
+    }
+  })
+
   it('offers nothing after an @ directive, inside a string, or in an arrow message', () => {
     expect(complete(names, diagram + '@start|')).toBeNull()
     expect(complete(names, diagram + 'participant "Cus|')).toBeNull()

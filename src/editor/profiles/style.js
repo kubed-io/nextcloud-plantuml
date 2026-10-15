@@ -22,7 +22,7 @@ const LISTS = {
 /** The numeric properties that cannot be negative (W2). */
 const NON_NEGATIVE = new Set(['fontsize', 'linethickness', 'padding', 'margin', 'roundcorner', 'maximumwidth', 'minimumwidth', 'width', 'markersize', 'barwidth', 'shadowing'])
 
-const VALUE_TOKENS = new Set(['number', 'atom', 'ColorLiteral', 'string'])
+const VALUE_TOKENS = new Set(['StyleNumber', 'atom', 'ColorLiteral', 'string'])
 
 /**
  * A declaration's values: each number of a value made of numbers (`Padding
@@ -32,7 +32,7 @@ const VALUE_TOKENS = new Set(['number', 'atom', 'ColorLiteral', 'string'])
 function declared({ property, end, tokens }, lineText, lineFrom) {
   const key = property.toLowerCase()
   const list = Object.hasOwn(LISTS, key) ? LISTS[key] : null
-  if (tokens.length && tokens.every(({ token }) => token === 'number')) {
+  if (tokens.length && tokens.every(({ token }) => token === 'StyleNumber')) {
     const min = NON_NEGATIVE.has(key) ? { min: 0 } : {}
     return tokens.map(({ from, to }) => ({ from: lineFrom + from, to: lineFrom + to, kind: 'number', ...min }))
   }

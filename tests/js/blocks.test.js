@@ -97,6 +97,20 @@ describe('diagramAt', () => {
   })
 })
 
+describe('scan block arguments', () => {
+  it('reads a block whose arguments are not an id, so the tabs after it stay in step', () => {
+    const [a, b] = scan('@startjcckit(300,200)\nx\n@endjcckit\n@startuml a\n@enduml')
+    expect(a).toMatchObject({ index: 0, type: 'jcckit', name: '' })
+    expect(b).toMatchObject({ index: 1, type: 'uml', name: 'a' })
+    expect(label(b)).toBe('a')
+  })
+
+  it('names a block by its id argument', () => {
+    expect(scan('@startuml(id=legend)\n@enduml')[0]).toMatchObject({ type: 'uml', name: 'legend' })
+    expect(scan('@startdef(id=actors)\n@enddef')[0]).toMatchObject({ type: 'def', name: 'actors' })
+  })
+})
+
 describe('label', () => {
   it('is the name, else the type, plus the page of a multi-page block', () => {
     const nodes = { type: 'uml', name: 'nodes', page: 2, pages: 3 }

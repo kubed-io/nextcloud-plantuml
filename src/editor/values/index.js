@@ -13,6 +13,7 @@
  * @property {'list'|'number'} kind
  * @property {() => string[] | Promise<string[]>} [options] a list's values
  * @property {number} [min] the least a number steps to
+ * @property {string} [close] what a pick adds after the label, a tag's `>` still to come
  *
  * @typedef {object} ValueEntry
  * @property {(lineText: string, state: import('@codemirror/state').EditorState, lineFrom: number) => Value[]} match
@@ -119,10 +120,12 @@ const spaceValue = {
 }
 
 // The family may hold spaces (`DejaVu Sans`), so it runs to the `>`. While the
-// tag is unclosed (`<font:Dej`) it stops at the next `<`, and there at its
-// first word's end, or at the end of the word the cursor is in, so a pick
-// keeps the text after it. None once the server is known to list no fonts, so
-// the chooser draws no pencil for nothing.
+// tag is unclosed (`<font:Dej`) the value is what is typed so far: from the
+// colon to the cursor when the cursor is at its end, to the end of the word the
+// cursor is in, at the cursor when it sits before a word; with the cursor
+// elsewhere, the first word. So a pick keeps the text after it. An unclosed value carries `close: '>'`, which a
+// pick adds. None once the server is known to list no fonts, so the chooser
+// draws no pencil for nothing.
 const FONT_FAMILY = /<font:([^<>]*)(>?)/gi
 
 const fontFamilyValue = {
@@ -134,11 +137,18 @@ const fontFamilyValue = {
     return [...lineText.matchAll(FONT_FAMILY)].map((found) => {
       const from = found.index + '<font:'.length
       let to = from + found[1].length
+      const value = { kind: 'list', options: () => serverList('fonts') }
       if (!found[2]) {
-        const word = head >= from && head <= to ? head : from
-        to = word + /^\S*/.exec(lineText.slice(word, to))[0].length
+        if (head >= from && head <= to) {
+          const before = lineText[head - 1]
+          const inWord = head > from && before !== undefined && !/\s/.test(before)
+          to = inWord ? head + /^\S*/.exec(lineText.slice(head, to))[0].length : head
+        } else {
+          to = from + /^\S*/.exec(found[1])[0].length
+        }
+        value.close = '>'
       }
-      return { from: lineFrom + from, to: lineFrom + to, kind: 'list', options: () => serverList('fonts') }
+      return { ...value, from: lineFrom + from, to: lineFrom + to }
     })
   },
 }

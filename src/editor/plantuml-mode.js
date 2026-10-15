@@ -26,8 +26,8 @@
  */
 import { StreamLanguage } from '@codemirror/language'
 import {
-  arrow, atLineStart, body, codeLines, colours, creole, head, hex, lines, named, names,
-  patterns, paths, spriteStates, startLine, stereotypeState, stereotypes, styledClose, styledOpen, tagStates, toColon,
+  argsState, arrow, atLineStart, body, calls, codeLines, colours, creole, head, hex, lines, named, names,
+  numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState, stereotypes, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
@@ -90,18 +90,18 @@ const states = {
     // A sprite used as an element's icon (`rectangle <$foo> as r`).
     { regex: /<\$[^>\s]+>/, token: 'tagName' },
     ...names,
+    ...numbers,
+    ...calls,
     { regex: /\w+/, token: null },
   ],
   stereotype: stereotypeState,
+  args: argsState,
   // The rest of a `!` line; it ends with its line, see `token`.
   preprocessor: [
     { regex: /"[^"]*"|'[^']*'/, token: 'string' },
     ...names,
     { regex: /\d+(?:\.\d+)?(?!\w)/, token: 'number' },
-    { regex: /[+\-*/]/, token: 'arithmeticOperator' },
-    { regex: /[=!]=|[<>]=?/, token: 'compareOperator' },
-    { regex: /&&|\|\|/, token: 'logicOperator' },
-    { regex: /\?=|=/, token: 'definitionOperator' },
+    ...operators,
     { regex: /[()]/, token: 'paren' },
     { regex: /,/, token: 'separator' },
     { regex: /\w+/, token: null },
@@ -187,7 +187,7 @@ const states = {
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
 const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', includePath: 'start', theme: 'start', themePath: 'start', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
-const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype'] })
+const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a

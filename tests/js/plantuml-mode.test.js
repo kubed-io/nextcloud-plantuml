@@ -184,7 +184,7 @@ describe('plantumlMode preprocessor', () => {
   })
 
   it('ends with its line', () => {
-    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number'], ['actor', 'keyword']])
+    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number'], ['actor', 'keyword'], ['2', 'number']])
   })
 
   it('leaves a price, a sprite, a string, a link and a comment as they were', () => {
@@ -260,7 +260,7 @@ describe('plantumlMode colours', () => {
   it('takes Gantt\'s `is colored in` colours', () => {
     expect(tokens('[Task] is colored in White/Red')).toEqual([['is', 'keyword'], ['White', 'ColorLiteral'], ['/', 'punctuation'], ['Red', 'ColorLiteral']])
     expect(tokens('[Task] is colored in #00ff00')).toEqual([['is', 'keyword'], ['#00ff00', 'ColorLiteral']])
-    expect(tokens('[Task] is 2 days')).toEqual([['is', 'keyword']])
+    expect(tokens('[Task] is 2 days')).toEqual([['is', 'keyword'], ['2', 'number']])
   })
 
   it('takes the colour out of an element style, and leaves its line and text parts', () => {
@@ -1208,5 +1208,54 @@ describe('stereotypes (H13)', () => {
 
   it('ends with its line, even when its braces never close', () => {
     expect(tokens('class A <<$cog{scale=2 >>', 'class B').slice(-1)).toEqual(tokens('class B').slice(-1))
+  })
+})
+
+describe('numbers and calls (H14, H16)', () => {
+  const numbers = (...lines) => tokens(...lines).filter(([, t]) => t === 'number')
+
+  it('reads a standing number', () => {
+    expect(tokens('scale 1.5')).toContainEqual(['1.5', 'number'])
+    expect(numbers('autonumber 10 5')).toEqual([['10', 'number'], ['5', 'number']])
+    expect(tokens('skinparam defaultFontSize 12')).toContainEqual(['12', 'number'])
+    expect(tokens('scale 50%')).toContainEqual(['50%', 'number'])
+  })
+
+  it('reads timing marks and a ||n|| delay', () => {
+    expect(tokens('@100')).toEqual([['@100', 'number']])
+    expect(tokens('@+50')).toEqual([['@+50', 'number']])
+    expect(tokens('||45||')).toEqual([['||', 'separator'], ['45', 'number'], ['||', 'separator']])
+  })
+
+  it('finds no number inside a name, a colour, a label', () => {
+    expect(numbers('node node1')).toEqual([])
+    expect(numbers('[Q4]')).toEqual([])
+    expect(numbers('$v2')).toEqual([])
+    expect(numbers('rectangle r #ff0000')).toEqual([])
+    expect(numbers('2x_ARM -> b')).toEqual([])
+    expect(tokens('2x_ARM -> b')).toEqual([['->', 'LinkOperator']])
+    expect(numbers('A -> B : 3 apples')).toEqual([])
+    expect(tokens('A -> B : 3 apples')).toContainEqual(['3 apples', 'labelName'])
+  })
+
+  it('reads a call', () => {
+    expect(tokens('Business_Service(id, "x")')).toEqual([
+      ['Business_Service', 'FunctionName'], ['(', 'paren'], [',', 'separator'], ['"x"', 'string'], [')', 'paren'],
+    ])
+  })
+
+  it('leaves the condition words keywords', () => {
+    const out = tokens('if (x > 5) then (yes)')
+    expect(out[0]).toEqual(['if', 'keyword'])
+    expect(out.some(([, t]) => t === 'FunctionName')).toBe(false)
+    expect(tokens('while (x)')[0]).toEqual(['while', 'keyword'])
+  })
+
+  it('ends the arguments with their line, however many parens are open', () => {
+    for (const open of ['Foo(a,', 'Foo(Bar(a,']) {
+      const out = tokens(open, 'B -> C')
+      expect(out.slice(-1)).toEqual([['->', 'LinkOperator']])
+      expect(out.filter(([, t]) => t === 'paren').length).toBe(open.split('(').length - 1)
+    }
   })
 })

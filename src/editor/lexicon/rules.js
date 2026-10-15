@@ -197,6 +197,48 @@ export const stereotypeState = [
 ]
 
 /**
+ * Numbers (H14): a timing mark (`@100`, `@+50`), a `||45||` delay and a number standing on its own,
+ * an integer or a decimal with a trailing `%`. A digit inside a word is no number: the word is read
+ * whole before this is tried again, and `2x` is refused by the lookahead.
+ */
+export const numbers = [
+  { regex: /@[+-]?\d+(?:\.\d+)?/, token: 'number' },
+  { regex: /(\|\|)(\d+)(\|\|)/, token: ['separator', 'number', 'separator'] },
+  { regex: /\d+(?:\.\d+)?%?(?![\w.])/, token: 'number' },
+]
+
+/** The preprocessor's operators by kind (H19), for a `!` line and a call's arguments. */
+export const operators = [
+  { regex: /[+\-*/]/, token: 'arithmeticOperator' },
+  { regex: /[=!]=|[<>]=?/, token: 'compareOperator' },
+  { regex: /&&|\|\|/, token: 'logicOperator' },
+  { regex: /\?=|=/, token: 'definitionOperator' },
+]
+
+/**
+ * A call (H16): a word straight before `(`, then the paren, which opens the state `args`. The words
+ * that take a condition are left to the keyword rules. `args` ends with its line (a table lists it
+ * in its `lineStates`; it pops every `(` pushed, see `table`).
+ */
+export const calls = [
+  { regex: /(?!(?:if|elseif|while|repeat|switch|case|equals|not|is|backward)\()([A-Za-z_]\w*)(\()/, token: ['FunctionName', 'paren'], push: 'args' },
+]
+
+export const argsState = [
+  { regex: /\)/, token: 'paren', pop: true },
+  { regex: /\(/, token: 'paren', push: 'args' },
+  { regex: /,/, token: 'separator' },
+  { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+  ...names,
+  ...numbers,
+  // A name before `=` is an attribute (`id=fun`).
+  { regex: /[A-Za-z_]\w*(?=\s*=(?!=))/, token: 'attributeName' },
+  ...operators,
+  ...calls,
+  { regex: /\w+/, token: null },
+]
+
+/**
  * What Creole reads at the start of a line in a body, not in a one-line label (where a `#` is
  * a colour): rules, headings, list items and tree lines; `<code>` opens the state `code`.
  */
@@ -235,6 +277,8 @@ export const head = [
   ...colours,
   ...names,
   { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
+  ...numbers,
+  ...calls,
   { regex: /\w+/, token: null },
 ]
 
@@ -298,13 +342,25 @@ function wrapping(text) {
   return [...text].map((char) => [char, char === '{' || char === '}' ? 'brace' : /\s/.test(char) ? null : 'punctuation'])
 }
 
-// The arguments in parentheses after the type (R2's interim reading, Task 9 gives them the shared
-// call's): `(` `)` parens, `,` a separator, `id` before `=` an attribute, `=` an assignment, digits.
-function callParts(args) {
+// The arguments in parentheses after the type are read by the rules of `args` (R2), run here
+// without a stack: a paren is a paren whether it pushes or pops. Each is `[text, token]`.
+const argRules = argsState.map((rule) => ({ ...rule, regex: new RegExp(rule.regex.source, 'y') }))
+
+function readArgs(args) {
   const parts = [['(', 'paren']]
-  for (const match of args.matchAll(/(\d+)|(,)|(=)|([A-Za-z_]\w*)(?=\s*=)|[A-Za-z_]\w*|[^]/g)) {
-    const [text, digits, comma, equals, attribute] = match
-    parts.push([text, digits ? 'number' : comma ? 'separator' : equals ? 'definitionOperator' : attribute ? 'attributeName' : null])
+  for (let pos = 0; pos < args.length;) {
+    let found = false
+    for (const { regex, token } of argRules) {
+      regex.lastIndex = pos
+      const match = regex.exec(args)
+      if (!match || !match[0]) continue
+      if (Array.isArray(token)) token.forEach((one, i) => match[i + 1] && parts.push([match[i + 1], one]))
+      else parts.push([match[0], token])
+      pos += match[0].length
+      found = true
+      break
+    }
+    if (!found) parts.push([args[pos++], null])
   }
   return parts
 }
@@ -328,7 +384,7 @@ export function startLine(stream, state) {
   const call = startCall.exec(rest)
   const parts = [[lead[1], null], [lead[2], call ? 'FunctionName' : 'keyword']]
   if (call) {
-    parts.push(...callParts(call[1]), [')', 'paren'])
+    parts.push(...readArgs(call[1]), [')', 'paren'])
     rest = rest.slice(call[0].length)
   }
   const name = startName.exec(rest)

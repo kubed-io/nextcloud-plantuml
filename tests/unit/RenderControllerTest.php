@@ -308,6 +308,26 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
 	}
 
+	public function testFontsAreTheServersList(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('fonts')->willReturn(['DejaVu Sans', 'Dialog']);
+
+		$response = $this->controller($render, new NotFoundException())->fonts();
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame(['fonts' => ['DejaVu Sans', 'Dialog']], $response->getData());
+	}
+
+	public function testFontsFromAServerThatCannotAnswerIs503WithProblem(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('fonts')->willThrowException(new RenderException(RenderException::PROBLEM_NOT_PLANTUML));
+
+		$response = $this->controller($render, new NotFoundException())->fonts();
+
+		self::assertSame(503, $response->getStatus());
+		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
+	}
+
 	public function testIconsAndEmojiAreTheServersLists(): void {
 		$render = $this->createStub(RenderService::class);
 		$render->method('icons')->willReturn(['account-login', 'clock']);

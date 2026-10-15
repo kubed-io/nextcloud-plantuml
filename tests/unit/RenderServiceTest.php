@@ -381,6 +381,60 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->keywords()));
 	}
 
+	/** `help font` as text, as plantuml/plantuml-server answers it. */
+	private static function helpFont(): string {
+		return (string)file_get_contents(__DIR__ . '/fixtures/help-font.txt');
+	}
+
+	public function testFontsAreTheServersList(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::once())
+			->method('post')
+			->with(self::URL . '/txt', self::callback(
+				static fn (array $options): bool => $options['body'] === "@startuml\nhelp font\n@enduml\n",
+			))
+			->willReturn($this->response(200, self::helpFont()));
+
+		$fonts = $this->service($client)->fonts();
+
+		self::assertCount(25, $fonts);
+		self::assertSame('DejaVu Sans', $fonts[0]);
+		foreach (['DejaVu Sans', 'DejaVu Sans Mono', 'Dialog', 'Noto Sans Mono CJK TC', 'SansSerif'] as $font) {
+			self::assertContains($font, $fonts);
+		}
+		foreach ($fonts as $font) {
+			self::assertSame(trim($font), $font);
+			self::assertNotSame('', $font);
+		}
+		self::assertNotContains('Help on font', $fonts);
+		self::assertNotContains('The possible font on your system are :', $fonts);
+	}
+
+	public function testFontsAreAskedOncePerServerForADay(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::exactly(2))->method('post')->willReturn($this->response(200, self::helpFont()));
+
+		$this->service($client)->fonts();
+		$cached = $this->service($client)->fonts();
+		$this->service($client, 'https://other.example.com')->fonts();
+
+		self::assertCount(25, $cached);
+		self::assertSame([86400, 86400], array_values($this->cache->ttls));
+	}
+
+	public function testFontsWithoutTheListAreNotPlantumlAndNotCached(): void {
+		$service = $this->service($this->clientAnswering($this->response(200, '<html>')));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->fonts()));
+		self::assertSame([], $this->cache->values);
+	}
+
+	public function testFontsAnswered404AreNotPlantuml(): void {
+		$service = $this->service($this->clientAnswering($this->response(404, self::helpFont())));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->fonts()));
+	}
+
 	public function testThemesFromAnUnsetOrUnreachableServer(): void {
 		$clients = $this->createStub(IClientService::class);
 

@@ -142,6 +142,17 @@ final class RenderController extends Controller {
 		}
 	}
 
+	/** The editor's font completion: the families the server can draw. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function fonts(): JSONResponse {
+		try {
+			return new JSONResponse(['fonts' => $this->render->fonts()]);
+		} catch (RenderException $e) {
+			return $this->problem($e);
+		}
+	}
+
 	/** The editor's named colours (X14): each name with its hex. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]

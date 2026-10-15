@@ -42,6 +42,9 @@ final class RenderService {
 	private const TYPES_DIAGRAM = "@startuml\nhelp types\n@enduml\n";
 	private const TYPES_MARKER = 'The possible types are';
 	private const KEYWORDS_MAX = 500;
+	private const FONTS_DIAGRAM = "@startuml\nhelp font\n@enduml\n";
+	private const FONTS_MARKER = 'The possible font on your system are';
+	private const FONTS_MAX = 200;
 	/** The server's lists change only with its version. */
 	private const LISTS_TTL = 86400;
 	/** The error rides out as a response header, so it stays one short line. */
@@ -182,6 +185,28 @@ final class RenderService {
 				throw $this->notPlantUml('txt answered help types without a list of types');
 			}
 			return ['diagrams' => array_values(array_unique($diagrams)), 'types' => $types, 'keywords' => $keywords];
+		});
+	}
+
+	/**
+	 * The font families the server can draw, read off its `help font` as text:
+	 * one per line after "The possible font on your system are", each with its
+	 * spaces. Cached a day per server URL.
+	 *
+	 * @return list<string>
+	 * @throws RenderException
+	 */
+	public function fonts(): array {
+		return $this->cached('fonts', function (): array {
+			$fonts = array_slice(
+				self::linesAfter($this->helpText(self::FONTS_DIAGRAM, 'font'), self::FONTS_MARKER),
+				0,
+				self::FONTS_MAX,
+			);
+			if ($fonts === []) {
+				throw $this->notPlantUml('txt answered help font without a list of fonts');
+			}
+			return $fonts;
 		});
 	}
 

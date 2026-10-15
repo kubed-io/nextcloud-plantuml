@@ -177,6 +177,24 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame("A -> B\nB -> C\n", $expanded->source);
 	}
 
+	public function testIncludesubWithoutANameIsLeftForTheServer(): void {
+		$source = "@startuml\n!startsub ACTORS\nactor A\n!endsub\n!includesub ACTORS\n@enduml\n";
+		$expanded = (new IncludeResolver())->expand($source, $this->untouchable(self::USER_ROOT . '/docs'), $this->untouchable(self::USER_ROOT));
+
+		self::assertSame($source, $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+		self::assertSame([], $expanded->etags);
+		self::assertSame([], $expanded->missing);
+	}
+
+	public function testIncludesubOfAFileWithoutANameIsLeftForTheServer(): void {
+		$expanded = $this->expand("!includesub ./parts.puml\n", ['docs/parts.puml' => "!startsub ACTORS\nactor A\n!endsub\n"]);
+
+		self::assertSame("!includesub ./parts.puml\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+		self::assertSame([], $this->asked);
+	}
+
 	public function testAStyleFileBecomesAStyleBlock(): void {
 		$expanded = $this->expand("<style file=./a.css>\nA -> B\n<style file=\"b.css\">\n", [
 			'docs/a.css' => "node {\n  FontColor red\n}\n",

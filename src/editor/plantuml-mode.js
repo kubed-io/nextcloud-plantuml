@@ -27,7 +27,7 @@
 import { StreamLanguage } from '@codemirror/language'
 import {
   arrow, atLineStart, body, codeLines, colours, creole, head, hex, lines, named, names,
-  patterns, spriteStates, startLine, styledClose, styledOpen, tagStates, toColon,
+  patterns, paths, spriteStates, startLine, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
@@ -50,7 +50,9 @@ const states = {
     atLineStart(/'.*/.source, 'comment'),
     // A `!` line: its directive word (`!procedure`, the `!` of `!$x`), then the state
     // `preprocessor` to the line's end.
-    { regex: /([ \t]*)(!include\w*)(\s+)(<[^>\s]+>)/, sol: true, token: [null, 'meta', null, 'link'], next: 'preprocessor' },
+    // An include's, an import's and a theme's source is a path (H22), read before the operators.
+    atLineStart(/!(?:include(?:_many|_once|sub|url)?|import)(?=[ \t]+[^\s"'$%])/.source, 'meta', { next: 'includePath' }),
+    atLineStart(/!theme(?=\s)/.source, 'meta', { next: 'theme' }),
     atLineStart(/!\w*/.source, 'meta', { next: 'preprocessor' }),
     // `@start<type>` lines are read by `startLine` (lexicon/rules.js), see `plantumlLanguage`.
     atLineStart(/@end\w+\b/.source, 'keyword'),
@@ -96,6 +98,23 @@ const states = {
     { regex: /[()]/, token: 'paren' },
     { regex: /,/, token: 'separator' },
     { regex: /\w+/, token: null },
+  ],
+  // The path after `!include`: `<C4/C4>` in angle brackets, else the path and its selector.
+  includePath: [
+    { regex: /\s+/, token: null },
+    { regex: /(<)([^>\s]+)(>)/, token: ['angleBracket', 'url', 'angleBracket'], next: 'preprocessor' },
+    ...paths.slot.map((rule) => ({ ...rule, next: 'preprocessor' })),
+  ],
+  // A theme's name is plain; what comes after `from` is a path.
+  theme: [
+    { regex: /(\s+from\s+)(?=[^\s"'$%])/, token: null, next: 'themePath' },
+    { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+    ...names,
+    { regex: /\s+|[^\s"'$%]+|./, token: null },
+  ],
+  themePath: [
+    { regex: /\s+/, token: null },
+    ...paths.slot.map((rule) => ({ ...rule, next: 'preprocessor' })),
   ],
   blockComment: [
     { regex: /.*?'\//, token: 'comment', next: 'start' },
@@ -160,7 +179,7 @@ const states = {
 // The states that end with their line, and the state the next line starts in.
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
-const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
+const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', includePath: 'start', theme: 'start', themePath: 'start', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
 const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
@@ -170,6 +189,9 @@ const styleOpen = /^([ \t]*)(<style>)(\s*)$/
 const styleOneLine = /^([ \t]*)(<style>)(.*)<\/style>\s*$/
 const styleImport = /^([ \t]*)(<style)(\s+)([\w-]+)(\s*)(=)(\s*)([^>]*?)(\s*)(>)(\s*)$/
 const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
+
+// The states of a `!` line: PlantUML's to its end, in a nested mode too.
+const bangStates = new Set(['preprocessor', 'includePath', 'theme', 'themePath'])
 
 // A `<latex>` block's last line, and the lines that end a Creole body with it unclosed.
 const latexClose = /^<\/latex>$/
@@ -242,7 +264,7 @@ export function plantumlLanguage(inner = {}) {
     const sheet = stream.match(styleImport, false)
     if (sheet) return emit(stream, state, [
       [sheet[1], null], [sheet[2], 'tagName'], [sheet[3], null], [sheet[4], 'attributeName'], [sheet[5], null], [sheet[6], 'definitionOperator'],
-      [sheet[7], null], [sheet[8], 'string'], [sheet[9], null], [sheet[10], 'tagName'], [sheet[11], null],
+      [sheet[7], null], [sheet[8], sheet[4] === 'file' && !/^["']/.test(sheet[8]) ? 'url' : 'string'], [sheet[9], null], [sheet[10], 'tagName'], [sheet[11], null],
     ])
     const one = stream.match(styleOneLine, false)
     const open = one || stream.match(styleOpen, false)
@@ -388,7 +410,7 @@ export function plantumlLanguage(inner = {}) {
       if (state.state === 'latex') return inlineMiddle(stream, state, 'latex', latex)
       if (state.state === 'latexBlock') return latexBody(stream, state)
       // A `!` line is PlantUML's to its end, in a nested mode or a style block too.
-      if (state.state === 'preprocessor') {
+      if (bangStates.has(state.state)) {
         if (!stream.sol()) return base.token(stream, state)
         state.state = 'start'
       }

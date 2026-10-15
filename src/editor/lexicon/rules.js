@@ -82,6 +82,20 @@ export const names = [
 ]
 
 /**
+ * Paths (H22). `url` is a URL with a scheme (`https://…`, `file://…`), up to a space, a quote, `>`,
+ * `]` or the line's end. `slot` is a path where one goes (an include's, a theme's source), the
+ * first of its rules that fits: the path and then a selector, `!` and a number or a block's id.
+ */
+export const paths = {
+  url: { regex: /[a-z][\w+.-]*:\/\/[^\s"'>\]]*/i, token: 'url' },
+  slot: [
+    { regex: /([^\s"'>!]+)(!)(\d+)(?!\S)/, token: ['url', 'separator', 'number'] },
+    { regex: /([^\s"'>!]+)(!)([\w.-]+)/, token: ['url', 'separator', 'typeName'] },
+    { regex: /[^\s"'>!]+/, token: 'url' },
+  ],
+}
+
+/**
  * Creole, in any text. Runs of plain text are `base`, and so are bold, italic,
  * monospace and underline, as modifiers on it. `--strike--` and `~~wave~~` are
  * Creole too, but are left as text: they read as the links `--` and `~~`.
@@ -94,7 +108,7 @@ export function creole(base) {
     { regex: /~~/, token: base },
     { regex: /(~)([^~])/, token: ['punctuation', base] },
     // A URL's `//` starts no italics.
-    { regex: /[a-z][\w+.-]*:\/\/[^\s\]]*/i, token: base },
+    paths.url,
     { regex: /\*\*.+?\*\*/, token: on('strong') },
     { regex: /\/\/.+?\/\//, token: on('emphasis') },
     { regex: /"".+?""/, token: on('monospace') },
@@ -106,8 +120,10 @@ export function creole(base) {
     // A tag's parts (H10): its name and `>` are tags, `:` and `,` separators, `{` and `}` braces, an
     // attribute's name an attribute and its value a string, or a colour.
     { regex: new RegExp(`(<(?:color|back|u|s|w))(:)(#?${colourPart})(>)`), token: ['tagName', 'separator', 'ColorLiteral', 'tagName'] },
-    { regex: /(<(?:size|color|back|font|u|s|w|space|img|qrcode))(:)([^>{}]+)(>)/, token: ['tagName', 'separator', 'string', 'tagName'] },
-    { regex: /(<(?:img|qrcode))(:)([^>{}]+)(\{)/, token: ['tagName', 'separator', 'string', 'brace'], push: 'tagBraces' },
+    { regex: /(<img)(:)([^>{}]+)(>)/, token: ['tagName', 'separator', 'url', 'tagName'] },
+    { regex: /(<img)(:)([^>{}]+)(\{)/, token: ['tagName', 'separator', 'url', 'brace'], push: 'tagBraces' },
+    { regex: /(<(?:size|color|back|font|u|s|w|space|qrcode))(:)([^>{}]+)(>)/, token: ['tagName', 'separator', 'string', 'tagName'] },
+    { regex: /(<qrcode)(:)([^>{}]+)(\{)/, token: ['tagName', 'separator', 'string', 'brace'], push: 'tagBraces' },
     { regex: /(<&[^>\s{}]+|<:[^>\s{}]+:|<\$[^>\s{}]+)(\{)/, token: ['tagName', 'brace'], push: 'tagBraces' },
     { regex: /<(?:font|img|text)(?=\s)/, token: 'tagName', push: 'tagAttrs' },
     // A table row or cell colour (`<#lightblue,#red>`) and a coloured emoji (`<#green:sunny:>`).
@@ -127,6 +143,8 @@ export const attributes = (end) => [
   { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(#?${colourPart})${end}`), token: ['attributeName', null, 'definitionOperator', null, 'ColorLiteral'] },
   // A quoted colour keeps its swatch (C6), its quotes a string.
   { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(["'])(#?${colourPart})(\\5)`), token: ['attributeName', null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
+  // An image's source is a path (H22); quoted, a string.
+  { regex: /(src)(\s*)(=)(\s*)([^\s>"',}]+)/, token: ['attributeName', null, 'definitionOperator', null, 'url'] },
   { regex: /[\w-]+(?=\s*=)/, token: 'attributeName' },
   { regex: /=/, token: 'definitionOperator' },
   { regex: /"[^"]*"|'[^']*'/, token: 'string' },

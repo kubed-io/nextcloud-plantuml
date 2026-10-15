@@ -25,6 +25,7 @@ import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
 import { builtins } from '../../src/editor/completion/builtins.js'
 import { localFiles } from '../../src/editor/completion/local-files.js'
+import { protocols } from '../../src/editor/completion/protocols.js'
 import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
 import { scan } from '../../src/editor/blocks.js'
@@ -53,7 +54,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -1287,11 +1288,11 @@ describe('local paths', () => {
     return localFiles(new CompletionContext(state, pos, false))
   }
 
-  it('offers < and https:// first, then the folder\'s diagrams and folders, after a bare !include', async () => {
+  it('offers <, https:// and http:// first, then the folder\'s diagrams and folders, after a bare !include', async () => {
     for (const directive of ['!include', '!include_many', '!include_once', '!includesub']) {
       const result = await completeAt(`${directive} |`)
-      expect(labels(result).slice(0, 2)).toEqual(['<', 'https://'])
-      expect(labels(result).slice(2).sort()).toEqual(['../', 'Order flow.puml', 'notes.txt', 'shared.puml', 'sub/'].sort())
+      expect(labels(result).slice(0, 3)).toEqual(['<', 'https://', 'http://'])
+      expect(labels(result).slice(3).sort()).toEqual(['../', 'Order flow.puml', 'notes.txt', 'shared.puml', 'sub/'].sort())
     }
     expect(listFolder).toHaveBeenLastCalledWith('/Diagrams')
   })
@@ -1787,5 +1788,41 @@ describe('stdlib', () => {
       expect(await at(marked)).toBeNull()
     }
     expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
+// C10: the scheme alone, where a path goes.
+describe('protocols', () => {
+  const at = (marked) => complete(protocols, marked)
+
+  it('offers file:// after @startuml, and nothing more', () => {
+    const result = at('@startuml |')
+    expect(labels(result)).toEqual(['file://'])
+    expect(result.from).toBe('@startuml '.length)
+    expect(labels(at('@startuml(id=fun) |'))).toEqual(['file://'])
+  })
+
+  it.each(['@startuml x|', '@startuml x |', '@startuml file:|', '@startuml{|', "' @startuml |", '@startuml|'])('offers none in `%s`', (marked) => {
+    expect(at(marked)).toBeNull()
+  })
+
+  it.each(['[[|', '<img:|', '<img src=|', 'A -> B : see [[|', 'note : <img:|'])('offers https:// and http:// after `%s`', (marked) => {
+    expect(labels(at(marked))).toEqual(['https://', 'http://'])
+  })
+
+  it('completes a scheme being typed', () => {
+    const result = at('[[ht|')
+    expect(labels(result)).toEqual(['https://', 'http://'])
+    expect(result.from).toBe(2)
+  })
+
+  it.each(["' see [[|", "' <img:|", "/' [[|", "A -> B : x\n/'\n[[|\n'/", '[[https://x|', '<img:a/|', '<img src="|'])('offers none in `%s`', (marked) => {
+    expect(at(marked)).toBeNull()
+  })
+
+  it('inserts the scheme and nothing else', () => {
+    const state = EditorState.create({ doc: '@startuml ', selection: { anchor: 10 }, extensions: [plantumlMode, plantumlCompletion] })
+    const option = protocols(new CompletionContext(state, 10, false)).options[0]
+    expect(option.apply ?? option.label).toBe('file://')
   })
 })

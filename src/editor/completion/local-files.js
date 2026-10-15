@@ -111,6 +111,7 @@ async function namesOf(context, file, kind, name, typed) {
 const fixed = [
   { label: '<', detail: 'standard library', type: 'text', boost: 3, apply: reopen },
   { label: 'https://', detail: 'web address', type: 'text', boost: 2 },
+  { label: 'http://', detail: 'web address', type: 'text', boost: 2 },
 ]
 
 /**

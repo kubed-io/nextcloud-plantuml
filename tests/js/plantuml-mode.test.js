@@ -177,10 +177,10 @@ describe('plantumlMode preprocessor', () => {
     ])
   })
 
-  it('names the <…> after an include a link, and leaves a theme\'s name and a path plain', () => {
-    expect(tokens('!include <C4/C4_Container>')).toEqual([['!include', 'meta'], ['<C4/C4_Container>', 'link']])
+  it('names the <…> after an include brackets and a path, a path a path, and leaves a theme\'s name plain', () => {
+    expect(tokens('!include <C4/C4_Container>')).toEqual([['!include', 'meta'], ['<', 'angleBracket'], ['C4/C4_Container', 'url'], ['>', 'angleBracket']])
     expect(tokens('  !theme sunlust')).toEqual([['!theme', 'meta']])
-    expect(tokens('!include x.puml')).toEqual([['!include', 'meta']])
+    expect(tokens('!include x.puml')).toEqual([['!include', 'meta'], ['x.puml', 'url']])
   })
 
   it('ends with its line', () => {
@@ -275,6 +275,68 @@ describe('plantumlMode colours', () => {
   })
 })
 
+// H22, R5: a path where a path goes, a URL where words are read.
+describe('plantumlMode paths and protocols', () => {
+  const include = (rest) => [['!include', 'meta'], ...rest]
+
+  it('reads an include\'s path, its selector a separator and then an id or a number', () => {
+    expect(tokens('!include ./parts.puml!ACTORS')).toEqual(include([['./parts.puml', 'url'], ['!', 'separator'], ['ACTORS', 'typeName']]))
+    expect(tokens('!include parts.puml!2')).toEqual(include([['parts.puml', 'url'], ['!', 'separator'], ['2', 'number']]))
+    expect(tokens('!include https://x.org/a.puml')).toEqual(include([['https://x.org/a.puml', 'url']]))
+    expect(tokens('!include <C4/C4>')).toEqual(include([['<', 'angleBracket'], ['C4/C4', 'url'], ['>', 'angleBracket']]))
+  })
+
+  it.each(['!include_many', '!include_once', '!includesub', '!import'])('reads the path after %s', (word) => {
+    expect(tokens(`${word} ../lib/a.puml`)).toEqual([[word, 'meta'], ['../lib/a.puml', 'url']])
+  })
+
+  it('reads a theme\'s path after from, and its name plain', () => {
+    expect(tokens('!theme mars from ./themes')).toEqual([['!theme', 'meta'], ['./themes', 'url']])
+    expect(tokens('!theme mars from https://x.org/t')).toEqual([['!theme', 'meta'], ['https://x.org/t', 'url']])
+    expect(tokens('!import lib.zip')).toEqual([['!import', 'meta'], ['lib.zip', 'url']])
+  })
+
+  // R5: the arithmetic rule does not see a path's `/` and `-`, or a theme's `-`.
+  it.each(['!include dir/foo-bar.puml', '!include https://x.org/a-b/c.puml', '!theme my-theme', '!theme my-theme from ./a-b/c'])('colours no operator in %s', (line) => {
+    expect(tokens(line).map(([, token]) => token)).not.toContain('arithmeticOperator')
+  })
+
+  it('leaves a computed or quoted include to the preprocessor', () => {
+    expect(tokens('!include "a b.puml"')).toEqual(include([['"a b.puml"', 'string']]))
+    expect(tokens('!include %get_json_attribute($a, "b")')).toEqual(include([['%get_json_attribute', 'FunctionName'], ['(', 'paren'], ['$a', 'VariableName'], [',', 'separator'], ['"b"', 'string'], [')', 'paren']]))
+    expect(tokens('!include', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword']])
+    expect(tokens('!include   ', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword']])
+  })
+
+  it('reads a URL in a label, and the rest of the label as a label', () => {
+    expect(tokens('A -> B : see https://plantuml.com/x')).toEqual([['->', 'LinkOperator'], ['see ', 'labelName'], ['https://plantuml.com/x', 'url']])
+    expect(tokens('A -> B : //a// file://out/d')).toEqual([['->', 'LinkOperator'], ['//a//', 'emphasis_labelName'], [' ', 'labelName'], ['file://out/d', 'url']])
+  })
+
+  it('starts no italics at a URL\'s //', () => {
+    expect(tokens('note : http://a.org/x and http://b.org/y')).toEqual([['note', 'keyword'], ['http://a.org/x', 'url'], ['http://b.org/y', 'url']])
+    const kinds = tokens('A -> B : http://a.org/x and http://b.org/y').map(([, kind]) => kind)
+    expect(kinds).not.toContain('emphasis_labelName')
+    expect(kinds.filter((kind) => kind === 'url')).toHaveLength(2)
+  })
+
+  it('leaves a word with a slash and no scheme plain', () => {
+    expect(tokens('A -> B : and/or')).toEqual([['->', 'LinkOperator'], ['and/or', 'labelName']])
+    expect(tokens('note : and/or')).toEqual([['note', 'keyword']])
+  })
+
+  it('reads <img:…>, <img src=…> and <style file=…> as paths', () => {
+    expect(tokens('A -> B : <img:icons/a.png>').slice(1)).toEqual([['<img', 'tagName'], [':', 'separator'], ['icons/a.png', 'url'], ['>', 'tagName']])
+    expect(tokens('note : <img src=./a.png>').slice(1)).toEqual([['<img', 'tagName'], ['src', 'attributeName'], ['=', 'definitionOperator'], ['./a.png', 'url'], ['>', 'tagName']])
+    expect(tokens('<style file=./a.css>').map(([text, token]) => `${text}:${token}`)).toContain('./a.css:url')
+  })
+
+  it('keeps a [[link]] a link and a quoted string a string', () => {
+    expect(tokens('A -> B : [[https://x label]]')).toEqual([['->', 'LinkOperator'], ['[[https://x label]]', 'link']])
+    expect(tokens('participant "https://x"')).toEqual([['participant', 'keyword'], ['"https://x"', 'string']])
+  })
+})
+
 describe('plantumlMode Creole', () => {
   /** The tokens of a link's label, after the link. */
   const label = (text) => tokens(`A -> B : ${text}`).slice(1)
@@ -313,7 +375,7 @@ describe('plantumlMode Creole', () => {
       [' ', 'labelName'],
       ['<img', 'tagName'],
       [':', 'separator'],
-      ['logo.png', 'string'],
+      ['logo.png', 'url'],
       ['>', 'tagName'],
     ])
     expect(label('<color:#FF6F61>hot</color> <back:#2B3E50>x</back> <color:red>y</color>')).toEqual([
@@ -353,7 +415,7 @@ describe('plantumlMode Creole', () => {
         ['<img', 'tagName'], ...attr('src', '"a b.png"'), ...attr('valign', 'top'), ['>', 'tagName'],
       ])
       expect(note('<text fill=blue>')).toEqual([['<text', 'tagName'], ...attr('fill', 'blue'), ['>', 'tagName']])
-      expect(note('<img src=a/b.png/>')).toEqual([['<img', 'tagName'], ...attr('src', 'a/b.png/'), ['>', 'tagName']])
+      expect(note('<img src=a/b.png/>')).toEqual([['<img', 'tagName'], ...attr('src', 'a/b.png/', 'url'), ['>', 'tagName']])
     })
 
     it('keeps a quoted colour\'s swatch, its quotes a string', () => {
@@ -380,7 +442,7 @@ describe('plantumlMode Creole', () => {
         ['<:sunny:', 'tagName'], ['{', 'brace'], ...attr('scale', '0.5'), ['}', 'brace'], ['>', 'tagName'],
       ])
       expect(note('<img:x.png{scale=0.5}>')).toEqual([
-        ['<img', 'tagName'], [':', 'separator'], ['x.png', 'string'], ['{', 'brace'], ...attr('scale', '0.5'), ['}', 'brace'], ['>', 'tagName'],
+        ['<img', 'tagName'], [':', 'separator'], ['x.png', 'url'], ['{', 'brace'], ...attr('scale', '0.5'), ['}', 'brace'], ['>', 'tagName'],
       ])
     })
 
@@ -398,7 +460,9 @@ describe('plantumlMode Creole', () => {
 
   it('reads a URL in a label as text, not as the start of italics', () => {
     expect(label('see https://x.org/a//b and //this//')).toEqual([
-      ['see https://x.org/a//b and ', 'labelName'],
+      ['see ', 'labelName'],
+      ['https://x.org/a//b', 'url'],
+      [' and ', 'labelName'],
       ['//this//', 'emphasis_labelName'],
     ])
   })
@@ -601,7 +665,7 @@ describe('plantumlMode style blocks', () => {
       ['<style', 'tagName'],
       ['file', 'attributeName'],
       ['=', 'definitionOperator'],
-      ['my.css', 'string'],
+      ['my.css', 'url'],
       ['>', 'tagName'],
       ['actor', 'keyword'],
     ])
@@ -662,6 +726,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['@startyaml', 'keyword'],
       ["' a note", 'comment'],
       ['!include', 'meta'],
+      ['x.puml', 'url'],
       ['a: 1', 'atom'],
       ['@endyaml', 'keyword'],
     ])

@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Tech Stack:** CodeMirror 6 (`StreamLanguage`, `WidgetType`, `Decoration`, `@codemirror/autocomplete`, `@codemirror/lint`), vitest + jsdom, PHP 8.1+ / PHPUnit 12 with OCP stubs, Node 24 for the generator.
 
-**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` (X1 style part, X4's `%`, X8, X9, X10 style part, X13–X16, X18, W1–W3, R1–R7) and the two render route rows of `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`.
+**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` (X1 style part, X4's `%`, X8, X9, X10 style part, X13–X16, X18, X19, W1–W3, R1–R7) and the two render route rows of `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`.
 
 ## Global Constraints
 
@@ -111,6 +111,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - [ ] Tests first, using plantuml.com/mindmap-diagram's "Word Wrap" style block verbatim: no diagnostic at all (`LineStyle 8.0;3.0` is one value, `BackgroundColor` matches `BackGroundColor`, `Shadowing 0.0`, `LineThickness 3.0`); the grammar gives `8.0;3.0` as one value (two numbers, the `;` inside it not a separator); the stepper steps each number of a dash pattern on its own; inside `@startmindmap` (and `@startwbs`) the selector list starts `node`, `rootNode`, `leafNode`, `boxless`, `arrow`, then `:depth(` (a snippet `:depth(${n})`), then `mindmapDiagram`, then the rest.
 - [ ] Implement; suites, lint, build + guard. Commit `fix(editor): style blocks read mindmap's dash patterns and selectors`.
+
+### Task 4f: Creole, complete (X19)
+
+**Files:** Modify `src/editor/plantuml-mode.js` (the `creole()` rule set and the body states), `src/editor/completion/creole.js`; Test `tests/js/plantuml-mode.test.js`, `tests/js/completion.test.js`.
+
+- [ ] Tests first, from plantuml.com/creole's examples, inside a note body and a `@startcreole` block: `== Large heading` heading; `** Sub item` marker punctuation; `  |_ Level 2a` punctuation; `~**not bold~**` — `~` dimmed, no strong; `<U+221E>` and `&#8734;` tags; `..My title..`, `==Title==`, `--Another title--`, `____` headings; `<#lightblue,#red>|=  Step  |` and `|<#FF8080> red |` give tags with `ColorLiteral` hexes (named `lightblue` per X14 once Task 4b lands — assert the hex case here); `<#green:sunny:>` a tag; `<r>` a tag; `<code>` … `</code>` lines monospace; C7 offers `<code>` and `<r>`; H8's existing cases unchanged.
+- [ ] Implement; suites, lint, build. Commit `feat(editor): the rest of Creole (X19)`.
 
 ### Task 5: IncludeResolver
 

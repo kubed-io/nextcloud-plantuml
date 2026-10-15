@@ -107,17 +107,33 @@ function creole(base) {
     { regex: /\/\/.+?\/\//, token: on('emphasis') },
     { regex: /"".+?""/, token: on('monospace') },
     { regex: /__.+?__/, token: on('underline') },
-    { regex: new RegExp(`(<(?:color|back):)(#${colourPart})(>)`), token: ['tagName', 'ColorLiteral', 'tagName'] },
+    // A tag's parts (H10): its name and `>` are tags, `:`, `{`, `,` and `}` punctuation, an
+    // attribute's name an attribute and its value a string, or a colour.
+    { regex: new RegExp(`(<(?:color|back|u|s|w))(:)(#?${colourPart})(>)`), token: ['tagName', 'punctuation', 'ColorLiteral', 'tagName'] },
+    { regex: /(<(?:size|color|back|font|u|s|w|space|img|qrcode))(:)([^>{}]+)(>)/, token: ['tagName', 'punctuation', 'string', 'tagName'] },
+    { regex: /(<(?:img|qrcode))(:)([^>{}]+)(\{)/, token: ['tagName', 'punctuation', 'string', 'punctuation'], push: 'tagBraces' },
+    { regex: /(<&[^>\s{}]+|<:[^>\s{}]+:|<\$[^>\s{}]+)(\{)/, token: ['tagName', 'punctuation'], push: 'tagBraces' },
+    { regex: /<(?:font|img|text)(?=\s)/, token: 'tagName', push: 'tagAttrs' },
     // A table row or cell colour (`<#lightblue,#red>`) and a coloured emoji (`<#green:sunny:>`).
     { regex: new RegExp(`(<)(#${colourPart})(?:(,)(#${colourPart}))?(:[^>\\s]+:)?(>)`), token: ['tagName', 'ColorLiteral', 'tagName', 'ColorLiteral', 'tagName', 'tagName'] },
     { regex: /<\/?(?:b|i|u|s|w|r|code|plain|sub|sup|size|font|color|back)(?:[:\s][^>]*)?>/, token: 'tagName' },
     // An OpenIconic icon, an emoji, an image, a Unicode character.
-    { regex: /<(?:&[^>\s]+|:[^>\s]+:|img:[^>]+|U\+[\dA-Fa-f]+)>|&#(?:\d+|x[\dA-Fa-f]+);/, token: 'tagName' },
+    { regex: /<(?:&[^>\s]+|:[^>\s]+:|\$[^>\s]+|U\+[\dA-Fa-f]+)>|&#(?:\d+|x[\dA-Fa-f]+);/, token: 'tagName' },
     { regex: /\|=?/, token: 'punctuation' },
     { regex: /\w+|[^\w[*/"<|~&]+/, token: base },
     { regex: /./, token: base },
   ]
 }
+
+/** The pieces of `name=value`, as they stand in a tag; `end` is what may follow a value. */
+const attributes = (end) => [
+  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(#?${colourPart})${end}`), token: ['attributeName', null, 'punctuation', null, 'ColorLiteral'] },
+  { regex: /[\w-]+(?=\s*=)/, token: 'attributeName' },
+  { regex: /=/, token: 'punctuation' },
+  { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+  { regex: new RegExp(`(?:[^\\s>"',}]|/(?!>))+`), token: 'string' },
+  { regex: /./, token: null },
+]
 
 /**
  * What Creole reads at the start of a line in a body, not in a one-line label (where a `#` is
@@ -206,6 +222,20 @@ const base = simpleMode({
     { regex: /\s*:\s*/, token: null, next: 'label' },
     { regex: /[^:]+/, token: null },
   ],
+  // A tag's attributes (`<font size=12 color=red>`), and an icon's (`<&star{scale=2}>`): both
+  // end with their line, see `tagStates`.
+  tagAttrs: [
+    { regex: /\s+/, token: null },
+    { regex: /\/?>/, token: 'tagName', pop: true },
+    ...attributes(/(?=\s|\/?>|$)/.source),
+  ],
+  tagBraces: [
+    { regex: /\s+/, token: null },
+    { regex: /(\})(>)/, token: ['punctuation', 'tagName'], pop: true },
+    { regex: /\}/, token: 'punctuation', pop: true },
+    { regex: /,/, token: 'punctuation' },
+    ...attributes(/(?=[\s,}>]|$)/.source),
+  ],
   label: creole('labelName'),
   text: creole(null),
   noteHead: head,
@@ -245,6 +275,8 @@ const base = simpleMode({
 
 // The states that end with their line, and the state the next line starts in.
 // Without this a label or a styled link left open would run on into it.
+// A tag's attributes end with their line too; the state they were pushed from is popped.
+const tagStates = ['tagAttrs', 'tagBraces']
 const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
@@ -252,7 +284,7 @@ const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text:
 // block's body) and an imported sheet (`<style file=…>`) are a line each.
 const styleOpen = /^([ \t]*)(<style>)(\s*)$/
 const styleOneLine = /^([ \t]*)(<style>)(.*)<\/style>\s*$/
-const styleImport = /^([ \t]*)(<style\s+[\w-]+\s*=[^>]*>)(\s*)$/
+const styleImport = /^([ \t]*)(<style)(\s+)([\w-]+)(\s*)(=)(\s*)([^>]*?)(\s*)(>)(\s*)$/
 const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
 
 /**
@@ -316,7 +348,10 @@ export function plantumlLanguage(inner = {}) {
    */
   function styleStart(stream, state) {
     const sheet = stream.match(styleImport, false)
-    if (sheet) return emit(stream, state, [[sheet[1], null], [sheet[2], 'tagName'], [sheet[3], null]])
+    if (sheet) return emit(stream, state, [
+      [sheet[1], null], [sheet[2], 'tagName'], [sheet[3], null], [sheet[4], 'attributeName'], [sheet[5], null], [sheet[6], 'punctuation'],
+      [sheet[7], null], [sheet[8], 'string'], [sheet[9], null], [sheet[10], 'tagName'], [sheet[11], null],
+    ])
     const one = stream.match(styleOneLine, false)
     const open = one || stream.match(styleOpen, false)
     if (!open) return undefined
@@ -398,6 +433,7 @@ export function plantumlLanguage(inner = {}) {
         }
         return modeOf(state.inner).token(stream, state.inner.state)
       }
+      if (stream.sol() && tagStates.includes(state.state)) state.state = state.stack.pop()
       if (stream.sol() && Object.hasOwn(nextLine, state.state)) {
         state.state = nextLine[state.state]
       }

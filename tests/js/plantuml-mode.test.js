@@ -155,7 +155,7 @@ describe('plantumlMode colours', () => {
     expect(tokens('node foo #Red;line:blue;line.dashed')).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral']])
     expect(tokens('note left of A #pink', 'x', 'end note').slice(0, 2)).toEqual([['note', 'keyword'], ['#pink', 'ColorLiteral']])
     expect(tokens('A -[#Red,bold]-> B')).toEqual([['-[', 'operator'], ['#Red', 'ColorLiteral'], ['bold', 'attributeName'], [']->', 'operator']])
-    expect(tokens('A -> B : <color:#Red>hot</color>').slice(1, 4)).toEqual([['<color:', 'tagName'], ['#Red', 'ColorLiteral'], ['>', 'tagName']])
+    expect(tokens('A -> B : <color:#Red>hot</color>').slice(1, 5)).toEqual([['<color', 'tagName'], [':', 'punctuation'], ['#Red', 'ColorLiteral'], ['>', 'tagName']])
   })
 
   it('takes no word after a # at the start of a line for a colour', () => {
@@ -221,7 +221,10 @@ describe('plantumlMode Creole', () => {
 
   it('names Creole tags as tags, and a colour inside one as a colour', () => {
     expect(label('<size:20>big</size> <b>x</b> <&clock> <:sunny:> <img:logo.png>')).toEqual([
-      ['<size:20>', 'tagName'],
+      ['<size', 'tagName'],
+      [':', 'punctuation'],
+      ['20', 'string'],
+      ['>', 'tagName'],
       ['big', 'labelName'],
       ['</size>', 'tagName'],
       [' ', 'labelName'],
@@ -233,25 +236,79 @@ describe('plantumlMode Creole', () => {
       [' ', 'labelName'],
       ['<:sunny:>', 'tagName'],
       [' ', 'labelName'],
-      ['<img:logo.png>', 'tagName'],
+      ['<img', 'tagName'],
+      [':', 'punctuation'],
+      ['logo.png', 'string'],
+      ['>', 'tagName'],
     ])
     expect(label('<color:#FF6F61>hot</color> <back:#2B3E50>x</back> <color:red>y</color>')).toEqual([
-      ['<color:', 'tagName'],
+      ['<color', 'tagName'],
+      [':', 'punctuation'],
       ['#FF6F61', 'ColorLiteral'],
       ['>', 'tagName'],
       ['hot', 'labelName'],
       ['</color>', 'tagName'],
       [' ', 'labelName'],
-      ['<back:', 'tagName'],
+      ['<back', 'tagName'],
+      [':', 'punctuation'],
       ['#2B3E50', 'ColorLiteral'],
       ['>', 'tagName'],
       ['x', 'labelName'],
       ['</back>', 'tagName'],
       [' ', 'labelName'],
-      ['<color:red>', 'tagName'],
+      ['<color', 'tagName'],
+      [':', 'punctuation'],
+      ['red', 'ColorLiteral'],
+      ['>', 'tagName'],
       ['y', 'labelName'],
       ['</color>', 'tagName'],
     ])
+  })
+
+  // H10: a tag is read in parts, as VS Code reads HTML.
+  describe('a tag\'s parts', () => {
+    const note = (text) => tokens(`note: ${text}`).slice(1)
+    const attr = (name, value, token = 'string') => [[name, 'attributeName'], ['=', 'punctuation'], [value, token]]
+
+    it('reads attributes of font, img and text', () => {
+      expect(note('<font size=12 color=red>big</font>')).toEqual([
+        ['<font', 'tagName'], ...attr('size', '12'), ...attr('color', 'red', 'ColorLiteral'), ['>', 'tagName'], ['</font>', 'tagName'],
+      ])
+      expect(note('<img src="a b.png" valign=top>')).toEqual([
+        ['<img', 'tagName'], ...attr('src', '"a b.png"'), ...attr('valign', 'top'), ['>', 'tagName'],
+      ])
+      expect(note('<text fill=blue>')).toEqual([['<text', 'tagName'], ...attr('fill', 'blue'), ['>', 'tagName']])
+    })
+
+    it('reads the colon forms', () => {
+      expect(note('<color:#FF0000>')).toEqual([['<color', 'tagName'], [':', 'punctuation'], ['#FF0000', 'ColorLiteral'], ['>', 'tagName']])
+      expect(note('<color:red>')).toEqual([['<color', 'tagName'], [':', 'punctuation'], ['red', 'ColorLiteral'], ['>', 'tagName']])
+      expect(note('<font:Trebuchet MS>')).toEqual([['<font', 'tagName'], [':', 'punctuation'], ['Trebuchet MS', 'string'], ['>', 'tagName']])
+      expect(note('<u:red>')).toEqual([['<u', 'tagName'], [':', 'punctuation'], ['red', 'ColorLiteral'], ['>', 'tagName']])
+    })
+
+    it('reads the braces after an icon, an emoji and an image', () => {
+      expect(note('<&star{scale=2,color=red}>')).toEqual([
+        ['<&star', 'tagName'], ['{', 'punctuation'], ...attr('scale', '2'), [',', 'punctuation'], ...attr('color', 'red', 'ColorLiteral'), ['}', 'punctuation'], ['>', 'tagName'],
+      ])
+      expect(note('<:sunny:{scale=0.5}>')).toEqual([
+        ['<:sunny:', 'tagName'], ['{', 'punctuation'], ...attr('scale', '0.5'), ['}', 'punctuation'], ['>', 'tagName'],
+      ])
+      expect(note('<img:x.png{scale=0.5}>')).toEqual([
+        ['<img', 'tagName'], [':', 'punctuation'], ['x.png', 'string'], ['{', 'punctuation'], ...attr('scale', '0.5'), ['}', 'punctuation'], ['>', 'tagName'],
+      ])
+    })
+
+    it('ends an open tag with its line', () => {
+      expect(tokens('note: <font size=12', 'A -> B').slice(-1)).toEqual(tokens('A -> B'))
+      expect(tokens('A -> B : <&star{scale=2', 'A -> B').slice(-1)).toEqual(tokens('A -> B'))
+    })
+
+    it('finds no attribute in arrows, stereotypes and comparisons', () => {
+      for (const line of ['A <- B : x', 'class A <<entity>>', 'note: a < b']) {
+        expect(tokens(line).filter(([, token]) => token === 'attributeName'), line).toEqual([])
+      }
+    })
   })
 
   it('reads a URL in a label as text, not as the start of italics', () => {
@@ -342,7 +399,8 @@ describe('plantumlMode @startcreole', () => {
       ['@startcreole', 'keyword'],
       ['**b**', 'strong'],
       ['//i//', 'emphasis'],
-      ['<color:', 'tagName'],
+      ['<color', 'tagName'],
+      [':', 'punctuation'],
       ['#F00', 'ColorLiteral'],
       ['>', 'tagName'],
       ['</color>', 'tagName'],
@@ -429,14 +487,21 @@ describe('plantumlMode style blocks', () => {
     ])
   })
 
-  it('reads a one-line block as its tags around plain text, and an imported style sheet as one tag', () => {
+  it('reads a one-line block as its tags around plain text, and an imported style sheet as a tag with its attribute', () => {
     expect(tokens('<style>note { BackgroundColor red }</style>', 'note left', 'x', 'end note')).toEqual([
       ['<style>', 'tagName'],
       ['</style>', 'tagName'],
       ['note', 'keyword'],
       ['end note', 'keyword'],
     ])
-    expect(tokens('  <style file=my.css>', 'actor A')).toEqual([['<style file=my.css>', 'tagName'], ['actor', 'keyword']])
+    expect(tokens('  <style file=my.css>', 'actor A')).toEqual([
+      ['<style', 'tagName'],
+      ['file', 'attributeName'],
+      ['=', 'punctuation'],
+      ['my.css', 'string'],
+      ['>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
   })
 
   it('ends a block left open at @end, as PlantUML does', () => {

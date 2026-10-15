@@ -25,12 +25,14 @@ const TAGS = [
   ['<sub>', '<sub>${}</sub>', 'subscript'],
   ['<sup>', '<sup>${}</sup>', 'superscript'],
   ['<img:url>', '<img:${url}>', 'image'],
+  ['<code>', '<code>\n${}\n</code>', 'monospace block'],
+  ['<r>', '<r>', 'right-aligned cell'],
 ]
 
 const options = TAGS.map(([label, template, detail]) => snippetCompletion(template, { label, detail, type: 'text' }))
 
 /** The tags a `</…>` can close. */
-const CLOSING = new Set(['b', 'i', 'u', 's', 'w', 'size', 'color', 'back', 'font', 'plain', 'sub', 'sup'])
+const CLOSING = new Set(['b', 'i', 'u', 's', 'w', 'size', 'color', 'back', 'font', 'plain', 'sub', 'sup', 'code'])
 
 /** The tags opened and not yet closed in `text`, innermost first. */
 function stillOpen(text) {

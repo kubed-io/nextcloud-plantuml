@@ -408,7 +408,7 @@ describe('creole', () => {
 
     expect(result.from).toBe(marked.indexOf('<'))
     expect(labels(result)).toEqual(expect.arrayContaining([
-      '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>',
+      '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>', '<code>', '<r>',
     ]))
     expect(result.options.every((option) => option.type === 'text' && option.detail)).toBe(true)
     expect(result.validFor.test('<si')).toBe(true)
@@ -450,6 +450,15 @@ describe('creole', () => {
 
     expect(view.state.doc.toString()).toBe('title <size:12>')
     expect(view.state.sliceDoc(from, to)).toBe('12')
+    view.destroy()
+  })
+
+  it('offers <code> with an empty line between its tags, the cursor on it, and <r>', () => {
+    const view = pick('title <co|', creole, '<code>')
+
+    expect(view.state.doc.toString()).toBe('title <code>\n\n</code>')
+    expect(view.state.selection.main.head).toBe('title <code>\n'.length)
+    expect(labels(complete(creole, 'title <|'))).toContain('<r>')
     view.destroy()
   })
 

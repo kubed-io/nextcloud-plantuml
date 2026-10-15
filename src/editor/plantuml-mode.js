@@ -98,6 +98,9 @@ function creole(base) {
   const on = (style) => (base ? `${style} ${base}` : style)
   return [
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
+    // `~~` is a wave, left as text; `~` before any other character escapes it.
+    { regex: /~~/, token: base },
+    { regex: /(~)([^~])/, token: ['punctuation', base] },
     // A URL's `//` starts no italics.
     { regex: /[a-z][\w+.-]*:\/\/[^\s\]]*/i, token: base },
     { regex: /\*\*.+?\*\*/, token: on('strong') },
@@ -105,21 +108,47 @@ function creole(base) {
     { regex: /"".+?""/, token: on('monospace') },
     { regex: /__.+?__/, token: on('underline') },
     { regex: new RegExp(`(<(?:color|back):)(#${colourPart})(>)`), token: ['tagName', 'ColorLiteral', 'tagName'] },
-    { regex: /<\/?(?:b|i|u|s|w|plain|sub|sup|size|font|color|back)(?:[:\s][^>]*)?>/, token: 'tagName' },
-    // An OpenIconic icon, an emoji, an image.
-    { regex: /<(?:&[^>\s]+|:[^>\s]+:|img:[^>]+)>/, token: 'tagName' },
+    // A table row or cell colour (`<#lightblue,#red>`) and a coloured emoji (`<#green:sunny:>`).
+    { regex: new RegExp(`(<)(#${colourPart})(?:(,)(#${colourPart}))?(:[^>\\s]+:)?(>)`), token: ['tagName', 'ColorLiteral', 'tagName', 'ColorLiteral', 'tagName', 'tagName'] },
+    { regex: /<\/?(?:b|i|u|s|w|r|code|plain|sub|sup|size|font|color|back)(?:[:\s][^>]*)?>/, token: 'tagName' },
+    // An OpenIconic icon, an emoji, an image, a Unicode character.
+    { regex: /<(?:&[^>\s]+|:[^>\s]+:|img:[^>]+|U\+[\dA-Fa-f]+)>|&#(?:\d+|x[\dA-Fa-f]+);/, token: 'tagName' },
     { regex: /\|=?/, token: 'punctuation' },
-    { regex: /\w+|[^\w[*/"<|]+/, token: base },
+    { regex: /\w+|[^\w[*/"<|~&]+/, token: base },
     { regex: /./, token: base },
   ]
 }
 
-/** Creole on the lines down to `closer`, and the rules (`----`, `....`, `====`) between them. */
-const body = (closer, token = 'keyword') => [
-  atLineStart(closer, token, { next: 'start' }),
-  atLineStart(/(?:-{4,}|\.{4,}|={4,})(?=\s*$)/.source, 'heading'),
-  ...creole(null),
+/**
+ * What Creole reads at the start of a line in a body, not in a one-line label (where a `#` is
+ * a colour): rules, headings, list items and tree lines; `<code>` opens the state `code`.
+ */
+const lines = (code) => [
+  atLineStart(/(?:-{4,}|\.{4,}|={4,}|_{4,})(?=\s*$)/.source, 'heading'),
+  // No group in these: a rule's groups are its tokens.
+  atLineStart(/(?:\.\..+\.\.|==.+==|--.+--)\s*$/.source, 'heading'),
+  atLineStart(/={1,3}[ \t].*/.source, 'heading'),
+  atLineStart(/(?:\*{1,2}|#{1,2})(?=[ \t])/.source, 'punctuation'),
+  atLineStart(/\|_/.source, 'punctuation'),
+  atLineStart(/<code>(?=\s*$)/.source, 'tagName', { next: code }),
 ]
+
+/** The lines of a `<code>` block: monospace down to `</code>`, or to the end of the body. */
+const codeLines = (closer, back) => [
+  atLineStart(/<\/code>(?=\s*$)/.source, 'tagName', { next: back }),
+  ...(closer ? [atLineStart(closer, 'keyword', { next: 'start' })] : []),
+  { regex: /.+/, token: 'monospace' },
+]
+
+/** Creole on the lines down to `closer`, and the state `key`Code for its `<code>` blocks. */
+const body = (key, closer, token = 'keyword') => ({
+  [key]: [
+    atLineStart(closer, token, { next: 'start' }),
+    ...lines(`${key}Code`),
+    ...creole(null),
+  ],
+  [`${key}Code`]: codeLines(closer, key),
+})
 
 /** The rest of a line whose text starts on the next one: `note left of A #pink`. */
 const head = [
@@ -181,15 +210,15 @@ const base = simpleMode({
   text: creole(null),
   noteHead: head,
   legendHead: head,
-  noteBody: body(/end\s*[hr]?note\b/.source),
-  legendBody: body(/end\s*legend\b/.source),
-  titleBody: body(/end\s*title\b/.source),
-  headerBody: body(/end\s*header\b/.source),
-  footerBody: body(/end\s*footer\b/.source),
-  descBody: body(/\]/.source, null),
+  ...body('noteBody', /end\s*[hr]?note\b/.source),
+  ...body('legendBody', /end\s*legend\b/.source),
+  ...body('titleBody', /end\s*title\b/.source),
+  ...body('headerBody', /end\s*header\b/.source),
+  ...body('footerBody', /end\s*footer\b/.source),
+  ...body('descBody', /\]/.source, null),
   // A creole diagram is Creole on every line, from the line after its start.
   creoleHead: [{ regex: /.+/, token: null }],
-  creoleBody: body(/@end\w*/.source),
+  ...body('creoleBody', /@end\w*/.source),
   // A files diagram is a path on each line, and `<note>` bodies of Creole.
   filesHead: [{ regex: /.+/, token: null }],
   filesBody: [
@@ -201,8 +230,10 @@ const base = simpleMode({
   filesNote: [
     atLineStart(/<\/note>(?=\s*$)/.source, 'tagName', { next: 'filesBody' }),
     atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    ...lines('filesNoteCode'),
     ...creole(null),
   ],
+  filesNoteCode: codeLines(/@end\w*/.source, 'filesNote'),
   languageData: {
     name: 'plantuml',
     commentTokens: { line: "'", block: { open: "/'", close: "'/" } },

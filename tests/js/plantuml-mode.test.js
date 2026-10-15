@@ -635,3 +635,84 @@ describe('plantumlLanguage with an inner mode', () => {
     expect(plantumlLanguage({})).not.toBe(plantumlLanguage({}))
   })
 })
+
+describe('plantumlMode Creole, complete (X19)', () => {
+  const note = (...lines) => tokens('note left of A', ...lines, 'end note')
+  const inner = (...lines) => note(...lines).slice(1, -1)
+  const P = (text) => [text, 'punctuation']
+
+  it.each([
+    ['a note body', (...lines) => inner(...lines)],
+    ['a @startcreole block', (...lines) => tokens('@startcreole', ...lines, '@endcreole').slice(1, -1)],
+  ])('reads headings, list markers and tree lines at the start of a line in %s', (_, read) => {
+    expect(read('== Large heading')).toEqual([['== Large heading', 'heading']])
+    expect(read('=== Third', '= First')).toEqual([['=== Third', 'heading'], ['= First', 'heading']])
+    expect(read('** Sub item', '# one', '  ## two')).toEqual([P('**'), P('#'), P('##')])
+    expect(read('  |_ Level 2a')).toEqual([P('|_')])
+    expect(read('..My title..', '==Title==', '--Another title--', '____', '----')).toEqual([
+      ['..My title..', 'heading'],
+      ['==Title==', 'heading'],
+      ['--Another title--', 'heading'],
+      ['____', 'heading'],
+      ['----', 'heading'],
+    ])
+  })
+
+  it('leaves a bold run at the start of a line bold, not a list item', () => {
+    expect(inner('**b** x')).toEqual([['**b**', 'strong']])
+  })
+
+  it('reads no heading or list marker in a one-line label, where # is a colour', () => {
+    expect(tokens('A -> B : == x')).toEqual([['->', 'operator'], ['== x', 'labelName']])
+    expect(tokens('A -> B : * x')).toEqual([['->', 'operator'], ['* x', 'labelName']])
+    expect(tokens('note right of A : * x')).toEqual([['note', 'keyword']])
+    expect(tokens('note right of A : # x')).toEqual([['note', 'keyword']])
+  })
+
+  it('dims a ~ escape and leaves the next character plain', () => {
+    expect(inner('~**not bold~**')).toEqual([P('~'), P('~')])
+    expect(tokens('A -> B : ~**x~** **y**').slice(1)).toEqual([
+      ['~', 'punctuation'],
+      ['**x', 'labelName'],
+      ['~', 'punctuation'],
+      ['** ', 'labelName'],
+      ['**y**', 'strong_labelName'],
+    ])
+  })
+
+  it('keeps ~~wave~~ plain', () => {
+    expect(tokens('A -> B : ~~wavy~~')).toEqual([['->', 'operator'], ['~~wavy~~', 'labelName']])
+  })
+
+  it('reads Unicode and numeric character tags', () => {
+    expect(inner('<U+221E> and &#8734;')).toEqual([['<U+221E>', 'tagName'], ['&#8734;', 'tagName']])
+  })
+
+  it('reads table row and cell colours as tags with colour literals, and a coloured emoji', () => {
+    expect(inner('<#lightblue,#red>|=  Step  |', '|<#FF8080> red |', '<#green:sunny:>')).toEqual([
+      ['<', 'tagName'], ['#lightblue', 'ColorLiteral'], [',', 'tagName'], ['#red', 'ColorLiteral'], ['>', 'tagName'],
+      P('|='), P('|'),
+      P('|'), ['<', 'tagName'], ['#FF8080', 'ColorLiteral'], ['>', 'tagName'], P('|'),
+      ['<', 'tagName'], ['#green', 'ColorLiteral'], [':sunny:>', 'tagName'],
+    ])
+    expect(inner('<#00FF00,#FF0000>|=')[1]).toEqual(['#00FF00', 'ColorLiteral'])
+  })
+
+  it('reads <r> as a tag', () => {
+    expect(inner('|<r> x |')).toEqual([P('|'), ['<r>', 'tagName'], P('|')])
+  })
+
+  it('reads the lines between <code> and </code> as monospace, and keeps going after', () => {
+    expect(inner('<code>', '**not bold**', '</code>', '**bold**')).toEqual([
+      ['<code>', 'tagName'],
+      ['**not bold**', 'monospace'],
+      ['</code>', 'tagName'],
+      ['**bold**', 'strong'],
+    ])
+    expect(tokens('@startcreole', '<code>', 'x', '</code>', '@endcreole', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'tagName', 'keyword', 'keyword'])
+  })
+
+  it('ends a note at its closer even inside an unclosed <code>', () => {
+    expect(tokens('note left of A', '<code>', 'x', 'end note', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'keyword', 'keyword'])
+  })
+})

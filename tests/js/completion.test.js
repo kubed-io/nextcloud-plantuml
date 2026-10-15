@@ -1303,6 +1303,35 @@ describe('sections and blocks of an included file', () => {
     expect(loadFile).not.toHaveBeenCalled()
   })
 
+  it('takes a quoted path with spaces, after !include and !includesub', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml spaced\n!startsub PART\n', etag: 'e' })
+
+    expect(labels(await completeAt('!includesub "a b.puml"!|'))).toEqual(['PART'])
+    expect(loadFile).toHaveBeenCalledWith('/apps/a b.puml')
+    expect(labels(await completeAt('!include "a b.puml"!|'))).toEqual(['spaced'])
+  })
+
+  it('still offers the diagram\'s own sections when the listing fails', async () => {
+    vi.mocked(listFolder).mockRejectedValue(new Error('offline'))
+
+    const result = await completeAt('!includesub |\n!startsub ACTORS')
+
+    expect(labels(result)).toEqual(['ACTORS'])
+    expect(await completeAt('!includesub |')).toBeNull()
+  })
+
+  it('reads again after a failed read, and after the page regains focus', async () => {
+    vi.mocked(loadFile).mockRejectedValueOnce(new Error('blip')).mockResolvedValue({ content: '!startsub RETRY\n', etag: 'e' })
+
+    expect(await completeAt('!includesub ./retry.puml!|')).toBeNull()
+    expect(labels(await completeAt('!includesub ./retry.puml!|'))).toEqual(['RETRY'])
+    expect(loadFile).toHaveBeenCalledTimes(2)
+
+    window.dispatchEvent(new Event('focus'))
+    await completeAt('!includesub ./retry.puml!|')
+    expect(loadFile).toHaveBeenCalledTimes(3)
+  })
+
   it('reads a file once per page', async () => {
     vi.mocked(loadFile).mockResolvedValue({ content: '!startsub ONCE\n', etag: 'e' })
 

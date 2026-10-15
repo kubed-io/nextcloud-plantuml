@@ -16,7 +16,7 @@ import { listFolder, loadFile } from '../save.js'
 import { filePath } from '../lint/state.js'
 
 const INCLUDE = /^\s*!include(?:_many|_once|sub)?[ \t]+([^\s]*)$/
-const INCLUDE_NAME = /^\s*!include(_many|_once|sub)?[ \t]+"?([^\s"!]+)"?!([\w-]*)$/
+const INCLUDE_NAME = /^\s*!include(_many|_once|sub)?[ \t]+(?:"([^"!]+)"|([^\s"!]+))!([\w-]*)$/
 const INCLUDESUB = /^\s*!includesub[ \t]+$/
 const SECTION = /^\s*!startsub[ \t]+(\S+)/gm
 const BLOCK = /^\s*@start\w+(?:[ \t]+([\w-]+)|\(id=([\w-]+)\))/gm
@@ -40,6 +40,17 @@ const reopenWithBang = (view, completion, from, to) => reopen(view, completion, 
 
 /** Files read this page, by path: a second completion does not read again. */
 const reads = new Map()
+
+// An included file may change elsewhere: forget what was read when the page
+// comes back, the moments the preview redraws too.
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  window.addEventListener('focus', () => reads.clear())
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      reads.clear()
+    }
+  })
+}
 
 function readOnce(path) {
   if (!reads.has(path)) {
@@ -111,7 +122,7 @@ export async function localFiles(context) {
   const file = context.state.facet(filePath)
   const named = INCLUDE_NAME.exec(before)
   if (named && file) {
-    return namesOf(context, file, named[1] === 'sub' ? 'sub' : 'block', named[2], named[3])
+    return namesOf(context, file, named[1] === 'sub' ? 'sub' : 'block', named[2] ?? named[3], named[4])
   }
   const include = INCLUDE.exec(before)
   const match = include ?? STYLE.exec(before)
@@ -127,11 +138,14 @@ export async function localFiles(context) {
   if (folder === null) {
     return null
   }
+  const own = INCLUDESUB.test(before) ? namesIn(context.state.doc.toString(), SECTION) : []
+  const ownOptions = own.map((label) => ({ label, type: 'constant', boost: 4 }))
   let entries
   try {
     entries = await listFolder(folder)
   } catch {
-    return null
+    // The diagram's own sections do not depend on the listing.
+    return own.length ? { from: context.pos, options: ownOptions, validFor: /^[\w-]*$/ } : null
   }
   const sub = include && /^\s*!includesub/.test(before)
   const wanted = include ? INCLUDE_FILES : STYLE_FILES
@@ -146,9 +160,6 @@ export async function localFiles(context) {
   if (include && typed === '') {
     options.unshift(...fixed)
   }
-  if (INCLUDESUB.test(before)) {
-    const own = namesIn(context.state.doc.toString(), SECTION)
-    options.unshift(...own.map((label) => ({ label, type: 'constant', boost: 4 })))
-  }
+  options.unshift(...ownOptions)
   return { from: context.pos - (typed.length - slash - 1), options, validFor: /^[^/]*$/ }
 }

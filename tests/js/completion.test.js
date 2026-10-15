@@ -31,9 +31,9 @@ import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 import preprocessor from '../../src/editor/data/directives.json'
 import { filePath } from '../../src/editor/lint/state.js'
-import { listFolder } from '../../src/editor/save.js'
+import { listFolder, loadFile } from '../../src/editor/save.js'
 
-vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn() }))
+vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn(), loadFile: vi.fn() }))
 
 function stateAt(marked) {
   const pos = marked.indexOf('|')
@@ -1215,5 +1215,101 @@ describe('local paths', () => {
     await new Promise((resolve) => setTimeout(resolve, 150))
     expect(listFolder).toHaveBeenCalledWith('/Diagrams/sub')
     view.destroy()
+  })
+})
+
+describe('sections and blocks of an included file', () => {
+  // The per-page cache is module-level, so each test reads its own file.
+  const DIAGRAM = '/apps/UML_Fun.puml'
+
+  beforeEach(() => {
+    vi.mocked(listFolder).mockReset()
+    vi.mocked(listFolder).mockResolvedValue([{ name: 'parts.puml', folder: false }])
+    vi.mocked(loadFile).mockReset()
+  })
+
+  function completeAt(marked, path = DIAGRAM) {
+    const pos = marked.indexOf('|')
+    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, plantumlCompletion, filePath.of(path)] })
+    return localFiles(new CompletionContext(state, pos, false))
+  }
+
+  function pickAfter(directive) {
+    const doc = `${directive} `
+    const view = new EditorView({ state: EditorState.create({ doc, selection: { anchor: doc.length }, extensions: [plantumlMode, plantumlCompletion, filePath.of(DIAGRAM)] }), parent: document.body })
+    return localFiles(new CompletionContext(view.state, doc.length, false)).then((result) => {
+      const option = result.options.find((candidate) => candidate.label === 'parts.puml')
+      if (typeof option.apply === 'function') {
+        option.apply(view, option, result.from, doc.length)
+      } else {
+        view.dispatch({ changes: { from: result.from, to: doc.length, insert: option.apply ?? option.label } })
+      }
+      return view
+    })
+  }
+
+  it('offers the !startsub names of the file after !includesub path!, once each, in order', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '!startsub ACTORS\nA -> B\n!endsub\n!startsub ACTORS\n!endsub\n!startsub LEGEND\n', etag: 'e' })
+
+    const result = await completeAt('!includesub ./parts.puml!|')
+
+    expect(loadFile).toHaveBeenCalledWith('/apps/parts.puml')
+    expect(labels(result)).toEqual(['ACTORS', 'LEGEND'])
+    expect(result.options.every((option) => option.type === 'constant')).toBe(true)
+    expect(result.from).toBe('!includesub ./parts.puml!'.length)
+  })
+
+  it('offers the named blocks after !include path!, and not the unnamed ones', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts\nA -> B\n@enduml\n@startuml(id=legend)\n@enduml\n@startmindmap\n* x\n', etag: 'e' })
+
+    const result = await completeAt('!include ./blocks.puml!|')
+
+    expect(loadFile).toHaveBeenCalledWith('/apps/blocks.puml')
+    expect(labels(result)).toEqual(['parts', 'legend'])
+  })
+
+  it('offers the open document\'s own sections first after a bare !includesub', async () => {
+    const result = await completeAt('!includesub |\n!startsub ACTORS\n!endsub')
+
+    expect(labels(result).slice(0, 1)).toEqual(['ACTORS'])
+    expect(result.options[0].type).toBe('constant')
+    expect(labels(result)).toContain('parts.puml')
+    expect(loadFile).not.toHaveBeenCalled()
+  })
+
+  it('adds the ! after a file picked for !includesub and opens the names, but not for !include', async () => {
+    const sub = await pickAfter('!includesub')
+    expect(sub.state.doc.toString()).toBe('!includesub parts.puml!')
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(completionStatus(sub.state)).toBe('active')
+    sub.destroy()
+
+    const plain = await pickAfter('!include')
+    expect(plain.state.doc.toString()).toBe('!include parts.puml')
+    plain.destroy()
+  })
+
+  it('offers nothing when the read fails', async () => {
+    vi.mocked(loadFile).mockRejectedValue(new Error('gone'))
+
+    expect(await completeAt('!includesub ./missing.puml!|')).toBeNull()
+  })
+
+  it('does not read a $ or % path, a <library> or a URL', async () => {
+    expect(await completeAt('!includesub $dir/x.puml!|')).toBeNull()
+    expect(await completeAt('!includesub %dir()/x.puml!|')).toBeNull()
+    expect(await completeAt('!includesub <C4/C4>!|')).toBeNull()
+    expect(await completeAt('!includesub https://x.org/a.puml!|')).toBeNull()
+    expect(loadFile).not.toHaveBeenCalled()
+  })
+
+  it('reads a file once per page', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '!startsub ONCE\n', etag: 'e' })
+
+    await completeAt('!includesub ./once.puml!|')
+    const again = await completeAt('!includesub ./once.puml!O|')
+
+    expect(loadFile).toHaveBeenCalledTimes(1)
+    expect(labels(again)).toEqual(['ONCE'])
   })
 })

@@ -23,7 +23,7 @@ import vocabulary from '../../src/editor/data/vocabulary.json'
 const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
 // The theme list is asked once per page, so once for this file.
 vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-const COLORS = { red: '#FF0000', gold: '#FFD700', navy: '#000080', aqua: '#00FFFF', cyan: '#00FFFF', Odd: null }
+const COLORS = { red: '#FF0000', gold: '#FFD700', navy: '#000080', aqua: '#00FFFF', cyan: '#00FFFF', yellow: '#FFFF00', black: '#000000', white: '#FFFFFF', Odd: null }
 const answer = async (url) => new Response(JSON.stringify(String(url).endsWith('/colors') ? { colors: COLORS } : { themes: THEMES }), { status: 200 })
 const fetch = vi.fn(answer)
 vi.stubGlobal('fetch', fetch)
@@ -574,6 +574,12 @@ describe('named colours by name (W5)', () => {
     ['node a #?black:white', ['black', 'white']],
   ])('finds the colour values of %j (the # outside the range unless the place writes it bare)', (text, ranges) => {
     expect(covered(text)).toEqual(ranges)
+  })
+
+  it('finds no colour value where no swatch shows: a name the server has no colour for', () => {
+    expect(covered('archimate #Business "x" as a')).toEqual([])
+    expect(covered('node a #Odd')).toEqual([])
+    expect(covered('node a #Business #gold')).toEqual(['gold'])
   })
 
   it('finds a style block\'s colour with its # inside the range, as it is written bare', () => {

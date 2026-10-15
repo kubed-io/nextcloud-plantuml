@@ -375,6 +375,8 @@ const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
 // A `<latex>` block's last line, and the lines that end a Creole body with it unclosed.
 const latexClose = /^<\/latex>$/
 const bodyEnd = /^[ \t]*(?:end\s*(?:[hr]?note|legend|title|header|footer)\b|@end)/
+// A files note ends with its `</note>` line, a description with the line starting `]`.
+const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>/, descBody: /^[ \t]*\]/, descBodyCode: /^[ \t]*\]/ }
 
 /**
  * Whether `pos` is in a style block's body, read by the line forms above: a
@@ -510,7 +512,7 @@ export function plantumlLanguage(inner = {}) {
         state.state = state.stack.pop()
         return emit(stream, state, [['</latex>', 'tagName']])
       }
-      if (bodyEnd.test(stream.string)) {
+      if (bodyEnd.test(stream.string) || bodyEnds[state.stack[state.stack.length - 1]]?.test(stream.string)) {
         state.latex = null
         state.state = state.stack.pop()
         return base.token(stream, state)

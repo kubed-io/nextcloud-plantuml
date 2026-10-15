@@ -52,7 +52,7 @@ describe('a @startlatex block', () => {
     expect(read('\\sum_{i=0}^{n-1} i = \\frac{n(n-1)}{2}')).toEqual([
       ['\\sum', 'FunctionName'], ['_', 'operator'], ['{', 'punctuation'], ['=', 'operator'], ['0', 'number'], ['}', 'punctuation'],
       ['^', 'operator'], ['{', 'punctuation'], ['-', 'operator'], ['1', 'number'], ['}', 'punctuation'], ['=', 'operator'],
-      ['\\frac', 'FunctionName'], ['{', 'punctuation'], ['-', 'operator'], ['1', 'number'], ['}{', 'punctuation'], ['2', 'number'], ['}', 'punctuation'],
+      ['\\frac', 'FunctionName'], ['{', 'punctuation'], ['(', 'punctuation'], ['-', 'operator'], ['1', 'number'], [')}{', 'punctuation'], ['2', 'number'], ['}', 'punctuation'],
     ])
   })
 
@@ -85,6 +85,21 @@ describe('a @startlatex block', () => {
     ])
   })
 
+  it('reads ( ) as punctuation', () => {
+    expect(read('f(x)')).toEqual([['(', 'punctuation'], [')', 'punctuation']])
+  })
+
+  it('reads a setting line as a keyword and its value', () => {
+    expect(read('color red', 'backgroundcolor #EEF', '  scale 2', 'DPI 300', 'x')).toEqual([
+      ['color', 'keyword'], ['red', 'ColorLiteral'],
+      ['backgroundcolor', 'keyword'], ['#EEF', 'ColorLiteral'],
+      ['scale', 'keyword'], ['2', 'number'],
+      ['DPI', 'keyword'], ['300', 'number'],
+    ])
+    // Without its space, it is no setting.
+    expect(read('color{red}')).toEqual([['{', 'punctuation'], ['}', 'punctuation']])
+  })
+
   it("leaves a comment line PlantUML's, and never crashes on what LaTeX would not read", () => {
     expect(read("' a note", '§ \\')).toEqual([["' a note", 'comment'], ['\\', 'FunctionName']])
   })
@@ -99,6 +114,10 @@ describe('an inline <latex>', () => {
     expect(readDoc(['A -> B : x <latex>\\pi</latex> y'])).toEqual([
       ['->', 'operator'], ['x ', 'labelName'], ['<latex>', 'tagName'], ['\\pi', 'FunctionName'], ['</latex>', 'tagName'], [' y', 'labelName'],
     ])
+  })
+
+  it('never reads a setting in an inline <latex>', () => {
+    expect(readDoc(['note: <latex>color red</latex>'])).toEqual([['note', 'keyword'], ['<latex>', 'tagName'], ['</latex>', 'tagName']])
   })
 
   it('ends at the first </latex>, and a % comment stops there too', () => {

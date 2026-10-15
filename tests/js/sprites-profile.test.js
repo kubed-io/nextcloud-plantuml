@@ -76,6 +76,13 @@ describe('the sprites profile', () => {
     ])
   })
 
+  it('reads an unquoted attribute value as a string, as the PlantUML mode does', () => {
+    expect(spriteTokens('sprite dot <svg width=10><circle r=4></svg>').slice(-8)).toEqual([
+      ['width', 'attributeName'], ['=', 'punctuation'], ['10', 'string'],
+      ['><circle', 'tagName'], ['r', 'attributeName'], ['=', 'punctuation'], ['4', 'string'], ['></svg>', 'tagName'],
+    ])
+  })
+
   it('reads a multi-line svg sprite down to the line holding </svg>', () => {
     expect(spriteTokens('sprite a <svg viewBox="0 0 8 8">', '<path d="M1 0"/>', '</svg>', 'listsprite').slice(-4)).toEqual([
       ['"M1 0"', 'string'], ['/>', 'tagName'], ['</svg>', 'tagName'], ['listsprite', 'keyword'],

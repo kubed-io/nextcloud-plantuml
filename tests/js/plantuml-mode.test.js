@@ -808,6 +808,25 @@ describe('plantumlLanguage with an inner mode', () => {
     ])
   })
 
+  it('ends an unclosed <latex> block at the </note> of a files note and the ] of a description', () => {
+    const texy = (...lines) => tokensOf(plantumlLanguage({ latex: whole('atom') }), lines)
+
+    expect(texy('@startfiles', '<note>', '<latex>', '\\a', '</note>', 'b', '@endfiles').slice(1, -1)).toEqual([
+      ['<note>', 'tagName'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['</note>', 'tagName'],
+    ])
+    expect(texy('node web [', '<latex>', '\\a', ']', 'node db')).toEqual([
+      ['node', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['node', 'keyword'],
+    ])
+    // Elsewhere neither ends it: a note's LaTeX may hold a line starting `]`.
+    expect(texy('note left', '<latex>', ']', '\\b', 'end note')).toContainEqual(['\\b', 'atom'])
+  })
+
   it('reads a style block inside a yaml block as style, and yaml again after it', () => {
     const language = plantumlLanguage({ yaml: whole('atom'), style: whole('string') })
 

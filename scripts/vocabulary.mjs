@@ -148,11 +148,11 @@ const TYPES = {
   LEFTBRACKET: 'brackets', RIGHTBRACKET: 'brackets', LEFTRIGHT: 'brackets',
 }
 // Where T14 parts from both: the integrals are n-ary like `sum`, ∀ ∃ ⊤ ⊥ are values, `+-` an
-// operator, the floor and ceiling halves brackets, and the spaces layout like `newline`.
-const ROLES = {
+// operator, the floor and ceiling halves brackets, and the spaces (`\ `, `quad`) symbols.
+export const ROLES = {
   int: 'functions', oint: 'functions', AA: 'symbols', EE: 'symbols', TT: 'symbols', '_|_': 'symbols',
   '+-': 'operators', '-+': 'operators', '|__': 'brackets', '__|': 'brackets', '|~': 'brackets', '~|': 'brackets',
-  lceiling: 'brackets', rceiling: 'brackets', '\\ ': 'keywords', quad: 'keywords', qquad: 'keywords',
+  lceiling: 'brackets', rceiling: 'brackets', '\\ ': 'symbols', quad: 'symbols', qquad: 'symbols',
 }
 const STRING = /"(?:[^"\\]|\\.)*"/.source
 const TUPLE = new RegExp(String.raw`new\s+Tuple\(\s*(?:new\s+String\[\]\s*\{[^}]*\}\s*,\s*)?(${STRING})\s*,\s*${STRING}\s*,\s*(?:${STRING}|null)\s*,\s*(${STRING}|null)\s*,\s*Ttype\.(\w+)((?:\s*,\s*Flag\.\w+)*)\s*\)`, 'g')
@@ -163,14 +163,16 @@ const TUPLE = new RegExp(String.raw`new\s+Tuple\(\s*(?:new\s+String\[\]\s*\{[^}]
  * A name's role is its own in `ROLES`, else its type's, else its section's; each
  * TeX name the table copies in (`tex`, unless `NOTEXCOPY`) takes its symbol's.
  * A single letter is a variable however the table lists it (`f`), and `"` opens
- * a text, so neither is a name. A section heading not in `SECTIONS` throws.
+ * a text, so neither is a name. A section heading not in `SECTIONS` throws, and so does a
+ * `roles` key that no entry of the table has: a renamed symbol must not keep a stale role.
  */
-export function asciimathNames(java) {
+export function asciimathNames(java, roles = ROLES) {
   const read = (match) => ({ input: JSON.parse(match[1]), tex: match[2] === 'null' ? null : JSON.parse(match[2]), type: match[3], flags: match[4] })
   const constants = new Map([...java.matchAll(new RegExp(String.raw`Tuple\s+(aAM\w+)\s*=\s*(?=new\s+Tuple)`, 'g'))]
     .map((m) => [m[1], read(new RegExp(TUPLE.source).exec(java.slice(m.index)))]))
   const open = java.indexOf('{', java.search(/aAMsymbols\s*=/))
   const lists = { functions: new Set(), symbols: new Set(), operators: new Set(), brackets: new Set(), keywords: new Set() }
+  const seen = new Set()
   let section = null
   for (const line of java.slice(open + 1).split('\n')) {
     if (/^\s*\}/.test(line)) break
@@ -185,11 +187,14 @@ export function asciimathNames(java) {
       : [...line.matchAll(/\baAM\w+/g)].map((m) => constants.get(m[0])).filter(Boolean)
     for (const { input, tex, type, flags } of symbols) {
       if (/^[A-Za-z]$/.test(input) || input === '"') continue
-      const role = ROLES[input] ?? TYPES[type] ?? section
+      seen.add(input)
+      const role = roles[input] ?? TYPES[type] ?? section
       lists[role].add(input)
       if (tex && !flags.includes('NOTEXCOPY')) lists[role].add(tex)
     }
   }
+  const stale = Object.keys(roles).filter((input) => !seen.has(input))
+  if (stale.length) throw new Error(`AsciiMath: no table entry for the role of ${stale.map((input) => JSON.stringify(input)).join(', ')}`)
   return Object.fromEntries(Object.entries(lists).map(([role, names]) => [role, [...names].sort()]))
 }
 

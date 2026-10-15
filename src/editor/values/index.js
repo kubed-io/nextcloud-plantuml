@@ -24,6 +24,7 @@ import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
 import { Facet, StateEffect } from '@codemirror/state'
 import { themeValue } from '../completion/themes.js'
 import { serverColors, serverColorsNow, serverList, serverListNow } from '../completion/server-list.js'
+import { colourOf } from '../swatches.js'
 import { inStyleBody } from '../plantuml-mode.js'
 
 /** The loaded profiles' entries, read beside `coreValues`. */
@@ -171,6 +172,15 @@ let asking = null
 /** @return {Promise<unknown>|null} what a chooser waits on to draw a colour's pencil */
 export const coloursPending = () => asking
 
+/** `colourOf`'s names for the colours the server answered, kept for as long as the answer is. */
+const namesOf = new WeakMap()
+const lowerNames = (known) => {
+  if (!namesOf.has(known)) namesOf.set(known, new Map(Object.entries(known).map(([name, hex]) => [name.toLowerCase(), hex])))
+  return namesOf.get(known)
+}
+
+// A pencil goes where a swatch shows (W5): a name the server has no colour for (an ArchiMate
+// layer, `#Business`) has none.
 const colourValue = {
   match(lineText, state, lineFrom) {
     // No pencil until the server has named some colours; asking is once (cached).
@@ -194,6 +204,7 @@ const colourValue = {
           asking ??= serverColors().then(() => { asking = null })
           return
         }
+        if (!colourOf(state.sliceDoc(node.from, node.to), lowerNames(known))) return
         const hash = state.sliceDoc(node.from, node.from + 1) === '#'
         const bare = inStyle(node.from) || BARE_AFTER.test(state.sliceDoc(line.from, node.from))
         found.push({

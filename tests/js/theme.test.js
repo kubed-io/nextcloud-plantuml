@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { highlightTree, tags } from '@lezer/highlight'
 import { highlightStyle, surfaceRules } from '../../src/editor/theme.js'
-import { plantumlLanguage, underline, variable } from '../../src/editor/plantuml-mode.js'
+import { plantumlLanguage, spriteData, underline, variable } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
@@ -36,7 +36,7 @@ describe('the editor highlight style', () => {
   const styled = highlightStyle.specs.flatMap((spec) => spec.tag)
 
   it('colours every token the PlantUML mode emits', () => {
-    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation, variable, tags.function(tags.variableName)]) {
+    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation, spriteData, variable, tags.function(tags.variableName)]) {
       expect(styled).toContain(tag)
     }
   })

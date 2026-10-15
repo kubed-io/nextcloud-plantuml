@@ -34,6 +34,13 @@ describe('the board profile', () => {
     expect(board).toMatchObject({ type: 'board', completions: [], lints: [], values: [] })
   })
 
+  it('reads the shared commands in any case, hide and show with them', () => {
+    expect(boardTokens('Title x')).toEqual([['Title', 'keyword']])
+    expect(boardTokens('hide footbox')).toEqual([['hide', 'keyword']])
+    expect(boardTokens('SHOW x')).toEqual([['SHOW', 'keyword']])
+    expect(boardTokens('Legend', '+ not a card', 'End Legend', '+Card')).toEqual([['Legend', 'keyword'], ['End Legend', 'keyword'], ['+', 'operator']])
+  })
+
   it('names an activity, a line with no plus, a heading', () => {
     expect(boardTokens('Editor')).toEqual([['Editor', 'heading']])
     expect(boardTokens('Activity 2 : with colon')).toEqual([['Activity 2 : with colon', 'heading']])

@@ -98,7 +98,7 @@ function size(stream, state) {
   return 'punctuation'
 }
 
-/** A tag's parts: its name and `>` tags, an attribute's name an attribute, a value a string. */
+/** A tag's parts: its name and `>` tags, an attribute's name an attribute, a value (quoted or not) a string. */
 function svg(stream, state) {
   if (stream.match('</svg>')) {
     state.phase = 'top'
@@ -115,6 +115,10 @@ function svg(stream, state) {
   }
   if (stream.match('=')) {
     return 'punctuation'
+  }
+  // An unquoted value, as `attributes()` of the core reads it.
+  if (stream.match(/[^\s>"',}]+/)) {
+    return 'string'
   }
   stream.next()
   return null

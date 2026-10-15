@@ -131,6 +131,7 @@
       "Theta",
       "Xi",
       "ZZ",
+      "\\ ",
       "_|_",
       "aleph",
       "alpha",
@@ -174,6 +175,8 @@
       "pi",
       "prime",
       "psi",
+      "qquad",
+      "quad",
       "rho",
       "sigma",
       "square",
@@ -363,10 +366,7 @@
       "~|"
     ],
     "keywords": [
-      "\\ ",
-      "newline",
-      "qquad",
-      "quad"
+      "newline"
     ]
   }
 }

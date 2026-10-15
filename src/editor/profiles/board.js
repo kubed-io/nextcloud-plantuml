@@ -7,13 +7,13 @@
  * so on: the run of `+` an operator, the card's text left plain (Creole is
  * the editor's, which a profile does not import). An indented `+` is part of
  * an activity's name, as PlantUML reads it, and so is a `+` with nothing
- * after it. `'` comments are the editor's; `title`, `skinparam` and the other
- * commands the board shares with every diagram are keywords.
+ * after it. `'` comments are the editor's; `title`, `skinparam`, `hide` and the other
+ * commands the board shares with every diagram are keywords, in any case.
  */
 // The run of plus is taken whole (the lookahead's group), so `++ ` alone is no card.
 const CARD = /(?=(\++))\1(?![ \t]*$)/
-const COMMAND = /[ \t]*(?:title|header|footer|caption|legend|skinparam|scale)\b/
-const END_LEGEND = /[ \t]*end[ \t]*legend\b/
+const COMMAND = /[ \t]*(?:title|header|footer|caption|legend|skinparam|scale|hide|show)\b/i
+const END_LEGEND = /[ \t]*end[ \t]*legend\b/i
 
 const mode = {
   startState: () => ({ legend: false }),
@@ -35,7 +35,7 @@ const mode = {
       return 'operator'
     }
     if (stream.match(COMMAND)) {
-      state.legend = stream.current().trim() === 'legend'
+      state.legend = stream.current().trim().toLowerCase() === 'legend'
       return 'keyword'
     }
     stream.skipToEnd()

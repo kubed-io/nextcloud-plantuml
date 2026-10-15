@@ -26,8 +26,8 @@
  */
 import { StreamLanguage } from '@codemirror/language'
 import {
-  alias, argsState, arrow, atLineStart, blockComment, body, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
-  declarations, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState,
+  argsState, arrow, atLineStart, blockComment, body, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
+  declarations, directive, directiveLine, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState,
   stereotypes, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
@@ -48,15 +48,16 @@ const lineKeywords = /abstract\s+class|end\s+(?:box|fork|group|merge|note|ref|sp
 const toPreprocessor = (rules) => rules.map((rule) => ({ ...rule, next: 'preprocessor' }))
 
 /**
- * A `!` line: its directive word (`!procedure`, the `!` of `!$x`), then the state `preprocessor`
- * to the line's end. An include's, an import's and a theme's source is a path (H22), read before
- * the operators. Each pushes, and its states end with their line (`lineStates`), so the state the
- * line was read in, a class or a note body, comes back after it.
+ * A `!` line: its directive (`!procedure`, the `!` of `!$x = 1`), then the state `preprocessor` to
+ * the line's end; a `!` before anything PlantUML does not know is text. An include's, an import's
+ * and a theme's source is a path (H22), read before the operators. Each pushes, and its states end
+ * with their line (`lineStates`), so the state the line was read in, a class or a note body, comes
+ * back after it.
  */
 const bang = [
   atLineStart(/!(?:include(?:_many|_once|sub|url|def)?|import)(?=[ \t]+[^\s'$%])/.source, 'meta', { push: 'includePath' }),
   atLineStart(/!theme(?=\s)/.source, 'meta', { push: 'theme' }),
-  atLineStart(/!\w*/.source, 'meta', { push: 'preprocessor' }),
+  atLineStart(directive, 'meta', { push: 'preprocessor' }),
 ]
 
 const states = {
@@ -96,7 +97,6 @@ const states = {
     // `node web [` opens a description that runs to a line starting with `]`.
     { regex: /\[(?=\s*$)/, token: null, next: 'descBody' },
     { regex: /\b(?:elseif|equals|not|while)(?=\s*\()/, token: 'keyword' },
-    alias,
     { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
     // A sprite used as an element's icon (`rectangle <$foo> as r`).
     { regex: /<\$[^>\s]+>/, token: 'tagName' },
@@ -177,12 +177,14 @@ const states = {
   filesBody: [
     atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
     atLineStart(/<note>(?=\s*$)/.source, 'tagName', { next: 'filesNote' }),
+    ...bang,
     { regex: /\//, token: 'punctuation' },
     ...creole(null),
   ],
   filesNote: [
     atLineStart(/<\/note>(?=\s*$)/.source, 'tagName', { next: 'filesBody' }),
     atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    ...bang,
     ...lines('filesNoteCode'),
     ...creole(null),
   ],
@@ -230,7 +232,7 @@ function sheetValue(name, value) {
 /**
  * Whether `pos` is in a style block's body, read by the line forms above: a
  * line between `<style>` and `</style>` (or the next `@end`) that is not
- * PlantUML's own `'` or `!` line, or the middle of a one-line block. The core
+ * PlantUML's own `'` or `!` directive line, or the middle of a one-line block. The core
  * completion sources leave such a place to the style profile's.
  *
  * @param {import('@codemirror/state').EditorState} state
@@ -244,7 +246,7 @@ export function inStyleBody(state, pos) {
     const from = one[1].length + one[2].length
     return column >= from && column <= from + one[3].length
   }
-  if (styleOpen.test(line.text) || styleClose.test(line.text) || /^[ \t]*(?:['!]|@end)/.test(line.text)) {
+  if (styleOpen.test(line.text) || styleClose.test(line.text) || /^[ \t]*(?:'|@end)/.test(line.text) || directiveLine.test(line.text)) {
     return false
   }
   let open = false
@@ -388,7 +390,7 @@ export function plantumlLanguage(inner = {}) {
         state.style = null
         return null
       }
-      if (stream.match(/^[ \t]*['!]/, false)) return base.token(stream, state)
+      if (stream.match(/^[ \t]*'/, false) || stream.match(directiveLine, false)) return base.token(stream, state)
     }
     if (style) return style.token(stream, state.style.state)
     stream.skipToEnd()
@@ -455,7 +457,9 @@ export function plantumlLanguage(inner = {}) {
           const end = stream.match(/^([ \t]*)(@end\w*)/, false)
           if (end) {
             state.inner = null
+            // A `/' … '/` comment left open in the block leaves its start on the stack.
             state.state = 'start'
+            state.stack = []
             return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
           }
         }
@@ -465,7 +469,7 @@ export function plantumlLanguage(inner = {}) {
           const tags = styleStart(stream, state)
           if (tags !== undefined) return tags
           // Comment and preprocessor lines are PlantUML's in any diagram.
-          if (stream.match(/^[ \t]*(?:['!]|\/')/, false)) return base.token(stream, state)
+          if (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false)) return base.token(stream, state)
         }
         return innerToken(stream, state.inner)
       }

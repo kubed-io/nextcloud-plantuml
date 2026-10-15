@@ -7,13 +7,12 @@
  */
 import { diagramAt, scan } from '../blocks.js'
 import { inStyleBody } from '../plantuml-mode.js'
+import { PARTICIPANTS, STRUCTURES } from '../lexicon/rules.js'
 import { serverKeywords } from './server-list.js'
 
-/** Sequence participants; `names.js` reads declarations with these too. */
-export const PARTICIPANTS = ['participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue']
-
-/** Class, component, use case and state elements; `names.js` reads these too. */
-export const STRUCTURES = ['class', 'interface', 'abstract', 'enum', 'package', 'namespace', 'component', 'node', 'cloud', 'frame', 'folder', 'rectangle', 'usecase', 'state', 'object']
+// The element keywords are the lexicon's, which makes a declared name a type (H15); `names.js`
+// and `colors.js` read declarations with them too.
+export { PARTICIPANTS, STRUCTURES }
 
 const SEQUENCE = ['alt', 'else', 'opt', 'loop', 'par', 'break', 'critical', 'group', 'end', 'note', 'ref', 'activate', 'deactivate', 'destroy', 'return', 'autonumber', 'title', 'header', 'footer', 'legend', 'skinparam', 'hide', 'show', 'left', 'right', 'top', 'bottom']
 

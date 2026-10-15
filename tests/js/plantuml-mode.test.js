@@ -1375,6 +1375,58 @@ describe('declarations and class bodies (H15, H17)', () => {
     ])
   })
 
+  it('reads an alias only on a line that declares', () => {
+    for (const line of ['alt logged in as admin', 'group Run as root', 'else signed in as guest', 'loop as long as ok', ':act as x;', 'skinparam foo as bar', 'hide class as x', 'note "x" as N']) {
+      expect(types(line)).toEqual([])
+    }
+    expect(tokens('participant "Long Name" as L')).toEqual([['participant', 'keyword'], ['"Long Name"', 'string'], ['as', 'keyword'], ['L', 'typeName']])
+    expect(types('participant Alice as A')).toEqual([['Alice', 'typeName'], ['A', 'typeName']])
+    expect(types('usecase (UC1) as U', 'actor :User: as u', 'component [Comp] as C')).toEqual([['U', 'typeName'], ['u', 'typeName'], ['C', 'typeName']])
+  })
+
+  it('reads a ! line as the preprocessor\'s only for a directive PlantUML knows', () => {
+    expect(tokens('note left', '! Important !', '!!! Warning', 'end note', 'A -> B')).toEqual([['note', 'keyword'], ['end note', 'keyword'], ['->', 'LinkOperator']])
+    expect(tokens('!foo', 'A -> B')).toEqual([['->', 'LinkOperator']])
+    expect(tokens('!ifx', 'A -> B')).toEqual([['->', 'LinkOperator']])
+    expect(tokens('!$x = 1')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number']])
+    expect(tokens('! $x ?= 1')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['?=', 'definitionOperator'], ['1', 'number']])
+    expect(tokens('!local $x = 1')[0]).toEqual(['!local', 'meta'])
+    expect(tokens('!if($a)')[0]).toEqual(['!if', 'meta'])
+    expect(tokens('!end function')[0]).toEqual(['!end function', 'meta'])
+  })
+
+  it('reads a ! directive in every body, and the body after it', () => {
+    for (const [open, close] of [['legend', 'endlegend'], ['title', 'end title'], ['header', 'end header'], ['footer', 'end footer']]) {
+      expect(tokens(open, '!if $x', '**b**', close)).toEqual([[open, 'keyword'], ['!if', 'meta'], ['$x', 'VariableName'], ['**b**', 'strong'], [close, 'keyword']])
+    }
+    expect(tokens('node web [', '!if $x', '**b**', ']')).toContainEqual(['**b**', 'strong'])
+    expect(tokens('@startcreole', '!if $x', '**b**', '@endcreole')).toContainEqual(['!if', 'meta'])
+    expect(tokens('@startfiles', '!if $x', '/a/b', '<note>', '!endif', '**b**', '</note>', '@endfiles')).toEqual([
+      ['@startfiles', 'keyword'], ['!if', 'meta'], ['$x', 'VariableName'], ['/', 'punctuation'], ['/', 'punctuation'],
+      ['<note>', 'tagName'], ['!endif', 'meta'], ['**b**', 'strong'], ['</note>', 'tagName'], ['@endfiles', 'keyword'],
+    ])
+  })
+
+  it('reads a directive in a profile block, and an unknown ! line as the block\'s', () => {
+    const atoms = { token: (stream) => (stream.skipToEnd(), 'atom') }
+    const lines = ['@startyaml', '!if $x', '!foo', '@endyaml', 'A -> B']
+    expect(tokensOf(plantumlLanguage({ yaml: atoms }), lines)).toEqual([
+      ['@startyaml', 'keyword'], ['!if', 'meta'], ['$x', 'VariableName'], ['!foo', 'atom'], ['@endyaml', 'keyword'], ['->', 'LinkOperator'],
+    ])
+  })
+
+  it('leaves no block comment open past a profile block\'s @end', () => {
+    const atoms = { token: (stream) => (stream.skipToEnd(), 'atom') }
+    const language = plantumlLanguage({ yaml: atoms })
+    const state = language.streamParser.startState(2)
+    for (const text of ['@startyaml', "/' open", '@endyaml']) {
+      const stream = new StringStream(text, 2, 2)
+      while (!stream.eol()) language.streamParser.token(stream, state)
+    }
+    expect(state.stack).toEqual([])
+    expect(state.state).toBe('start')
+  })
+
   it('ends a ! line with its line at the top level too', () => {
     expect(tokens('!include foo.puml', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
     expect(tokens('!theme x from y', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])

@@ -13,6 +13,7 @@
  * the line instead and capture the indentation as a group of its own, so only
  * the word is coloured (`atLineStart`).
  */
+import preprocessor from '../data/directives.json'
 
 const arrowAttr = /\[[^[\]]*\]/.source
 const arrowDirection = /(?:[drlu]|do|down|le|left|ri|right|up)/.source
@@ -303,14 +304,15 @@ export const blockComment = [
   { regex: /.+/, token: 'comment' },
 ]
 
-// The element keywords (H15): `PARTICIPANTS` and `STRUCTURES` of `../completion/keywords.js`,
-// copied here because that module pulls in the block scanner and the core grammar, with the
-// kinds PlantUML adds. Longest first, so `abstract class` is never `abstract` and a name `class`.
-const elements = [
-  'participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue',
-  'class', 'interface', 'abstract', 'enum', 'package', 'namespace', 'component', 'node', 'cloud', 'frame', 'folder', 'rectangle', 'usecase', 'state', 'object',
-  'abstract class', 'annotation', 'struct', 'protocol', 'map', 'json',
-]
+/** Sequence participants; completion's keywords and names read declarations with these too. */
+export const PARTICIPANTS = ['participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue']
+
+/** Class, component, use case and state elements; completion reads these too. */
+export const STRUCTURES = ['class', 'interface', 'abstract', 'enum', 'package', 'namespace', 'component', 'node', 'cloud', 'frame', 'folder', 'rectangle', 'usecase', 'state', 'object']
+
+// The element keywords (H15): those, with the kinds PlantUML adds. Longest first, so
+// `abstract class` is never `abstract` and a name `class`.
+const elements = [...PARTICIPANTS, ...STRUCTURES, 'abstract class', 'annotation', 'struct', 'protocol', 'map', 'json']
 const alternation = (words) => [...new Set(words)].sort((a, b) => b.length - a.length).map((word) => word.replace(' ', '\\s+')).join('|')
 
 /** The element keywords a line declares a name with, as one regex alternation. */
@@ -322,20 +324,40 @@ const BODIED = alternation(['class', 'interface', 'enum', 'abstract class', 'abs
 const declared = /(?![A-Za-z][\w+.-]*:\/\/)([A-Za-z_][\w.:]*)/.source
 const endsInBrace = /(?=.*\{\s*$)/.source
 
+/** The alias after `as`, a name made there too (H15), on a declaring line only. */
+export const alias = { regex: /\b(as)(\s+)([A-Za-z_][\w.]*)/, token: ['keyword', null, 'typeName'] }
+
+// What an element shows when it is not its name: a string, a sprite, `[x]`, `(x)` or `:x:`.
+const shown = /(?:("[^"]*")|(<\$[^>\s]+>)|(\[[^\]]*\]|\([^)]*\)|:[^:]*:))/.source
+const aliased = `(?:${alias.regex.source.replace('\\b', '(\\s+)')})?`
+
 /**
  * A declaration (H15), at the start of a line: the element keyword, then the name it makes, a
- * `typeName`. A kind with members whose line ends `{` pushes the state `classHead`, which reads
- * the rest of the line and becomes `classBody` at the next one (a table's `nextLine`); a quoted
- * name opens it too, its alias read there.
+ * `typeName`, or what it shows and the alias after `as`. A kind with members whose line ends `{`
+ * pushes the state `classHead`, which reads the rest of the line and becomes `classBody` at the
+ * next one (a table's `nextLine`); a quoted name opens it too, its alias read there.
  */
 export const declarations = [
   { regex: new RegExp(`([ \\t]*)(${BODIED})(\\s+)${declared}${endsInBrace}`), sol: true, token: [null, 'keyword', null, 'typeName'], push: 'classHead' },
   { regex: new RegExp(`([ \\t]*)(${BODIED})(?=\\s.*\\{\\s*$)`), sol: true, token: [null, 'keyword'], push: 'classHead' },
-  { regex: new RegExp(`([ \\t]*)(${DECLARING})(\\s+)${declared}`), sol: true, token: [null, 'keyword', null, 'typeName'] },
+  {
+    regex: new RegExp(`([ \\t]*)(${DECLARING})(\\s+)(?:${declared}|${shown})${aliased}`),
+    sol: true,
+    token: [null, 'keyword', null, 'typeName', 'string', 'tagName', null, null, 'keyword', null, 'typeName'],
+  },
 ]
 
-/** The alias after `as`, a name made there too (H15). */
-export const alias = { regex: /\b(as)(\s+)([A-Za-z_][\w.]*)/, token: ['keyword', null, 'typeName'] }
+// A directive PlantUML's preprocessor knows (`TLineType`, `../data/directives.json`), whole, with
+// `!end function` and the like; or an assignment, `!$x = 1`, `! local x ?= 1`. Any other line
+// starting `!` is text.
+const directiveWords = preprocessor.directives.map((word) => word.slice(1)).sort((a, b) => b.length - a.length).join('|')
+const assignment = /!(?=[ \t]*(?:(?:local|global)[ \t]*)?\$?[A-Za-z_]\w*[ \t]*\??=)/.source
+
+/** The directive or `!` of a preprocessor line, as a regex source, matched where the line's text starts. */
+export const directive = `!(?:end[ \\t]*(?:function|definelong|procedure)|${directiveWords})\\b|${assignment}`
+
+/** Whether a line, from its start, is the preprocessor's. */
+export const directiveLine = new RegExp(`^[ \\t]*(?:${directive})`)
 
 /**
  * A class body's states (H17). `classHead` is the rest of the declaring line, its `{` a brace.

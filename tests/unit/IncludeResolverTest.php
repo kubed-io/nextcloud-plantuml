@@ -203,6 +203,25 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame([['line' => 0, 'message' => 'parts.puml needs a section name, but it has no !startsub']], $expanded->mistakes);
 	}
 
+	// A section of the same diagram may hold a dot; with no file of that name it is the server's.
+	public function testIncludesubOfADottedSectionOfTheSameDiagramIsLeftForTheServer(): void {
+		$source = "@startuml\n!startsub V1.2\nactor A\n!endsub\n!includesub V1.2\n@enduml\n";
+		$expanded = $this->expand($source, []);
+
+		self::assertSame($source, $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+		self::assertSame([], $expanded->missing);
+	}
+
+	public function testIncludesubOfAFileInsideAnIncludeNamesItsSectionsThere(): void {
+		$expanded = $this->expand("!include outer.puml\n", [
+			'docs/outer.puml' => "A -> B\n!includesub \"parts.puml\"\n",
+			'docs/parts.puml' => "!startsub ACTORS\n!startsub INNER\nactor A\n!endsub\n!endsub\n",
+		]);
+
+		self::assertSame([['line' => 0, 'message' => 'In outer.puml, line 2: parts.puml needs a section name: add !ACTORS or !INNER']], $expanded->mistakes);
+	}
+
 	public function testIncludesubOfAMissingFileWithoutANameCannotFindIt(): void {
 		$expanded = $this->expand("!includesub ./nope.puml\n", []);
 

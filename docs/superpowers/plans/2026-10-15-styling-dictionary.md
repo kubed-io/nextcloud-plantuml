@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Every grammar emits one dictionary of categories built from one shared lexicon, uml lines gain titles, stereotypes, numbers, declarations, calls, class bodies, activity boxes and operators by kind, the types the server cannot draw turn grey, and the Creole colour-tag bug and the icon/emoji pencil land.
+**Goal:** Every grammar emits one dictionary of categories built from one shared lexicon, a diagram's name is underlined and read as PlantUML reads it, paths are a component, uml lines gain stereotypes, numbers, declarations, calls, class bodies, activity boxes and operators by kind, the types the server cannot draw turn grey, and the Creole colour-tag bug and the icon/emoji pencil land.
 
 **Architecture:** The shared grammar pieces move out of `src/editor/plantuml-mode.js` into a core folder `src/editor/lexicon/` (tags and token table, rule components, a `table()` wrapper that adds line-end state changes to `simpleMode`, a `match()` helper and a Creole `textMode()` for hand-written profiles). The core grammar is assembled from it, and profiles receive it as `core.lex` (a profile still imports no core module, P2). `src/editor/theme.js` gives each dictionary category its look. The twelve new grammars are the next plan (`2026-10-15-twelve-grammars.md`), built on this one.
 
 **Tech Stack:** CodeMirror 6 (`StreamLanguage`, legacy `simpleMode`), `@lezer/highlight` 1.2.5 tags, vitest + jsdom.
 
-**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md`: the Styling dictionary (Y1–Y37, G1–G6), H12–H21, T26, W6, W7, and the rows they amend (H8, H10, X7, X19, T1, T4, T12, T16, P2). Research (git-ignored, in this repo): `.superpowers/research/2026-10-15-dictionary/` (`taxonomy.md` for tags and the theme evidence, `stereotypes.md` for H13, `patterns.md` for the shared rules and where each must not apply, `syntax-a.md`/`syntax-b.md` per type, `examples/*.puml`, each drawn by the live server).
+**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md`: the Styling dictionary (Y1–Y38, G1–G6), H12–H22, C10, T26, W6, W7, the name and include fixes in B1, R2 and R8, and the rows they amend (H8, H10, X7, X19, T1, T4, T12, T16, P2). Research (git-ignored, in this repo): `.superpowers/research/2026-10-15-dictionary/` (`taxonomy.md` for tags and the theme evidence, `stereotypes.md` for H13, `patterns.md` for the shared rules and where each must not apply, `syntax-a.md`/`syntax-b.md` per type, `examples/*.puml`, each drawn by the live server).
 
 ## Global Constraints
 
 - No new colour and no literal (H1); every look is a palette constant already in `theme.js` (`MOSS`, `SLATE`, `ATTRIBUTE`, `OCHRE`, `towardText(...)`, `--color-info-text`, `--color-text-maxcontrast`). Weight and decoration are the only additions.
-- A grammar emits only dictionary tokens (G1): `keyword`, `meta`, `modifier`, `typeName`, `VariableName`, `propertyName`, `attributeName`, `annotation`, `FunctionName`, `tagName`, `labelName`, `Title`, `heading`, `string`, `number`, `Date`, `ColorLiteral`, `atom`, `escape`, `link`, `LinkOperator`, `arithmeticOperator`, `compareOperator`, `logicOperator`, `definitionOperator`, `Quantifier`, `list`, `operator`, `paren`, `squareBracket`, `brace`, `angleBracket`, `bracket`, `separator`, `punctuation`, `comment`, `Inactive`, `strong`, `emphasis`, `monospace`, `underline`, `SpriteData`, `StyleNumber` (the style profile's own number, a string to the theme), and space-joined pairs of a text style with a base (`strong labelName`, `emphasis Title`). A node's name is its token with spaces as `_`.
+- A grammar emits only dictionary tokens (G1): `keyword`, `meta`, `modifier`, `typeName`, `VariableName`, `propertyName`, `attributeName`, `annotation`, `FunctionName`, `tagName`, `labelName`, `DiagramName`, `heading`, `string`, `number`, `Date`, `ColorLiteral`, `atom`, `escape`, `link`, `url`, `LinkOperator`, `arithmeticOperator`, `compareOperator`, `logicOperator`, `definitionOperator`, `Quantifier`, `list`, `operator`, `paren`, `squareBracket`, `brace`, `angleBracket`, `bracket`, `separator`, `punctuation`, `comment`, `Inactive`, `strong`, `emphasis`, `monospace`, `underline`, `SpriteData`, `StyleNumber` (the style profile's own number, a string to the theme), and space-joined pairs of a text style with a base (`strong labelName`), and `DiagramName url`. A node's name is its token with spaces as `_`.
 - `ColorLiteral` stays the node name the swatches (`swatches.js`) and the pencil (`values/index.js`) look for; `StyleNumber` stays the style profile's.
 - Profiles import no core module (P2, CI's chunk guard); the editor entry imports no chunk statically. The PR states the gzip size of the entry and of each chunk (P6); the entry may grow by the lexicon's new rules only (moved code is not growth).
 - PlantUML facts are 1.2026.8's (G6).
@@ -26,11 +26,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Review Focus
 
-1. **`<<` that starts an arrow** (`A <<-- B`, `A <<.. B`, `<<==`) stays a link and never opens a stereotype; `<<x>>` inside a label or a note's text stays text. Pinned in Task 6.
-2. **A `!` line or a `'` line inside a class body or a note** leaves the body's state intact on the next line (`enum Kind {` / `!foreach …` / `$k` / `!endfor` / `}`). Pinned in Task 8.
-3. **An unclosed `(` after a function name** (`Foo(a,` at a line's end) ends with its line; the next line reads as uml. Pinned in Task 7.
-4. **`:Dr K: as drk`** (an actor's shorthand) is not an activity box, while `:Step 1: open;` is. Pinned in Task 9.
-5. **A digit inside a name** (`node1`, `Q4`, `$v2`, `#ff0000`, `2x_ARM`) is never a number. Pinned in Task 7.
+1. **`<<` that starts an arrow** (`A <<-- B`, `A <<.. B`, `<<==`) stays a link and never opens a stereotype; `<<x>>` inside a label or a note's text stays text. Pinned in Task 8.
+2. **A `!` line or a `'` line inside a class body or a note** leaves the body's state intact on the next line (`enum Kind {` / `!foreach …` / `$k` / `!endfor` / `}`). Pinned in Task 10.
+3. **An unclosed `(` after a function name** (`Foo(a,` at a line's end) ends with its line; the next line reads as uml. Pinned in Task 9.
+4. **`:Dr K: as drk`** (an actor's shorthand) is not an activity box, while `:Step 1: open;` is. Pinned in Task 11.
+5. **A digit inside a name** (`node1`, `Q4`, `$v2`, `#ff0000`, `2x_ARM`) is never a number. Pinned in Task 9.
 
 ---
 
@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - Modify: every `tests/js/*-profile.test.js` that calls a factory with `{ scan }` to call it with `core`
 
 **Interfaces:**
-- Produces, `lexicon/tags.js`: `underline`, `spriteData`, `variable` (unchanged), and new `title = Tag.define(tags.heading)`, `date = Tag.define(tags.number)`, `linkOperator = Tag.define(tags.operator)`, `quantifier = Tag.define(tags.operator)`, `inactive = Tag.define(tags.comment)`; `tokenTable = { SpriteData, ColorLiteral, StyleNumber, VariableName, FunctionName, underline, Title, Date, LinkOperator, Quantifier, Inactive }`.
+- Produces, `lexicon/tags.js`: `underline`, `spriteData`, `variable` (unchanged), and new `diagramName = Tag.define(tags.name)`, `date = Tag.define(tags.number)`, `linkOperator = Tag.define(tags.operator)`, `quantifier = Tag.define(tags.operator)`, `inactive = Tag.define(tags.comment)`; `tokenTable = { SpriteData, ColorLiteral, StyleNumber, VariableName, FunctionName, underline, DiagramName, Date, LinkOperator, Quantifier, Inactive }`.
 - Produces, `lexicon/rules.js`: the arrays and builders now in `plantuml-mode.js`, moved without change: `patterns` (`{ hexDigits, colourName, colourPart, notStylePart }` as regex sources), `arrow`, `colours`, `names`, `creole(base)`, `attributes(end)`, `lines(code)`, `codeLines(closer, back)`, `body(key, closer, token = 'keyword')`, `head`, `toColon(next)`, `atLineStart(pattern, token, extra)`, and `spriteStates` (`{ spriteHead, spriteRows, spriteSvg }`).
 - Produces, `lexicon/table.js`: `table(states, { nextLine = {}, lineStates = [] }) => StreamMode`: `simpleMode(states)` whose token, at the start of a line, first pops every state in `lineStates` off the stack, then maps a state in `nextLine` to its successor. The core's `nextLine` and `tagStates` logic moves here; `plantumlLanguage` uses `base = table(...)`.
 - Produces, `lexicon/index.js`: `lex = { simpleMode, table, match, textMode, ...rules }` where `match(stream, rules) => string | null` tries each rule whose `token` is a string (a rule with group tokens is skipped) at the stream's position and returns the first match's token, and `textMode(base) => StreamMode` reads a line as Creole with `base` (`table({ start: creole(base), tagAttrs, tagBraces, math: [], latex: [] }, { lineStates: ['tagAttrs', 'tagBraces'] })`; an inline `<math>` in a profile's text is left plain).
@@ -62,13 +62,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - Modify: `src/editor/theme.js`, `tests/js/theme.test.js`
 
 **Interfaces:**
-- Produces: `DICTIONARY: { id: string, tokens: string[], look: string }[]`, Y1–Y37 as the spec's table, `look` naming the theme rule (`'keyword'`, `'moss'`, `'amber bold'`, …); `DICTIONARY_TOKENS: Set<string>`, the flat token set plus the text-style pairs of the Global Constraints.
+- Produces: `DICTIONARY: { id: string, tokens: string[], look: string }[]`, Y1–Y38 as the spec's table, `look` naming the theme rule (`'keyword'`, `'moss'`, `'amber bold'`, …); `DICTIONARY_TOKENS: Set<string>`, the flat token set plus the text-style pairs of the Global Constraints.
 
-- [ ] **Step 1: Failing tests.** `dictionary.test.js`: for every fixture, with every profile loaded (`plantumlLanguage` with all profile modes, factories called with `core`), every node name (spaces restored from `_`) is in `DICTIONARY_TOKENS`, ignoring the YAML mode's own tokens inside a yaml block (`atom`, `def`, `meta`, `string`, `number`, `comment`, `keyword`, `variable-2`, `operator`, `punctuation` as YAML emits them). `theme.test.js`, one assertion per new look: `annotation` → color `ATTRIBUTE`, `fontStyle: 'normal'`, `fontWeight: 'normal'`; `list` → amber (`towardText('--color-element-warning')`); `bracket` (and so `paren`, `squareBracket`, `brace`, `angleBracket`) → `--color-text-maxcontrast`, bold; `definitionOperator` → `--color-text-maxcontrast`; `logicOperator` → amber, bold; `escape` → `OCHRE`; `title` → `textDecoration: 'underline'` and no colour; `inactive` → `--color-text-maxcontrast`, `fontStyle: 'normal'`; `date`, `linkOperator`, `quantifier`, `arithmeticOperator`, `compareOperator`, `separator`, `modifier` take their parent's rule (no rule of their own). The literal check (H1) covers the new rules.
+- [ ] **Step 1: Failing tests.** `dictionary.test.js`: for every fixture, with every profile loaded (`plantumlLanguage` with all profile modes, factories called with `core`), every node name (spaces restored from `_`) is in `DICTIONARY_TOKENS`, ignoring the YAML mode's own tokens inside a yaml block (`atom`, `def`, `meta`, `string`, `number`, `comment`, `keyword`, `variable-2`, `operator`, `punctuation` as YAML emits them). `theme.test.js`, one assertion per new look: `annotation` → color `ATTRIBUTE`, `fontStyle: 'normal'`, `fontWeight: 'normal'`; `list` → amber (`towardText('--color-element-warning')`); `bracket` (and so `paren`, `squareBracket`, `brace`, `angleBracket`) → `--color-text-maxcontrast`, bold; `definitionOperator` → `--color-text-maxcontrast`; `logicOperator` → amber, bold; `escape` → `OCHRE`; `diagramName` → `textDecoration: 'underline'` and no colour; `url` → `towardText('--color-primary-element')`, no decoration; `inactive` → `--color-text-maxcontrast`, `fontStyle: 'normal'`; `date`, `linkOperator`, `quantifier`, `arithmeticOperator`, `compareOperator`, `separator`, `modifier` take their parent's rule (no rule of their own). The literal check (H1) covers the new rules.
 - [ ] **Step 2:** `npx vitest run tests/js/dictionary.test.js tests/js/theme.test.js`: FAIL.
 - [ ] **Step 3:** Add the rules to `highlightStyle` (each child rule restates what it keeps of its parent: Lezer does not merge); write `dictionary.js`; add the fixtures.
 - [ ] **Step 4:** Both test files pass; `npm test` green.
-- [ ] **Step 5:** Commit `Dictionary: Y1-Y37 as code, a look per category, every grammar held to it`.
+- [ ] **Step 5:** Commit `Dictionary: Y1-Y38 as code, a look per category, every grammar held to it`.
 
 ### Task 3: The core grammar speaks the dictionary
 
@@ -98,21 +98,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Profiles: board, git, gantt, math, LaTeX, sprites and style by category`.
 
-### Task 5: Titles underlined (H12)
+### Task 5: A diagram's name underlined (H12)
 
-**Files:** Modify `src/editor/lexicon/rules.js` (`body` takes a base), `src/editor/plantuml-mode.js` (`title` states, `mainframe`); test `plantuml-mode.test.js`.
+**Files:** Modify `src/editor/lexicon/rules.js` (a `startLine` reader), `src/editor/plantuml-mode.js` (every `@start` line, a profile's block included, goes through it; `mainframe` joins `caption`); test `plantuml-mode.test.js`.
 
-**Interfaces:** Produces `body(key, closer, token = 'keyword', base = null)`; the states `titleText` (`creole('Title')`, ends with its line) and `titleBody` (`body('titleBody', /end\s*title\b/.source, 'keyword', 'Title')`).
+**Interfaces:** Produces `startLine(stream, state) => string | null`, used by `base`'s `@start` rule and by `plantumlLanguage` where it opens a profile's block (today `emit(... [start[4], null])`), so the name is read the same way for every type. It reads: `@start<type>` (`keyword`, or `FunctionName` when `(` follows straight after), then `(` … `)` as a call's arguments (Task 9's `args` rules; until Task 9 lands, `(`/`)` `paren`, `,` `separator`, `id` `attributeName`, `=` `definitionOperator`, digits `number`, the rest plain), then the name per B1 (the spaces, quotes and braces around it `punctuation`/`brace`, the name `DiagramName`; a name starting `file://` is `DiagramName url`).
 
-- [ ] **Step 1: Failing tests:** `title My **diagram**` → `['title', 'keyword'], ['My ', 'Title'], ['**diagram**', 'strong_Title']`; `title` / `  The **render** round trip` / `end title` → the middle line `Title` and `strong_Title`, `end title` `keyword`; `title <u>x</u>` → the tags `tagName` and `x` `Title`; `header x`, `footer x`, `caption x` → `x` stays plain text (not `Title`); `mainframe **activity** x` → `mainframe` `keyword`, `**activity**` `strong`, the rest plain.
+- [ ] **Step 1: Failing tests:** `@startuml My Fun Diagram` → `['@startuml', 'keyword'], ['My Fun Diagram', 'DiagramName']`; `@startchart revenue` (with the chart block's lines) → `revenue` `DiagramName`; `@startuml "quoted name"` → `"` `punctuation`, `quoted name` `DiagramName`, `"` `punctuation`; `@startuml{fun_file.png}` → `{` `brace`, `fun_file.png` `DiagramName`, `}` `brace`; `@startuml(id=fun) Fun name` → `@startuml` `FunctionName`, `(` `paren`, `id` `attributeName`, `=` `definitionOperator`, `fun` plain, `)` `paren`, `Fun name` `DiagramName`; `@startjcckit(300,200)` → `FunctionName`, `paren`, `300` `number`, `,` `separator`, `200` `number`, `paren` (and the body still `Inactive` once Task 12 lands); `@startuml file://out/diagram` → `file://out/diagram` `DiagramName_url`; `@startyaml config` with the yaml profile loaded → `config` `DiagramName`; `@enduml` → `keyword` alone; `title My **diagram**` → `title` `keyword`, `**diagram**` `strong`, no `DiagramName`; `mainframe **activity** x` → `mainframe` `keyword`, `**activity**` `strong`.
 - [ ] **Step 2:** FAIL.
-- [ ] **Step 3:** Split `title` off the `(?:title|header|footer|caption)(?=\s)` rule into its own state; add `mainframe` to that rule.
+- [ ] **Step 3:** Implement.
 - [ ] **Step 4:** `npm test` green.
-- [ ] **Step 5:** Commit `Titles: underlined, Creole kept (H12)`.
+- [ ] **Step 5:** Commit `A diagram's name underlined; @start(…) read as a call (H12)`.
 
-### Task 6: Stereotypes (H13)
+### Task 6: Names and ids agree (B1, R2, R8)
 
-**Files:** Modify `src/editor/lexicon/rules.js` (a `stereotypes` rule and a `stereotype` state), `src/editor/plantuml-mode.js` (in `start`, `head`, `classBody` once Task 8 lands, before the arrow rule); test `plantuml-mode.test.js`.
+**Files:** Modify `src/editor/blocks.js` (the name rule and `id`), `tests/fixtures/diagrams/named-forms.puml` and `expected.json` (the shared fixtures), `lib/Service/IncludeResolver.php` (`block()`: no bare-name selector; the mistake), `src/editor/completion/local-files.js` (`BLOCK`: ids, then indexes, with the name as detail); tests `blocks.test.js`, `completion.test.js`, `tests/unit/Service/IncludeResolverTest.php`.
+
+**Interfaces:** Produces `Diagram.id: string | null` beside `Diagram.name`; consumes nothing new. The resolver's mistake text exactly: `<path> has no block with id=NAME: write @startuml(id=NAME) to include it by name`.
+
+- [ ] **Step 1: Failing tests:** `scan` names: `@startuml My Fun Diagram` → `My Fun Diagram`; `@startuml "quoted name"` → `quoted name`; `@startuml{fun_file.png}` → `fun_file.png`; `@startuml(id=fun) Fun name` → name `Fun name`, id `fun`; `@startuml(id=fun)` → name `fun`, id `fun`; `@startjcckit(300,200)` → name `''`, id null; `@startuml a, b` → `a, b`; `@startuml file://out/diagram` → `file://out/diagram`; every `render` index unchanged. Completion after `!include parts.puml!` on a file holding `@startuml(id=bar) Bar diagram`, `@startuml foo` and `@startsalt`: options `bar` (detail `Bar diagram`), then `0` (detail `bar`'s name), `1` (`foo`), `2` (`salt`), and no `foo` option. PHP: `!include parts.puml!bar` takes the `(id=bar)` block; `!include parts.puml!1` the second block; `!include parts.puml!foo` (a block `@startuml foo`, no id) is the mistake above on that line; `!include parts.puml!nothere` keeps today's mistake.
+- [ ] **Step 2:** `npx vitest run tests/js/blocks.test.js tests/js/completion.test.js` and `vendor/bin/phpunit tests/unit/Service/IncludeResolverTest.php` (in the code-server pod; never psalm, cs-fixer or Behat in a service pod): FAIL.
+- [ ] **Step 3:** Implement. The tab label (B2) needs no change: it shows `name`, now PlantUML's.
+- [ ] **Step 4:** both suites green; the shared fixtures pass in both.
+- [ ] **Step 5:** Commit `Names as PlantUML reads them; includes by index or id only (B1, R2, R8)`.
+
+### Task 7: Paths and protocols (H22, C10)
+
+**Files:** Modify `src/editor/lexicon/rules.js` (`paths`: the scheme rule, and a path rule for path slots), `src/editor/plantuml-mode.js` (the `preprocessor` state's include, import and theme lines; Creole's URL rule; `<img:`, `<img src=`, `<style file=`), `src/editor/completion/local-files.js` and `src/editor/completion/stdlib.js` (`http://` beside `https://`), a new `src/editor/completion/protocols.js` (registered in `completion/index.js`); tests `plantuml-mode.test.js`, `completion.test.js`.
+
+**Interfaces:** Produces `paths.url`: `[a-z][\w+.-]*:\/\/[^\s"'>\]]*` → `url`; `paths.slot`: `[^\s"'>!]+` → `url`, then `(!)(\d+|[\w.-]+)` → `separator`, `number` or `typeName`; `protocols(context)`, a completion source.
+
+- [ ] **Step 1: Failing tests:** `!include ./parts.puml!ACTORS` → `!include` `meta`, `./parts.puml` `url`, `!` `separator`, `ACTORS` `typeName`; `!include parts.puml!2` → `2` `number`; `!include <C4/C4>` → `<` `angleBracket`, `C4/C4` `url`, `>` `angleBracket`; `!include https://x.org/a.puml` → `url`; `!theme mars from ./themes` → `./themes` `url`; `!import lib.zip` → `url`; `A -> B : see https://plantuml.com/x` → `https://plantuml.com/x` `url`, the rest `labelName`; `note : and/or` → `and/or` plain (no slot, no scheme); `<img:icons/a.png>` → `icons/a.png` `url`; `<style file=./a.css>` → `./a.css` `url`; `[[https://x label]]` → `link` (unchanged); `"https://x"` → `string`. Completion: after `@startuml ` the options hold `file://`, applying `file://` and nothing more; after `!include ` they hold `https://` and `http://` beside `<` and the local files; after `[[`, `<img:` and `<img src=`, `https://` and `http://`; none of these after `@startuml x` (a name already typed) or inside a comment.
+- [ ] **Step 2:** FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** `npm test` green.
+- [ ] **Step 5:** Commit `Paths and protocols: a component, and the scheme offered (H22, C10)`.
+
+### Task 8: Stereotypes (H13)
+
+**Files:** Modify `src/editor/lexicon/rules.js` (a `stereotypes` rule and a `stereotype` state), `src/editor/plantuml-mode.js` (in `start`, `head`, `classBody` once Task 10 lands, before the arrow rule); test `plantuml-mode.test.js`.
 
 **Interfaces:** Produces `stereotypes` (rules opening the state `stereotype` on `<<` not followed by `-`, `.`, `=`, `~` or `<` and closed by `>>` on the line) and `stereotypeState`: `>>` `angleBracket` pop; `(` `paren` then a letter `atom`, `,` `separator`, a colour `ColorLiteral`, `)` `paren`; `$name` `tagName`, `*N` `number`, `{` pushes `tagBraces`; `,` `separator`; any other run `annotation`. `stereotype` is a `lineStates` entry (ends with its line).
 
@@ -122,7 +146,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Stereotypes: guillemets as brackets, the name orange in plain face (H13)`.
 
-### Task 7: Numbers and calls (H14, H16)
+### Task 9: Numbers and calls (H14, H16)
 
 **Files:** Modify `src/editor/lexicon/rules.js` (`numbers`, `calls`, an `args` state), `src/editor/plantuml-mode.js` (`start` and `head`, after colours and names, before `\w+`); test `plantuml-mode.test.js`.
 
@@ -134,7 +158,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Numbers and calls on uml lines (H14, H16)`.
 
-### Task 8: Declarations and class bodies (H15, H17)
+### Task 10: Declarations and class bodies (H15, H17)
 
 **Files:** Modify `src/editor/lexicon/rules.js` (a `declaration` rule, the `classBody` state), `src/editor/plantuml-mode.js` (`!` lines push and pop instead of `next`); test `plantuml-mode.test.js`.
 
@@ -146,7 +170,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Declarations moss, class bodies read as members (H15, H17)`.
 
-### Task 9: Activity boxes (H18)
+### Task 11: Activity boxes (H18)
 
 **Files:** Modify `src/editor/lexicon/rules.js` (`box(closer)`), `src/editor/plantuml-mode.js` (`start`); test `plantuml-mode.test.js`.
 
@@ -158,7 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Activity boxes: delimiters as brackets, Creole inside (H18)`.
 
-### Task 10: What the server cannot draw is grey (T26)
+### Task 12: What the server cannot draw is grey (T26)
 
 **Files:** Modify `src/editor/plantuml-mode.js` (`plantumlLanguage`); test `plantuml-mode.test.js`.
 
@@ -170,19 +194,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Chronology and jcckit grey, ditaa plain (T26)`.
 
-### Task 11: Common lines, Creole in profiles, copies removed (G2, G4, G5)
+### Task 13: Common lines, Creole in profiles, copies removed (G2, G4, G5)
 
 **Files:** Modify `src/editor/lexicon/rules.js` (`common(options)`, `setting`), `src/editor/profiles/board.js` (a `table`), `gantt.js` (bodies through `textMode`), `sprites.js` (the lexicon's sprite states), `math.js` and `latex.js` (the shared `setting`); tests `board-git-profile.test.js`, `gantt-profile.test.js`, `sprites-profile.test.js`, `math-profile.test.js`, `latex-profile.test.js`, `lexicon.test.js`.
 
-**Interfaces:** Produces `common({ legend = 'block', title = true, all = true } = {}) => { rules: Rule[], states: Record<string, Rule[]> }`: with `all`, the keyword lines `header`, `footer`, `caption`, `mainframe`, `skinparam`, `scale`, `hide`, `show`, `left to right direction`, `top to bottom direction` (H8's Creole after the text forms), `title` per Task 5, `legend` as a body down to `end legend` (`'block'`) or one keyword line (`'line'`, chart) or none (`false`); `{ all: false, title: true }` is hcl's; and `setting(stream, state)`, math's and LaTeX's setting-line reader moved as is (it reads and writes `state.value`).
+**Interfaces:** Produces `common({ legend = 'block', title = true, all = true } = {}) => { rules: Rule[], states: Record<string, Rule[]> }`: with `all`, the keyword lines `header`, `footer`, `caption`, `mainframe`, `skinparam`, `scale`, `hide`, `show`, `left to right direction`, `top to bottom direction` (H8's Creole after the text forms), `title` with Creole (H8), `legend` as a body down to `end legend` (`'block'`) or one keyword line (`'line'`, chart) or none (`false`); `{ all: false, title: true }` is hcl's; and `setting(stream, state)`, math's and LaTeX's setting-line reader moved as is (it reads and writes `state.value`).
 
-- [ ] **Step 1: Failing tests:** `lex.common()` read through `lex.table` reads `title x **y**` with `Title`, `legend` / `**l**` / `end legend` with `strong` inside, `scale 2` with `number`; `lex.common({ legend: 'line' })` reads `legend right` / `bar` as `keyword` then a plain next line; board `+ a **card**` → `+` `list`, `**card**` `strong`; board `title My board` → `My board` `Title`; gantt `note bottom` / `**n**` / `end note` → `strong` inside; gantt `title **Rounds**` → `strong_Title`; the sprites profile's tokens unchanged by the move (its tests stay green); math and LaTeX setting lines unchanged.
+- [ ] **Step 1: Failing tests:** `lex.common()` read through `lex.table` reads `title x **y**` with `strong` and no `DiagramName`, `legend` / `**l**` / `end legend` with `strong` inside, `scale 2` with `number`; `lex.common({ legend: 'line' })` reads `legend right` / `bar` as `keyword` then a plain next line; board `+ a **card**` → `+` `list`, `**card**` `strong`; board `title My board` → `title` `keyword`, the text plain; gantt `note bottom` / `**n**` / `end note` → `strong` inside; gantt `title **Rounds**` → `strong`; the sprites profile's tokens unchanged by the move (its tests stay green); math and LaTeX setting lines unchanged.
 - [ ] **Step 2:** FAIL.
 - [ ] **Step 3:** Implement; delete the copies (sprites' states, gantt's `NAME` colour pattern in favour of `lex.patterns.colourPart`, gantt's `$`/`%` regexes in favour of `lex.match(stream, lex.names)`, math's and LaTeX's `setting`).
 - [ ] **Step 4:** `npm test` green; `npm run build` passes the chunk guard (the profiles still import nothing from core).
 - [ ] **Step 5:** Commit `Common lines and Creole for profiles; the copies go (G2, G4, G5)`.
 
-### Task 12: A colour name in a Creole colour tag is bare (W6)
+### Task 14: A colour name in a Creole colour tag is bare (W6)
 
 **Files:** Modify `src/editor/values/index.js` (`BARE_AFTER`), `src/editor/completion/colors.js` (the option range takes the `#`), `src/editor/completion/creole.js` (the snippets); create `src/editor/lint/creole-colour.js`; modify `src/editor/lint/index.js`; tests `values.test.js`, `completion.test.js`, `lint.test.js`.
 
@@ -194,7 +218,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Creole colour tags: names bare, a check for #Name (W6)`.
 
-### Task 13: Icons and emoji by name (W7)
+### Task 15: Icons and emoji by name (W7)
 
 **Files:** Modify `src/editor/values/index.js` (two entries in `coreValues`); test `values.test.js`.
 
@@ -206,10 +230,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npm test` green.
 - [ ] **Step 5:** Commit `Icons and emoji by name: the pencil (W7)`.
 
-### Task 14: Live check and the spec's status
+### Task 16: Live check and the spec's status
 
 **Files:** Modify `docs/superpowers/specs/2026-10-14-editor-design.md` (each row of this plan to `building`, then `shipped (#N)` at merge), the Known limitations (drop "Blocks of a type with no grammar …" for the types this round covers; keep the rest).
 
 - [ ] **Step 1:** `npm run build`; record the gzip sizes of the entry and each chunk for the PR (P6).
-- [ ] **Step 2:** After merge and deploy (the repo's usual `tar | kubectl exec` into `cloud/nextcloud`, `dist/chunks` included, no `rm -rf` in the remote script), open UML_Fun.puml on the selenium account in light and dark: the titles underlined; `<<entity>>` orange in plain face; `class Diagram {` members; `:Split into blocks;` brackets; the `!if` operators; chronology and jcckit grey; the `<back:` check and its fix; the icon and emoji pencils. A screenshot of each for the PR.
+- [ ] **Step 2:** After merge and deploy (the repo's usual `tar | kubectl exec` into `cloud/nextcloud`, `dist/chunks` included, no `rm -rf` in the remote script), open UML_Fun.puml on the selenium account in light and dark: each block's name underlined and its tab showing the same name; the include paths and their selectors; an `!include` by id; `<<entity>>` orange in plain face; `class Diagram {` members; `:Split into blocks;` brackets; the `!if` operators; chronology and jcckit grey; the `<back:` check and its fix; the icon and emoji pencils. A screenshot of each for the PR.
 - [ ] **Step 3:** Commit `Spec: dictionary round shipped`.

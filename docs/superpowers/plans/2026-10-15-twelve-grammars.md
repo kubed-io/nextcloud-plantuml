@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` rows T3, T7, T8, T17–T25, with G1–G6 and the dictionary (Y1–Y37). Research: `.superpowers/research/2026-10-15-dictionary/syntax-a.md` (wire, flow, chart, bpm, dot, chen), `syntax-b.md` (regex, ebnf, hcl, mindmap, wbs, packetdiag, nwdiag), `patterns.md` (where a shared rule must not apply), `examples/<type>-<n>.puml` (each drawn by the live server; the `-fails` ones do not draw, on purpose).
 
-**Depends on:** `2026-10-15-styling-dictionary.md`, merged: `core.lex` (`table`, `match`, `textMode`, `common`, `patterns`, `colours`, `names`, `numbers`, `calls`, `stereotypes`, `box`, `creole`, `attributes`), the dictionary test and its fixtures folder.
+**Depends on:** `2026-10-15-styling-dictionary.md`, merged: `core.lex` (`table`, `match`, `textMode`, `common`, `patterns`, `colours`, `names`, `numbers`, `calls`, `stereotypes`, `box`, `creole`, `attributes`, `paths`), the dictionary test and its fixtures folder.
 
 ## Global Constraints
 
@@ -47,12 +47,12 @@ Every task has the same shape; only its rules and tests differ:
 `src/editor/profiles/tree.js`: `export default (core) => profile(core, 'mindmap')`, `export const wbs = (core) => profile(core, 'wbs')`; `PROFILES.wbs = () => import('./tree.js').then((m) => ({ default: m.wbs }))`.
 
 Tests:
-- mindmap `** Completion` → `**` `list`; `  *** Directives` (indented) → `***` `list`; `-- Windows 95` → `--` `list`, never `LinkOperator`; `+++ deep` → `list`; `*[#Orange] root` → `[` `squareBracket`, `#Orange` `ColorLiteral`, `]` `squareBracket`; `**_ boxless` → `_` `modifier`; `** a **b** <<green>>` → `**b**` `strong`, `green` `annotation`; `**:multi` / `line **two**;` → `:` `bracket`, `**two**` `strong`, `;` `bracket`; `left side` and `top to bottom direction` → `keyword`; `# hash node` → `#` `list` (no swatch); `0 root` → `0` `list`; `title Features` → `Title`.
+- mindmap `** Completion` → `**` `list`; `  *** Directives` (indented) → `***` `list`; `-- Windows 95` → `--` `list`, never `LinkOperator`; `+++ deep` → `list`; `*[#Orange] root` → `[` `squareBracket`, `#Orange` `ColorLiteral`, `]` `squareBracket`; `**_ boxless` → `_` `modifier`; `** a **b** <<green>>` → `**b**` `strong`, `green` `annotation`; `**:multi` / `line **two**;` → `:` `bracket`, `**two**` `strong`, `;` `bracket`; `left side` and `top to bottom direction` → `keyword`; `# hash node` → `#` `list` (no swatch); `0 root` → `0` `list`; `title Features` → `title` `keyword`, `Features` plain; `@startmindmap features` → `features` `DiagramName`.
 - wbs `*_< left` → `*` `list`, `_` `modifier`, `<` `modifier`; `**[#pink](a) Item` → `ColorLiteral`, `(` `paren`, `a` `typeName`, `)` `paren`; `** "Task C" as C` → `string`, `keyword`, `typeName`; `A -> B #red <<s>> : label` → `->` `LinkOperator`, `#red` `ColorLiteral`, `s` `annotation`, `label` `labelName`; `left side` → plain (wbs has no such line); `# x` → no `list`.
 
 ### Task 2: regex (T7)
 
-Tests (one line each): `^(?<user>[\w.+-]+)@x$` → `^` `keyword`, `(?<` `paren`, `user` `typeName`, `>` `paren`, `[` `squareBracket`, `\w` `escape`, `-` `separator`, `]` `squareBracket`, `+` `Quantifier`, `)` `paren`, `$` `keyword`; `(?:a|b){2,5}` → `(?:` `paren`, `|` `logicOperator`, `{2,5}` `Quantifier`; `a*?` → `*?` `Quantifier`; `\p{Lu}\x{1F600}￿\0377` → four `escape`s; `.` → `escape`; `[^a-z]` → `^` `logicOperator`; `[[:alpha:]]` → `[:alpha:]` `escape` inside the brackets; `(?#note)` → `comment`; `\Qx\E` → `\Q` and `\E` `escape`, `x` plain; Review Focus 3: `#fff` → no `ColorLiteral`; `"q"` → no `string`; `title My regex` → `Title`.
+Tests (one line each): `^(?<user>[\w.+-]+)@x$` → `^` `keyword`, `(?<` `paren`, `user` `typeName`, `>` `paren`, `[` `squareBracket`, `\w` `escape`, `-` `separator`, `]` `squareBracket`, `+` `Quantifier`, `)` `paren`, `$` `keyword`; `(?:a|b){2,5}` → `(?:` `paren`, `|` `logicOperator`, `{2,5}` `Quantifier`; `a*?` → `*?` `Quantifier`; `\p{Lu}\x{1F600}￿\0377` → four `escape`s; `.` → `escape`; `[^a-z]` → `^` `logicOperator`; `[[:alpha:]]` → `[:alpha:]` `escape` inside the brackets; `(?#note)` → `comment`; `\Qx\E` → `\Q` and `\E` `escape`, `x` plain; Review Focus 3: `#fff` → no `ColorLiteral`; `"q"` → no `string`; `title My regex` → `title` `keyword`, the text plain.
 
 ### Task 3: ebnf (T8)
 
@@ -83,7 +83,7 @@ Tests: `digraph foo {` → `digraph` `keyword`, `foo` `typeName`, `{` `brace`; `
 
 ### Task 9: hcl (T23)
 
-Tests: `service "http" "web_proxy" {` → `service` `typeName`, the labels `string`, `{` `brace`; `  listen_addr = "127.0.0.1:8080"` → `listen_addr` `propertyName`, `=` `definitionOperator`, `string`; `  port : 3` → `:` `definitionOperator`, `3` `number`; `  ok = true` → `true` `atom`; `  data = file("init.sh")` → `file` `FunctionName`, `(` `paren`; `  list = ["a", "b"]` → `[` `squareBracket`, `,` `separator`; `"a\"b"` → `\"` `escape`; Review Focus 3: `# a comment` → `comment`, no swatch; a `#` after a value → plain (only a line's start); Review Focus 1: `  map = { a = "x" }` → `map` `propertyName`; `title x` → `Title`; `skinparam x` → no `keyword`.
+Tests: `service "http" "web_proxy" {` → `service` `typeName`, the labels `string`, `{` `brace`; `  listen_addr = "127.0.0.1:8080"` → `listen_addr` `propertyName`, `=` `definitionOperator`, `string`; `  port : 3` → `:` `definitionOperator`, `3` `number`; `  ok = true` → `true` `atom`; `  data = file("init.sh")` → `file` `FunctionName`, `(` `paren`; `  list = ["a", "b"]` → `[` `squareBracket`, `,` `separator`; `"a\"b"` → `\"` `escape`; Review Focus 3: `# a comment` → `comment`, no swatch; a `#` after a value → plain (only a line's start); Review Focus 1: `  map = { a = "x" }` → `map` `propertyName`; `title x` → `title` `keyword`; `skinparam x` → no `keyword`.
 
 ### Task 10: packetdiag and nwdiag (T24, T25)
 

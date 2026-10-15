@@ -25,22 +25,22 @@ const NON_NEGATIVE = new Set(['fontsize', 'linethickness', 'padding', 'margin', 
 const VALUE_TOKENS = new Set(['number', 'atom', 'ColorLiteral', 'string'])
 
 /**
- * A declaration's value when it is one number or one word from a list; a
- * listed property with no value yet has an empty place after its space, for
- * completion to open on.
+ * A declaration's values: each number of a value made of numbers (`Padding
+ * 4 8`), or one word from a list; a listed property with no value yet has an
+ * empty place after its space, for completion to open on.
  */
 function declared({ property, end, tokens }, lineText, lineFrom) {
   const key = property.toLowerCase()
   const list = Object.hasOwn(LISTS, key) ? LISTS[key] : null
-  if (tokens.length === 1) {
-    const [{ token, from, to }] = tokens
-    if (token === 'number') {
-      return { from: lineFrom + from, to: lineFrom + to, kind: 'number', ...(NON_NEGATIVE.has(key) ? { min: 0 } : {}) }
-    }
-    return token === 'atom' && list ? { from: lineFrom + from, to: lineFrom + to, kind: 'list', options: () => list } : null
+  if (tokens.length && tokens.every(({ token }) => token === 'number')) {
+    const min = NON_NEGATIVE.has(key) ? { min: 0 } : {}
+    return tokens.map(({ from, to }) => ({ from: lineFrom + from, to: lineFrom + to, kind: 'number', ...min }))
+  }
+  if (tokens.length === 1 && tokens[0].token === 'atom' && list) {
+    return [{ from: lineFrom + tokens[0].from, to: lineFrom + tokens[0].to, kind: 'list', options: () => list }]
   }
   const gap = !tokens.length && list && /^[ \t]+(?=$|[;}])/.exec(lineText.slice(end))
-  return gap ? { from: lineFrom + end + gap[0].length, to: lineFrom + end + gap[0].length, kind: 'list', options: () => list } : null
+  return gap ? [{ from: lineFrom + end + gap[0].length, to: lineFrom + end + gap[0].length, kind: 'list', options: () => list }] : []
 }
 
 /** @type {import('../values/index.js').ValueEntry} */
@@ -54,8 +54,7 @@ const styleValue = {
     const found = []
     let declaration = null
     const close = () => {
-      const value = declaration && declared(declaration, lineText, lineFrom)
-      if (value) found.push(value)
+      if (declaration) found.push(...declared(declaration, lineText, lineFrom))
       declaration = null
     }
     const body = block.body.slice(0, block.body.findIndex((line) => line.line === number) + 1)

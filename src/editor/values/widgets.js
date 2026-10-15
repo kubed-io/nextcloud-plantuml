@@ -43,11 +43,12 @@ function choose(view, pos) {
  * Steps the number at `pos` once, then again at REPEAT_AFTER_MS and every
  * REPEAT_EVERY_MS after, until the button is let go. Each step is an ordinary
  * edit; history joins a burst of them into one undo step. A cursor after the
- * number stays after it.
+ * number stays after it. The view going stops it too.
  */
 function hold(view, pos, by) {
   const from = valueAt(view.state, pos)?.from
-  if (from === undefined) {
+  const holds = view.plugin(valueWidgets)?.holds
+  if (from === undefined || !holds) {
     return
   }
   const step = () => {
@@ -78,7 +79,9 @@ function hold(view, pos, by) {
     clearInterval(repeat)
     document.removeEventListener('mouseup', stop)
     window.removeEventListener('blur', stop)
+    holds.delete(stop)
   }
+  holds.add(stop)
   document.addEventListener('mouseup', stop)
   window.addEventListener('blur', stop)
   step()
@@ -134,6 +137,11 @@ function widgets(state) {
 export const valueWidgets = ViewPlugin.fromClass(class {
   constructor(view) {
     this.decorations = widgets(view.state)
+    this.holds = new Set() // a held stepper's stop, run when the view goes
+  }
+
+  destroy() {
+    for (const stop of this.holds) stop()
   }
 
   update(update) {

@@ -37,13 +37,31 @@ function numbers(text, offset, lineFrom, min) {
 // None of these is ever below 0: a skinparam's sizes, thicknesses and
 // paddings, a scale, a Creole font size.
 const SKINPARAM = /^(\s*skinparam\s+[\w.<>:]+\s+)-?\d+(?:\.\d+)?\s*$/
+// The block form, `skinparam class {` … `}`, one `Name value` a line.
+const SKINPARAM_OPEN = /^\s*skinparam(?:\s+[\w.<>:]+)?\s*\{\s*$/
+const SKINPARAM_LINE = /^(\s*[\w.<>:]+\s+)-?\d+(?:\.\d+)?\s*$/
+const BLOCK_END = /^\s*(?:\}|@end|@start)/
 const SCALE = /^\s*scale\s/
 const SIZE = /<size:(\d+(?:\.\d+)?)>/gi
 
+/** Whether line `number` is inside a `skinparam … {` block: its opening line comes first going up. */
+function inSkinparamBlock(state, number) {
+  for (let at = number - 1; at >= 1; at--) {
+    const text = state.doc.line(at).text
+    if (SKINPARAM_OPEN.test(text)) return true
+    if (BLOCK_END.test(text)) return false
+  }
+  return false
+}
+
 const skinparamValue = {
   match(lineText, state, lineFrom) {
-    const found = SKINPARAM.exec(lineText)
-    return found ? numbers(lineText, found[1].length, lineFrom, 0) : []
+    const one = SKINPARAM.exec(lineText)
+    if (one) {
+      return numbers(lineText, one[1].length, lineFrom, 0)
+    }
+    const inner = SKINPARAM_LINE.exec(lineText)
+    return inner && inSkinparamBlock(state, state.doc.lineAt(lineFrom).number) ? numbers(lineText, inner[1].length, lineFrom, 0) : []
   },
 }
 
@@ -91,7 +109,8 @@ export function valueAt(state, pos) {
 }
 
 /**
- * `text` stepped `by` units of its last decimal place, never below `min`.
+ * `text` stepped `by` units of its last decimal place, never below `min`
+ * from at or above it; one already below steps as any other.
  *
  * @param {string} text a number, as written
  * @param {number} by
@@ -102,7 +121,7 @@ export function stepNumber(text, by, min) {
   const places = text.split('.')[1]?.length ?? 0
   const scale = 10 ** places
   let next = (Math.round(Number(text) * scale) + by) / scale
-  if (min !== undefined && next < min) {
+  if (min !== undefined && next < min && Number(text) >= min) {
     next = min
   }
   return next.toFixed(places)

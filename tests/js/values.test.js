@@ -140,6 +140,26 @@ describe('valueAt', () => {
     expect(await valueAt(stateAt('!theme cerulean'), 8).options()).toEqual(THEMES)
   })
 
+  it('finds each number in a style value of several, never below 0 where the property cannot be negative', () => {
+    const text = style('Margin 10 20 10 20')
+    const state = stateAt(text)
+    const line = text.indexOf('Margin')
+    const at = [7, 10, 13, 16].map((column) => line + column)
+
+    expect(at.map((pos) => valueAt(state, pos))).toEqual(at.map((from) => expect.objectContaining({ from, to: from + 2, kind: 'number', min: 0 })))
+  })
+
+  it('finds the numbers in a skinparam block, and none after it closes', () => {
+    const text = 'skinparam class {\n  FontSize 12\n  LineThickness 2\n  BackgroundColor red\n}\nFontSize 14'
+    const state = stateAt(text)
+
+    expect(valueAt(state, text.indexOf('12'))).toMatchObject({ from: text.indexOf('12'), to: text.indexOf('12') + 2, kind: 'number', min: 0 })
+    expect(valueAt(state, text.indexOf(' 2') + 1)).toMatchObject({ kind: 'number' })
+    expect(valueAt(state, text.indexOf('red'))).toBeNull()
+    expect(valueAt(state, text.indexOf('14'))).toBeNull()
+    expect(valueAt(stateAt('skinparam {\n  Padding 4\n}'), 'skinparam {\n  Padding '.length)).toMatchObject({ kind: 'number' })
+  })
+
   it('finds no core value where the line means something else', () => {
     expect(valueAt(stateAt('A -> B : !theme x'), 16)).toBeNull()
     expect(valueAt(stateAt('skinparam backgroundColor red'), 27)).toBeNull()
@@ -275,6 +295,47 @@ describe('the stepper', () => {
 
     press(button('Increase'))
     expect(doc()).toBe(after)
+  })
+
+  it('steps each number in a style value of several', () => {
+    open(style('Padding 4 8|'))
+
+    expect(steppers()).toHaveLength(2)
+    press(steppers()[1].querySelector('button[aria-label="Increase"]'))
+    expect(doc()).toBe(style('Padding 4 9'))
+    press(steppers()[0].querySelector('button[aria-label="Decrease"]'))
+    expect(doc()).toBe(style('Padding 3 9'))
+  })
+
+  it('steps a number in a skinparam block', () => {
+    open('skinparam class {\n  FontSize 12|\n}')
+
+    press(button('Increase'))
+    expect(doc()).toBe('skinparam class {\n  FontSize 13\n}')
+  })
+
+  it('steps a number already below 0 by 1, never jumping to 0', () => {
+    open('skinparam x -3|')
+
+    press(button('Increase'))
+    expect(doc()).toBe('skinparam x -2')
+    press(button('Decrease'))
+    press(button('Decrease'))
+    expect(doc()).toBe('skinparam x -4')
+  })
+
+  it('stops a held step when the view goes, dispatching nothing into it', () => {
+    open(style('FontSize 10|'))
+
+    button('Increase').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
+    const dispatch = vi.spyOn(view, 'dispatch')
+    const removed = vi.spyOn(document, 'removeEventListener')
+    view.destroy()
+    vi.advanceTimersByTime(2000)
+
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(removed).toHaveBeenCalledWith('mouseup', expect.any(Function))
+    removed.mockRestore()
   })
 
   it('keeps the cursor after a number it was after', () => {

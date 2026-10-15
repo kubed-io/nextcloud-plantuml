@@ -151,9 +151,19 @@ final class IncludeResolver {
 			$this->import($path, $at, $context);
 			return;
 		}
-		// Without a `!`, PlantUML reads the whole as a section of this same diagram.
+		// Without a `!`, PlantUML reads the whole as a section of this same diagram
+		// (`V1.2` included); a path, or a file that is there, is a file missing its
+		// section, said plainly.
 		if ($kind === 'includesub' && $selector === null) {
-			$this->keep($at, null);
+			if (!str_contains($path, '/') && !str_contains($path, '.')) {
+				$this->keep($at, null);
+			} elseif (!str_contains($path, '/') && !is_array($this->find($path, $context, true))) {
+				// Missing, so a file of that name made later draws the diagram anew.
+				$this->missing[] = $path;
+				$this->keep($at, null);
+			} else {
+				$this->sectionsOf($path, $at, $context, $depth);
+			}
 			return;
 		}
 		$found = $this->located($path, $context, true, $at);
@@ -187,6 +197,30 @@ final class IncludeResolver {
 		$this->stack[] = $found['id'];
 		$this->walk($picked, $found['context'], $depth + 1, $at['top'], $found['display']);
 		array_pop($this->stack);
+	}
+
+	/**
+	 * A mistake naming the sections `!includesub path` could take, as `path!NAME`.
+	 *
+	 * @param At $at
+	 * @param Context $context
+	 */
+	private function sectionsOf(string $path, array $at, array $context, int $depth): void {
+		$shown = self::shown($path);
+		$found = $this->located($path, $context, true, $at);
+		$content = $found === null ? null : $this->read($found, $shown, $at, $depth);
+		if ($content === null) {
+			return;
+		}
+		$names = [];
+		foreach (self::lines($content) as $line) {
+			if (preg_match('/^\s*!startsub\s+(\S+)/', $line, $m) === 1) {
+				$names[$m[1]] = '!' . $m[1];
+			}
+		}
+		$this->keep($at, $names === []
+			? "$shown needs a section name, but it has no !startsub"
+			: "$shown needs a section name: add " . implode(' or ', $names));
 	}
 
 	/**

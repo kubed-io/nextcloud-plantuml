@@ -187,12 +187,46 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame([], $expanded->missing);
 	}
 
-	public function testIncludesubOfAFileWithoutANameIsLeftForTheServer(): void {
-		$expanded = $this->expand("!includesub ./parts.puml\n", ['docs/parts.puml' => "!startsub ACTORS\nactor A\n!endsub\n"]);
+	// Dr K: PlantUML's own "cannot include ./parts.puml" does not say what is missing.
+	public function testIncludesubOfAFileWithoutANameNamesItsSections(): void {
+		$parts = "!startsub ACTORS\nactor A\n!endsub\n!startsub LEGEND\nlegend\n!endsub\n!startsub ACTORS\nactor B\n!endsub\n";
+		$expanded = $this->expand("A -> B\n!includesub ./parts.puml\n", ['docs/parts.puml' => $parts]);
 
-		self::assertSame("!includesub ./parts.puml\n", $expanded->source);
+		self::assertSame("A -> B\n!includesub ./parts.puml\n", $expanded->source);
+		self::assertSame([['line' => 1, 'message' => './parts.puml needs a section name: add !ACTORS or !LEGEND']], $expanded->mistakes);
+		self::assertSame(['etag:docs/parts.puml'], $expanded->etags);
+	}
+
+	public function testIncludesubOfAFileWithoutSectionsSaysItHasNone(): void {
+		$expanded = $this->expand("!includesub parts.puml\n", ['docs/parts.puml' => "actor A\n"]);
+
+		self::assertSame([['line' => 0, 'message' => 'parts.puml needs a section name, but it has no !startsub']], $expanded->mistakes);
+	}
+
+	// A section of the same diagram may hold a dot; with no file of that name it is the server's.
+	public function testIncludesubOfADottedSectionOfTheSameDiagramIsLeftForTheServer(): void {
+		$source = "@startuml\n!startsub V1.2\nactor A\n!endsub\n!includesub V1.2\n@enduml\n";
+		$expanded = $this->expand($source, []);
+
+		self::assertSame($source, $expanded->source);
 		self::assertSame([], $expanded->mistakes);
-		self::assertSame([], $this->asked);
+		self::assertSame(['V1.2'], $expanded->missing);
+	}
+
+	public function testIncludesubOfAFileInsideAnIncludeNamesItsSectionsThere(): void {
+		$expanded = $this->expand("!include outer.puml\n", [
+			'docs/outer.puml' => "A -> B\n!includesub \"parts.puml\"\n",
+			'docs/parts.puml' => "!startsub ACTORS\n!startsub INNER\nactor A\n!endsub\n!endsub\n",
+		]);
+
+		self::assertSame([['line' => 0, 'message' => 'In outer.puml, line 2: parts.puml needs a section name: add !ACTORS or !INNER']], $expanded->mistakes);
+	}
+
+	public function testIncludesubOfAMissingFileWithoutANameCannotFindIt(): void {
+		$expanded = $this->expand("!includesub ./nope.puml\n", []);
+
+		self::assertSame([['line' => 0, 'message' => 'Cannot find ./nope.puml']], $expanded->mistakes);
+		self::assertSame(['./nope.puml'], $expanded->missing);
 	}
 
 	public function testAStyleFileBecomesAStyleBlock(): void {

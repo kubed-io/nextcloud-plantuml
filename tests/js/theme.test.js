@@ -41,6 +41,14 @@ describe('the editor highlight style', () => {
     }
   })
 
+  // Dr K: `<style …>` read as a comment. Tags take the one hue left, maroon.
+  it('colours tags maroon, apart from comments and punctuation', () => {
+    const colour = (tag) => highlightStyle.specs.find((spec) => [spec.tag].flat().includes(tag))?.color
+    expect(colour(tags.tagName)).toBe('color-mix(in srgb, var(--color-element-error) 75%, var(--color-main-text))')
+    expect(colour(tags.tagName)).not.toBe(colour(tags.comment))
+    expect(colour(tags.tagName)).not.toBe(colour(tags.punctuation))
+  })
+
   // They modify the text they sit in, a label's violet included, so they set no colour.
   it('marks bold, italic, monospace and underline Creole by the font alone', () => {
     for (const tag of [tags.strong, tags.emphasis, tags.monospace, underline]) {

@@ -52,3 +52,5 @@ All notable changes to this project are documented here. The format follows
 ### Fixed
 
 - `!includesub NAME` of a section in the same diagram no longer shows a mistake.
+- `!includesub ./file.puml` without a section name says which sections the file has, instead of PlantUML's bare "cannot include".
+- Tags such as `<style …>`, `<b>` and `<&icon>` are maroon, no longer the grey of a comment.

@@ -45,8 +45,10 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.monospace, fontFamily: MONO, backgroundColor: 'color-mix(in srgb, var(--color-main-text) 8%, transparent)' },
   { tag: underline, textDecoration: 'underline' },
   { tag: tags.link, color: towardText('--color-primary-element'), textDecoration: 'underline' },
-  // Markup recedes behind the text it marks up: tags, table bars.
-  { tag: tags.tagName, color: 'var(--color-text-maxcontrast)' },
+  // Tags (`<style …>`, `<b>`, `<&icon>`, a style's selectors) in maroon, as
+  // VS Code's light theme draws HTML tags: in grey they read as comments.
+  { tag: tags.tagName, color: towardText('--color-element-error') },
+  // Table bars and the like recede behind the text they mark up.
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
   // A nested mode's values and names (YAML's keys are atoms). Atom would
   // otherwise inherit the keyword's bold.

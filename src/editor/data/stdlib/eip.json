@@ -1,0 +1,9 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "EIP-PlantUML",
+    "_examples_/eip_rabbitmq",
+    "_examples_/example",
+    "_examples_/listsprite"
+  ]
+}

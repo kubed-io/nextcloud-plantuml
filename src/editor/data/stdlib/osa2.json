@@ -1,0 +1,15 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "Common",
+    "ExampleHardware",
+    "Hardware/all",
+    "Misc/all",
+    "Server/all",
+    "Site/all",
+    "User/all",
+    "_examples_/example",
+    "_examples_/listsprite",
+    "all"
+  ]
+}

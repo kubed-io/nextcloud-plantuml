@@ -5,7 +5,8 @@
  * Paths beside the diagram, one folder at a time: after `!include ` (and its
  * variants) and `<style file=`, the folder the typed path names, relative to
  * the edited file's folder (`/` is the user's root, never above it). A folder
- * inserts `name/` and opens the next level. The stdlib after `<` is not here.
+ * inserts `name/` and opens the next level. Picking `<` opens the stdlib
+ * (stdlib.js), which is not here.
  *
  * After `path!` the names inside that file: its `!startsub` sections for
  * `!includesub`, its named blocks (`@startuml NAME`, `@startuml(id=NAME)`) for
@@ -91,7 +92,7 @@ async function namesOf(context, file, kind, name, typed) {
 }
 
 const fixed = [
-  { label: '<', detail: 'standard library', type: 'text', boost: 3 },
+  { label: '<', detail: 'standard library', type: 'text', boost: 3, apply: reopen },
   { label: 'https://', detail: 'web address', type: 'text', boost: 2 },
 ]
 

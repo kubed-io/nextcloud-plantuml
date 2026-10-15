@@ -1,0 +1,19 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "bidirectional-component",
+    "bidirectional-container",
+    "bidirectional-system",
+    "component",
+    "consumer-person",
+    "consumer-system",
+    "container",
+    "externalizable-element",
+    "focusable-element",
+    "person",
+    "provider-component",
+    "provider-container",
+    "provider-system",
+    "system"
+  ]
+}

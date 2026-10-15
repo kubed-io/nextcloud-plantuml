@@ -1,0 +1,12 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "k8s-skinparam",
+    "k8s-sprites-labeled-25pct",
+    "k8s-sprites-labeled-50pct",
+    "k8s-sprites-labeled-full",
+    "k8s-sprites-unlabeled-25pct",
+    "k8s-sprites-unlabeled-50pct",
+    "k8s-sprites-unlabeled-full"
+  ]
+}

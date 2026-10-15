@@ -1,0 +1,17 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "Archimate",
+    "ArchimateSequenceDiagramSupport",
+    "ArchimateSprites",
+    "_examples_/Archimate-Elements",
+    "_examples_/archimate_deployment",
+    "_examples_/example",
+    "themes/puml-theme-archimate-alternate",
+    "themes/puml-theme-archimate-handwriting",
+    "themes/puml-theme-archimate-lowsaturation",
+    "themes/puml-theme-archimate-saturated",
+    "themes/puml-theme-archimate-standard",
+    "themes/shared_style"
+  ]
+}

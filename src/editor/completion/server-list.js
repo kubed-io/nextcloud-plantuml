@@ -67,3 +67,16 @@ export function serverKeywords() {
   const strings = (list) => (Array.isArray(list) ? list.filter((item) => typeof item === 'string') : [])
   return ask('keywords', (_ignored, body) => ({ types: strings(body?.types), keywords: strings(body?.keywords) }), { types: [], keywords: [] })
 }
+
+/**
+ * The server's standard library (X5), from its `stdlib` command, in its
+ * order: each library's name, version and source, the well-formed ones only.
+ *
+ * @return {Promise<{name: string, version: string, source: string}[]>}
+ */
+export function serverStdlib() {
+  const library = (entry) => ['name', 'version', 'source'].every((key) => typeof entry?.[key] === 'string')
+  return ask('stdlib', (list) => (Array.isArray(list)
+    ? list.filter(library).map(({ name, version, source }) => ({ name, version, source }))
+    : []), [])
+}

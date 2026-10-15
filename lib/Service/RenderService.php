@@ -47,6 +47,11 @@ final class RenderService {
 	private const FONTS_MAX = 200;
 	/** A family name: led by a word character, then anything but angle brackets and control characters, up to 64. */
 	private const FONTS_LINE = '/^\w[^<>\x00-\x1F\x7F]{0,63}$/';
+	private const STDLIB_DIAGRAM = "@startuml\nstdlib\n@enduml\n";
+	private const STDLIB_MAX = 100;
+	private const STDLIB_NAME = '/^[\w.-]{1,64}$/';
+	private const STDLIB_VERSION = '/^Version (\S{1,32})$/';
+	private const STDLIB_SOURCE = '#^Delivered by (https?://\S{1,200})$#';
 	/** The server's lists change only with its version. */
 	private const LISTS_TTL = 86400;
 	/** The error rides out as a response header, so it stays one short line. */
@@ -206,6 +211,43 @@ final class RenderService {
 				throw $this->notPlantUml('txt answered help font without a list of fonts');
 			}
 			return $fonts;
+		});
+	}
+
+	/**
+	 * The standard libraries the server ships, read off its `stdlib` diagram as
+	 * text: each one a name line, then `Version x`, then `Delivered by <url>`,
+	 * in the server's order, with blank lines between. Cached a day per server URL.
+	 *
+	 * @return list<array{name: string, version: string, source: string}>
+	 * @throws RenderException
+	 */
+	public function stdlib(): array {
+		return $this->cached('stdlib', function (): array {
+			$response = $this->post('txt', self::STDLIB_DIAGRAM);
+			if ($response->getStatusCode() >= 400) {
+				throw $this->notPlantUml('txt answered stdlib with HTTP ' . $response->getStatusCode());
+			}
+			$lines = array_values(array_filter(
+				array_map('trim', explode("\n", (string)$response->getBody())),
+				static fn (string $line): bool => $line !== '',
+			));
+			$libraries = [];
+			for ($i = 0; $i + 2 < count($lines) && count($libraries) < self::STDLIB_MAX; $i++) {
+				if (
+					preg_match(self::STDLIB_NAME, $lines[$i]) !== 1
+					|| preg_match(self::STDLIB_VERSION, $lines[$i + 1], $version) !== 1
+					|| preg_match(self::STDLIB_SOURCE, $lines[$i + 2], $source) !== 1
+				) {
+					continue;
+				}
+				$libraries[] = ['name' => $lines[$i], 'version' => $version[1], 'source' => $source[1]];
+				$i += 2;
+			}
+			if ($libraries === []) {
+				throw $this->notPlantUml('txt answered stdlib without a list of libraries');
+			}
+			return $libraries;
 		});
 	}
 

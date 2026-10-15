@@ -153,6 +153,17 @@ final class RenderController extends Controller {
 		}
 	}
 
+	/** The editor's `!include <…>` completion: each standard library with its version and source. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function stdlib(): JSONResponse {
+		try {
+			return new JSONResponse(['stdlib' => $this->render->stdlib()]);
+		} catch (RenderException $e) {
+			return $this->problem($e);
+		}
+	}
+
 	/** The editor's named colours (X14): each name with its hex. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]

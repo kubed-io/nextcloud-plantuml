@@ -451,6 +451,74 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->fonts()));
 	}
 
+	/** `stdlib` as text, raw: each library is three indented lines, blank lines between. */
+	private static function stdlibText(): string {
+		return (string)file_get_contents(__DIR__ . '/fixtures/stdlib.txt');
+	}
+
+	public function testStdlibIsTheServersLibraries(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::once())
+			->method('post')
+			->with(self::URL . '/txt', self::callback(
+				static fn (array $options): bool => $options['body'] === "@startuml\nstdlib\n@enduml\n",
+			))
+			->willReturn($this->response(200, self::stdlibText()));
+
+		$libraries = $this->service($client)->stdlib();
+
+		self::assertCount(34, $libraries);
+		self::assertSame(
+			['name' => 'adaml', 'version' => '0.1.2', 'source' => 'https://github.com/rocher/AdaML'],
+			$libraries[0],
+		);
+		self::assertContains(
+			['name' => 'c4', 'version' => '2.13.0', 'source' => 'https://github.com/plantuml-stdlib/C4-PlantUML'],
+			$libraries,
+		);
+		self::assertContains(
+			['name' => 'material7', 'version' => '7.4.47', 'source' => 'https://github.com/Templarian/MaterialDesign-SVG/'],
+			$libraries,
+		);
+		self::assertSame('tupadr3', $libraries[33]['name']);
+		$names = array_column($libraries, 'name');
+		self::assertSame(array_values(array_unique($names)), $names);
+	}
+
+	public function testStdlibSkipsWhatIsNotALibraryEntry(): void {
+		$body = "     stray words here\n\n     orphan\n     Version 1.0\n     Nope https://x.example\n"
+			. "     good\n     Version 2.1\n     Delivered by https://x.example/good\n";
+
+		$libraries = $this->service($this->clientAnswering($this->response(200, $body)))->stdlib();
+
+		self::assertSame([['name' => 'good', 'version' => '2.1', 'source' => 'https://x.example/good']], $libraries);
+	}
+
+	public function testStdlibIsAskedOncePerServerForADay(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::exactly(2))->method('post')->willReturn($this->response(200, self::stdlibText()));
+
+		$this->service($client)->stdlib();
+		$cached = $this->service($client)->stdlib();
+		$this->service($client, 'https://other.example.com')->stdlib();
+
+		self::assertCount(34, $cached);
+		self::assertSame([86400, 86400], array_values($this->cache->ttls));
+	}
+
+	public function testStdlibWithoutLibrariesIsNotPlantumlAndNotCached(): void {
+		$service = $this->service($this->clientAnswering($this->response(200, '<html>')));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->stdlib()));
+		self::assertSame([], $this->cache->values);
+	}
+
+	public function testStdlibAnswered404IsNotPlantuml(): void {
+		$service = $this->service($this->clientAnswering($this->response(404, self::stdlibText())));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->stdlib()));
+	}
+
 	public function testThemesFromAnUnsetOrUnreachableServer(): void {
 		$clients = $this->createStub(IClientService::class);
 

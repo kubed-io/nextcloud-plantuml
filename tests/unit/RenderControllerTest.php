@@ -308,6 +308,47 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
 	}
 
+	public function testFontsAreTheServersList(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('fonts')->willReturn(['DejaVu Sans', 'Dialog']);
+
+		$response = $this->controller($render, new NotFoundException())->fonts();
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame(['fonts' => ['DejaVu Sans', 'Dialog']], $response->getData());
+	}
+
+	public function testFontsFromAServerThatCannotAnswerIs503WithProblem(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('fonts')->willThrowException(new RenderException(RenderException::PROBLEM_NOT_PLANTUML));
+
+		$response = $this->controller($render, new NotFoundException())->fonts();
+
+		self::assertSame(503, $response->getStatus());
+		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
+	}
+
+	public function testStdlibIsTheServersLibraries(): void {
+		$render = $this->createStub(RenderService::class);
+		$library = ['name' => 'c4', 'version' => '2.13.0', 'source' => 'https://github.com/plantuml-stdlib/C4-PlantUML'];
+		$render->method('stdlib')->willReturn([$library]);
+
+		$response = $this->controller($render, new NotFoundException())->stdlib();
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame(['stdlib' => [$library]], $response->getData());
+	}
+
+	public function testStdlibFromAServerThatCannotAnswerIs503WithProblem(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('stdlib')->willThrowException(new RenderException(RenderException::PROBLEM_NOT_PLANTUML));
+
+		$response = $this->controller($render, new NotFoundException())->stdlib();
+
+		self::assertSame(503, $response->getStatus());
+		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
+	}
+
 	public function testIconsAndEmojiAreTheServersLists(): void {
 		$render = $this->createStub(RenderService::class);
 		$render->method('icons')->willReturn(['account-login', 'clock']);

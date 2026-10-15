@@ -1,0 +1,26 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "core",
+    "plumbing/class-definition",
+    "plumbing/class-instancing",
+    "plumbing/low-level-error-system",
+    "plumbing/types/array",
+    "plumbing/types/basic-classes",
+    "types/callback",
+    "types/descriptive-renderer",
+    "types/descriptor",
+    "types/element-renderer",
+    "types/interface",
+    "types/interface-consumer",
+    "types/interface-provider",
+    "types/key-value-pair",
+    "types/map",
+    "types/port",
+    "types/ported-interface",
+    "types/ported-interface-consumer",
+    "types/ported-interface-provider",
+    "types/renderer",
+    "types/technical-descriptor"
+  ]
+}

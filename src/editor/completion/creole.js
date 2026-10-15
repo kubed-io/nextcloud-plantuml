@@ -5,8 +5,9 @@
  * Creole, the markup inside PlantUML's text: after a `<`, the tags, each a
  * snippet whose blanks are fields; after `</`, the closers of the tags still
  * open on the line, innermost first. Not where a `<` means something else: a
- * <<stereotype>>, a <style> or << line, a style block, a comment, or an arrow
- * such as `A <- B`. `<code>` opens a block, so only at the start of a line.
+ * <<stereotype>>, a <style> or << line, a `!` line (`!include <` is the
+ * stdlib), a style block, a comment, or an arrow such as `A <- B`. `<code>`
+ * opens a block, so only at the start of a line.
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
 import { connectorTyped } from './connectors.js'
@@ -60,7 +61,7 @@ export function creole(context) {
   const before = context.state.sliceDoc(line.from, context.pos)
   // `<<` opens a stereotype, never a tag.
   const typed = /(?:^|[^<])(<\/?[a-z]*)$/.exec(before)
-  if (!typed || /^\s*(?:'|<style>|<<)/.test(before) || inStyleBody(context.state, context.pos)) {
+  if (!typed || /^\s*(?:'|!|<style>|<<)/.test(before) || inStyleBody(context.state, context.pos)) {
     return null
   }
   const from = context.pos - typed[1].length

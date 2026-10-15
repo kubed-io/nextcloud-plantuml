@@ -1,0 +1,8 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "_examples_/example",
+    "_examples_/listsprite",
+    "bootstrap"
+  ]
+}

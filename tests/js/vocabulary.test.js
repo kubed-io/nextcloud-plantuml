@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 import builtins from '../../src/editor/data/builtins.json'
 import directives from '../../src/editor/data/directives.json'
-import { directiveWords, enumConstants, readmeRows, signatures } from '../../scripts/vocabulary.mjs'
+import c4 from '../../src/editor/data/stdlib/C4.json'
+import awslib from '../../src/editor/data/stdlib/awslib.json'
+import { directiveWords, enumConstants, readmeRows, signatures, stdlibEntries, stdlibIndex, stdlibReadmes } from '../../scripts/vocabulary.mjs'
 
 describe('style vocabulary', () => {
   it('records the PlantUML version it came from', () => {
@@ -98,5 +100,60 @@ describe('directives', () => {
       '!foreach !function !if !ifdef !ifndef !import !include !include_many !include_once !includedef !includesub !includeurl !log !option ' +
       '!procedure !return !startsub !theme !undef !while !pragma !local !global !unquoted !final'
     ).split(' ')))
+  })
+})
+
+describe('the stdlib index', () => {
+  it('keeps the .puml files under each stdlib folder, as paths below it without the extension, sorted', () => {
+    const tree = {
+      sha: '7167ca01416dac036fb11a72898ad7cbd008031a',
+      truncated: false,
+      tree: [
+        { path: 'stdlib', type: 'tree' },
+        { path: 'stdlib/cloudogu/dogus/scm.puml', type: 'blob' },
+        { path: 'stdlib/C4', type: 'tree' },
+        { path: 'stdlib/C4/README.md', type: 'blob' },
+        { path: 'stdlib/C4/C4_Container.puml', type: 'blob' },
+        { path: 'stdlib/C4/C4_Context.png', type: 'blob' },
+        { path: 'stdlib/cloudogu/dogus', type: 'tree' },
+        { path: 'src/x.java', type: 'blob' },
+      ],
+    }
+
+    expect(stdlibIndex(tree)).toEqual({ C4: ['C4_Container'], cloudogu: ['dogus/scm'] })
+  })
+
+  it('reads a folder whose README links to another as that one', () => {
+    const tree = {
+      truncated: false,
+      tree: [
+        { path: 'stdlib/awslib/README.md', type: 'blob' },
+        { path: 'stdlib/awslib/_examples_/example.puml', type: 'blob' },
+        { path: 'stdlib/awslib14/README.md', type: 'blob' },
+        { path: 'stdlib/awslib14/AWSCommon.puml', type: 'blob' },
+        { path: 'stdlib/bootstrap/README.md', type: 'blob' },
+        { path: 'stdlib/awslib14/Compute/README.md', type: 'blob' },
+      ],
+    }
+    const readmes = {
+      awslib: '---\nname: awslib\nsource: https://github.com/awslabs/aws-icons-for-plantuml\nlink: awslib14\norigin: \n---\n\nlink: nope\n',
+      awslib14: '---\nname: awslib14\nversion: 14.0.0\nlink: \n---\n',
+      // A link to a folder with no files is no link.
+      bootstrap: '---\nname: bootstrap\nlink: bootstrap1.13.1\n---\n',
+    }
+
+    expect(stdlibReadmes(tree)).toEqual(['awslib', 'awslib14', 'bootstrap'])
+    expect(stdlibEntries(tree, readmes)).toEqual({
+      awslib: { 'plantuml-stdlib': '7167ca0', link: 'awslib14' },
+      awslib14: { 'plantuml-stdlib': '7167ca0', files: ['AWSCommon'] },
+    })
+  })
+
+  it('is committed per folder, from the pinned commit', () => {
+    expect(c4['plantuml-stdlib']).toBe('7167ca0')
+    expect(c4.files).toContain('C4_Container')
+    expect(c4.files).toContain('themes/puml-theme-C4_united')
+    expect(c4.files).toEqual([...c4.files].sort())
+    expect(awslib).toEqual({ 'plantuml-stdlib': '7167ca0', link: 'awslib14' })
   })
 })

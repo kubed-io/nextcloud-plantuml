@@ -21,5 +21,9 @@ return [
 		['name' => 'render#colors', 'url' => '/colors', 'verb' => 'GET'],
 		// {"diagrams", "types", "keywords"}, for the editor's line-start completion
 		['name' => 'render#keywords', 'url' => '/keywords', 'verb' => 'GET'],
+		// {"fonts": [...]}, for <font:…> and font= completion
+		['name' => 'render#fonts', 'url' => '/fonts', 'verb' => 'GET'],
+		// {"stdlib": [{name, version, source}]}, for !include <…> completion
+		['name' => 'render#stdlib', 'url' => '/stdlib', 'verb' => 'GET'],
 	],
 ];

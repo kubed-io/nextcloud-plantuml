@@ -1,0 +1,12 @@
+{
+  "plantuml-stdlib": "7167ca0",
+  "files": [
+    "_examples_/example",
+    "_examples_/example2",
+    "_examples_/example_code",
+    "_examples_/listsprite",
+    "_examples_/listsprite2",
+    "edgy",
+    "edgy2"
+  ]
+}

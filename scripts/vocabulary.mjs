@@ -2,15 +2,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Regenerates src/editor/data/{vocabulary,builtins,directives}.json from PlantUML's source at the tag
-// of the pinned server image (X1). Needs network; the tests never do.
+// of the pinned server image (X1), and src/editor/data/stdlib/<folder>.json from plantuml-stdlib at
+// the last commit before that release, its files or the folder its README links to (X5). Needs
+// network; the tests never do.
 // Run: node scripts/vocabulary.mjs
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 
 const VERSION = '1.2026.8'
 const REPO = 'plantuml/plantuml'
 const BASE = `https://raw.githubusercontent.com/${REPO}/v${VERSION}/src/main/java/net/sourceforge/plantuml`
 const BUILTIN = 'tim/builtin'
+const STDLIB = '7167ca0'
 
 async function source(path) {
   const res = await fetch(`${BASE}/${path}`)
@@ -130,15 +133,78 @@ async function directives() {
   return { plantuml: VERSION, directives: [...new Set([...directiveWords(java), ...extra])].sort() }
 }
 
+/**
+ * The `.puml` files of each stdlib library folder, from a GitHub tree listing:
+ * `folder -> paths below it`, `.puml` dropped, sorted. Nothing else is offered.
+ */
+export function stdlibIndex(tree) {
+  const index = {}
+  for (const { path, type } of tree.tree) {
+    const match = type === 'blob' && /^stdlib\/([^/]+)\/(.+)\.puml$/.exec(path)
+    if (match) (index[match[1]] ??= []).push(match[2])
+  }
+  for (const files of Object.values(index)) files.sort()
+  return index
+}
+
+/** The library folders with a README of their own, sorted. */
+export function stdlibReadmes(tree) {
+  return tree.tree.flatMap(({ path, type }) => (type === 'blob' && /^stdlib\/([^/]+)\/README\.md$/.exec(path)?.[1]) || []).sort()
+}
+
+/**
+ * Each folder's entry: its files, or, for a folder whose README's front matter
+ * says `link: <folder>` (`awslib` → `awslib14`), that folder, if it has files.
+ */
+export function stdlibEntries(tree, readmes) {
+  const index = stdlibIndex(tree)
+  const entries = {}
+  for (const folder of new Set([...Object.keys(index), ...Object.keys(readmes)])) {
+    const frontMatter = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(readmes[folder] ?? '')?.[1] ?? ''
+    const link = /^link:[ \t]*(\S+)/m.exec(frontMatter)?.[1]
+    if (link && link !== folder && index[link]) entries[folder] = { 'plantuml-stdlib': STDLIB, link }
+    else if (index[folder]) entries[folder] = { 'plantuml-stdlib': STDLIB, files: index[folder] }
+  }
+  return entries
+}
+
+async function stdlib() {
+  const api = `https://api.github.com/repos/plantuml/plantuml-stdlib/git/trees/${STDLIB}?recursive=1`
+  const res = await fetch(api)
+  if (!res.ok) throw new Error(`${api}: HTTP ${res.status}`)
+  const tree = await res.json()
+  if (tree.truncated) throw new Error(`${api}: truncated`)
+  const readmes = await Promise.all(stdlibReadmes(tree).map(async (folder) => {
+    const url = `https://raw.githubusercontent.com/plantuml/plantuml-stdlib/${STDLIB}/stdlib/${folder}/README.md`
+    const readme = await fetch(url)
+    if (!readme.ok) throw new Error(`${url}: HTTP ${readme.status}`)
+    return [folder, await readme.text()]
+  }))
+  return stdlibEntries(tree, Object.fromEntries(readmes))
+}
+
 const artifacts = [
   { file: 'vocabulary.json', build: style },
   { file: 'builtins.json', build: builtins },
   { file: 'directives.json', build: directives },
+  { folder: 'stdlib', build: stdlib },
 ]
 
-async function write({ file, build }) {
+const save = (file, data) => writeFile(new URL(`../src/editor/data/${file}`, import.meta.url), JSON.stringify(data, null, 2) + '\n')
+
+async function write({ file, folder, build }) {
   const data = await build()
-  await writeFile(new URL(`../src/editor/data/${file}`, import.meta.url), JSON.stringify(data, null, 2) + '\n')
+  if (folder) {
+    // One file per entry, so each is its own chunk.
+    await mkdir(new URL(`../src/editor/data/${folder}/`, import.meta.url), { recursive: true })
+    for (const [name, entry] of Object.entries(data)) await save(`${folder}/${name}.json`, entry)
+    const entries = Object.values(data)
+    const files = entries.reduce((sum, entry) => sum + (entry.files?.length ?? 0), 0)
+    const links = entries.filter((entry) => entry.link).length
+    console.info(`${folder}/: ${entries.length} folders (${links} links), ${files} files`)
+    return
+  }
+  await save(file, data)
   const counts = Array.isArray(data) ? { entries: data } : data.style ?? { directives: data.directives }
   console.info(`${file}: ${Object.entries(counts).map(([k, v]) => `${v.length} ${k}`).join(', ')}`)
 }

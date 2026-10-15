@@ -1,0 +1,165 @@
+                                                                                         
+     adaml                                                                               
+     Version 0.1.2                                                                       
+                                                                                         
+     Delivered by https://github.com/rocher/AdaML                                        
+                                                                                         
+     archimate                                                                           
+     Version 3.2.2                                                                       
+     Delivered by https://github.com/plantuml-stdlib/Archimate-PlantUML                  
+                                                                                         
+                                                                                         
+     aws                                                                                 
+     Version 18.02.22                                                                    
+     Delivered by https://github.com/milo-minderbinder/AWS-PlantUML                      
+                                                                                         
+                                                                                         
+     awslib                                                                              
+     Version 14.0.0                                                                      
+     Delivered by https://github.com/awslabs/aws-icons-for-plantuml                      
+                                                                                         
+     awslib10                                                                            
+                                                                                         
+     Version 10.0.0                                                                      
+     Delivered by https://github.com/awslabs/aws-icons-for-plantuml                      
+                                                                                         
+     awslib14                                                                            
+     Version 14.0.0                                                                      
+                                                                                         
+     Delivered by https://github.com/awslabs/aws-icons-for-plantuml                      
+                                                                                         
+     awslib20                                                                            
+     Version 20.0                                                                        
+     Delivered by https://github.com/awslabs/aws-icons-for-plantuml                      
+                                                                                         
+                                                                                         
+     azure                                                                               
+     Version 2.2.0                                                                       
+     Delivered by https://github.com/plantuml-stdlib/Azure-PlantUML                      
+                                                                                         
+                                                                                         
+     bootstrap                                                                           
+     Version 1.13.1                                                                      
+     Delivered by https://github.com/twbs/icons                                          
+                                                                                         
+     bootstrap1.12.1                                                                     
+                                                                                         
+     Version 1.12.1                                                                      
+     Delivered by https://github.com/twbs/icons                                          
+                                                                                         
+     bootstrap1.13.1                                                                     
+     Version 1.13.1                                                                      
+                                                                                         
+     Delivered by https://github.com/twbs/icons                                          
+                                                                                         
+     c4                                                                                  
+     Version 2.13.0                                                                      
+     Delivered by https://github.com/plantuml-stdlib/C4-PlantUML                         
+                                                                                         
+                                                                                         
+     classy                                                                              
+     Version 1.0.2                                                                       
+     Delivered by https://github.com/james-gadrow-kr/classy-plantuml                     
+                                                                                         
+                                                                                         
+     classy-c4                                                                           
+     Version 1.0.3                                                                       
+     Delivered by https://github.com/james-gadrow-kr/classy-c4                           
+                                                                                         
+     cloudinsight                                                                        
+                                                                                         
+     Version 1.0.0                                                                       
+     Delivered by https://github.com/plantuml-stdlib/cicon-plantuml-sprites              
+                                                                                         
+     cloudogu                                                                            
+     Version 1.0.2                                                                       
+                                                                                         
+     Delivered by https://github.com/cloudogu/plantuml-cloudogu-sprites                  
+                                                                                         
+     domainstory                                                                         
+     Version 0.4.0                                                                       
+     Delivered by https://github.com/johthor/DomainStory-PlantUML                        
+                                                                                         
+                                                                                         
+     edgy                                                                                
+     Version 0.8.0                                                                       
+     Delivered by https://github.com/boessu/plantuml-stdlib                              
+                                                                                         
+                                                                                         
+     eip                                                                                 
+     Version 1.0.0                                                                       
+     Delivered by https://github.com/plantuml-stdlib/EIP-PlantUML                        
+                                                                                         
+     elastic                                                                             
+                                                                                         
+     Version 0.0.1                                                                       
+     Delivered by https://github.com/Crashedmind/PlantUML-Elastic-icons                  
+                                                                                         
+     gcp                                                                                 
+     Version 6.0.0                                                                       
+                                                                                         
+     Delivered by https://github.com/Crashedmind/PlantUML-icons-GCP                      
+                                                                                         
+     ibm                                                                                 
+     Version 1.0.1                                                                       
+     Delivered by https://github.com/XReyRobert/ibm-icons-for-plantuml                   
+                                                                                         
+                                                                                         
+     k8s                                                                                 
+     Version 1.0.0                                                                       
+     Delivered by https://github.com/dcasati/kubernetes-PlantUML                         
+                                                                                         
+                                                                                         
+     kubernetes                                                                          
+     Version 5.3.45                                                                      
+     Delivered by https://github.com/plantuml-stdlib/plantuml-kubernetes-sprites         
+                                                                                         
+     logos                                                                               
+                                                                                         
+     Version 1.1.0                                                                       
+     Delivered by https://github.com/plantuml-stdlib/gilbarbara-plantuml-sprites         
+                                                                                         
+     material                                                                            
+     Version 2.1.19                                                                      
+                                                                                         
+     Delivered by https://github.com/Templarian/MaterialDesign                           
+                                                                                         
+     material2                                                                           
+     Version 2.1.19                                                                      
+     Delivered by https://github.com/Templarian/MaterialDesign                           
+                                                                                         
+                                                                                         
+     material2.1.19                                                                      
+     Version 2.1.19                                                                      
+     Delivered by https://github.com/Templarian/MaterialDesign                           
+                                                                                         
+                                                                                         
+     material7                                                                           
+     Version 7.4.47                                                                      
+     Delivered by https://github.com/Templarian/MaterialDesign-SVG/                      
+                                                                                         
+     material7.4.47                                                                      
+                                                                                         
+     Version 7.4.47                                                                      
+     Delivered by https://github.com/Templarian/MaterialDesign-SVG/                      
+                                                                                         
+     office                                                                              
+     Version 1.0.0                                                                       
+                                                                                         
+     Delivered by https://github.com/Roemer/plantuml-office                              
+                                                                                         
+     osa                                                                                 
+     Version 0.0.1                                                                       
+     Delivered by https://github.com/Crashedmind/PlantUML-opensecurityarchitecture-icons 
+                                                                                         
+                                                                                         
+     osa2                                                                                
+     Version 0.0.1                                                                       
+     Delivered by https://github.com/Crashedmind/PlantUML-opensecurityarchitecture2-icons
+                                                                                         
+                                                                                         
+     tupadr3                                                                             
+     Version 3.0.0                                                                       
+     Delivered by https://github.com/tupadr3/plantuml-icon-font-sprites                  
+                                                                                         
+                                                                                         

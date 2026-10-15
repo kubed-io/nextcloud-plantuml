@@ -18,7 +18,9 @@ import { values } from '../../src/editor/completion/values.js'
 import { connectors } from '../../src/editor/completion/connectors.js'
 import { styleTag } from '../../src/editor/completion/style-tag.js'
 import { filesNote } from '../../src/editor/completion/files-note.js'
+import { stdlib } from '../../src/editor/completion/stdlib.js'
 import { creole } from '../../src/editor/completion/creole.js'
+import { tagAttributes } from '../../src/editor/completion/tag-attributes.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
 import { builtins } from '../../src/editor/completion/builtins.js'
@@ -51,7 +53,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, icons, emoji, colors, builtins, localFiles])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -284,6 +286,13 @@ function answering(body) {
   return vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 }
 
+describe('a tag\'s values', () => {
+  it('offers valign\'s three on Ctrl-Space, the current one first', async () => {
+    expect(labels(await complete(values, '<img valign=|>', true))).toEqual(['top', 'middle', 'bottom'])
+    expect(labels(await complete(values, '<img valign=mid|dle>', true))).toEqual(['middle', 'top', 'bottom'])
+  })
+})
+
 describe('icons', () => {
   const ICONS = ['account-login', 'clock', 'cloud-download', 'zoom-out']
   let fetch
@@ -332,6 +341,12 @@ describe('icons', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('offers nothing on a ! line, and does not ask', async () => {
+    expect(await complete(iconsSource, '!define X <&|')).toBeNull()
+    expect(await complete(iconsSource, '  !$icon = "<&cl|')).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('offers nothing when the server cannot answer', async () => {
     fetch.mockImplementation(async () => new Response('{"problem":"unreachable"}', { status: 503 }))
 
@@ -375,6 +390,12 @@ describe('emoji', () => {
 
     expect(view.state.doc.toString()).toBe('<:sunny:>')
     view.destroy()
+  })
+
+  it('offers nothing on a ! line, and does not ask', async () => {
+    expect(await complete(emojiSource, '!define X <:|')).toBeNull()
+    expect(await complete(emojiSource, '  !$e = "<:su|')).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('offers nothing without the <:, and nothing when the request fails', async () => {
@@ -443,6 +464,42 @@ describe('named colours', () => {
   ])('offers none in `%s`', async (marked) => {
     expect(await complete(colorsSource, marked)).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  // W4: a Creole tag's colour, with or without a `#`.
+  it.each([
+    '<font color=|',
+    '<font size=12 color=re|',
+    'A -> B : <u:|',
+    'A -> B : <w:Al|',
+    'A -> B : <s:|',
+    'A -> B : <color:|',
+    'A -> B : <back:Re|',
+    '<&star{color=|',
+    '<&star{scale=2,color=Al|',
+    '<&star{color:|',
+    'A -> B : <:sunny:{color=|',
+    'A -> B : <$box>{color=|',
+  ])('offers the server\'s colours, each with its swatch, in the tag `%s`', async (marked) => {
+    const result = await complete(colorsSource, marked)
+    const typed = /\w*(?=\|)/.exec(marked)[0]
+
+    expect(result.from).toBe(marked.indexOf('|') - typed.length)
+    expect(labels(result)).toEqual(Object.keys(COLORS))
+    expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
+  })
+
+  it('offers the names inside an open quoted font colour, and inserts inside the quotes', async () => {
+    const result = await complete(colorsSource, '<font color="re|')
+
+    expect(result.from).toBe('<font color="'.length)
+    expect(labels(result)).toEqual(Object.keys(COLORS))
+    expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
+    expect(await complete(colorsSource, 'A -> B : "<font color=re|')).toBeNull()
+  })
+
+  it.each(['<font size=|', 'A -> B : <b>color=|', '<&star{scale=|', 'A -> B : {color=|', 'A -> B : <img:x.png{color=|'])('offers none in `%s`', async (marked) => {
+    expect(await complete(colorsSource, marked)).toBeNull()
   })
 
   // X9: plantuml.com writes `BackgroundColor lightGreen`.
@@ -528,6 +585,9 @@ describe('creole', () => {
     ['where a connector is due', 'Customer <|'],
     ['over an icon', 'title <&|'],
     ['over an emoji', 'title <:|'],
+    ['on a !define line', '!define X <|'],
+    ['over a tag on a !define line', '  !define X <b|'],
+    ['for a closer on a ! line', '!$label = "<b>x</|'],
   ])('offers nothing %s', (_where, marked) => {
     expect(complete(creole, marked)).toBeNull()
   })
@@ -1449,5 +1509,259 @@ describe('sections and blocks of an included file', () => {
 
     expect(loadFile).toHaveBeenCalledTimes(1)
     expect(labels(again)).toEqual(['ONCE'])
+  })
+})
+
+describe('tag attributes', () => {
+  it.each([
+    ['note: <font |', ['size=', 'color=']],
+    ['<img |', ['src=', 'vspace=', 'valign=']],
+    ['<style |', ['file=']],
+    ['  <style |', ['file=']],
+    ['<&star{|', ['scale=', 'color=']],
+    ['<:sunny:{|', ['scale=', 'color=']],
+    ['<$foo{|', ['scale=', 'color=']],
+    ['<img:x.png{|', ['scale=']],
+    ['<qrcode:hi{|', ['scale=']],
+    ['<&star{scale=2,|', ['color=']],
+    ['<font size=12 |', ['color=']],
+    ['<font size=12 col|', ['color=']],
+    ['<img src="a b.png" |', ['vspace=', 'valign=']],
+    ['A -> B : <font |', ['size=', 'color=']],
+    ['A <font |', ['size=', 'color=']],
+    ['Hello <font |', ['size=', 'color=']],
+    ['Hello <&star{|', ['scale=', 'color=']],
+  ])('offers the attributes not yet written (%s)', (marked, expected) => {
+    const result = complete(tagAttributes, marked)
+
+    expect(labels(result)).toEqual(expected)
+    expect(result.options.every((option) => option.type === 'property')).toBe(true)
+  })
+
+  it('replaces the part of the name already typed', () => {
+    const result = complete(tagAttributes, '<font col|')
+
+    expect(result.from).toBe('<font '.length)
+  })
+
+  it.each([
+    '<img src="a |',
+    '<img src= |',
+    '<text |',
+    '<b |',
+    'A <|',
+    'A <- B |',
+    'class A <<|',
+    "' <font |",
+    '!include <font |',
+    '  !define X <img |',
+    '<style>\nroot { <font |\n}\n</style>',
+    '<font size=12|',
+    '<&star{scale=2|',
+    'x <style |',
+  ])('offers nothing here (%s)', (marked) => {
+    expect(complete(tagAttributes, marked)).toBeNull()
+  })
+
+  it('inserts the name and opens its values, valign= listing top, middle and bottom', async () => {
+    const view = pick('<img |', tagAttributes, 'valign=')
+
+    expect(view.state.doc.toString()).toBe('<img valign=')
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    expect(currentCompletions(view.state).map((option) => option.label)).toEqual(['top', 'middle', 'bottom'])
+    view.destroy()
+  })
+})
+
+describe('stdlib', () => {
+  const STDLIB = [
+    { name: 'c4', version: '2.13.0', source: 'https://github.com/plantuml-stdlib/C4-PlantUML' },
+    { name: 'material7', version: '7.4.47', source: 'https://github.com/Templarian/MaterialDesign-SVG/' },
+    { name: 'nope', version: '1.0', source: 'https://x.example/nope' },
+  ]
+  let fetch
+  let stdlibSource
+  let fresh
+
+  // The list is asked once per page, so each test loads fresh modules.
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    fetch = answering({ stdlib: STDLIB })
+    vi.stubGlobal('fetch', fetch)
+    stdlibSource = (await import('../../src/editor/completion/stdlib.js')).stdlib
+    fresh = await import('../../src/editor/completion/index.js')
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  function freshState(marked, extensions = []) {
+    const pos = marked.indexOf('|')
+    return { pos, state: EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, fresh.plantumlCompletion, ...extensions] }) }
+  }
+
+  function at(marked) {
+    const { state, pos } = freshState(marked)
+    return stdlibSource(new CompletionContext(state, pos, false))
+  }
+
+  /** Picks `label` in a real view whose completion is the fresh sources', as the popup does. */
+  async function pickAt(marked, label) {
+    const { state, pos } = freshState(marked)
+    const view = new EditorView({ state, parent: document.body })
+    const result = await stdlibSource(new CompletionContext(view.state, pos, false))
+    const option = result.options.find((candidate) => candidate.label === label)
+    if (typeof option.apply === 'function') {
+      option.apply(view, option, result.from, pos)
+    } else {
+      view.dispatch(insertCompletionText(view.state, option.apply ?? option.label, result.from, pos))
+    }
+    return view
+  }
+
+  const shown = (view) => currentCompletions(view.state).map((option) => option.label)
+
+  it('offers the server\'s libraries after !include <, each with its version and source', async () => {
+    const result = await at('!include <|')
+
+    expect(result.from).toBe('!include <'.length)
+    expect(labels(result)).toEqual(['c4', 'material7', 'nope'])
+    expect(result.options.map((option) => option.detail)).toEqual([
+      '2.13.0 · https://github.com/plantuml-stdlib/C4-PlantUML',
+      '7.4.47 · https://github.com/Templarian/MaterialDesign-SVG/',
+      '1.0 · https://x.example/nope',
+    ])
+    expect(result.validFor.test('mat')).toBe(true)
+    expect(result.validFor.test('c4/')).toBe(false)
+    expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/stdlib', expect.objectContaining({ credentials: 'same-origin' }))
+  })
+
+  it.each(['!include <|', '!include <c|', '  !include_once <|'])('offers no Creole tag from any source at `%s`', async (marked) => {
+    const { state, pos } = freshState(marked)
+    const results = await Promise.all(state.languageDataAt('autocomplete', pos).map((source) => source(new CompletionContext(state, pos, false))))
+    const offered = results.filter(Boolean).flatMap(labels)
+
+    expect(offered).toContain('c4')
+    expect(offered).not.toContain('<b>')
+    expect(offered.filter((label) => label.startsWith('<'))).toEqual([])
+  })
+
+  it('offers a library\'s files and folders, a folder with its slash, a file without .puml', async () => {
+    const result = await at('!include <c4/|')
+
+    expect(result.from).toBe('!include <c4/'.length)
+    expect(labels(result)).toEqual(expect.arrayContaining(['C4_Container', 'C4_Context', '_examples_/', 'themes/']))
+    expect(labels(result).filter((label) => label.includes('.puml') || label.includes('puml-theme'))).toEqual([])
+    expect(result.options.find((option) => option.label === 'themes/').type).toBe('namespace')
+    expect(result.options.find((option) => option.label === 'C4_Container').type).toBe('file')
+    expect(result.validFor.test('C4_Co')).toBe(true)
+    expect(result.validFor.test('themes/')).toBe(false)
+  })
+
+  it('goes on down a folder, and finds the library whatever case it is typed in', async () => {
+    const result = await at('!include <C4/themes/puml-theme-C4_u|')
+
+    expect(result.from).toBe('!include <C4/themes/'.length)
+    expect(labels(result)).toContain('puml-theme-C4_united')
+    expect(labels(result)).not.toContain('C4_Container')
+  })
+
+  it('reads an alias\'s folder as its name and version (material7 is material7.4.47)', async () => {
+    const result = await at('!include <material7/|')
+
+    expect(labels(result)).toContain('AccountUser/')
+    expect(labels((await at('!include <material7/AccountUser/|')))).toContain('AccountAlert')
+  })
+
+  it('reads a library whose folder links to another as that one', async () => {
+    fetch.mockImplementation(answering({ stdlib: [
+      { name: 'awslib', version: '14.0', source: 'https://github.com/awslabs/aws-icons-for-plantuml' },
+      { name: 'bootstrap', version: '1.13.1', source: 'https://github.com/twbs/icons' },
+      { name: 'material', version: '2.1.19', source: 'https://github.com/Templarian/MaterialDesign-SVG/' },
+    ] }))
+
+    expect(labels(await at('!include <awslib/|'))).toEqual(expect.arrayContaining(['AWSCommon', 'Compute/']))
+    expect(labels(await at('!include <awslib/Compute/|'))).toContain('EC2')
+    expect(labels(await at('!include <bootstrap/|'))).toEqual(['_examples_/', 'bootstrap'])
+    expect(labels(await at('!include <material/|'))).toEqual(expect.arrayContaining(['_examples_/', 'account_alert']))
+  })
+
+  it('offers nothing below a library with no index, and offers its name alone', async () => {
+    expect(await at('!include <nope/|')).toBeNull()
+    expect(await at('!include <unknown/|')).toBeNull()
+
+    const view = await pickAt('!include <|', 'nope')
+    expect(view.state.doc.toString()).toBe('!include <nope')
+    view.destroy()
+  })
+
+  it.each(['!include', '!include_many', '!include_once', '!includesub'])('%s: picking a library adds / and opens its folder', async (directive) => {
+    const view = await pickAt(`${directive} <|`, 'c4')
+
+    expect(view.state.doc.toString()).toBe(`${directive} <c4/`)
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    expect(shown(view)).toContain('C4_Container')
+    view.destroy()
+  })
+
+  it('picking a folder adds / and opens the next level', async () => {
+    const view = await pickAt('!include <c4/|', 'themes/')
+
+    expect(view.state.doc.toString()).toBe('!include <c4/themes/')
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    expect(shown(view)).toContain('puml-theme-C4_united')
+    view.destroy()
+  })
+
+  it.each(['!include', '!include_many', '!include_once', '!includesub'])('%s: picking a file inserts its path and the closing >', async (directive) => {
+    const view = await pickAt(`${directive} <c4/C4_Con|`, 'C4_Container')
+
+    expect(view.state.doc.toString()).toBe(`${directive} <c4/C4_Container>`)
+    view.destroy()
+  })
+
+  it('opens the libraries when < is picked from the local paths', async () => {
+    const save = await import('../../src/editor/save.js')
+    vi.mocked(save.listFolder).mockResolvedValue([])
+    const local = (await import('../../src/editor/completion/local-files.js')).localFiles
+    const { filePath: freshPath } = await import('../../src/editor/lint/state.js')
+    const { state, pos } = freshState('!include |', [freshPath.of('/Diagrams/x.puml')])
+    const view = new EditorView({ state, parent: document.body })
+    const result = await local(new CompletionContext(view.state, pos, false))
+    const lt = result.options.find((option) => option.label === '<')
+
+    lt.apply(view, lt, result.from, pos)
+
+    expect(view.state.doc.toString()).toBe('!include <')
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    expect(shown(view)).toEqual(['c4', 'material7', 'nope'])
+    view.destroy()
+  })
+
+  it('offers nothing when the server cannot answer, and does not ask again on every key', async () => {
+    fetch.mockImplementation(async () => new Response('{"problem":"unreachable"}', { status: 503 }))
+
+    expect(await at('!include <|')).toBeNull()
+    expect(await at('!include <c|')).toBeNull()
+    expect(await at('!include <c4/|')).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers nothing when the request itself fails', async () => {
+    fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    expect(await at('!include <|')).toBeNull()
+  })
+
+  it('keeps only well-formed libraries from the answer', async () => {
+    fetch.mockImplementation(answering({ stdlib: [STDLIB[0], { name: 'bad', version: 1 }, 'c4', null, { name: 'x', version: '1', source: 'https://x' }] }))
+
+    expect(labels(await at('!include <|'))).toEqual(['c4', 'x'])
+  })
+
+  it('offers nothing outside an include\'s <, and does not ask', async () => {
+    for (const marked of ['!include |', '!include c4/|', '!theme <|', 'A -> B : <|', '!include <c4/C4_Container>|', '!include <c4 |']) {
+      expect(await at(marked)).toBeNull()
+    }
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

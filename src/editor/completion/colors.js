@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Named colours after a `#` where a colour goes (X14): an element's colour
- * after its declaration, a styled link's brackets, `<color:#` and `<back:#`,
- * and a skinparam's `…Color` value, on its line or in its block. In a style
- * block, a `…Color` property's value, with its `#` or without (X9), and on a
- * uml line of its own, after `colors` (X13). The names are the configured
- * server's (GET /apps/plantuml/colors), each shown with its swatch. Not after
- * a `#` that starts a line (`#highlight`, a Creole list), in a style part
- * (`#line.dashed`), a comment, a string, a label or a note's text.
+ * after its declaration, a styled link's brackets, `<color:`, `<back:`, `<u:`,
+ * `<s:` and `<w:` (the `#` optional), a `<font color=`, a `{color=` after an
+ * icon, an emoji or a sprite, and a skinparam's `…Color` value, on its line or
+ * in its block. In a style block, a `…Color` property's value, with its `#` or
+ * without (X9), and on a uml line of its own, after `colors` (X13). The names
+ * are the configured server's (GET /apps/plantuml/colors), each shown with its
+ * swatch. Not after a `#` that starts a line (`#highlight`, a Creole list), in
+ * a style part (`#line.dashed`), a comment, a string, a label or a note's text.
  */
 import { PARTICIPANTS, STRUCTURES, inUml } from './keywords.js'
 import { serverColors } from './server-list.js'
@@ -24,12 +25,17 @@ const PLACES = [
   // `actor Bob #`, `[Web] #`, `note left of A #`: a declaration, before any label.
   new RegExp(`^[ \\t]*(?:(?:${KINDS.join('|')})(?![\\w-])|\\[[^\\]]*\\]|\\([^)]*\\)|:[^:]+:)(?:[ \\t](?:"[^"]*"|[^:"'])*)?[ \\t]#(\\w*)$`),
   /[-.]\[(?:[^\]]*[,;])?#(\w*)$/,
-  /<(?:color|back):#(\w*)$/,
+  /<(?:color|back|u|s|w):#?(\w*)$/,
+  /<font\b[^>]*\scolor=["']?#?(\w*)$/i,
+  // The braces after an icon, an emoji or a sprite (values/index.js BRACES, less an image
+  // and a QR code, which take a scale only), not any brace.
+  /<(?:&[\w-]+|:[^:>]*:|\$[\w-]+)>?\{[^}]*color[=:]#?(\w*)$/,
   /^[ \t]*skinparam[ \t]+\S*colou?r\S*[ \t]+#(\w*)$/i,
 ]
 // A line of a `skinparam … {` block, and a style declaration, which may follow a `{` or `;`.
 const SKINPARAM_LINE = /^[ \t]*\S*colou?r\S*[ \t]+#(\w*)$/i
 const STYLE = /(?:^|[{;])[ \t]*[\w-]*colou?r[ \t]+#?(\w*)$/i
+const OPEN_FONT_COLOR = /<font\b[^>]*\scolor="#?\w*$/i
 const HELPER = /^[ \t]*colors[ \t]+(\w*)$/
 
 /**
@@ -73,7 +79,8 @@ export async function colors(context) {
   const { state, pos } = context
   const line = state.doc.lineAt(pos)
   const before = state.sliceDoc(line.from, pos)
-  if (/^\s*'/.test(before) || before.split('"').length % 2 === 0) {
+  // An open quote is a string, but for a `<font color="` that is still being typed.
+  if (/^\s*'/.test(before) || (before.split('"').length % 2 === 0 && !OPEN_FONT_COLOR.test(before))) {
     return null
   }
   const typed = typedAt(state, pos, line, before)

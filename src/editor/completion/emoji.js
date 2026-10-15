@@ -3,14 +3,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * The emoji after `<:`, anywhere in a line, as the configured PlantUML server
- * lists them (GET /apps/plantuml/emoji). Picking one closes the tag.
+ * lists them (GET /apps/plantuml/emoji), but not on a `!` line. Picking one
+ * closes the tag.
  */
 import { serverList } from './server-list.js'
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export async function emoji(context) {
   const typed = context.matchBefore(/<:[\w+-]*/)
-  if (!typed) {
+  if (!typed || /^\s*!/.test(context.state.doc.lineAt(context.pos).text)) {
     return null
   }
   const options = (await serverList('emoji')).map((label) => ({ label, type: 'constant', apply: `${label}:>` }))

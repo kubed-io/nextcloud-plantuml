@@ -12,7 +12,7 @@ import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view'
 import { startCompletion } from '@codemirror/autocomplete'
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
-import { stepNumber, valueAt, valuesFacet, valuesOn } from './index.js'
+import { coloursKnown, coloursPending, stepNumber, valueAt, valuesFacet, valuesOn } from './index.js'
 import pencilIcon from '../../../img/icons/pencil.svg?raw'
 
 const REPEAT_AFTER_MS = 400
@@ -138,15 +138,32 @@ export const valueWidgets = ViewPlugin.fromClass(class {
   constructor(view) {
     this.decorations = widgets(view.state)
     this.holds = new Set() // a held stepper's stop, run when the view goes
+    this.view = view
+    this.waiting = false
+    this.waitForColours()
+  }
+
+  // A colour's pencil waits for the server's names, then is drawn if it named any.
+  waitForColours() {
+    const pending = coloursPending()
+    if (pending && !this.waiting) {
+      this.waiting = true
+      pending.then(() => {
+        this.waiting = false
+        if (!this.gone) this.view.dispatch({ effects: coloursKnown.of(null) })
+      })
+    }
   }
 
   destroy() {
+    this.gone = true
     for (const stop of this.holds) stop()
   }
 
   update(update) {
-    if (update.docChanged || update.selectionSet || update.startState.facet(valuesFacet) !== update.state.facet(valuesFacet)) {
+    if (update.docChanged || update.selectionSet || update.transactions.some((tr) => tr.effects.some((effect) => effect.is(coloursKnown))) || update.startState.facet(valuesFacet) !== update.state.facet(valuesFacet)) {
       this.decorations = widgets(update.state)
+      this.waitForColours()
     }
   }
 }, { decorations: (plugin) => plugin.decorations })

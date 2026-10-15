@@ -5,6 +5,7 @@
 // The value registry (W3), the chooser on values from a list (W1) and the
 // stepper on numbers (W2), in a real view: `|` in a document marks the cursor.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { syntaxTree } from '@codemirror/language'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { acceptCompletion, completionStatus, currentCompletions, setSelectedCompletion, startCompletion } from '@codemirror/autocomplete'
@@ -15,13 +16,16 @@ import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import { plantumlCompletion } from '../../src/editor/completion/index.js'
 import { stepNumber, valueAt, valuesOn } from '../../src/editor/values/index.js'
+import { serverColors } from '../../src/editor/completion/server-list.js'
 import { valueWidgets } from '../../src/editor/values/widgets.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 
 const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
 // The theme list is asked once per page, so once for this file.
 vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-const fetch = vi.fn(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200 }))
+const COLORS = { red: '#FF0000', gold: '#FFD700', navy: '#000080', aqua: '#00FFFF', cyan: '#00FFFF', Odd: null }
+const answer = async (url) => new Response(JSON.stringify(String(url).endsWith('/colors') ? { colors: COLORS } : { themes: THEMES }), { status: 200 })
+const fetch = vi.fn(answer)
 vi.stubGlobal('fetch', fetch)
 
 const profile = styleProfile({ scan, t: translate })
@@ -543,15 +547,14 @@ describe('the stepper', () => {
 
 // W5: a colour value (a swatch's, C6) is a list over the server's names.
 describe('named colours by name (W5)', () => {
-  const COLORS = { red: '#FF0000', gold: '#FFD700', navy: '#000080', aqua: '#00FFFF', cyan: '#00FFFF', Odd: null }
-  const colourFetch = async (url) => new Response(JSON.stringify(String(url).endsWith('/colors') ? { colors: COLORS } : { themes: THEMES }), { status: 200 })
+  const colourFetch = answer
 
   beforeEach(async () => {
     fetch.mockImplementation(colourFetch)
     // The pencil is drawn once the server's colours are known or pending, so know them.
-    await (await import('../../src/editor/completion/server-list.js')).serverColors()
+    await serverColors()
   })
-  afterEach(() => fetch.mockImplementation(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200 })))
+  afterEach(() => fetch.mockImplementation(answer))
 
   const colourState = (text) => EditorState.create({ doc: text, extensions: [profileExtension([profile])] })
   /** The colour values of a one-line (or last-line) text, as the text they cover. */
@@ -647,15 +650,49 @@ describe('named colours by name (W5)', () => {
     expect(labels.filter((label) => label === 'gold')).toHaveLength(1)
   })
 
-  it('draws no pencil and raises nothing once the server is known to name no colours', async () => {
+  /** A fresh page: the colours not yet asked for, a hex-only line under the cursor. */
+  async function fresh(answer) {
     vi.resetModules()
-    fetch.mockImplementation(async () => new Response('{}', { status: 503 }))
+    fetch.mockImplementation(answer)
     const widgets = (await import('../../src/editor/values/widgets.js')).valueWidgets
     const { serverColors } = await import('../../src/editor/completion/server-list.js')
-    const { profileExtension: fresh } = await import('../../src/editor/profiles/index.js')
+    const { profileExtension: again } = await import('../../src/editor/profiles/index.js')
+    view = new EditorView({ state: EditorState.create({ doc: 'node a #FFF3B0', selection: { anchor: 3 }, extensions: [again([profile]), widgets] }), parent: document.body })
+    return serverColors
+  }
+
+  it('draws no pencil before or after a server that names no colours answers', async () => {
+    const serverColors = await fresh(async () => new Response('{}', { status: 503 }))
+    expect(choosers()).toHaveLength(0)
     await serverColors()
-    view = new EditorView({ state: EditorState.create({ doc: 'node a #gold', selection: { anchor: 3 }, extensions: [fresh([profile]), widgets] }), parent: document.body })
+    await new Promise((resolve) => setTimeout(resolve))
 
     expect(choosers()).toHaveLength(0)
+  })
+
+  it('draws the pencil of a hex-only line once the server has answered, the cursor unmoved', async () => {
+    await fresh(colourFetch)
+    expect(choosers()).toHaveLength(0)
+
+    await vi.waitFor(() => expect(choosers()).toHaveLength(1))
+  })
+
+  it('writes the second part of #Red/#Yellow with its own #, not doubled', async () => {
+    open('node a #Red/#Yell|ow')
+    click(choosers()[1])
+    await pick('gold')
+
+    expect(doc()).toBe('node a #Red/#gold')
+  })
+
+  it('yields no colour, and does not throw, on a line beyond the parsed tree', () => {
+    const state = EditorState.create({ doc: `${'node a #gold\n'.repeat(60000)}node b #gold`, extensions: [profileExtension([profile])] })
+    const last = state.doc.lines
+    let found
+    expect(() => { found = valuesOn(state, last) }).not.toThrow()
+    expect(Array.isArray(found)).toBe(true)
+    if (syntaxTree(state).length < state.doc.line(last).to) {
+      expect(found).toEqual([])
+    }
   })
 })

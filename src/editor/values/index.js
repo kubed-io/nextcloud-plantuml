@@ -21,7 +21,7 @@
  *   the values on a line, at document positions
  */
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
-import { Facet } from '@codemirror/state'
+import { Facet, StateEffect } from '@codemirror/state'
 import { themeValue } from '../completion/themes.js'
 import { serverColors, serverColorsNow, serverList, serverListNow } from '../completion/server-list.js'
 import { inStyleBody } from '../plantuml-mode.js'
@@ -162,13 +162,27 @@ const fontFamilyValue = {
 // pick replaces it. None once the server is known to name no colours.
 const BARE_AFTER = /\bcolor\s*=\s*["']?$/i
 
+/** Sent when the server's colours have arrived, so the chooser's pencils are drawn (or not). */
+export const coloursKnown = StateEffect.define()
+
+/** The server's colours being asked for because a colour was found, or null. */
+let asking = null
+
+/** @return {Promise<unknown>|null} what a chooser waits on to draw a colour's pencil */
+export const coloursPending = () => asking
+
 const colourValue = {
   match(lineText, state, lineFrom) {
+    // No pencil until the server has named some colours; asking is once (cached).
     const known = serverColorsNow()
     if (known && Object.keys(known).length === 0) {
       return []
     }
     const line = state.doc.lineAt(lineFrom)
+    // A multi-line block's answer is one for the whole line; a one-line block's depends on the column.
+    const oneLine = /<style>.*<\/style>/.test(line.text)
+    let whole
+    const inStyle = (pos) => (oneLine ? inStyleBody(state, pos) : (whole ??= inStyleBody(state, line.from)))
     const tree = ensureSyntaxTree(state, line.to, 25) ?? syntaxTree(state)
     const found = []
     tree.iterate({
@@ -176,8 +190,12 @@ const colourValue = {
       to: line.to,
       enter(node) {
         if (node.name !== 'ColorLiteral' || node.from < line.from || node.to > line.to) return
+        if (!known) {
+          asking ??= serverColors().then(() => { asking = null })
+          return
+        }
         const hash = state.sliceDoc(node.from, node.from + 1) === '#'
-        const bare = inStyleBody(state, node.from) || BARE_AFTER.test(state.sliceDoc(line.from, node.from))
+        const bare = inStyle(node.from) || BARE_AFTER.test(state.sliceDoc(line.from, node.from))
         found.push({
           from: hash && !bare ? node.from + 1 : node.from,
           to: node.to,

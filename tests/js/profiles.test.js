@@ -15,11 +15,13 @@ import { PROFILES, needed, profileExtension, profileLoader } from '../../src/edi
 
 const neededFor = (text) => needed(scan(text), text)
 
+const STYLE = PROFILES.style
+
 afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
   delete PROFILES.archimate
-  delete PROFILES.style
+  PROFILES.style = STYLE
 })
 
 describe('the profiles a file needs', () => {
@@ -48,21 +50,36 @@ describe('the profiles a file needs', () => {
 
 describe('the style profile', () => {
   it('is needed when a line starts with <style, in any block', () => {
-    PROFILES.style = () => Promise.resolve({ default: () => ({ type: 'style', completions: [], lints: [] }) })
-
     expect(neededFor('@startuml\n  <style>\nnote { }\n</style>\n@enduml\n')).toEqual(new Set(['style']))
     expect(neededFor('<style file=my.css>\nA -> B\n')).toEqual(new Set(['style']))
     expect(neededFor('@startyaml\n<style>\n</style>\n@endyaml\n')).toEqual(new Set(['yaml', 'style']))
     expect(neededFor('A -> B : <style>\n')).toEqual(new Set())
   })
 
-  it('is left out while it has no profile, so the loader never asks for it', () => {
+  it('is left out while it has no profile, so the loader never asks for it', async () => {
+    delete PROFILES.style
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const apply = vi.fn()
     const text = '<style>\nnote { }\n</style>\n'
 
     expect(neededFor(text)).toEqual(new Set())
-    expect(() => profileLoader(apply)(scan(text), text)).not.toThrow()
+    profileLoader(apply)(scan(text), text)
+    // A type with no profile would fail to load in a microtask, and log.
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(console.error).not.toHaveBeenCalled()
     expect(apply).not.toHaveBeenCalled()
+  })
+
+  it('loads when a file needs it, adding its completion and its lint', async () => {
+    const apply = vi.fn()
+    const text = '<style>\nnote { }\n</style>\n'
+
+    profileLoader(apply)(scan(text), text)
+
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledTimes(1))
+    const state = EditorState.create({ doc: text, extensions: apply.mock.calls[0][0] })
+    expect(state.languageDataAt('autocomplete', 0)).toHaveLength(1)
+    expect(state.facet(profileRules)).toHaveLength(1)
   })
 })
 
@@ -127,6 +144,12 @@ describe('loadProfile', () => {
 describe('profileExtension', () => {
   const profiles = new Compartment()
   const word = (stream) => { stream.skipToEnd(); return 'atom' }
+
+  it('takes a profile with values, the values left to the registry', () => {
+    const state = EditorState.create({ extensions: profileExtension([{ type: 'style', completions: [], lints: [], values: [{ match: () => [] }] }]) })
+
+    expect(state.facet(profileRules)).toEqual([])
+  })
 
   it('registers each profile\'s completion sources as language data', () => {
     const source = () => null

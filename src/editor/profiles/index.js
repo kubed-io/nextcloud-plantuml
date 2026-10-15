@@ -20,6 +20,7 @@
  * @property {object} [mode] a stream mode for the block's lines
  * @property {Function[]} completions completion sources
  * @property {Function[]} lints lint rules
+ * @property {object[]} values where its values sit, for choosers and steppers
  */
 import { EditorState } from '@codemirror/state'
 import { APP_ID } from '../../files-helpers.js'
@@ -30,6 +31,7 @@ import { profileRules } from '../lint/index.js'
 /** @type {Record<string, () => Promise<{ default: (core: Core) => Profile }>>} */
 export const PROFILES = {
   yaml: () => import('./yaml.js'),
+  style: () => import('./style.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

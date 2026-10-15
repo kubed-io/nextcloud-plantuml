@@ -35,8 +35,9 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.heading, color: 'var(--color-text-maxcontrast)', fontWeight: 'bold' },
   // A colour is a literal value, as a string is; its swatch shows the colour itself.
   { tag: tags.color, color: towardText('--color-element-success') },
-  // `bold`, `dashed` in a styled link are part of the link.
-  { tag: tags.attributeName, color: towardText('--color-element-warning') },
+  // `bold`, `dashed` in a styled link are part of the link; a style's
+  // `.stereotype` and `:depth(n)` are part of its selector.
+  { tag: [tags.attributeName, tags.className], color: towardText('--color-element-warning') },
   // Creole. The text styles set no colour, so they keep that of the text they sit in.
   { tag: tags.strong, fontWeight: 'bold' },
   { tag: tags.emphasis, fontStyle: 'italic' },

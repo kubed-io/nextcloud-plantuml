@@ -13,6 +13,7 @@ import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.j
 import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
 import { yamlLint as yamlRule } from '../../src/editor/lint/yaml.js'
+import { styleLint } from '../../src/editor/lint/style.js'
 import { scan } from '../../src/editor/blocks.js'
 
 const yamlLint = yamlRule({ scan })
@@ -271,5 +272,60 @@ describe('blocks', () => {
       ['warning', 'No diagram to end', doc.indexOf('@endjson')],
     ])
     expect(found[0].to).toBe('@enduml'.length)
+  })
+})
+
+describe('style', () => {
+  const run = (doc) => styleLint(stateOf(doc))
+  const apply = (doc, diagnostic, action = 0) => {
+    const view = new EditorView({ state: stateOf(doc), parent: document.body })
+    diagnostic.actions[action].apply(view, diagnostic.from, diagnostic.to)
+    const result = view.state.doc.toString()
+    view.destroy()
+    return result
+  }
+
+  it('warns on an unknown property, and changes it to the nearest known one', () => {
+    const doc = '@startuml\n<style>\nnode {\n  FontSise 12\n}\n</style>\n@enduml\n'
+    const [diagnostic, ...rest] = run(doc)
+
+    expect(rest).toEqual([])
+    expect(diagnostic).toMatchObject({ severity: 'warning', message: 'Unknown style property FontSise', from: doc.indexOf('FontSise'), to: doc.indexOf('FontSise') + 'FontSise'.length })
+    expect(diagnostic.actions.map((action) => action.name)).toEqual(['FontSize'])
+    expect(apply(doc, diagnostic)).toBe(doc.replace('FontSise', 'FontSize'))
+    expect(run(apply(doc, diagnostic))).toEqual([])
+  })
+
+  it('matches a property whatever its case', () => {
+    expect(run('<style>\nnode {\n  fontsize 12\n  BACKGROUNDCOLOR red; linecolor #FFF\n}\n</style>\n')).toEqual([])
+  })
+
+  it('never checks a selector, a stereotype class or a depth', () => {
+    expect(run('<style>\nwhatever {\n  .my-class {\n    nested:depth(2) {\n      FontSize 1\n    }\n  }\n}\n</style>\n')).toEqual([])
+  })
+
+  it('checks the middle of a one-line block, and leaves an imported sheet alone', () => {
+    const doc = '<style>node { Colour red }</style>\n<style file=my.css>\n'
+    const found = run(doc)
+
+    expect(found.map((d) => [d.severity, d.message, d.from, d.to])).toEqual([['warning', 'Unknown style property Colour', doc.indexOf('Colour'), doc.indexOf('Colour') + 6]])
+  })
+
+  it("skips PlantUML's own comment and preprocessor lines inside a block", () => {
+    expect(run("<style>\nnode {\n  ' FontSise 12\n  !$x = 1\n}\n</style>\n")).toEqual([])
+  })
+
+  it('errors on a <style> no </style> closes, before the diagram ends or at the end of the file', () => {
+    const doc = '@startuml\n  <style>\nnode {\n@enduml\n<style>\n'
+    const found = run(doc)
+
+    expect(found.map((d) => [d.severity, d.message, d.from, d.to])).toEqual([
+      ['error', 'No </style> for this style block', doc.indexOf('<style>'), doc.indexOf('<style>') + '<style>'.length],
+      ['error', 'No </style> for this style block', doc.lastIndexOf('<style>'), doc.lastIndexOf('<style>') + '<style>'.length],
+    ])
+  })
+
+  it('says nothing outside a style block', () => {
+    expect(run('@startuml\nnode {\n  FontSise 12\n}\n@enduml\n')).toEqual([])
   })
 })

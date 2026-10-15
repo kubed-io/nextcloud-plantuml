@@ -334,9 +334,10 @@ describe('plantumlMode style blocks', () => {
     ])
   })
 
-  it('reads a one-line block and an imported style sheet as one tag line', () => {
+  it('reads a one-line block as its tags around plain text, and an imported style sheet as one tag', () => {
     expect(tokens('<style>note { BackgroundColor red }</style>', 'note left', 'x', 'end note')).toEqual([
-      ['<style>note { BackgroundColor red }</style>', 'tagName'],
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
       ['note', 'keyword'],
       ['end note', 'keyword'],
     ])
@@ -449,8 +450,40 @@ describe('plantumlLanguage with an inner mode', () => {
       ['actor', 'keyword'],
       ['@enduml', 'keyword'],
     ])
-    expect(styled('<style>', "' a note", 'a {', '</style>')).toEqual([['<style>', 'tagName'], ["' a note", 'comment'], ['a {', 'atom'], ['</style>', 'tagName']])
+    expect(styled('<style>', "' a note", '  !$x = 1', 'a {', '</style>')).toEqual([
+      ['<style>', 'tagName'],
+      ["' a note", 'comment'],
+      ['!$x = 1', 'meta'],
+      ['a {', 'atom'],
+      ['</style>', 'tagName'],
+    ])
     expect(styled('@startstyle', 'a {', '@endstyle')).toEqual([])
+  })
+
+  it('hands the middle of a one-line block to the style mode, never its tags, at top level and in a nested mode', () => {
+    const styled = (...lines) => tokensOf(plantumlLanguage({ style: whole('atom'), yaml: whole('string') }), lines)
+
+    expect(styled('  <style>a { b }</style>  ', 'actor A')).toEqual([
+      ['<style>', 'tagName'],
+      ['a { b }', 'atom'],
+      ['</style>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    // Two tokens of one name side by side are one node.
+    expect(styled('<style></style>', '<style>a</style>x</style>')).toEqual([
+      ['<style></style>', 'tagName'],
+      ['<style>', 'tagName'],
+      ['a</style>x', 'atom'],
+      ['</style>', 'tagName'],
+    ])
+    expect(styled('@startyaml', '<style>a {}</style>', 'b: 1', '@endyaml')).toEqual([
+      ['@startyaml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['a {}', 'atom'],
+      ['</style>', 'tagName'],
+      ['b: 1', 'string'],
+      ['@endyaml', 'keyword'],
+    ])
   })
 
   it('reads a style block inside a yaml block as style, and yaml again after it', () => {

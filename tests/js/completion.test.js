@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { CompletionContext, completionStatus, currentCompletions, insertCompletionText, startCompletion } from '@codemirror/autocomplete'
+import { CompletionContext, autocompletion, completionStatus, currentCompletions, insertCompletionText, startCompletion } from '@codemirror/autocomplete'
 import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
@@ -20,6 +20,9 @@ import { styleTag } from '../../src/editor/completion/style-tag.js'
 import { creole } from '../../src/editor/completion/creole.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
+import { styleCompletion } from '../../src/editor/completion/style.js'
+import { scan } from '../../src/editor/blocks.js'
+import vocabulary from '../../src/editor/data/vocabulary.json'
 
 function stateAt(marked) {
   const pos = marked.indexOf('|')
@@ -565,5 +568,102 @@ describe('snippets', () => {
     const { from, to } = view.state.selection.main
     expect(view.state.sliceDoc(from, to)).toBe('condition')
     view.destroy()
+  })
+})
+
+describe('style', () => {
+  const style = styleCompletion({ scan })
+  const { selectors, properties, fontStyles } = vocabulary.style
+
+  /** The labels the popup shows at the cursor, in its order, with the style source alone. */
+  async function popup(marked) {
+    const pos = marked.indexOf('|')
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: marked.replace('|', ''),
+        extensions: [plantumlMode, EditorState.languageData.of(() => [{ autocomplete: style }]), autocompletion()],
+      }),
+      parent: document.body,
+    })
+    view.dispatch({ selection: { anchor: pos } })
+    startCompletion(view)
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    const shown = currentCompletions(view.state).map((option) => option.label)
+    view.destroy()
+    return shown
+  }
+
+  it('offers the enclosing diagram\'s selector first, then the elements, then the other diagrams', async () => {
+    const shown = await popup('@startmindmap\n<style>\n|\n</style>\n* a\n@endmindmap\n')
+
+    expect(shown[0]).toBe('mindmapDiagram')
+    expect(new Set(shown)).toEqual(new Set(selectors))
+    expect(shown.indexOf('node')).toBeLessThan(shown.indexOf('wbsDiagram'))
+    expect(shown.indexOf('root')).toBeLessThan(shown.indexOf('sequenceDiagram'))
+    expect(shown.slice(-3).every((label) => /Diagram$|^(?:regex|ebnf)$/.test(label))).toBe(true)
+  })
+
+  it.each([
+    ['@startwbs\n<style>\n  w|', 'wbsDiagram'],
+    ['@startgantt\n<style>\n|', 'ganttDiagram'],
+    ['@startchen\n<style>\n|', 'chenEerDiagram'],
+    ['@startregex\n<style>\n|', 'regex'],
+  ])('puts the diagram\'s own selector first (%j)', async (marked, first) => {
+    expect((await popup(marked))[0]).toBe(first)
+  })
+
+  it('puts root, element and document first in a uml diagram, or with no diagram around', async () => {
+    for (const marked of ['@startuml\n<style>\n|\n</style>\n@enduml', '<style>\n|']) {
+      const shown = await popup(marked)
+      expect(new Set(shown.slice(0, 3))).toEqual(new Set(['root', 'element', 'document']))
+    }
+  })
+
+  it('offers no selector at the start of a line until a word is typed, unless asked', () => {
+    expect(complete(style, '<style>\n|')).toBeNull()
+    expect(labels(complete(style, '<style>\n|', true))).toContain('mindmapDiagram')
+    expect(complete(style, '<style>\nmind|')).toMatchObject({ from: '<style>\n'.length })
+    expect(labels(complete(style, '<style>mind|</style>'))).toContain('mindmapDiagram')
+  })
+
+  it('offers the properties first after a { and indentation, in their own case', async () => {
+    const result = complete(style, '<style>\nnode {\n  |\n}\n</style>')
+
+    expect(labels(result)).toEqual(expect.arrayContaining(properties))
+    expect(labels(result)).toContain('BackGroundColor')
+    const shown = await popup('<style>\nnode {\n  |\n}\n</style>')
+    expect(shown.slice(0, properties.length).sort()).toEqual([...properties].sort())
+  })
+
+  it('replaces the word being typed with a property', () => {
+    const marked = '<style>\nnode {\n  Fo|\n}\n</style>'
+    expect(complete(style, marked)).toMatchObject({ from: marked.indexOf('Fo') })
+    expect(labels(complete(style, '<style>\nnode { Line|}</style>'))).toContain('LineColor')
+  })
+
+  it.each([
+    ['FontStyle', fontStyles],
+    ['fontstyle', fontStyles],
+    ['HorizontalAlignment', ['left', 'center', 'right']],
+    ['ShowStereotype', ['true', 'false']],
+  ])('offers the values of %s after it and a space', (property, values) => {
+    const result = complete(style, `<style>\nnode {\n  ${property} |\n}\n</style>`)
+
+    expect(labels(result)).toEqual(values)
+    expect(complete(style, `<style>\nnode {\n  ${property} b|\n}\n</style>`).from).toBe(`<style>\nnode {\n  ${property} `.length)
+  })
+
+  it('offers no values for a property without a list, nor after a class or a depth', () => {
+    expect(complete(style, '<style>\nnode {\n  FontSize |\n}\n</style>')).toBeNull()
+    expect(complete(style, '<style>\n.ser|')).toBeNull()
+    expect(complete(style, '<style>\nnode:de|', true)).toBeNull()
+  })
+
+  it('offers nothing outside a style block, on its tag lines, or on a comment line in it', () => {
+    expect(complete(style, 'node {\n  Fo|\n}', true)).toBeNull()
+    expect(complete(style, '<style>\n</style>\nno|', true)).toBeNull()
+    expect(complete(style, '<sty|le>\n</style>', true)).toBeNull()
+    expect(complete(style, "<style>\nnode {\n  ' Fo|\n}\n</style>", true)).toBeNull()
+    expect(complete(style, '@startuml\n<style>\n@enduml\nno|', true)).toBeNull()
   })
 })

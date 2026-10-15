@@ -177,10 +177,11 @@ const base = simpleMode({
 const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody' }
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
-// closes on one that is `</style>`; a one-line block and an imported sheet
-// (`<style file=…>`) are a line each.
+// closes on one that is `</style>`; a one-line block (its middle read as a
+// block's body) and an imported sheet (`<style file=…>`) are a line each.
 const styleOpen = /^([ \t]*)(<style>)(\s*)$/
-const styleLine = /^([ \t]*)(<style>.*<\/style>|<style\s+[\w-]+\s*=[^>]*>)(\s*)$/
+const styleOneLine = /^([ \t]*)(<style>)(.*)<\/style>\s*$/
+const styleImport = /^([ \t]*)(<style\s+[\w-]+\s*=[^>]*>)(\s*)$/
 const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
 
 /** CodeMirror's own copy for a stream mode without copyState: the object, and any array in it. */
@@ -209,18 +210,45 @@ export function plantumlLanguage(inner = {}) {
   const style = inner.style
   const copyIn = (mode, state) => (mode?.copyState ? mode.copyState(state) : copyOf(state))
 
-  /** A `<style>` line at the start of a line, read as tags; undefined for any other line. */
+  /**
+   * A `<style>` line at the start of a line, its tags read as tags; undefined
+   * for any other line. A one-line block's middle is a body up to `until`, the
+   * column of its `</style>`.
+   */
   function styleStart(stream, state) {
-    const line = stream.match(styleLine, false)
-    if (line) return emit(stream, state, [[line[1], null], [line[2], 'tagName'], [line[3], null]])
-    const open = stream.match(styleOpen, false)
+    const sheet = stream.match(styleImport, false)
+    if (sheet) return emit(stream, state, [[sheet[1], null], [sheet[2], 'tagName'], [sheet[3], null]])
+    const one = stream.match(styleOneLine, false)
+    const open = one || stream.match(styleOpen, false)
     if (!open) return undefined
-    state.style = { state: style?.startState ? style.startState(stream.indentUnit) : {} }
-    return emit(stream, state, [[open[1], null], [open[2], 'tagName'], [open[3], null]])
+    state.style = { state: style?.startState ? style.startState(stream.indentUnit) : {}, until: one ? one[1].length + one[2].length + one[3].length : null }
+    return emit(stream, state, one ? [[one[1], null], [one[2], 'tagName']] : [[open[1], null], [open[2], 'tagName'], [open[3], null]])
+  }
+
+  /** The middle of a one-line block, the mode kept from reading past it; then its `</style>`. */
+  function styleMiddle(stream, state) {
+    const { until } = state.style
+    if (stream.pos >= until) {
+      state.style = null
+      const close = stream.string.slice(until)
+      return emit(stream, state, [['</style>', 'tagName'], [close.slice('</style>'.length), null]])
+    }
+    if (!style) {
+      stream.pos = until
+      return null
+    }
+    const line = stream.string
+    stream.string = line.slice(0, until)
+    try {
+      return style.token(stream, state.style.state)
+    } finally {
+      stream.string = line
+    }
   }
 
   /** A line of a style block. PlantUML reads a block to its diagram's end at most. */
   function styleBody(stream, state) {
+    if (state.style.until !== null) return styleMiddle(stream, state)
     if (stream.sol()) {
       const close = stream.match(styleClose, false)
       if (close) {
@@ -245,7 +273,7 @@ export function plantumlLanguage(inner = {}) {
       const copy = base.copyState(state)
       const block = state.inner
       copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state) }
-      copy.style = state.style && { state: copyIn(style, state.style.state) }
+      copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until }
       return copy
     },
     token(stream, state) {

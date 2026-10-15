@@ -1,0 +1,128 @@
+<!--
+SPDX-FileCopyrightText: 2026 kubed-io
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+# The style round — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** `<style>` blocks get their own editor (grammar, completion, checks, folding) and stop breaking the uml highlighting; values get VS Code-like in-place choosers and number steppers; relative `!include` and `<style file=…>` resolve in the user's Nextcloud files.
+
+**Architecture:** The outer PlantUML mode treats a `<style>` block as its own region, plain until the `style` profile (a chunk, P2) nests its grammar there. A core value registry (`src/editor/values/`) describes where a value sits and what list or kind it has; completion, the chooser widget and the stepper widget read it, and profiles add entries to it. On the server, `IncludeResolver` expands relative includes with the caller's rights before the source reaches PlantUML, keeping a line map so mistakes land on the right line.
+
+**Tech Stack:** CodeMirror 6 (`StreamLanguage`, `WidgetType`, `Decoration`, `@codemirror/autocomplete`, `@codemirror/lint`), vitest + jsdom, PHP 8.1+ / PHPUnit 12 with OCP stubs, Node 24 for the generator.
+
+**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` (X1 style part, X8, X9, X10 style part, W1–W3, R1–R6) and the two render route rows of `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`.
+
+## Global Constraints
+
+- Every colour is a Nextcloud variable (H1); `tests/js/theme.test.js` covers any new token or widget rule.
+- One file per completion source and per lint rule; lint rules are pure `(state) => Diagnostic[]`; profiles are factories `(core) => Profile` and import no core module (the CI chunk-import guard must stay green).
+- Strings exactly as the spec: "Choose a value", "Increase", "Decrease", "Unknown style property X", "Cannot find <path>", "<path> is already included", "In <path>, line N: <message>".
+- Resolver limits: 8 levels, 64 files, 1 MB in all; paths never leave the caller's user folder; `/` is the user's root.
+- Style vocabulary comes from PlantUML's source at tag `v1.2026.8` via `scripts/vocabulary.mjs`; the generated file records that version.
+- Gherkin: proposals only, no `.feature` edit without Dr K's approval. Docs-only PRs carry the `no changelog` label.
+- Commit after every task; one PR for the round, merged by the controller when CI is green.
+- The maintainer is **Dr K**; SPDX headers say `kubed-io`.
+
+## Review Focus
+
+1. **A path that climbs out** (`!include ../../../../x.puml`, `/../x.puml`, an absolute filesystem path) must read nothing outside the caller's files and become "Cannot find …". Pinned in Task 5.
+2. **An include cycle** (A includes B includes A) and a self-include must end, with a mistake, not recurse. Pinned in Task 5.
+3. **Line mapping around an include**: a mistake on a line after a 10-line include must land on its own source line; one inside the included file on the include line. Pinned in Task 5.
+4. **A style block before the style profile loads** (or when it fails) must leave the rest of the file highlighted as before — `note {` inside it must not open a note body. Pinned in Task 2.
+5. **A stepper on `FontSize 0`** must not go to `-1`; a chooser on `FontStyle bold` must replace `bold` whole, not insert beside it. Pinned in Task 4.
+
+---
+
+### Task 1: Style vocabulary, generated
+
+**Files:** Create `scripts/vocabulary.mjs`, `src/editor/data/vocabulary.json`; Test `tests/js/vocabulary.test.js`.
+
+**Interfaces:** Produces `vocabulary.json` = `{ plantuml: '1.2026.8', style: { selectors: string[], properties: string[], fontStyles: string[] } }`. `node scripts/vocabulary.mjs` regenerates it from `https://raw.githubusercontent.com/plantuml/plantuml/v1.2026.8/src/main/java/net/sourceforge/plantuml/style/{SName,PName}.java` and `…/klimt/font/FontStyle.java`.
+
+- [ ] **Step 1:** Test: `properties` has 30 entries including `BackGroundColor`, `FontStyle`, `RoundCorner`; `selectors` has 157 entries, includes `mindmapDiagram`, `class`, `package` (Java's `class_`/`package_` suffix dropped) and none ends in `_`; `fontStyles` is `['plain','italic','bold','underline','strike','wave']` (no `backcolor`); `plantuml` is `'1.2026.8'`.
+- [ ] **Step 2:** Run `npx vitest run tests/js/vocabulary.test.js` — FAIL.
+- [ ] **Step 3:** Write the script (fetch, extract the enum constants, lower-case `FontStyle`), run it, commit its output.
+- [ ] **Step 4:** Tests PASS; `npm run lint`.
+- [ ] **Step 5:** Commit `feat(editor): style vocabulary generated from PlantUML 1.2026.8 (X1)`.
+
+### Task 2: Style blocks are their own region; `<style>` at the start of a line
+
+**Files:** Modify `src/editor/plantuml-mode.js`, `src/editor/folding.js`, `src/editor/completion/creole.js` (or a new `completion/style-tag.js`, registered before `creole`), `src/editor/profiles/index.js` (P3 trigger); Test `tests/js/plantuml-mode.test.js`, `tests/js/folding.test.js`, `tests/js/completion.test.js`, `tests/js/profiles.test.js`.
+
+**Interfaces:** Produces: `plantumlLanguage(inner)` treats a line that is `<style>` (after indentation), up to a line that is `</style>`, as a style region: the two tag lines `tagName`, the lines between handed to `inner.style` when present, else plain (`null`); a one-line `<style>…</style>` and `<style file=…>` are one `tagName` line. Checked at line start before any inner mode (P5), so it works inside yaml blocks too. `needed()` adds `'style'` when a line starts `<style`. Folding: a `<style>` line folds to the line before `</style>`.
+
+- [ ] **Step 1:** Tests: inside `<style>` … `</style>` with no style mode, `note {`, `legend {`, `title {` and `node {` lines are plain and the line after `</style>` is uml again (H8 notes still work after it); with a stub `inner.style`, the body lines carry its tokens; a style block inside a yaml block, with yaml and style both registered, is style; `needed` of a document with `<style>` includes `style`; the fold of a style block; completion at `<` on an empty line offers `<style>` first (inserting `<style>\n\t\n</style>` with the cursor on the empty line) and `<style file=` second, and C7's tags after them; mid-line `<` still offers only C7's tags.
+- [ ] **Step 2:** Run the focused tests — FAIL.
+- [ ] **Step 3:** Implement. `PROFILES.style` is registered in Task 3; in this task `needed` may name it, and the loader must tolerate a type with no registry entry (it already ignores unknown types — check).
+- [ ] **Step 4:** Full `npx vitest run`, `npm run lint` — PASS.
+- [ ] **Step 5:** Commit `fix(editor): a style block is its own region, never a note (X8)`.
+
+### Task 3: The style profile — grammar, completion, checks
+
+**Files:** Create `src/editor/profiles/style.js`, `src/editor/lint/style.js`, `src/editor/completion/style.js` (profile-only: imports no core module); Modify `src/editor/profiles/index.js` (`PROFILES.style`), `src/editor/theme.js` if a new token name appears; Test `tests/js/style-profile.test.js`, `tests/js/lint.test.js`, `tests/js/completion.test.js`.
+
+**Interfaces:** Consumes the vocabulary (Task 1) — the profile chunk imports `src/editor/data/vocabulary.json` directly (data, not a core module). Produces `default: (core) => Profile` with `type: 'style'`, `mode` (selectors `tagName`, `.class` and `:depth(n)` `className`, braces `bracket`, property names `propertyName`, hex `ColorLiteral`, named colours `atom`, numbers `number`, `'` comments `comment`), `completions: [styleCompletion]`, `lints: [styleLint]`, `values: ValueEntry[]` (Task 4's shape — add the field now as `[]`, filled in Task 4).
+
+- [ ] **Step 1:** Tests: grammar tokens for a block holding `root {`, `.server {`, `node:depth(1) {`, `FontSize 22`, `BackGroundColor #FFF3B0;`, `LineColor red`, `'` comment, `}`. Completion inside a style block: at a selector position, the enclosing diagram's selector first (`mindmapDiagram` inside `@startmindmap`), then elements, then the rest; after `{` and indentation, properties (case kept as `PName`); after a property and a space, its values (`FontStyle` → the six font styles; `HorizontalAlignment` → `left`, `center`, `right`; `ShowStereotype` → `true`, `false`). Lint: `FontSise 12` → warning "Unknown style property FontSise" with quick fix "FontSize"; a property is matched case-insensitively (`fontsize` is fine); a `<style>` with no `</style>` → error "No </style> for this style block"; selectors never flagged.
+- [ ] **Step 2:** Run — FAIL.
+- [ ] **Step 3:** Implement; the lint finds style blocks itself (same line rules as Task 2).
+- [ ] **Step 4:** `npx vitest run`, `npm run lint`, `npm run build` + the chunk-import guard — PASS; a `style-*.js` chunk exists.
+- [ ] **Step 5:** Commit `feat(editor): a style editor between the style tags (X8, X9, X10)`.
+
+### Task 4: Values — registry, chooser, stepper
+
+**Files:** Create `src/editor/values/index.js` (registry + `valueAt(state, pos)`), `src/editor/values/widgets.js` (chooser and stepper `WidgetType`s, a `ViewPlugin` for the cursor's line), `img/icons/pencil.svg` exists — reuse it; Modify `src/editor/profiles/index.js` (profiles' `values` joined into the registry facet), `src/editor/profiles/style.js` (style value entries), `src/editor/completion/themes.js` (replace the whole value; Ctrl-Space inside a theme name), `src/editor/theme.js`, `src/editor.js`; Test `tests/js/values.test.js`, `tests/js/completion.test.js`, `tests/js/theme.test.js`.
+
+**Interfaces:** Produces `ValueEntry = { match(lineText, state, lineFrom) => Array<{ from, to, kind: 'list'|'number', options?: () => string[] | Promise<string[]>, min?: number }> }`; `valuesFacet` (combine = flat); core entries: `!theme <name>` (list, from the themes source), `skinparam <name> <number>`, `scale <number>`, `<size:<number>>` (numbers); style entries (Task 3's profile): list values for `FontStyle`, `HorizontalAlignment`, `ShowStereotype`, numbers for numeric properties with `min: 0` for the spec's non-negative ones.
+
+- [ ] **Step 1:** Tests: `valueAt` finds `bold` in `FontStyle bold` as a list value with its range; `22` in `FontSize 22` as a number with `min 0`; nothing on other lines. Chooser: with the cursor on the line, one pencil button per list value, labelled "Choose a value"; clicking selects the value and opens completion whose `from`/`to` span the whole value, the current value selected; picking `italic` turns `FontStyle bold` into `FontStyle italic`. Ctrl-Space inside `bol|d` opens the same list and replaces the whole word. Stepper: ▲ on `FontSize 22` → `23`, Shift ▲ → `32`, ▼ on `0` stays `0`, ▲ on `1.5` → `1.6`, ▲ on `LineThickness 2` in a skinparam line works; repeated clicks within the history's group delay undo in one step; no widgets on other lines.
+- [ ] **Step 2:** Run — FAIL.
+- [ ] **Step 3:** Implement (decorations rebuilt on selection/doc change for the cursor's line only; holding repeats per W2).
+- [ ] **Step 4:** `npx vitest run`, `npm run lint`, `npm run build` — PASS.
+- [ ] **Step 5:** Commit `feat(editor): choosers and steppers on the cursor's line (W1–W3)`.
+
+### Task 5: IncludeResolver
+
+**Files:** Create `lib/Service/IncludeResolver.php`, `lib/Service/Expanded.php`; Test `tests/unit/IncludeResolverTest.php` (OCP `Folder`/`File` mocks as the other tests do).
+
+**Interfaces:** Produces `IncludeResolver::expand(string $source, Folder $base, Folder $root): Expanded` with `Expanded { string $source; list<int> $lineMap /* 0-based sent line → 0-based source line */; list<array{line:int, path:string, inner:int|null}> $origins /* sent lines that came from a file */; list<array{line:int, message:string}> $mistakes; list<string> $etags }`, and `Expanded::mapError(int $sentLine, string $message): array{line:int, message:string}`.
+
+- [ ] **Step 1:** Tests (each a fake folder tree): `!include foo.puml`, `./foo.puml`, `"foo.puml"`, `../shared/foo.puml`, `/x.puml` resolve; a file with `@startuml … @enduml` gives its inner lines; `!include f.puml!1` and `!include f.puml!ID` pick blocks; second plain `!include` of the same file is dropped; `!include_many` repeats; `!include_once` twice → mistake "f.puml is already included"; `!includesub f.puml!BASIC` collects both BASIC sections; `<style file=./a.css>` → `<style>`, lines, `</style>`; nested include resolves against its own folder; `<C4/C4_Container>` and `https://…` untouched; missing → line kept + mistake "Cannot find nope.puml"; **climb-out** (`../../../../x.puml`, `/../x.puml`) → "Cannot find …" and no read outside `$root` (assert the mock is never asked); **cycle** A↔B and self-include → stops with a mistake; depth 9 → mistake; 65 files → mistake; > 1 MB → mistake; **line map**: an error on sent line after a 10-line include maps to its source line; an error inside the include maps to the include line with "In foo.puml, line 3: <msg>"; `etags` lists each included file's ETag.
+- [ ] **Step 2:** `composer test:unit -- --filter IncludeResolver` — FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** PHP unit suite, `composer psalm`, `composer cs:check`, `php -l` — PASS.
+- [ ] **Step 5:** Commit `feat(render): relative includes resolve in the user's files (R1–R3)`.
+
+### Task 6: Routes and the client resolve
+
+**Files:** Modify `lib/Controller/RenderController.php`, `lib/AppInfo/Application.php` if DI needs it, `src/editor/preview.js`, `src/editor.js`, `src/readme/workspace.js` (and `src/readme.js` for the README path), `src/editor/watch.js` or `src/editor.js` (R6); Test `tests/unit/RenderControllerTest.php`, `tests/js/preview.test.js`, `tests/js/editor.test.js`, `tests/js/workspace.test.js`.
+
+**Interfaces:** Consumes `IncludeResolver::expand` (Task 5). `bySource(string $source = '', mixed $index = 0, string $path = '')`; `byPath` resolves against the file's folder and its ETag becomes `md5(fileEtag . implode(',', $expanded->etags))` when anything was included (the file's own ETag otherwise, so today's caching is unchanged for files without includes). Both map the server's error line through `Expanded::mapError`, and a resolver mistake (when the server reports none) is sent as `X-PlantUML-Diagram-Error`/`-Line` like V3. JS: `render(source, index, path)`, `debouncedRender(source, index, path, cb)`; the editor passes its current path (the copy's after S8); README fences pass the README's path.
+
+- [ ] **Step 1:** Tests: controller — `path` the caller cannot read → 404 (as GET); with `path`, the resolver's source is sent and the mapped error line returned; a resolver mistake with a clean server render is returned in the error headers; GET's ETag changes when an included file's ETag changes, and equals the file's ETag when nothing is included. JS — the body carries `path`; the editor sends the copy's path after Save as copy; a README fence sends the README path; R6: a `visibilitychange` to visible or a window `focus` triggers a render of the current source (and none while closed).
+- [ ] **Step 2:** Run — FAIL. **Step 3:** Implement. **Step 4:** PHP + JS suites, psalm, cs, lint, build — PASS.
+- [ ] **Step 5:** Commit `feat(render): every route resolves relative files (R4, R6)`.
+
+### Task 7: Local path completion
+
+**Files:** Create `src/editor/completion/local-files.js`; Modify `src/editor/completion/index.js`, `src/editor/save.js` (a `listFolder(path)` Depth-1 PROPFIND helper), `src/editor/lint/state.js` or a new facet for the file's full path; Test `tests/js/completion.test.js`, `tests/js/save.test.js`.
+
+**Interfaces:** Produces `listFolder(path) => Promise<Array<{ name, folder: boolean }>>` (cached per path for the page); a `filePath` facet (the edited file's path; updated on Save as copy alongside `fileName`).
+
+- [ ] **Step 1:** Tests: after `!include ` (and `_many`, `_once`, `includesub`), offers `<`, `https://`, then the folder's `.puml`/`.iuml`/`.plantuml`/`.pu`/`.txt` files and its folders (a folder inserts `name/` and reopens); after `!include ./sub/`, that folder's entries; `../` offered except at the user's root; after `<style file=`, `.css`/`.txt` files and folders; the listing is fetched once per folder; nothing after `!include <` (X5's stdlib, round 3).
+- [ ] **Step 2:** Run — FAIL. **Step 3:** Implement. **Step 4:** Suites, lint, build — PASS.
+- [ ] **Step 5:** Commit `feat(editor): complete paths beside the diagram (R5)`.
+
+### Task 8: Penpot — the style editor, choosers and steppers
+
+Follow `skill://penpot/penpot-router/SKILL.md` (kb) and the skill it routes to; new UI as component instances bound to tokens. Add to the Editor page a board `screens / editor-style` (a uml block with a `<style>` block, the cursor on `FontStyle bold` showing the pencil chooser open as a list, and on `FontSize 22` the stepper), new components `value-chooser` (default/hover) and `number-stepper` (default/hover-up/hover-down); export `docs/design/editor-style.png`; add the board to the app spec's design table. Commit `docs(design): the style editor, choosers and steppers`.
+
+### Task 9: Ship the round
+
+- [ ] Specs: the round's rows `agreed (style round)` → `shipped (#PR)`; Known limitations; CHANGELOG `[Unreleased]` Added.
+- [ ] Propose to Dr K (chat, not files): Behat "A diagram draws a file it includes from beside it" and "A diagram's style file beside it is applied" (`diagrams/view.feature` through `GET /render`).
+- [ ] All checks; P6 sizes; PR; bot threads; merge; deploy (`dist/chunks` included).
+- [ ] Live: create `/apps/UML_Fun.css` (the nodes style moved out of UML_Fun.puml) and `/apps/UML_Fun_parts.puml` (a `!startsub ACTORS` section and an `@startuml(id=legend)` block) in Dr K's folder, reference them from UML_Fun.puml with `<style file=./UML_Fun.css>`, `!includesub ./UML_Fun_parts.puml!ACTORS` and `!include ./UML_Fun_parts.puml!legend`; check in selenium-flow (on a copy in the selenium account) that the diagram is styled and includes resolve, a mistake in the parts file lands on the include line, the chooser and stepper work, and the style block is coloured.

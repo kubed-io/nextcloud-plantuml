@@ -27,7 +27,7 @@
 import { StreamLanguage } from '@codemirror/language'
 import {
   arrow, atLineStart, body, codeLines, colours, creole, head, hex, lines, named, names,
-  patterns, paths, spriteStates, startLine, styledClose, styledOpen, tagStates, toColon,
+  patterns, paths, spriteStates, startLine, stereotypeState, stereotypes, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
@@ -77,6 +77,7 @@ const states = {
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     // A URL is a path wherever words are read (H22); a string, a comment and a colour came first.
     paths.url,
+    ...stereotypes,
     { regex: styledOpen, token: 'LinkOperator', next: 'arrowAttr' },
     { regex: arrow, token: 'LinkOperator', next: 'afterLink' },
     // Gantt: `[Task] is colored in White/Red`, a fill and a line.
@@ -91,6 +92,7 @@ const states = {
     ...names,
     { regex: /\w+/, token: null },
   ],
+  stereotype: stereotypeState,
   // The rest of a `!` line; it ends with its line, see `token`.
   preprocessor: [
     { regex: /"[^"]*"|'[^']*'/, token: 'string' },
@@ -185,7 +187,7 @@ const states = {
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
 const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', includePath: 'start', theme: 'start', themePath: 'start', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
-const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces'] })
+const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a

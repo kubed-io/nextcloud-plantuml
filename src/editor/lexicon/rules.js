@@ -169,12 +169,32 @@ export const tagStates = {
   ],
   tagBraces: [
     { regex: /\s+/, token: null },
-    { regex: /(\})(>)/, token: ['brace', 'tagName'], pop: true },
+    { regex: /(\})(>)(?!>)/, token: ['brace', 'tagName'], pop: true },
     { regex: /\}/, token: 'brace', pop: true },
     { regex: /,/, token: 'separator' },
     ...attributes(/(?=[\s,}>]|$)/.source),
   ],
 }
+
+/**
+ * A stereotype (H13): `<<` opens the state `stereotype` when `>>` closes it on the line and no
+ * `-`, `.`, `=`, `~` or `<` follows (those start a link). It ends with its line, a table lists
+ * it in its `lineStates`. Creole states do not take it: in a label `<<x>>` is text.
+ */
+export const stereotypes = [
+  { regex: /<<(?![-.=~<])(?=.*?>>)/, token: 'angleBracket', push: 'stereotype' },
+]
+
+export const stereotypeState = [
+  { regex: /\s+/, token: null },
+  { regex: />>/, token: 'angleBracket', pop: true },
+  { regex: /(\()([A-Za-z])(,)(#?\w+)(\))/, token: ['paren', 'atom', 'separator', 'ColorLiteral', 'paren'] },
+  { regex: /\$[\w.-]+/, token: 'tagName' },
+  { regex: /\*\d+(?:\.\d+)?/, token: 'number' },
+  { regex: /\{/, token: 'brace', push: 'tagBraces' },
+  { regex: /,/, token: 'separator' },
+  { regex: /(?:[^>\s,{]|>(?!>))+/, token: 'annotation' },
+]
 
 /**
  * What Creole reads at the start of a line in a body, not in a one-line label (where a `#` is
@@ -211,6 +231,7 @@ export const body = (key, closer, token = 'keyword') => ({
 
 /** The rest of a line whose text starts on the next one: `note left of A #pink`. */
 export const head = [
+  ...stereotypes,
   ...colours,
   ...names,
   { regex: /\b(?:as|is|then)\b/, token: 'keyword' },

@@ -1162,3 +1162,51 @@ describe('plantumlMode a diagram\'s name (H12)', () => {
     ])
   })
 })
+
+describe('stereotypes (H13)', () => {
+  const lt = ['<<', 'angleBracket']
+  const gt = ['>>', 'angleBracket']
+
+  it('reads <<name>> as brackets round an annotation', () => {
+    expect(tokens('class Foo <<entity>>')).toEqual([['class', 'keyword'], lt, ['entity', 'annotation'], gt])
+  })
+
+  it('reads several in a row', () => {
+    expect(tokens('class Foo <<a>> <<b>>').slice(1)).toEqual([lt, ['a', 'annotation'], gt, lt, ['b', 'annotation'], gt])
+  })
+
+  it('reads the spot form', () => {
+    expect(tokens('class Foo <<(C,#FF7700) Control>>').slice(1)).toEqual([
+      lt, ['(', 'paren'], ['C', 'atom'], [',', 'separator'], ['#FF7700', 'ColorLiteral'], [')', 'paren'], ['Control', 'annotation'], gt,
+    ])
+  })
+
+  it('reads a sprite, its scale and its braces', () => {
+    expect(tokens('class Foo <<$cog*2>>').slice(1)).toEqual([lt, ['$cog', 'tagName'], ['*2', 'number'], gt])
+    expect(tokens('class Foo <<$cog{scale=2}>>').slice(1)).toEqual([
+      lt, ['$cog', 'tagName'], ['{', 'brace'], ['scale', 'attributeName'], ['=', 'definitionOperator'], ['2', 'string'], ['}', 'brace'], gt,
+    ])
+  })
+
+  it('reads them in hide lines and skinparam keys', () => {
+    expect(tokens('hide <<x>> circle')).toContainEqual(['x', 'annotation'])
+    expect(tokens('skinparam classBackgroundColor<<Foo>> Red')).toContainEqual(['Foo', 'annotation'])
+  })
+
+  it('leaves a link that starts with << a link', () => {
+    for (const text of ['A <<-- B', 'A <<.. B']) {
+      const out = tokens(text)
+      expect(out.some(([, t]) => t === 'annotation')).toBe(false)
+      expect(out.some(([s, t]) => t === 'LinkOperator' && s.startsWith('<<'))).toBe(true)
+    }
+  })
+
+  it('leaves << in a label as text, and an unclosed one plain', () => {
+    expect(tokens('A -> B : <<x>>').some(([, t]) => t === 'annotation')).toBe(false)
+    expect(tokens('class Foo <<x').some(([, t]) => t === 'annotation' || t === 'angleBracket')).toBe(false)
+  })
+
+  it('ends with its line, even when its braces never close', () => {
+    expect(tokens('class A <<$cog{scale=2 >>', 'class B').slice(-1)).toEqual(tokens('class B').slice(-1))
+  })
+})

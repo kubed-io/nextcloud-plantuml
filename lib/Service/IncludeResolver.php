@@ -35,6 +35,12 @@ final class IncludeResolver {
 	private const MAX_DEPTH = 8;
 	private const MAX_FILES = 64;
 	private const MAX_BYTES = 1048576;
+	/** A library zip on disk, and all of them together; their entries still count toward MAX_BYTES. */
+	private const MAX_LIBRARY_BYTES = 8388608;
+	private const MAX_LIBRARIES_BYTES = 16777216;
+	/** Far below the 4000 bytes past which Nextcloud throws InvalidPathException. */
+	private const MAX_PATH = 1024;
+	private const MAX_SHOWN = 100;
 
 	private const DIRECTIVE = '/^\s*!(include|include_many|include_once|includesub|import)\s+(\S.*?)\s*$/';
 	private const STYLE = '/^\s*<style\s+[\w-]+\s*=\s*(?:"([^"]*)"|([^\s">]+))\s*>\s*$/i';
@@ -62,6 +68,7 @@ final class IncludeResolver {
 	private array $imports = [];
 	private int $files = 0;
 	private int $bytes = 0;
+	private int $libraryBytes = 0;
 
 	public function expand(string $source, Folder $base, Folder $root): Expanded {
 		$run = new self();
@@ -102,50 +109,55 @@ final class IncludeResolver {
 	 * @param Context $context
 	 */
 	private function directive(string $kind, string $argument, array $at, array $context, int $depth): void {
+		// The selector follows the closing quote, so a `!` inside the quotes is part of the name.
 		if (preg_match('/^"([^"]*)"(.*)$/', $argument, $m) === 1) {
-			$argument = $m[1] . trim($m[2]);
+			$path = $m[1];
+			$rest = trim($m[2]);
+			$selector = str_starts_with($rest, '!') && strlen($rest) > 1 ? substr($rest, 1) : null;
+		} else {
+			$bang = strpos($argument, '!');
+			$path = $bang === false ? $argument : substr($argument, 0, $bang);
+			$selector = $bang === false || $bang === strlen($argument) - 1 ? null : substr($argument, $bang + 1);
 		}
-		if ($argument === '' || self::isRemote($argument)) {
+		if (self::leftToServer($path)) {
 			$this->keep($at, null);
 			return;
 		}
-		$bang = strpos($argument, '!');
-		$path = $bang === false ? $argument : substr($argument, 0, $bang);
-		$selector = $bang === false || $bang === strlen($argument) - 1 ? null : substr($argument, $bang + 1);
+		$shown = self::shown($path);
 
 		if ($kind === 'import') {
-			$this->import($path, $at);
+			$this->import($path, $at, $context);
 			return;
 		}
 		if ($kind === 'includesub' && $selector === null) {
-			$this->keep($at, "$path needs !NAME");
+			$this->keep($at, "$shown needs !NAME");
 			return;
 		}
 		$found = $this->find($path, $context, true);
 		if ($found === null) {
-			$this->keep($at, "Cannot find $path");
+			$this->keep($at, "Cannot find $shown");
 			return;
 		}
 		$key = $found['id'] . '!' . ($selector ?? '');
 		if (in_array($found['id'], $this->stack, true)) {
-			$this->keep($at, "$path includes itself");
+			$this->keep($at, end($this->stack) === $found['id'] ? "$shown includes itself" : "$shown is included in a cycle");
 			return;
 		}
 		if ($kind === 'include' && isset($this->taken[$key])) {
 			return;
 		}
 		if ($kind === 'include_once' && isset($this->taken[$key])) {
-			$this->keep($at, "$path is already included");
+			$this->keep($at, "$shown is already included");
 			return;
 		}
-		$content = $this->read($found, $path, $at, $depth);
+		$content = $this->read($found, $shown, $at, $depth);
 		if ($content === null) {
 			return;
 		}
 		$lines = self::lines($content);
 		$picked = $kind === 'includesub' ? self::sub($lines, $selector) : self::block($lines, $selector);
 		if ($picked === null) {
-			$this->keep($at, "Cannot find $argument");
+			$this->keep($at, "Cannot find $shown!" . self::shown((string)$selector));
 			return;
 		}
 		$this->take($found);
@@ -160,16 +172,17 @@ final class IncludeResolver {
 	 * @param Context $context
 	 */
 	private function style(string $path, array $at, array $context, int $depth): void {
-		if ($path === '' || self::isRemote($path)) {
+		if (self::leftToServer($path)) {
 			$this->keep($at, null);
 			return;
 		}
+		$shown = self::shown($path);
 		$found = $this->find($path, $context, true);
 		if ($found === null) {
-			$this->keep($at, "Cannot find $path");
+			$this->keep($at, "Cannot find $shown");
 			return;
 		}
-		$content = $this->read($found, $path, $at, $depth);
+		$content = $this->read($found, $shown, $at, $depth);
 		if ($content === null) {
 			return;
 		}
@@ -185,11 +198,13 @@ final class IncludeResolver {
 	 * A library zip whose entries later relative includes find before the folder; its line is not sent.
 	 *
 	 * @param At $at
+	 * @param Context $context
 	 */
-	private function import(string $path, array $at): void {
-		$found = $this->find($path, ['dir' => $this->baseDir, 'zip' => null, 'zipDir' => []], false);
+	private function import(string $path, array $at, array $context): void {
+		$shown = self::shown($path);
+		$found = $this->find($path, $context, false);
 		if ($found === null || $found['file'] === null) {
-			$this->keep($at, "Cannot find $path");
+			$this->keep($at, "Cannot find $shown");
 			return;
 		}
 		foreach ($this->imports as $import) {
@@ -198,19 +213,34 @@ final class IncludeResolver {
 			}
 		}
 		if ($this->files >= self::MAX_FILES) {
-			$this->keep($at, "$path is past the limit of " . self::MAX_FILES . ' files');
+			$this->keep($at, "$shown is past the limit of " . self::MAX_FILES . ' files');
 			return;
 		}
 		$size = self::fileSize($found['file']);
-		if ($size !== null && $size > self::MAX_BYTES) {
-			$this->keep($at, "$path is past the limit of 1 MB in all");
+		if ($size !== null && $size > self::MAX_LIBRARY_BYTES) {
+			$this->keep($at, "$shown is past the limit of 8 MB for a library");
 			return;
 		}
-		$zip = $size === null ? null : self::open(self::content($found['file']));
+		$remaining = self::MAX_LIBRARIES_BYTES - $this->libraryBytes;
+		if ($size !== null && $size > $remaining) {
+			$this->keep($at, "$shown is past the limit of 16 MB of libraries in all");
+			return;
+		}
+		$content = $size === null ? null : self::content($found['file'], min(self::MAX_LIBRARY_BYTES, $remaining));
+		if ($content !== null && strlen($content) > self::MAX_LIBRARY_BYTES) {
+			$this->keep($at, "$shown is past the limit of 8 MB for a library");
+			return;
+		}
+		if ($content !== null && strlen($content) > $remaining) {
+			$this->keep($at, "$shown is past the limit of 16 MB of libraries in all");
+			return;
+		}
+		$zip = self::open($content);
 		if ($zip === null) {
-			$this->keep($at, "Cannot read $path");
+			$this->keep($at, "Cannot read $shown");
 			return;
 		}
+		$this->libraryBytes += strlen((string)$content);
 		$this->imports[] = ['zip' => $zip[0], 'tmp' => $zip[1], 'id' => $found['id'], 'display' => $found['display'], 'dir' => $found['context']['dir']];
 		$this->take($found);
 	}
@@ -230,18 +260,19 @@ final class IncludeResolver {
 			$this->keep($at, "$path is past the limit of " . self::MAX_FILES . ' files');
 			return null;
 		}
+		$remaining = self::MAX_BYTES - $this->bytes;
 		$content = $this->contents[$found['id']] ?? null;
 		$size = $content === null ? $this->size($found) : strlen($content);
-		if ($size !== null && $this->bytes + $size > self::MAX_BYTES) {
+		if ($size !== null && $size > $remaining) {
 			$this->keep($at, "$path is past the limit of 1 MB in all");
 			return null;
 		}
-		$content ??= $size === null ? null : $this->fetch($found);
+		$content ??= $size === null ? null : $this->fetch($found, $remaining);
 		if ($content === null) {
 			$this->keep($at, "Cannot read $path");
 			return null;
 		}
-		if ($this->bytes + strlen($content) > self::MAX_BYTES) {
+		if (strlen($content) > $remaining) {
 			$this->keep($at, "$path is past the limit of 1 MB in all");
 			return null;
 		}
@@ -270,6 +301,11 @@ final class IncludeResolver {
 	 * @return Found|null
 	 */
 	private function find(string $path, array $context, bool $zips): ?array {
+		// Nextcloud reads `\` as `/`, so it is worked out here too, before any file is asked for.
+		$path = str_replace('\\', '/', $path);
+		if (preg_match('/[\x00-\x1f]/', $path) === 1) {
+			return null;
+		}
 		$relative = !str_starts_with($path, '/');
 		if ($zips && $relative) {
 			if ($context['zip'] !== null) {
@@ -289,12 +325,12 @@ final class IncludeResolver {
 			return null;
 		}
 		$segments = self::resolve($relative ? $context['dir'] : [], $path);
-		if ($segments === null || $segments === []) {
+		if ($segments === null || $segments === [] || strlen(implode('/', $segments)) > self::MAX_PATH) {
 			return null;
 		}
 		try {
 			$node = $this->root->get(implode('/', $segments));
-		} catch (NotFoundException|NotPermittedException) {
+		} catch (NotFoundException|NotPermittedException|InvalidPathException) {
 			return null;
 		}
 		if (!$node instanceof File) {
@@ -343,12 +379,17 @@ final class IncludeResolver {
 		return $stat === false ? null : (int)$stat['size'];
 	}
 
-	/** @param Found $found */
-	private function fetch(array $found): ?string {
+	/**
+	 * At most one byte past `$limit`, whatever size the file claims, so a
+	 * longer one shows as past the limit without being read whole.
+	 *
+	 * @param Found $found
+	 */
+	private function fetch(array $found, int $limit): ?string {
 		if ($found['file'] !== null) {
-			return self::content($found['file']);
+			return self::content($found['file'], $limit);
 		}
-		$content = $this->imports[(int)$found['zip']]['zip']->getFromIndex($found['entry']);
+		$content = $this->imports[(int)$found['zip']]['zip']->getFromIndex($found['entry'], $limit + 1);
 		return $content === false ? null : $content;
 	}
 
@@ -431,8 +472,15 @@ final class IncludeResolver {
 		return $segments;
 	}
 
-	private static function isRemote(string $path): bool {
-		return str_starts_with($path, '<') || preg_match('~^[a-z][a-z0-9+.-]*://~i', $path) === 1;
+	/** The stdlib, a URL, or an expression (`$var`, `%function()%`) only PlantUML can work out. */
+	private static function leftToServer(string $path): bool {
+		return $path === '' || strpbrk($path, '$%') !== false || str_starts_with($path, '<') || preg_match('~^[a-z][a-z0-9+.-]*://~i', $path) === 1;
+	}
+
+	/** A path as a mistake shows it: no control characters, and cut short when long. */
+	private static function shown(string $path): string {
+		$path = (string)preg_replace('/[\x00-\x1f]/', '?', $path);
+		return mb_strlen($path) > self::MAX_SHOWN ? mb_substr($path, 0, self::MAX_SHOWN) . '…' : $path;
 	}
 
 	/** @return array<int, string> */
@@ -525,9 +573,21 @@ final class IncludeResolver {
 		}
 	}
 
-	private static function content(File $file): ?string {
+	/**
+	 * At most `$limit` + 1 bytes, read through a stream: a stored size can be wrong.
+	 */
+	private static function content(File $file, int $limit): ?string {
 		try {
-			return $file->getContent();
+			$handle = $file->fopen('r');
+			if (!is_resource($handle)) {
+				return $file->getContent();
+			}
+			try {
+				$content = stream_get_contents($handle, $limit + 1);
+			} finally {
+				fclose($handle);
+			}
+			return $content === false ? null : $content;
 		} catch (NotPermittedException|GenericFileException|LockedException) {
 			return null;
 		}

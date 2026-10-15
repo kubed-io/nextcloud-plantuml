@@ -306,7 +306,7 @@ and are not screens.
 | Page | Boards | What the click does |
 |---|---|---|
 | Admin | `screens / admin` → `screens / admin-success`; `Admin — health check states` | *Test connection* reveals the result line. The states board holds the four lines the check can show: `PlantUML 1.2026.8`, `Server URL is not set`, `Server is unreachable`, `Server is not a PlantUML server`. |
-| Editor | `screens / editor` → `screens / editor-saving` → `screens / editor-saved`; `screens / editor-autocomplete`, `screens / editor-lint`, `screens / editor-dark`, `screens / editor-diagram-only` | The unsaved board (check with a dot, the divider's handle) moves to saving and then saved by itself after a delay, as autosave does; a click on the save state saves at once; typing in the saved board makes it unsaved again. *Add name* on the lint board returns to the editor. The other boards are states: connector completions after `node1 `, the unnamed-`@startuml` warning with its panel, the dark theme with search open. The Source toggle switches between the editor and `screens / editor-diagram-only`, where it is unpressed and the diagram spans the full width. Detail: editor spec. |
+| Editor | `screens / editor` → `screens / editor-saving` → `screens / editor-saved`; `screens / editor-autocomplete`, `screens / editor-lint`, `screens / editor-style`, `screens / editor-style-stepper`, `screens / editor-dark`, `screens / editor-diagram-only` | The unsaved board (check with a dot, the divider's handle) moves to saving and then saved by itself after a delay, as autosave does; a click on the save state saves at once; typing in the saved board makes it unsaved again. *Add name* on the lint board returns to the editor. The other boards are states: connector completions after `node1 `, the unnamed-`@startuml` warning with its panel, a `<style>` block with swatches before its colours and the pencil after `FontStyle bold` opening its list (bold first), the stepper after `FontSize 22`, the dark theme with search open. The Source toggle switches between the editor and `screens / editor-diagram-only`, where it is unpressed and the diagram spans the full width. Detail: editor spec. |
 | Files | `screens / files`, `screens / viewer`, `overlay / context-menu`, `overlay / new-menu` | A row's name or icon opens the Viewer; its × returns. The row's *…* opens the menu: **View**, **Edit diagram**, **Open with text editor**, then Nextcloud's own entries. *+ New* opens its menu with **UML Diagram** as the new entry (drawn as **Diagram** on 2026-10-13). |
 | Readme | `screens / readme` ↔ `screens / readme-source` | The Diagrams folder with Text's README workspace above the list: a ```` ```plantuml ```` fence and an `![Order flow](Order flow.puml)` both shown as the diagram, the image with its alt text as caption. Clicking the README.md row shows the markdown source; its × returns. |
 
@@ -314,9 +314,11 @@ Copy on the admin card: section title "PlantUML", subtitle "Point to your PlantU
 field label "Server URL", button "Test connection". Nothing else.
 
 Every board is built from library components, and every fill, stroke, radius, shadow and
-flex spacing on a layer is a token (2026-10-14), with one exception: the syntax colours in
+flex spacing on a layer is a token (2026-10-14), with two exceptions: the syntax colours in
 the editor boards' `source / code` texts are per-character fills, which Penpot cannot bind
-to a token. They copy the token values. Colour tokens carry the names of the Nextcloud
+to a token, so they copy the token values; and the style boards paint their diagram's
+participants (and the swatches) in the style block's own `#FFE08A` and `gold`, the
+diagram's colours rather than the theme's. Colour tokens carry the names of the Nextcloud
 variables they stand for (`color-main-text`, `color-primary-element-light`, …) in a `Light`
 and a `Dark` theme. Switching to `Dark` flips every board except two: `editor-dark` binds
 pinned `dark.*` tokens so it stays dark whichever theme is active, and the code texts keep
@@ -325,7 +327,8 @@ is the server's picture, not the theme's. The components are on the Components p
 `Name / Property=Value`: the icons, `icon-button` (Default, Hover, Pressed, Focus),
 `source-toggle` (Pressed), `save-indicator` (Unsaved, Saving, Saved), `tab` (Active,
 Inactive), `tab-strip`, `editor-bar`, `source-pane`, `splitter`, `fold-placeholder`,
-`completion-row` (Default, Selected), `checkbox`, `app-navigation` (Heading),
+`completion-row` (Default, Selected), `value-chooser` (Default, Hover), `number-stepper`
+(Default, HoverUp, HoverDown), `color-swatch`, `checkbox`, `app-navigation` (Heading),
 `navigation-item`, `files-table-head`, `files-row`, `menu-item`, `menu-separator`, `button`
 (Primary, Secondary, PrimaryLight), `text-field` and `health-check`. Two older mains stay
 where they were drawn: `header` (Admin board) and `order-flow`, the rendered diagram (the

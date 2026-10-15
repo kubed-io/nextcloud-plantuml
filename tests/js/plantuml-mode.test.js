@@ -172,7 +172,11 @@ describe('plantumlMode preprocessor', () => {
       ['>', 'compareOperator'],
       ['3', 'number'],
       ['$ask', 'FunctionName'],
+      ['(', 'paren'],
+      [',', 'separator'],
+      [',', 'separator'],
       ['"x"', 'string'],
+      [')', 'paren'],
       ['!endif', 'meta'],
     ])
   })
@@ -184,7 +188,7 @@ describe('plantumlMode preprocessor', () => {
   })
 
   it('ends with its line', () => {
-    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number'], ['actor', 'keyword'], ['2', 'number']])
+    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number'], ['actor', 'keyword']])
   })
 
   it('leaves a price, a sprite, a string, a link and a comment as they were', () => {
@@ -260,6 +264,7 @@ describe('plantumlMode colours', () => {
   it('takes Gantt\'s `is colored in` colours', () => {
     expect(tokens('[Task] is colored in White/Red')).toEqual([['is', 'keyword'], ['White', 'ColorLiteral'], ['/', 'punctuation'], ['Red', 'ColorLiteral']])
     expect(tokens('[Task] is colored in #00ff00')).toEqual([['is', 'keyword'], ['#00ff00', 'ColorLiteral']])
+    // The 2 is a number on purpose (H14).
     expect(tokens('[Task] is 2 days')).toEqual([['is', 'keyword'], ['2', 'number']])
   })
 
@@ -1236,6 +1241,29 @@ describe('numbers and calls (H14, H16)', () => {
     expect(tokens('2x_ARM -> b')).toEqual([['->', 'LinkOperator']])
     expect(numbers('A -> B : 3 apples')).toEqual([])
     expect(tokens('A -> B : 3 apples')).toContainEqual(['3 apples', 'labelName'])
+  })
+
+  it('reads $ and % calls on a uml line like any call', () => {
+    expect(tokens('$ask(nc, db, "read the file")')).toEqual([
+      ['$ask', 'FunctionName'], ['(', 'paren'], [',', 'separator'], [',', 'separator'], ['"read the file"', 'string'], [')', 'paren'],
+    ])
+    expect(tokens('%strlen("x") > 3').slice(0, 4)).toEqual([['%strlen', 'FunctionName'], ['(', 'paren'], ['"x"', 'string'], [')', 'paren']])
+    expect(tokens('$f($a + 1)')).toEqual([
+      ['$f', 'FunctionName'], ['(', 'paren'], ['$a', 'VariableName'], ['+', 'arithmeticOperator'], ['1', 'number'], [')', 'paren'],
+    ])
+    expect(tokens('note left of $f(1)')).toContainEqual(['(', 'paren'])
+  })
+
+  it('leaves the text after an element line\'s colon as text', () => {
+    expect(numbers('actor A : 2')).toEqual([])
+    expect(tokens('class Foo : bar()').some(([, t]) => t === 'FunctionName')).toBe(false)
+    expect(tokens('actor A : #red "s"')).toContainEqual(['#red', 'ColorLiteral'])
+    expect(tokens('actor A : #red "s"')).toContainEqual(['"s"', 'string'])
+  })
+
+  it('leaves else, then, endif and endwhile as words before a paren', () => {
+    expect(tokens('else(no)').some(([, t]) => t === 'FunctionName')).toBe(false)
+    expect(tokens('endif(x)').some(([, t]) => t === 'FunctionName')).toBe(false)
   })
 
   it('reads a call', () => {

@@ -26,8 +26,8 @@
  */
 import { StreamLanguage } from '@codemirror/language'
 import {
-  argsState, arrow, atLineStart, body, calls, codeLines, colours, creole, head, hex, lines, named, names,
-  numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState, stereotypes, styledClose, styledOpen, tagStates, toColon,
+  argsState, arrow, atLineStart, body, callNames, calls, comma, codeLines, colours, creole, head, hex, lines, named, names,
+  number, numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState, stereotypes, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
@@ -75,6 +75,8 @@ const states = {
     atLineStart(/listsprites?\b/.source, 'keyword'),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
+    // A colon with a space beside it starts text, as a link's does (a link is read by `afterLink`).
+    { regex: /\s+:\s*|:\s+/, token: null, next: 'colonText' },
     // A URL is a path wherever words are read (H22); a string, a comment and a colour came first.
     paths.url,
     ...stereotypes,
@@ -89,21 +91,23 @@ const states = {
     { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
     // A sprite used as an element's icon (`rectangle <$foo> as r`).
     { regex: /<\$[^>\s]+>/, token: 'tagName' },
-    ...names,
+    ...callNames,
     ...numbers,
     ...calls,
     { regex: /\w+/, token: null },
   ],
+  // An element line's text after ` : ` is text (H14): a colour and a string keep their look.
+  colonText: [...colours, { regex: /"[^"]*"/, token: 'string' }, ...creole(null)],
   stereotype: stereotypeState,
   args: argsState,
   // The rest of a `!` line; it ends with its line, see `token`.
   preprocessor: [
     { regex: /"[^"]*"|'[^']*'/, token: 'string' },
     ...names,
-    { regex: /\d+(?:\.\d+)?(?!\w)/, token: 'number' },
+    number,
     ...operators,
     { regex: /[()]/, token: 'paren' },
-    { regex: /,/, token: 'separator' },
+    comma,
     { regex: /\w+/, token: null },
   ],
   // The path after `!include`: `<C4/C4>` in angle brackets, else the path and its selector.
@@ -186,7 +190,7 @@ const states = {
 // The states that end with their line, and the state the next line starts in.
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
-const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', includePath: 'start', theme: 'start', themePath: 'start', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
+const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', colonText: 'start', label: 'start', text: 'start', noteHead: 'noteBody', includePath: 'start', theme: 'start', themePath: 'start', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
 const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and

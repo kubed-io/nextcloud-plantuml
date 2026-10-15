@@ -82,6 +82,15 @@ export const names = [
 ]
 
 /**
+ * `names` on a uml line, where a `$f(` or `%f(` call also opens the state `args` (H16), so its
+ * arguments read as any call's. In Creole text and on a `!` line they are `names`.
+ */
+export const callNames = [
+  { regex: /([$%][A-Za-z_]\w*)(\()/, token: ['FunctionName', 'paren'], push: 'args' },
+  ...names,
+]
+
+/**
  * Paths (H22). `url` is a URL with a scheme (`https://…`, `file://…`), up to a space, a quote, `>`,
  * `]` or the line's end. `slot` is a path where one goes (an include's, a theme's source), the
  * first of its rules that fits: the path and then a selector, `!` and a number or a block's id.
@@ -201,11 +210,15 @@ export const stereotypeState = [
  * an integer or a decimal with a trailing `%`. A digit inside a word is no number: the word is read
  * whole before this is tried again, and `2x` is refused by the lookahead.
  */
+export const number = { regex: /\d+(?:\.\d+)?%?(?![\w.])/, token: 'number' }
 export const numbers = [
   { regex: /@[+-]?\d+(?:\.\d+)?/, token: 'number' },
   { regex: /(\|\|)(\d+)(\|\|)/, token: ['separator', 'number', 'separator'] },
-  { regex: /\d+(?:\.\d+)?%?(?![\w.])/, token: 'number' },
+  number,
 ]
+
+/** A comma between arguments. */
+export const comma = { regex: /,/, token: 'separator' }
 
 /** The preprocessor's operators by kind (H19), for a `!` line and a call's arguments. */
 export const operators = [
@@ -221,13 +234,13 @@ export const operators = [
  * in its `lineStates`; it pops every `(` pushed, see `table`).
  */
 export const calls = [
-  { regex: /(?!(?:if|elseif|while|repeat|switch|case|equals|not|is|backward)\()([A-Za-z_]\w*)(\()/, token: ['FunctionName', 'paren'], push: 'args' },
+  { regex: /(?!(?:if|elseif|else|then|endif|endwhile|while|repeat|switch|case|equals|not|is|backward)\()([A-Za-z_]\w*)(\()/, token: ['FunctionName', 'paren'], push: 'args' },
 ]
 
 export const argsState = [
   { regex: /\)/, token: 'paren', pop: true },
   { regex: /\(/, token: 'paren', push: 'args' },
-  { regex: /,/, token: 'separator' },
+  comma,
   { regex: /"[^"]*"|'[^']*'/, token: 'string' },
   ...names,
   ...numbers,
@@ -275,7 +288,7 @@ export const body = (key, closer, token = 'keyword') => ({
 export const head = [
   ...stereotypes,
   ...colours,
-  ...names,
+  ...callNames,
   { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
   ...numbers,
   ...calls,

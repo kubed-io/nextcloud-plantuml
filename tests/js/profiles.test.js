@@ -9,6 +9,7 @@ import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { diagnosticCount } from '@codemirror/lint'
 import { scan } from '../../src/editor/blocks.js'
+import { translate } from '@nextcloud/l10n'
 import { plantumlLint, profileRules } from '../../src/editor/lint/index.js'
 import { fileName } from '../../src/editor/lint/state.js'
 import { PROFILES, needed, profileExtension, profileLoader } from '../../src/editor/profiles/index.js'
@@ -104,7 +105,7 @@ describe('loadProfile', () => {
     expect(typeof first.mode.token).toBe('function')
   })
 
-  it('makes the profile from its module\'s factory, handing it the core it needs', async () => {
+  it('makes the profile from its module\'s factory, handing it the core it needs: the scan and the translator', async () => {
     const made = { type: 'yaml', completions: [], lints: [] }
     const factory = vi.fn(() => made)
     vi.spyOn(profiles.PROFILES, 'yaml').mockResolvedValue({ default: factory })
@@ -112,7 +113,8 @@ describe('loadProfile', () => {
     expect(await loadProfile('yaml')).toBe(made)
     expect(factory).toHaveBeenCalledTimes(1)
     const [[core]] = factory.mock.calls
-    expect(Object.keys(core)).toEqual(['scan'])
+    expect(Object.keys(core)).toEqual(['scan', 't'])
+    expect(core.t).toBe(translate)
     expect(core.scan('@startyaml\na: 1\n@endyaml')[0]).toMatchObject({ type: 'yaml', start: 1, end: 3 })
   })
 

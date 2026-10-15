@@ -11,4 +11,4 @@ import { styleCompletion } from '../completion/style.js'
 import { styleLint } from '../lint/style.js'
 
 /** @param {import('./index.js').Core} core */
-export default (core) => ({ type: 'style', mode: styleMode, completions: [styleCompletion(core)], lints: [styleLint], values: [] })
+export default (core) => ({ type: 'style', mode: styleMode, completions: [styleCompletion(core)], lints: [styleLint(core)], values: [] })

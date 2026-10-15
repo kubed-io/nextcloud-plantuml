@@ -10,10 +10,13 @@
  * A profile module's default export is a factory given `Core`: a profile that
  * imported core modules itself would make them a chunk the editor imports
  * statically, which one failed download would then break whole. A profile
- * imports libraries only.
+ * imports only libraries the editor does not, as a shared one becomes such a
+ * chunk too; what it needs of the editor's comes in `Core`.
  *
  * @typedef {object} Core
  * @property {typeof scan} scan
+ * @property {typeof translate} t @nextcloud/l10n's translate, called with the
+ *   app id written out so Nextcloud's string extractor finds the strings
  *
  * @typedef {object} Profile
  * @property {string} type the word after `@start`
@@ -23,6 +26,7 @@
  * @property {object[]} values where its values sit, for choosers and steppers
  */
 import { EditorState } from '@codemirror/state'
+import { translate } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
 import { scan } from '../blocks.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
@@ -58,7 +62,7 @@ export function needed(diagrams, text) {
   return new Set([...types].filter((type) => Object.hasOwn(PROFILES, type)))
 }
 
-const core = { scan }
+const core = { scan, t: translate }
 const loading = new Map() // type → Promise<Profile|null>, for the page
 const failed = new Set()
 

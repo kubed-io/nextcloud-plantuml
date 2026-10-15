@@ -8,9 +8,9 @@ import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import styleProfile from '../../src/editor/profiles/style.js'
-import { styleLint } from '../../src/editor/lint/style.js'
+import { translate } from '@nextcloud/l10n'
 
-const profile = styleProfile({ scan })
+const profile = styleProfile({ scan, t: translate })
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {
@@ -25,8 +25,9 @@ function tokens(...lines) {
 }
 
 describe('the style profile', () => {
-  it('is made from the core it is given: the style type with its mode, completion, lint and no values yet', () => {
-    expect(profile).toMatchObject({ type: 'style', completions: [expect.any(Function)], lints: [styleLint], values: [] })
+  it('is made from the core it is given, translator included: the style type with its mode, completion, lint and no values yet', () => {
+    expect(profile).toMatchObject({ type: 'style', completions: [expect.any(Function)], lints: [expect.any(Function)], values: [] })
+    expect(profile.lints[0]).not.toBe(styleProfile({ scan, t: translate }).lints[0])
     expect(typeof profile.mode.token).toBe('function')
   })
 

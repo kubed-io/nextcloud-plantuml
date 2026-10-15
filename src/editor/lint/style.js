@@ -5,9 +5,11 @@
  * Style blocks: a property PlantUML does not know is a warning, with the
  * nearest one it does as the fix; PlantUML matches them whatever their case.
  * Selectors are never checked, as stereotype classes are free-form. A
- * `<style>` no `</style>` closes is an error. The style profile's rule, so it
- * imports no core module, nor @nextcloud/l10n: a library the editor shares
- * with a chunk becomes a chunk the editor imports statically.
+ * `<style>` no `</style>` closes is an error. The style profile's rule, made
+ * from the core it is given: importing a core module, or a library the editor
+ * also uses (@nextcloud/l10n), would make it a chunk the editor imports
+ * statically. `t` is called with the app id written out, for the string
+ * extractor, and without sanitizing, which would strip `</style>`.
  */
 import vocabulary from '../data/vocabulary.json'
 import { readStyle, styleBlocks } from '../profiles/style-grammar.js'
@@ -32,8 +34,10 @@ function distance(a, b) {
 
 const nearest = (name) => properties.reduce((best, candidate) => (distance(name, candidate) < distance(name, best) ? candidate : best))
 
-/** @param {import('@codemirror/state').EditorState} state */
-export function styleLint(state) {
+const AS_TEXT = { escape: false, sanitize: false }
+
+/** @param {{ t: typeof import('@nextcloud/l10n').translate }} core */
+export const styleLint = ({ t }) => (state) => {
   const { doc } = state
   const found = []
   for (const block of styleBlocks(doc.toString().split('\n'))) {
@@ -44,7 +48,7 @@ export function styleLint(state) {
         from,
         to: from + '<style>'.length,
         severity: 'error',
-        message: 'No </style> for this style block',
+        message: t('plantuml', 'No </style> for this style block', undefined, undefined, AS_TEXT),
       })
     }
     readStyle(block.body, (token, line, start, end, name) => {
@@ -57,7 +61,7 @@ export function styleLint(state) {
         from,
         to: from + (end - start),
         severity: 'warning',
-        message: `Unknown style property ${name}`,
+        message: t('plantuml', 'Unknown style property {name}', { name }, undefined, AS_TEXT),
         actions: [{
           name: fix,
           apply(view, from, to) {

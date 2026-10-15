@@ -4,7 +4,7 @@
 //
 // Each lint rule against a real EditorState: what is asserted is what the
 // editor would underline, and what a diagnostic's action writes.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { rules } from '../../src/editor/lint/index.js'
@@ -13,7 +13,8 @@ import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.j
 import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
 import { yamlLint as yamlRule } from '../../src/editor/lint/yaml.js'
-import { styleLint } from '../../src/editor/lint/style.js'
+import { styleLint as styleRule } from '../../src/editor/lint/style.js'
+import { translate } from '@nextcloud/l10n'
 import { scan } from '../../src/editor/blocks.js'
 
 const yamlLint = yamlRule({ scan })
@@ -276,7 +277,8 @@ describe('blocks', () => {
 })
 
 describe('style', () => {
-  const run = (doc) => styleLint(stateOf(doc))
+  // The real translator: its sanitizing would strip a `</style>` from a message.
+  const run = (doc) => styleRule({ t: translate })(stateOf(doc))
   const apply = (doc, diagnostic, action = 0) => {
     const view = new EditorView({ state: stateOf(doc), parent: document.body })
     diagnostic.actions[action].apply(view, diagnostic.from, diagnostic.to)
@@ -322,6 +324,17 @@ describe('style', () => {
     expect(found.map((d) => [d.severity, d.message, d.from, d.to])).toEqual([
       ['error', 'No </style> for this style block', doc.indexOf('<style>'), doc.indexOf('<style>') + '<style>'.length],
       ['error', 'No </style> for this style block', doc.lastIndexOf('<style>'), doc.lastIndexOf('<style>') + '<style>'.length],
+    ])
+  })
+
+  it('translates its messages under the app id, the tag in them kept as text', () => {
+    const t = vi.fn((_app, text, vars) => text.replace('{name}', vars?.name))
+    const found = styleRule({ t })(stateOf('<style>\nnode {\n  FontSise 1\n'))
+
+    expect(found.map((d) => d.message)).toEqual(['No </style> for this style block', 'Unknown style property FontSise'])
+    expect(t.mock.calls).toEqual([
+      ['plantuml', 'No </style> for this style block', undefined, undefined, { escape: false, sanitize: false }],
+      ['plantuml', 'Unknown style property {name}', { name: 'FontSise' }, undefined, { escape: false, sanitize: false }],
     ])
   })
 

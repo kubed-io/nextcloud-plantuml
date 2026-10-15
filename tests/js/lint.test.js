@@ -355,6 +355,10 @@ describe('style', () => {
     expect(run("<style>\nnode {\n  ' FontSise 12\n  !$x = 1\n}\n</style>\n")).toEqual([])
   })
 
+  it("skips /' … '/ comments inside a block, on one line or several", () => {
+    expect(run("<style>\nnode {\n  /' FontSise 12 '/\n  /' Colour red\n  FontSise 1 '/ FontSize 2\n}\n</style>\n")).toEqual([])
+  })
+
   it('errors on a <style> no </style> closes, before the diagram ends or at the end of the file', () => {
     const doc = '@startuml\n  <style>\nnode {\n@enduml\n<style>\n'
     const found = run(doc)

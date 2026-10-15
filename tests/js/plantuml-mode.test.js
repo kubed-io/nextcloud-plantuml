@@ -382,6 +382,18 @@ describe('plantumlMode @startfiles', () => {
     ])
   })
 
+  it('ends an unclosed <code> at the </note> of its note', () => {
+    expect(tokens('@startfiles', '<note>', '<code>', 'x', '</note>', '/c', '@endfiles')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['<note>', 'tagName'],
+      ['<code>', 'tagName'],
+      ['x', 'monospace'],
+      ['</note>', 'tagName'],
+      ['/', 'punctuation'],
+      ['@endfiles', 'keyword'],
+    ])
+  })
+
   it('leaves a <style> region and the notes of uml as before', () => {
     expect(tokens('@startfiles', '/a', '@endfiles', '<style>', 'note {', '</style>', 'note left of A', '**b**', 'end note')).toEqual([
       ['@startfiles', 'keyword'],

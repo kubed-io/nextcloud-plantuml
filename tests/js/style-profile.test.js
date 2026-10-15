@@ -164,6 +164,33 @@ describe('the style profile', () => {
     expect(named('  LineStyle 4; LineColor red').map(([, name]) => name)).toEqual(['propertyName', 'number', 'punctuation', 'propertyName', 'ColorLiteral'])
   })
 
+  it('starts each line with no dash pattern open', () => {
+    const named = tokens('<style>', 'node {', '  LineStyle 8', '-3', '}', '</style>').filter(([, name]) => name !== 'tagName' && name !== 'bracket')
+    expect(named).not.toContainEqual(['-', 'operator'])
+  })
+
+  it('takes no #ABCDE for a colour: five hex digits are a broken hex, not a name', () => {
+    expect(tokens('<style>', 'node {', '  LineColor #ABCDE; BackgroundColor #ABCDEF', '}', '</style>')).toEqual(expect.arrayContaining([
+      ['#ABCDE', 'atom'],
+      ['#ABCDEF', 'ColorLiteral'],
+    ]))
+  })
+
+  it("reads /' … '/ as a comment, on one line or several, and the declarations after it", () => {
+    expect(tokens('<style>', "/' node { FontSise 1 } '/", "node { /' a", "  LineColor red '/ FontSize 2 }", '</style>')).toEqual([
+      ['<style>', 'tagName'],
+      ["/' node { FontSise 1 } '/", 'comment'],
+      ['node', 'tagName'],
+      ['{', 'bracket'],
+      ["/' a", 'comment'],
+      ["  LineColor red '/", 'comment'],
+      ['FontSize', 'propertyName'],
+      ['2', 'number'],
+      ['}', 'bracket'],
+      ['</style>', 'tagName'],
+    ])
+  })
+
   it('reads the Word Wrap block of plantuml.com/mindmap-diagram', () => {
     const names = tokens(...WORD_WRAP.split('\n')).map(([, name]) => name)
     expect(names).not.toContain(null)

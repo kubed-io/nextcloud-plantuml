@@ -233,7 +233,8 @@ const base = simpleMode({
     ...lines('filesNoteCode'),
     ...creole(null),
   ],
-  filesNoteCode: codeLines(/@end\w*/.source, 'filesNote'),
+  // An unclosed `<code>` ends with its note.
+  filesNoteCode: [atLineStart(/<\/note>(?=\s*$)/.source, 'tagName', { next: 'filesBody' }), ...codeLines(/@end\w*/.source, 'filesNote')],
   languageData: {
     name: 'plantuml',
     commentTokens: { line: "'", block: { open: "/'", close: "'/" } },

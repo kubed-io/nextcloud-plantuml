@@ -18,7 +18,8 @@ function value(stream, property) {
   if (stream.match(HEX)) return 'ColorLiteral'
   if (stream.match(/^-?\d+(?:\.\d+)?(?![\w.])/)) return 'number'
   if (stream.match(/^"[^"]*"?/)) return 'string'
-  if (/color$/i.test(property ?? '') && stream.match(/^#?[A-Za-z]\w*(?![\w-])/)) return 'ColorLiteral'
+  // As the PlantUML mode: a name is never all hex digits (`#ABCDE` is a broken hex).
+  if (/color$/i.test(property ?? '') && stream.match(/^#?(?![\dA-Fa-f]+(?!\w))[A-Za-z]\w*(?![\w-])/)) return 'ColorLiteral'
   if (stream.match(/^#?[\w-]+/)) return 'atom'
   stream.next()
   return null
@@ -29,17 +30,23 @@ function value(stream, property) {
  * `;` or the line's end, except inside a `LineStyle` dash pattern, `8.0;3.0` or
  * `8-3`, whose separator is an `operator` between two numbers. A word inside braces with a `{` after it on its
  * declaration is a nested selector; any other is a property. `property` is
- * the last property read, for its values.
+ * the last property read, for its values. `/' … '/` is a comment, over as many
+ * lines as it takes.
  */
 export const styleMode = {
   name: 'plantuml-style',
-  startState: () => ({ depth: 0, at: 'name', property: null, dash: false }),
+  startState: () => ({ depth: 0, at: 'name', property: null, dash: false, comment: false }),
   blankLine(state) {
     state.at = 'name'
   },
   token(stream, state) {
+    if (state.comment || stream.match(/^\/'/)) {
+      state.comment = !stream.match(/^.*?'\//)
+      if (state.comment) stream.skipToEnd()
+      return 'comment'
+    }
     if (stream.sol() && state.at === 'value') state.at = 'name'
-    const dash = state.dash
+    const dash = state.dash && !stream.sol()
     state.dash = false
     if (dash && /^[;-]\d/.test(stream.string.slice(stream.pos))) {
       stream.next()

@@ -27,7 +27,7 @@
 import { StreamLanguage } from '@codemirror/language'
 import {
   arrow, atLineStart, body, codeLines, colours, creole, head, hex, lines, named, names,
-  patterns, spriteStates, styledClose, styledOpen, tagStates, toColon,
+  patterns, spriteStates, startLine, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
@@ -52,9 +52,8 @@ const states = {
     // `preprocessor` to the line's end.
     { regex: /([ \t]*)(!include\w*)(\s+)(<[^>\s]+>)/, sol: true, token: [null, 'meta', null, 'link'], next: 'preprocessor' },
     atLineStart(/!\w*/.source, 'meta', { next: 'preprocessor' }),
-    atLineStart(/@startcreole\b/.source, 'keyword', { next: 'creoleHead' }),
-    atLineStart(/@startfiles\b/.source, 'keyword', { next: 'filesHead' }),
-    atLineStart(/@(?:end|start)\w+\b/.source, 'keyword'),
+    // `@start<type>` lines are read by `startLine` (lexicon/rules.js), see `plantumlLanguage`.
+    atLineStart(/@end\w+\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
     // A note's text follows a colon on its own line, or else fills the lines
     // down to `end note`. A quoted note (`note "x" as N`) is neither.
@@ -62,7 +61,7 @@ const states = {
     atLineStart(/[hr]?note(?=(?:\s[^:"]*)?$)/.source, 'keyword', { next: 'noteHead' }),
     atLineStart(/legend\b/.source, 'keyword', { next: 'legendHead' }),
     ...['title', 'header', 'footer'].map((word) => atLineStart(`${word}(?=\\s*$)`, 'keyword', { next: `${word}Body` })),
-    atLineStart(/(?:title|header|footer|caption)(?=\s)/.source, 'keyword', { next: 'text' }),
+    atLineStart(/(?:title|header|footer|caption|mainframe)(?=\s)/.source, 'keyword', { next: 'text' }),
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
@@ -430,8 +429,15 @@ export function plantumlLanguage(inner = {}) {
       if (start && start[3] !== 'style' && Object.hasOwn(inner, start[3])) {
         const mode = inner[start[3]]
         state.inner = { type: start[3], state: mode.startState ? mode.startState(stream.indentUnit) : {} }
-        // The block starts on the next line: the rest of this one is plain.
-        return emit(stream, state, [[start[1], null], [start[2], 'keyword'], [start[4], null]])
+        // The block starts on the next line: the rest of this one is the type's, its name.
+        return startLine(stream, state)
+      }
+      if (start) {
+        const token = startLine(stream, state)
+        // A creole or files diagram is Creole or paths from the line after its start.
+        if (start[3] === 'creole') state.state = 'creoleHead'
+        else if (start[3] === 'files') state.state = 'filesHead'
+        return token
       }
       return base.token(stream, state)
     },

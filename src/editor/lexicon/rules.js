@@ -235,3 +235,65 @@ export const spriteStates = {
     ...attributes(/(?=\s|\/?>|$)/.source),
   ],
 }
+
+/**
+ * A diagram's name, as PlantUML 1.2026.8 reads it (`StartUtils.patternFilename`, B1): the rest of
+ * a `@start<type>` line from the space or `{` after the type (and its arguments), with the
+ * spaces, quotes and braces around the name split off. Groups: the lead, the name, the tail.
+ * The quotes are `"`, `“` and `”`.
+ */
+export const startName = /^([\s{][\s"“”]*)([^"“”]*?)([\s}"“”]*)$/
+
+const startLead = /^([ \t]*)(@start[^\s{}"“”(]+)/
+
+/** The pieces of a string made of spaces, quotes and braces, each as `[text, token]`. */
+function wrapping(text) {
+  return [...text].map((char) => [char, char === '{' || char === '}' ? 'brace' : /\s/.test(char) ? null : 'punctuation'])
+}
+
+// The arguments in parentheses after the type (R2's interim reading, Task 9 gives them the shared
+// call's): `(` `)` parens, `,` a separator, `id` before `=` an attribute, `=` an assignment, digits.
+function callParts(args) {
+  const parts = [['(', 'paren']]
+  for (const match of args.matchAll(/(\d+)|(,)|(=)|([A-Za-z_]\w*)(?=\s*=)|[A-Za-z_]\w*|[^]/g)) {
+    const [text, digits, comma, equals, attribute] = match
+    parts.push([text, digits ? 'number' : comma ? 'separator' : equals ? 'definitionOperator' : attribute ? 'attributeName' : null])
+  }
+  return parts
+}
+
+/**
+ * Reads the `@start<type>` line `stream` stands at the start of, and returns the first piece's
+ * token with the rest in `state.pending` (simple-mode's own way): the type a `keyword`, or a
+ * `FunctionName` with `(…)` straight after it, then the arguments, then the diagram's name
+ * (`DiagramName`; with `url` too when it is a `file://` path). Null, the stream left alone, when
+ * the line is no `@start` line.
+ *
+ * @param {import('@codemirror/language').StringStream} stream
+ * @param {{pending: object[]|null}} state
+ * @return {string|null}
+ */
+export function startLine(stream, state) {
+  const line = stream.string.slice(stream.pos)
+  const lead = startLead.exec(line)
+  if (!lead) return null
+  let rest = line.slice(lead[0].length)
+  const call = /^\(([^)]*)\)/.exec(rest)
+  const parts = [[lead[1], null], [lead[2], call ? 'FunctionName' : 'keyword']]
+  if (call) {
+    parts.push(...callParts(call[1]), [')', 'paren'])
+    rest = rest.slice(call[0].length)
+  }
+  const name = startName.exec(rest)
+  if (name) {
+    parts.push(...wrapping(name[1]))
+    if (name[2]) parts.push([name[2], name[2].startsWith('file://') ? 'DiagramName url' : 'DiagramName'])
+    parts.push(...wrapping(name[3]))
+  } else {
+    parts.push([rest, null])
+  }
+  const [[text, token], ...others] = parts.filter(([part]) => part)
+  stream.pos += text.length
+  state.pending = others.length ? others.map(([part, style]) => ({ text: part, token: style })) : null
+  return token
+}

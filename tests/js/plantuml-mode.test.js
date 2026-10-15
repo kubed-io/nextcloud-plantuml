@@ -33,9 +33,10 @@ describe('plantumlMode', () => {
     expect(tokens('@startuml', '@enduml')).toEqual([['@startuml', 'keyword'], ['@enduml', 'keyword']])
   })
 
-  it('names every @start<type> and @end<type> line as a keyword and leaves its arguments plain', () => {
+  it('names every @start<type> and @end<type> line as a keyword, and the name after a start a DiagramName', () => {
     expect(tokens('@startsalt login', '@endsalt', '@startmindmap', '@endgantt', '@startwire x')).toEqual([
-      ['@startsalt', 'keyword'], ['@endsalt', 'keyword'], ['@startmindmap', 'keyword'], ['@endgantt', 'keyword'], ['@startwire', 'keyword'],
+      ['@startsalt', 'keyword'], ['login', 'DiagramName'], ['@endsalt', 'keyword'], ['@startmindmap', 'keyword'], ['@endgantt', 'keyword'],
+      ['@startwire', 'keyword'], ['x', 'DiagramName'],
     ])
   })
 
@@ -497,6 +498,7 @@ describe('plantumlMode @startcreole', () => {
   it('reads every line of the block as Creole, and PlantUML again after it', () => {
     expect(tokens('@startcreole page', '**b** //i//', '<color:#F00>red</color>', '[[https://x.org]]', '----', 'note {', '@endcreole', 'actor B')).toEqual([
       ['@startcreole', 'keyword'],
+      ['page', 'DiagramName'],
       ['**b**', 'strong'],
       ['//i//', 'emphasis'],
       ['<color', 'tagName'],
@@ -530,6 +532,7 @@ describe('plantumlMode @startfiles', () => {
   it('reads <note> and </note> as tags and the lines between them as Creole', () => {
     expect(tokens('@startfiles x', '/a/b', '<note>', 'a **bold** word', '</note>', '/c', '@endfiles')).toEqual([
       ['@startfiles', 'keyword'],
+      ['x', 'DiagramName'],
       ['/', 'punctuation'],
       ['/', 'punctuation'],
       ['<note>', 'tagName'],
@@ -1013,6 +1016,62 @@ describe('plantumlMode, by dictionary category', () => {
   it('names a sprite head by its brackets and separators', () => {
     expect(tokens('sprite $s [16x16/16] {', '}').slice(2)).toEqual([
       ['[', 'squareBracket'], ['16', 'number'], ['x', 'separator'], ['16', 'number'], ['/', 'separator'], ['16', 'number'], [']', 'squareBracket'], ['{', 'brace'], ['}', 'brace'],
+    ])
+  })
+})
+
+describe('plantumlMode a diagram\'s name (H12)', () => {
+  const whole = (token) => ({ token: (stream) => { stream.skipToEnd(); return token }, startState: () => ({}) })
+  const nested = (...lines) => tokensOf(plantumlLanguage({ chart: whole('atom'), yaml: whole('atom') }), lines)
+
+  it('underlines the name after the type', () => {
+    expect(tokens('@startuml My Fun Diagram')).toEqual([['@startuml', 'keyword'], ['My Fun Diagram', 'DiagramName']])
+  })
+
+  it('reads the name of a type with a mode of its own the same way', () => {
+    expect(nested('@startchart revenue', 'a', '@endchart')).toEqual([
+      ['@startchart', 'keyword'], ['revenue', 'DiagramName'], ['a', 'atom'], ['@endchart', 'keyword'],
+    ])
+    expect(nested('@startyaml config', 'a', '@endyaml').slice(0, 2)).toEqual([['@startyaml', 'keyword'], ['config', 'DiagramName']])
+  })
+
+  it('leaves the quotes around a name as punctuation', () => {
+    expect(tokens('@startuml "quoted name"')).toEqual([
+      ['@startuml', 'keyword'], ['"', 'punctuation'], ['quoted name', 'DiagramName'], ['"', 'punctuation'],
+    ])
+  })
+
+  it('leaves the braces around a name as braces', () => {
+    expect(tokens('@startuml{fun_file.png}')).toEqual([
+      ['@startuml', 'keyword'], ['{', 'brace'], ['fun_file.png', 'DiagramName'], ['}', 'brace'],
+    ])
+  })
+
+  it('reads (…) straight after the type as a call, and a name after it as the name', () => {
+    expect(tokens('@startuml(id=fun) Fun name')).toEqual([
+      ['@startuml', 'FunctionName'], ['(', 'paren'], ['id', 'attributeName'], ['=', 'definitionOperator'], [')', 'paren'], ['Fun name', 'DiagramName'],
+    ])
+    expect(tokens('@startjcckit(300,200)')).toEqual([
+      ['@startjcckit', 'FunctionName'], ['(', 'paren'], ['300', 'number'], [',', 'separator'], ['200', 'number'], [')', 'paren'],
+    ])
+  })
+
+  it('makes a file:// name a url too', () => {
+    expect(tokens('@startuml file://out/diagram')).toEqual([['@startuml', 'keyword'], ['file://out/diagram', 'DiagramName_url']])
+  })
+
+  it('leaves @end alone, and a title is Creole, not a name', () => {
+    expect(tokens('@enduml')).toEqual([['@enduml', 'keyword']])
+    expect(tokens('title My **diagram**')).toEqual([['title', 'keyword'], ['**diagram**', 'strong']])
+  })
+
+  it('reads mainframe as caption does', () => {
+    expect(tokens('mainframe **activity** x')).toEqual([['mainframe', 'keyword'], ['**activity**', 'strong']])
+  })
+
+  it('still opens a creole or files body on the next line', () => {
+    expect(tokens('@startcreole page', '**b**', '@endcreole')).toEqual([
+      ['@startcreole', 'keyword'], ['page', 'DiagramName'], ['**b**', 'strong'], ['@endcreole', 'keyword'],
     ])
   })
 })

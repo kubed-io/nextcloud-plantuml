@@ -726,48 +726,140 @@ describe('connectors', () => {
 })
 
 describe('keywords', () => {
-  it('offers the keywords at the start of a line, after any indentation', () => {
-    const result = complete(keywords, '  part|')
+  it('offers the keywords at the start of a line, after any indentation', async () => {
+    const result = await complete(keywords, '  part|')
 
     expect(result.from).toBe(2)
     expect(result.options).toContainEqual(expect.objectContaining({ label: 'participant', type: 'keyword' }))
     expect(labels(result)).toEqual(expect.arrayContaining(['database', 'class', 'alt', 'autonumber', 'skinparam', 'endwhile', 'end fork']))
   })
 
-  it('offers nothing past the first word of a line', () => {
-    expect(complete(keywords, 'A -> part|')).toBeNull()
-    expect(complete(keywords, 'participant Al|')).toBeNull()
+  it('offers nothing past the first word of a line', async () => {
+    expect(await complete(keywords, 'A -> part|')).toBeNull()
+    expect(await complete(keywords, 'participant Al|')).toBeNull()
   })
 
-  it('keeps offering a two-word keyword after its space', () => {
-    const result = complete(keywords, '  end f|')
+  it('keeps offering a two-word keyword after its space', async () => {
+    const result = await complete(keywords, '  end f|')
 
     expect(result.from).toBe(2)
     expect(labels(result)).toContain('end fork')
     expect(result.validFor.test('end fo')).toBe(true)
   })
 
-  it('waits for a letter on an empty line unless asked', () => {
-    expect(complete(keywords, '|')).toBeNull()
-    expect(labels(complete(keywords, '|', true))).toContain('participant')
+  it('waits for a letter on an empty line unless asked', async () => {
+    expect(await complete(keywords, '|')).toBeNull()
+    expect(labels(await complete(keywords, '|', true))).toContain('participant')
+  })
+})
+
+describe('the server\'s keywords', () => {
+  // The hand-kept list as it was before the server's words joined it, in order.
+  const HAND = ['participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue', 'class', 'interface', 'abstract', 'enum', 'package', 'namespace', 'component', 'node', 'cloud', 'frame', 'folder', 'rectangle', 'usecase', 'state', 'object', 'alt', 'else', 'opt', 'loop', 'par', 'break', 'critical', 'group', 'end', 'note', 'ref', 'activate', 'deactivate', 'destroy', 'return', 'autonumber', 'title', 'header', 'footer', 'legend', 'skinparam', 'hide', 'show', 'left', 'right', 'top', 'bottom', 'start', 'stop', 'if', 'then', 'elseif', 'endif', 'while', 'endwhile', 'repeat', 'fork', 'end fork']
+  const ANSWER = { types: ['hexagon', 'actor'], keywords: ['hnote', 'left to right direction', 'alt', 'as'] }
+  let module
+
+  // The words are asked once per page, so each test loads a fresh module.
+  async function serving(fetch) {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    vi.stubGlobal('fetch', fetch)
+    module = await import('../../src/editor/completion/keywords.js')
+    return fetch
+  }
+  const ask = (marked, explicit = false) => complete(module.keywords, marked, explicit)
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('offers the server\'s element types and keywords', async () => {
+    const fetch = await serving(answering(ANSWER))
+
+    expect(labels(await ask('hex|'))).toContain('hexagon')
+    expect(labels(await ask('hn|'))).toContain('hnote')
+    expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/keywords', expect.objectContaining({ credentials: 'same-origin' }))
+  })
+
+  it('offers a multi-word keyword whole, while its words are typed', async () => {
+    await serving(answering(ANSWER))
+
+    for (const typed of ['left|', 'left |', 'left to|', 'left to |', 'left to ri|']) {
+      const result = await ask(typed)
+      expect(result.from).toBe(0)
+      expect(labels(result)).toContain('left to right direction')
+    }
+    expect(await ask('left to right direction x|')).toBeNull()
+    expect(await ask('note over A|')).toBeNull()
+
+    const { state, pos } = stateAt('left|')
+    const view = new EditorView({ state, parent: document.body })
+    const result = await module.keywords(new CompletionContext(view.state, pos, false))
+    const option = result.options.find((candidate) => candidate.label === 'left to right direction')
+    view.dispatch(insertCompletionText(view.state, option.apply ?? option.label, result.from, pos))
+    expect(view.state.doc.toString()).toBe('left to right direction')
+    view.destroy()
+  })
+
+  it('offers a word both lists have once, with the hand-kept detail', async () => {
+    await serving(answering(ANSWER))
+    const result = await ask('al|')
+
+    expect(labels(result).filter((label) => label === 'alt')).toHaveLength(1)
+    expect(labels(result).filter((label) => label === 'actor')).toHaveLength(1)
+    expect(result.options.find((option) => option.label === 'alt')).toMatchObject({ detail: 'alternatives', type: 'keyword' })
+  })
+
+  it('ranks the hand-kept words above the server-only ones', async () => {
+    await serving(answering(ANSWER))
+    const result = await ask('|', true)
+    const boost = (label) => result.options.find((option) => option.label === label).boost
+
+    expect(boost('participant')).toBe(1)
+    expect(boost('end fork')).toBe(1)
+    for (const label of ['hexagon', 'hnote', 'as', 'left to right direction']) {
+      expect(boost(label) ?? 0).toBeLessThan(boost('alt'))
+    }
+  })
+
+  it.each([
+    ['the request fails', () => vi.fn(async () => { throw new TypeError('offline') })],
+    ['the server answers 503', () => vi.fn(async () => new Response('{}', { status: 503 }))],
+    ['keywords is not a list', () => answering({ keywords: 'x' })],
+  ])('offers the hand-kept words alone when %s', async (_when, make) => {
+    await serving(make())
+
+    expect(labels(await ask('|', true))).toEqual(HAND)
+  })
+
+  it('keeps only the strings of each list', async () => {
+    await serving(answering({ types: [1, null], keywords: [{}, 'ok'] }))
+
+    expect(labels(await ask('|', true))).toEqual([...HAND, 'ok'])
+  })
+
+  it('keeps the exported lists as they were', async () => {
+    await serving(answering(ANSWER))
+
+    expect(module.KEYWORDS).toEqual(HAND.filter((label) => !label.includes(' ')))
+    expect(module.PARTICIPANTS).toEqual(HAND.slice(0, 8))
+    expect(module.STRUCTURES).toEqual(HAND.slice(8, 23))
+    expect(module.HELPER_HEADS).toEqual(['colors', 'help'])
   })
 })
 
 describe('helper commands', () => {
-  it('are offered on a line of their own in a uml block', () => {
-    expect(labels(complete(keywords, '@startuml\ncol|\n@enduml'))).toContain('colors')
-    const help = complete(keywords, '@startuml\nhelp t|\n@enduml')
+  it('are offered on a line of their own in a uml block', async () => {
+    expect(labels(await complete(keywords, '@startuml\ncol|\n@enduml'))).toContain('colors')
+    const help = await complete(keywords, '@startuml\nhelp t|\n@enduml')
     expect(labels(help)).toEqual(expect.arrayContaining(['help themes', 'help types']))
     expect(help.from).toBe('@startuml\n'.length)
   })
 
-  it('are not offered with anything else on the line', () => {
-    expect(labels(complete(keywords, '@startuml\ncol| x\n@enduml'))).not.toContain('colors')
+  it('are not offered with anything else on the line', async () => {
+    expect(labels(await complete(keywords, '@startuml\ncol| x\n@enduml'))).not.toContain('colors')
   })
 
-  it('are not offered in other block types or outside a block', () => {
-    expect(labels(complete(keywords, '@startmindmap\ncol|\n@endmindmap'))).not.toContain('colors')
-    expect(labels(complete(keywords, 'col|'))).not.toContain('colors')
+  it('are not offered in other block types or outside a block', async () => {
+    expect(labels(await complete(keywords, '@startmindmap\ncol|\n@endmindmap'))).not.toContain('colors')
+    expect(labels(await complete(keywords, 'col|'))).not.toContain('colors')
   })
 })
 
@@ -1059,9 +1151,9 @@ describe('inside a style block', () => {
     ['a body line', '<style>\nac|\n</style>'],
     ['the middle of a one-line block', '<style>node { Line| }</style>'],
     ['a body with no </style> yet', '<style>\nnode {\n  Al|'],
-  ])('leaves %s to the style sources', (_where, marked) => {
+  ])('leaves %s to the style sources', async (_where, marked) => {
     for (const source of [keywords, snippets, names, connectors]) {
-      expect(complete(source, DIAGRAM + marked, true)).toBeNull()
+      expect(await complete(source, DIAGRAM + marked, true)).toBeNull()
     }
   })
 
@@ -1082,8 +1174,8 @@ describe('inside a style block', () => {
     expect(complete(filesNote, '@startfiles\n<style>\n<|\n</style>\n@endfiles')).toBeNull()
   })
 
-  it('offers them all again after the block', () => {
-    expect(labels(complete(keywords, '<style>\n</style>\nac|'))).toContain('actor')
+  it('offers them all again after the block', async () => {
+    expect(labels(await complete(keywords, '<style>\n</style>\nac|'))).toContain('actor')
     expect(complete(styleTag, '<style>\n</style>\n<|')).not.toBeNull()
     expect(complete(connectors, '@startuml\n<style>\n@enduml\nnode1 |')).not.toBeNull()
   })

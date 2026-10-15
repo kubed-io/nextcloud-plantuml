@@ -7,6 +7,7 @@
  */
 import { diagramAt, scan } from '../blocks.js'
 import { inStyleBody } from '../plantuml-mode.js'
+import { serverKeywords } from './server-list.js'
 
 /** Sequence participants; `names.js` reads declarations with these too. */
 export const PARTICIPANTS = ['participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue']
@@ -58,10 +59,16 @@ export const HELPER_HEADS = ['colors', 'help']
 
 const helpers = Object.entries(HELPERS).map(([label, detail]) => ({ label, type: 'keyword', detail }))
 
-const options = labels.map((label) => ({ label, type: 'keyword', ...(DETAILS[label] && { detail: DETAILS[label] }) }))
+/** The hand-kept words rank above the server's (X11). */
+const options = labels.map((label) => ({ label, type: 'keyword', boost: 1, ...(DETAILS[label] && { detail: DETAILS[label] }) }))
 
-/** The first words of the keywords that have a second, such as `end fork`. */
-const TWO_WORD = new Set([...labels, ...Object.keys(HELPERS)].filter((label) => label.includes(' ')).map((label) => label.split(' ')[0]))
+/** The multi-word labels, such as `end fork`, as their words. */
+const PHRASES = [...labels, ...Object.keys(HELPERS)].filter((label) => label.includes(' ')).map((label) => label.split(' '))
+
+/** Whether some phrase starts with `words`, each one complete. */
+function startsAPhrase(words, phrases) {
+  return phrases.some((phrase) => words.every((word, index) => phrase[index] === word) && phrase.length > words.length)
+}
 
 /** Whether the line sits in a `@startuml` block; the line itself is blanked, as it is still being typed. */
 export function inUml(state, number) {
@@ -72,20 +79,26 @@ export function inUml(state, number) {
 }
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
-export function keywords(context) {
-  const typed = context.matchBefore(/^\s*(?:\w+ )?\w*/)
+export async function keywords(context) {
+  const typed = context.matchBefore(/^\s*(?:[\w-]+ )*[\w-]*/)
   if (!typed || inStyleBody(context.state, context.pos)) {
     return null
   }
   const word = typed.text.trimStart()
-  if (word.includes(' ') && !TWO_WORD.has(word.split(' ')[0])) {
+  if (!word && !context.explicit) {
     return null
   }
-  if (!word && !context.explicit) {
+  const server = await serverKeywords()
+  const known = new Set(labels)
+  const extra = [...new Set([...server.types, ...server.keywords])].filter((label) => !known.has(label))
+  const before = word.split(' ').slice(0, -1)
+  const phrases = [...PHRASES, ...extra.filter((label) => label.includes(' ')).map((label) => label.split(' '))]
+  if (before.length && !startsAPhrase(before, phrases)) {
     return null
   }
   const line = context.state.doc.lineAt(context.pos)
   const alone = line.text.slice(context.pos - line.from).trim() === ''
   const offerHelpers = alone && helpers.some(({ label }) => label.startsWith(word)) && inUml(context.state, line.number)
-  return { from: typed.to - word.length, options: offerHelpers ? [...options, ...helpers] : options, validFor: /^\w*(?: \w*)?$/ }
+  const offered = [...options, ...extra.map((label) => ({ label, type: 'keyword' }))]
+  return { from: typed.to - word.length, options: offerHelpers ? [...offered, ...helpers] : offered, validFor: /^[\w-]*(?: [\w-]*)*$/ }
 }

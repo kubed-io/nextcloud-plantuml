@@ -354,6 +354,48 @@ describe('plantumlMode @startcreole', () => {
   })
 })
 
+describe('plantumlMode @startfiles', () => {
+  it('reads a path with its slashes as punctuation and Creole in its segments', () => {
+    expect(tokens('@startfiles', '/src/example.py', '/**creole_test**/""monospaced""', '@endfiles', 'actor B')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['/', 'punctuation'],
+      ['/', 'punctuation'],
+      ['/', 'punctuation'],
+      ['**creole_test**', 'strong'],
+      ['/', 'punctuation'],
+      ['""monospaced""', 'monospace'],
+      ['@endfiles', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+
+  it('reads <note> and </note> as tags and the lines between them as Creole', () => {
+    expect(tokens('@startfiles x', '/a/b', '<note>', 'a **bold** word', '</note>', '/c', '@endfiles')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['/', 'punctuation'],
+      ['/', 'punctuation'],
+      ['<note>', 'tagName'],
+      ['**bold**', 'strong'],
+      ['</note>', 'tagName'],
+      ['/', 'punctuation'],
+      ['@endfiles', 'keyword'],
+    ])
+  })
+
+  it('leaves a <style> region and the notes of uml as before', () => {
+    expect(tokens('@startfiles', '/a', '@endfiles', '<style>', 'note {', '</style>', 'note left of A', '**b**', 'end note')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['/', 'punctuation'],
+      ['@endfiles', 'keyword'],
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
+      ['note', 'keyword'],
+      ['**b**', 'strong'],
+      ['end note', 'keyword'],
+    ])
+  })
+})
+
 describe('plantumlMode style blocks', () => {
   it('leaves the lines between <style> and </style> plain without a style mode, and reads PlantUML after them', () => {
     expect(tokens('<style>', 'note {', '  BackgroundColor #FFF', '}', 'legend {', 'title {', 'node {', '</style>', 'note left of A', '**b**', 'end note')).toEqual([

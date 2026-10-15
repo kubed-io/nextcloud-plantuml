@@ -21,7 +21,8 @@
  * and the next line starting `@end`, a type with a mode in `inner` is read by
  * that mode, except for `'` comment and `!` preprocessor lines. A `<style>`
  * block is a region of its own wherever it starts a line, read by
- * `inner.style` or else left plain, and a `@startcreole` block is Creole.
+ * `inner.style` or else left plain, and a `@startcreole` block is Creole and a `@startfiles` block
+ * is paths and `<note>` bodies.
  */
 import { StreamLanguage } from '@codemirror/language'
 import { simpleMode } from '@codemirror/legacy-modes/mode/simple-mode'
@@ -134,6 +135,7 @@ const base = simpleMode({
     atLineStart(/'.*/.source, 'comment'),
     atLineStart(/!.*/.source, 'meta'),
     atLineStart(/@startcreole\b/.source, 'keyword', { next: 'creoleHead' }),
+    atLineStart(/@startfiles\b/.source, 'keyword', { next: 'filesHead' }),
     atLineStart(/@(?:end|start)uml\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
     // A note's text follows a colon on its own line, or else fills the lines
@@ -188,6 +190,19 @@ const base = simpleMode({
   // A creole diagram is Creole on every line, from the line after its start.
   creoleHead: [{ regex: /.+/, token: null }],
   creoleBody: body(/@end\w*/.source),
+  // A files diagram is a path on each line, and `<note>` bodies of Creole.
+  filesHead: [{ regex: /.+/, token: null }],
+  filesBody: [
+    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    atLineStart(/<note>(?=\s*$)/.source, 'tagName', { next: 'filesNote' }),
+    { regex: /\//, token: 'punctuation' },
+    ...creole(null),
+  ],
+  filesNote: [
+    atLineStart(/<\/note>(?=\s*$)/.source, 'tagName', { next: 'filesBody' }),
+    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    ...creole(null),
+  ],
   languageData: {
     name: 'plantuml',
     commentTokens: { line: "'", block: { open: "/'", close: "'/" } },
@@ -198,7 +213,7 @@ const base = simpleMode({
 
 // The states that end with their line, and the state the next line starts in.
 // Without this a label or a styled link left open would run on into it.
-const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody' }
+const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a

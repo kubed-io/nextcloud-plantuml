@@ -17,6 +17,7 @@ import { snippets } from '../../src/editor/completion/snippets.js'
 import { values } from '../../src/editor/completion/values.js'
 import { connectors } from '../../src/editor/completion/connectors.js'
 import { styleTag } from '../../src/editor/completion/style-tag.js'
+import { filesNote } from '../../src/editor/completion/files-note.js'
 import { creole } from '../../src/editor/completion/creole.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
@@ -44,7 +45,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji, colors, builtins])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, icons, emoji, colors, builtins])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -513,6 +514,34 @@ describe('style tags', () => {
 
     expect(view.state.doc.toString()).toBe('  <style file=>')
     expect(view.state.selection.main.head).toBe('  <style file='.length)
+    view.destroy()
+  })
+})
+
+describe('files diagrams', () => {
+  it('offers @startfiles and inserts the whole block', () => {
+    expect(labels(complete(directives, '@st|'))).toContain('@startfiles')
+    expect(labels(complete(directives, '@|'))).toContain('@endfiles')
+    const view = pick('@startfi|', directives, '@startfiles')
+
+    expect(view.state.doc.toString()).toBe('@startfiles name\n/\n@endfiles')
+    view.destroy()
+  })
+
+  it('offers <note> first on an empty line inside a files block, and not outside one', async () => {
+    const inside = complete(filesNote, '@startfiles x\n/a\n<|\n@endfiles')
+    expect(labels(inside)).toEqual(['<note>'])
+    expect(labels(complete(filesNote, '@startfiles x\n  <no|'))).toEqual(['<note>'])
+    expect(complete(filesNote, '@startuml x\n<|\n@enduml')).toBeNull()
+    expect(complete(filesNote, '@startfiles x\n/a\n@endfiles\n<|')).toBeNull()
+    expect(complete(filesNote, '<|')).toBeNull()
+    expect(complete(filesNote, '@startfiles x\nfoo <|')).toBeNull()
+  })
+
+  it('inserts <note>, an empty line and </note>', () => {
+    const view = pick('@startfiles x\n<|', filesNote, '<note>')
+
+    expect(view.state.doc.toString()).toBe('@startfiles x\n<note>\n\n</note>')
     view.destroy()
   })
 })

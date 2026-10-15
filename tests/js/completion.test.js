@@ -473,6 +473,15 @@ describe('named colours', () => {
     expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
   })
 
+  it('offers the names inside an open quoted font colour, and inserts inside the quotes', async () => {
+    const result = await complete(colorsSource, '<font color="re|')
+
+    expect(result.from).toBe('<font color="'.length)
+    expect(labels(result)).toEqual(Object.keys(COLORS))
+    expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
+    expect(await complete(colorsSource, 'A -> B : "<font color=re|')).toBeNull()
+  })
+
   it.each(['<font size=|', 'A -> B : <b>color=|', '<&star{scale=|'])('offers none in `%s`', async (marked) => {
     expect(await complete(colorsSource, marked)).toBeNull()
   })

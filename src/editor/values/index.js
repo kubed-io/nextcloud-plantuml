@@ -20,7 +20,7 @@
  */
 import { Facet } from '@codemirror/state'
 import { themeValue } from '../completion/themes.js'
-import { serverList } from '../completion/server-list.js'
+import { serverList, serverListNow } from '../completion/server-list.js'
 
 /** The loaded profiles' entries, read beside `coreValues`. */
 export const valuesFacet = Facet.define({ combine: (values) => values.flat() })
@@ -85,9 +85,9 @@ const VALIGNS = ['top', 'middle', 'bottom']
 const TAG_NUMBER = '["\']?(-?\\d+(?:\\.\\d+)?)'
 
 /**
- * A Creole tag's attribute: every `attr=` inside a `tag`, as `make` turns the
- * attribute's `[found, value]` into the value's range, offset from the line's
- * start. `tag` is the tag's opening through its `>` or `}`.
+ * A Creole tag's attribute: every `attr` (its last group the value) inside a
+ * `tag`, as a value over that group at document positions, with `make()`'s
+ * kind and options. `tag` is the tag's opening through its `>` or `}`.
  */
 function attributes(lineText, lineFrom, tag, attr, make) {
   return [...lineText.matchAll(tag)].flatMap((tagFound) => [...tagFound[0].matchAll(attr)].map((found) => {
@@ -98,10 +98,11 @@ function attributes(lineText, lineFrom, tag, attr, make) {
 
 const IMG = /<img\b[^>]*>?/gi
 const FONT = /<font\b[^>]*>?/gi
-const BRACES = /\{[^}]*\}?/g
+// The `{…}` that follows an icon, an emoji, a sprite, an image or a QR code, not any brace.
+const BRACES = /<(?:&[\w-]+|:[^:>]*:|\$[\w-]+|(?:img|qrcode):[^>]*)>?\{[^}]*\}?/gi
 
 const valignValue = {
-  match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, IMG, /\bvalign=(\w*)/gi, () => ({ kind: 'list', options: () => VALIGNS })),
+  match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, IMG, /\bvalign=["']?(\w*)/gi, () => ({ kind: 'list', options: () => VALIGNS })),
 }
 
 // `size=` is a font's, `vspace=` an image's; neither is ever below 0.
@@ -117,9 +118,13 @@ const spaceValue = {
   match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, /<space:[^>]*>?/gi, /<space:(\d+(?:\.\d+)?)/gi, () => ({ kind: 'number', min: 0 })),
 }
 
-// The family may hold spaces (`DejaVu Sans`), so it runs to the `>`.
+// The family may hold spaces (`DejaVu Sans`), so it runs to the `>`; while the
+// tag is unclosed (`<font:Dej`) it reads to the line's end. None once the
+// server is known to list no fonts, so the chooser draws no pencil for nothing.
 const fontFamilyValue = {
-  match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, /<font:[^>]*/gi, /<font:([^>]*)/gi, () => ({ kind: 'list', options: () => serverList('fonts') })),
+  match: (lineText, state, lineFrom) => (serverListNow('fonts')?.length === 0
+    ? []
+    : attributes(lineText, lineFrom, /<font:[^>]*/gi, /<font:([^>]*)/gi, () => ({ kind: 'list', options: () => serverList('fonts') }))),
 }
 
 /** @type {ValueEntry[]} */

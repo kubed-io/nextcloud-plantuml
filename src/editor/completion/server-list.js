@@ -10,6 +10,7 @@
 import { APP_ID } from '../../files-helpers.js'
 
 const asked = new Map()
+const resolved = new Map()
 const HEX = /^#[\dA-Fa-f]{6}$/
 
 /** The route's answer under `name`, as `read` keeps it (given the whole body too); `empty` when there is none. */
@@ -19,7 +20,11 @@ function ask(name, read, empty) {
       .then(() => fetch(OC.generateUrl(`/apps/${APP_ID}/${name}`), { credentials: 'same-origin' }))
       .then((res) => (res.ok ? res.json() : {}))
       .then((body) => read(body?.[name], body))
-      .catch(() => empty))
+      .catch(() => empty)
+      .then((answer) => {
+        resolved.set(name, answer)
+        return answer
+      }))
   }
   return asked.get(name)
 }
@@ -27,6 +32,17 @@ function ask(name, read, empty) {
 /** @param {'themes'|'icons'|'emoji'|'fonts'} name */
 export function serverList(name) {
   return ask(name, (list) => (Array.isArray(list) ? list.filter((item) => typeof item === 'string') : []), [])
+}
+
+/**
+ * The list `serverList(name)` resolved to, or undefined while it is pending
+ * (or was never asked): for a caller that cannot wait, such as a widget.
+ *
+ * @param {'themes'|'icons'|'emoji'|'fonts'} name
+ * @return {string[]|undefined}
+ */
+export function serverListNow(name) {
+  return resolved.get(name)
 }
 
 /**

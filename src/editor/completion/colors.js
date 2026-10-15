@@ -33,6 +33,7 @@ const PLACES = [
 // A line of a `skinparam … {` block, and a style declaration, which may follow a `{` or `;`.
 const SKINPARAM_LINE = /^[ \t]*\S*colou?r\S*[ \t]+#(\w*)$/i
 const STYLE = /(?:^|[{;])[ \t]*[\w-]*colou?r[ \t]+#?(\w*)$/i
+const OPEN_FONT_COLOR = /<font\b[^>]*\scolor="#?\w*$/i
 const HELPER = /^[ \t]*colors[ \t]+(\w*)$/
 
 /**
@@ -76,7 +77,8 @@ export async function colors(context) {
   const { state, pos } = context
   const line = state.doc.lineAt(pos)
   const before = state.sliceDoc(line.from, pos)
-  if (/^\s*'/.test(before) || before.split('"').length % 2 === 0) {
+  // An open quote is a string, but for a `<font color="` that is still being typed.
+  if (/^\s*'/.test(before) || (before.split('"').length % 2 === 0 && !OPEN_FONT_COLOR.test(before))) {
     return null
   }
   const typed = typedAt(state, pos, line, before)

@@ -208,7 +208,7 @@ describe('a tag\'s values (W4)', () => {
 
   it('takes the server\'s fonts for <font:family>, spaces kept', async () => {
     const text = '<font:DejaVu Sans>x</font>'
-    fetch.mockImplementation(async () => new Response(JSON.stringify({ fonts: ['DejaVu Sans', 'Dialog'] }), { status: 200 }))
+    fetch.mockImplementationOnce(async () => new Response(JSON.stringify({ fonts: ['DejaVu Sans', 'Dialog'] }), { status: 200 }))
     const [family] = on(text)
 
     expect(family).toMatchObject({ from: '<font:'.length, to: '<font:DejaVu Sans'.length, kind: 'list' })
@@ -217,11 +217,46 @@ describe('a tag\'s values (W4)', () => {
 
   it('resolves no fonts when the server cannot answer', async () => {
     vi.resetModules()
-    fetch.mockImplementation(async () => new Response('{}', { status: 503 }))
+    fetch.mockImplementationOnce(async () => new Response('{}', { status: 503 }))
     const { valuesOn: fresh } = await import('../../src/editor/values/index.js')
     const state = EditorState.create({ doc: '<font:Dialog>' })
 
     expect(await fresh(state, 1)[0].options()).toEqual([])
+  })
+
+  it('draws no pencil for <font:…> once the server is known to list no fonts, and one while it is pending', async () => {
+    vi.resetModules()
+    fetch.mockImplementationOnce(async () => new Response('{}', { status: 503 }))
+    const widgets = (await import('../../src/editor/values/widgets.js')).valueWidgets
+    const { serverList } = await import('../../src/editor/completion/server-list.js')
+    const make = () => new EditorView({ state: EditorState.create({ doc: '<font:Dejavu>', selection: { anchor: 3 }, extensions: [widgets] }), parent: document.body })
+
+    view = make()
+    expect(choosers()).toHaveLength(1)
+    view.destroy()
+    await serverList('fonts')
+    view = make()
+
+    expect(choosers()).toHaveLength(0)
+  })
+
+  it('replaces only the word of a quoted valign', async () => {
+    const text = '<img valign="top">'
+    open(text.replace('top', 'to|p'))
+    const value = valueAt(view.state, view.state.selection.main.head)
+
+    expect(value).toMatchObject({ from: text.indexOf('top'), to: text.indexOf('top') + 3, kind: 'list' })
+    click(choosers()[0])
+    await pick('middle')
+    expect(doc()).toBe('<img valign="middle">')
+  })
+
+  it('finds a scale only in the braces after an icon, emoji, sprite, image or QR code', () => {
+    expect(on('skinparam x { scale=2 }')).toEqual([])
+    expect(on('A -> B : {scale=3}')).toEqual([])
+    for (const tag of ['<&star>{scale=3}', '<:smile:>{scale=3}', '<$box>{scale=3}', '<img:a.png>{scale=3}', '<qrcode:hi>{scale=3}']) {
+      expect(on(tag)).toEqual([expect.objectContaining({ from: tag.indexOf('3'), kind: 'number', min: 0 })])
+    }
   })
 
   it('draws a pencil after a valign and a stepper after a vspace on the cursor\'s line', () => {

@@ -277,6 +277,7 @@ describe('plantumlMode colours', () => {
 
 // H22, R5: a path where a path goes, a URL where words are read.
 describe('plantumlMode paths and protocols', () => {
+  const note = (text) => tokens(`note: ${text}`).slice(1)
   const include = (rest) => [['!include', 'meta'], ...rest]
 
   it('reads an include\'s path, its selector a separator and then an id or a number', () => {
@@ -293,7 +294,27 @@ describe('plantumlMode paths and protocols', () => {
   it('reads a theme\'s path after from, and its name plain', () => {
     expect(tokens('!theme mars from ./themes')).toEqual([['!theme', 'meta'], ['./themes', 'url']])
     expect(tokens('!theme mars from https://x.org/t')).toEqual([['!theme', 'meta'], ['https://x.org/t', 'url']])
+  })
+
+  it('reads the path after !import', () => {
     expect(tokens('!import lib.zip')).toEqual([['!import', 'meta'], ['lib.zip', 'url']])
+  })
+
+  it('reads a quoted path as a path, its quotes punctuation (R7)', () => {
+    expect(tokens('!include "a b.puml"')).toEqual(include([['"', 'punctuation'], ['a b.puml', 'url'], ['"', 'punctuation']]))
+    expect(tokens('!include "dir/x.puml"!2')).toEqual(include([['"', 'punctuation'], ['dir/x.puml', 'url'], ['"', 'punctuation'], ['!', 'separator'], ['2', 'number']]))
+    expect(tokens('!theme mars from "my dir/t"')).toEqual([['!theme', 'meta'], ['"', 'punctuation'], ['my dir/t', 'url'], ['"', 'punctuation']])
+  })
+
+  it('reads !includedef\'s path (R7)', () => {
+    expect(tokens('!includedef ./defs.puml')).toEqual([['!includedef', 'meta'], ['./defs.puml', 'url']])
+  })
+
+  it('reads a URL on an element line, and leaves a string, a link and a comment (R7)', () => {
+    expect(tokens('component https://x.org/a')).toEqual([['component', 'keyword'], ['https://x.org/a', 'url']])
+    expect(tokens('node n [[https://x]]')).toEqual([['node', 'keyword'], ['[[https://x]]', 'link']])
+    expect(tokens("' https://x.org")).toEqual([["' https://x.org", 'comment']])
+    expect(tokens('component "https://x.org"')).toEqual([['component', 'keyword'], ['"https://x.org"', 'string']])
   })
 
   // R5: the arithmetic rule does not see a path's `/` and `-`, or a theme's `-`.
@@ -302,7 +323,6 @@ describe('plantumlMode paths and protocols', () => {
   })
 
   it('leaves a computed or quoted include to the preprocessor', () => {
-    expect(tokens('!include "a b.puml"')).toEqual(include([['"a b.puml"', 'string']]))
     expect(tokens('!include %get_json_attribute($a, "b")')).toEqual(include([['%get_json_attribute', 'FunctionName'], ['(', 'paren'], ['$a', 'VariableName'], [',', 'separator'], ['"b"', 'string'], [')', 'paren']]))
     expect(tokens('!include', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword']])
     expect(tokens('!include   ', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword']])
@@ -328,7 +348,9 @@ describe('plantumlMode paths and protocols', () => {
   it('reads <img:…>, <img src=…> and <style file=…> as paths', () => {
     expect(tokens('A -> B : <img:icons/a.png>').slice(1)).toEqual([['<img', 'tagName'], [':', 'separator'], ['icons/a.png', 'url'], ['>', 'tagName']])
     expect(tokens('note : <img src=./a.png>').slice(1)).toEqual([['<img', 'tagName'], ['src', 'attributeName'], ['=', 'definitionOperator'], ['./a.png', 'url'], ['>', 'tagName']])
-    expect(tokens('<style file=./a.css>').map(([text, token]) => `${text}:${token}`)).toContain('./a.css:url')
+    expect(tokens('<style file=./a.css>')).toEqual([['<style', 'tagName'], ['file', 'attributeName'], ['=', 'definitionOperator'], ['./a.css', 'url'], ['>', 'tagName']])
+    expect(tokens('<style file="./a b.css">')).toEqual([['<style', 'tagName'], ['file', 'attributeName'], ['=', 'definitionOperator'], ['"', 'punctuation'], ['./a b.css', 'url'], ['"', 'punctuation'], ['>', 'tagName']])
+    expect(note('<img src="a b.png">')).toEqual([['<img', 'tagName'], ['src', 'attributeName'], ['=', 'definitionOperator'], ['"', 'punctuation'], ['a b.png', 'url'], ['"', 'punctuation'], ['>', 'tagName']])
   })
 
   it('keeps a [[link]] a link and a quoted string a string', () => {
@@ -412,7 +434,7 @@ describe('plantumlMode Creole', () => {
         ['<font', 'tagName'], ...attr('size', '12'), ...attr('color', 'red', 'ColorLiteral'), ['>', 'tagName'], ['</font>', 'tagName'],
       ])
       expect(note('<img src="a b.png" valign=top>')).toEqual([
-        ['<img', 'tagName'], ...attr('src', '"a b.png"'), ...attr('valign', 'top'), ['>', 'tagName'],
+        ['<img', 'tagName'], ['src', 'attributeName'], ['=', 'definitionOperator'], ['"', 'punctuation'], ['a b.png', 'url'], ['"', 'punctuation'], ...attr('valign', 'top'), ['>', 'tagName'],
       ])
       expect(note('<text fill=blue>')).toEqual([['<text', 'tagName'], ...attr('fill', 'blue'), ['>', 'tagName']])
       expect(note('<img src=a/b.png/>')).toEqual([['<img', 'tagName'], ...attr('src', 'a/b.png/', 'url'), ['>', 'tagName']])

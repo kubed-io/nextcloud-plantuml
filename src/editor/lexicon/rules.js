@@ -89,6 +89,10 @@ export const names = [
 export const paths = {
   url: { regex: /[a-z][\w+.-]*:\/\/[^\s"'>\]]*/i, token: 'url' },
   slot: [
+    // Quoted, the quotes punctuation as a quoted `@start` name's are (H12).
+    { regex: /(")([^"]+)(")(!)(\d+)(?!\S)/, token: ['punctuation', 'url', 'punctuation', 'separator', 'number'] },
+    { regex: /(")([^"]+)(")(!)([\w.-]+)/, token: ['punctuation', 'url', 'punctuation', 'separator', 'typeName'] },
+    { regex: /(")([^"]+)(")/, token: ['punctuation', 'url', 'punctuation'] },
     { regex: /([^\s"'>!]+)(!)(\d+)(?!\S)/, token: ['url', 'separator', 'number'] },
     { regex: /([^\s"'>!]+)(!)([\w.-]+)/, token: ['url', 'separator', 'typeName'] },
     { regex: /[^\s"'>!]+/, token: 'url' },
@@ -143,7 +147,8 @@ export const attributes = (end) => [
   { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(#?${colourPart})${end}`), token: ['attributeName', null, 'definitionOperator', null, 'ColorLiteral'] },
   // A quoted colour keeps its swatch (C6), its quotes a string.
   { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(["'])(#?${colourPart})(\\5)`), token: ['attributeName', null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
-  // An image's source is a path (H22); quoted, a string.
+  // An image's source is a path (H22), quoted or not.
+  { regex: /(src)(\s*)(=)(\s*)(")([^"]+)(")/, token: ['attributeName', null, 'definitionOperator', null, 'punctuation', 'url', 'punctuation'] },
   { regex: /(src)(\s*)(=)(\s*)([^\s>"',}]+)/, token: ['attributeName', null, 'definitionOperator', null, 'url'] },
   { regex: /[\w-]+(?=\s*=)/, token: 'attributeName' },
   { regex: /=/, token: 'definitionOperator' },

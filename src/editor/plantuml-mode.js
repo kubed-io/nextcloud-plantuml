@@ -43,6 +43,9 @@ const separator = /={2,}[^=].*?={2,}\s*$|\.{3,}(?:.*?\.{3,})?\s*$/.source
 
 const lineKeywords = /abstract\s+class|end\s+(?:box|fork|group|merge|note|ref|split|title)|(?:fork|split)(?:\s+again)?|activate|actor|agent|alt|annotation|artifact|autoactivate|autonumber|backward|binary|boundary|box|break|caption|card|case|circle|class|clock|cloud|collections|component|concise|control|create|critical|database|deactivate|destroy|detach|diamond|else|elseif|end|end[hr]note|endif|endswitch|endwhile|entity|enum|file|folder|footer|frame|group|[hr]?note|header|hexagon|hide|if|interface|label|legend|loop|map|namespace|network|newpage|node|nwdiag|object|opt|package|page|par|participant|person|queue|rectangle|ref|remove|repeat|restore|return|robust|scale|set|show|skinparam|stack|start|state|stop|storage|switch|title|together|usecase|usecase\/|while/.source
 
+/** The rules of a path slot, each ending in the state that reads the rest of the `!` line. */
+const toPreprocessor = (rules) => rules.map((rule) => ({ ...rule, next: 'preprocessor' }))
+
 const states = {
   start: [
     atLineStart(/\/'.*?'\//.source, 'comment'),
@@ -51,7 +54,7 @@ const states = {
     // A `!` line: its directive word (`!procedure`, the `!` of `!$x`), then the state
     // `preprocessor` to the line's end.
     // An include's, an import's and a theme's source is a path (H22), read before the operators.
-    atLineStart(/!(?:include(?:_many|_once|sub|url)?|import)(?=[ \t]+[^\s"'$%])/.source, 'meta', { next: 'includePath' }),
+    atLineStart(/!(?:include(?:_many|_once|sub|url|def)?|import)(?=[ \t]+[^\s'$%])/.source, 'meta', { next: 'includePath' }),
     atLineStart(/!theme(?=\s)/.source, 'meta', { next: 'theme' }),
     atLineStart(/!\w*/.source, 'meta', { next: 'preprocessor' }),
     // `@start<type>` lines are read by `startLine` (lexicon/rules.js), see `plantumlLanguage`.
@@ -72,6 +75,8 @@ const states = {
     atLineStart(/listsprites?\b/.source, 'keyword'),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
+    // A URL is a path wherever words are read (H22); a string, a comment and a colour came first.
+    paths.url,
     { regex: styledOpen, token: 'LinkOperator', next: 'arrowAttr' },
     { regex: arrow, token: 'LinkOperator', next: 'afterLink' },
     // Gantt: `[Task] is colored in White/Red`, a fill and a line.
@@ -103,18 +108,18 @@ const states = {
   includePath: [
     { regex: /\s+/, token: null },
     { regex: /(<)([^>\s]+)(>)/, token: ['angleBracket', 'url', 'angleBracket'], next: 'preprocessor' },
-    ...paths.slot.map((rule) => ({ ...rule, next: 'preprocessor' })),
+    ...toPreprocessor(paths.slot),
   ],
   // A theme's name is plain; what comes after `from` is a path.
   theme: [
-    { regex: /(\s+from\s+)(?=[^\s"'$%])/, token: null, next: 'themePath' },
+    { regex: /(\s+from\s+)(?=[^\s'$%])/, token: null, next: 'themePath' },
     { regex: /"[^"]*"|'[^']*'/, token: 'string' },
     ...names,
     { regex: /\s+|[^\s"'$%]+|./, token: null },
   ],
   themePath: [
     { regex: /\s+/, token: null },
-    ...paths.slot.map((rule) => ({ ...rule, next: 'preprocessor' })),
+    ...toPreprocessor(paths.slot),
   ],
   blockComment: [
     { regex: /.*?'\//, token: 'comment', next: 'start' },
@@ -199,6 +204,13 @@ const bodyEnd = /^[ \t]*(?:end\s*(?:[hr]?note|legend|title|header|footer)\b|@end
 // A files note ends with its `</note>` line, a description with the line starting `]`.
 const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>/, descBody: /^[ \t]*\]/, descBodyCode: /^[ \t]*\]/ }
 
+/** A style import's value: a `file` path is `url`, quoted its quotes punctuation; else a string. */
+function sheetValue(name, value) {
+  if (name !== 'file') return [[value, 'string']]
+  const quoted = /^"([^"]+)"$/.exec(value)
+  return quoted ? [['"', 'punctuation'], [quoted[1], 'url'], ['"', 'punctuation']] : [[value, /^["']/.test(value) ? 'string' : 'url']]
+}
+
 /**
  * Whether `pos` is in a style block's body, read by the line forms above: a
  * line between `<style>` and `</style>` (or the next `@end`) that is not
@@ -264,7 +276,7 @@ export function plantumlLanguage(inner = {}) {
     const sheet = stream.match(styleImport, false)
     if (sheet) return emit(stream, state, [
       [sheet[1], null], [sheet[2], 'tagName'], [sheet[3], null], [sheet[4], 'attributeName'], [sheet[5], null], [sheet[6], 'definitionOperator'],
-      [sheet[7], null], [sheet[8], sheet[4] === 'file' && !/^["']/.test(sheet[8]) ? 'url' : 'string'], [sheet[9], null], [sheet[10], 'tagName'], [sheet[11], null],
+      [sheet[7], null], ...sheetValue(sheet[4], sheet[8]), [sheet[9], null], [sheet[10], 'tagName'], [sheet[11], null],
     ])
     const one = stream.match(styleOneLine, false)
     const open = one || stream.match(styleOpen, false)

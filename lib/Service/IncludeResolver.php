@@ -155,7 +155,11 @@ final class IncludeResolver {
 		// (`V1.2` included); a path, or a file that is there, is a file missing its
 		// section, said plainly.
 		if ($kind === 'includesub' && $selector === null) {
-			if (!str_contains($path, '/') && (!str_contains($path, '.') || !is_array($this->find($path, $context, true)))) {
+			if (!str_contains($path, '/') && !str_contains($path, '.')) {
+				$this->keep($at, null);
+			} elseif (!str_contains($path, '/') && !is_array($this->find($path, $context, true))) {
+				// Missing, so a file of that name made later draws the diagram anew.
+				$this->missing[] = $path;
 				$this->keep($at, null);
 			} else {
 				$this->sectionsOf($path, $at, $context, $depth);

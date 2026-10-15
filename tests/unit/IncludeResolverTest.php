@@ -210,7 +210,7 @@ final class IncludeResolverTest extends TestCase {
 
 		self::assertSame($source, $expanded->source);
 		self::assertSame([], $expanded->mistakes);
-		self::assertSame([], $expanded->missing);
+		self::assertSame(['V1.2'], $expanded->missing);
 	}
 
 	public function testIncludesubOfAFileInsideAnIncludeNamesItsSectionsThere(): void {

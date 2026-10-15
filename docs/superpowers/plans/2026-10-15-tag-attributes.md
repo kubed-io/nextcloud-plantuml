@@ -125,7 +125,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **Interfaces:**
 - Produces: `RenderService::stdlib(): list<array{name: string, version: string, source: string}>`; route `{"stdlib": [...]}`.
 
-- [ ] **Step 1: Write the failing tests** (as the fonts ones): `testStdlibIsTheServersLibraries` — 37 entries from the fixture, in the server's order, the first `['name' => 'adaml', 'version' => '0.1.2', 'source' => 'https://github.com/rocher/AdaML']`, one with `name` `c4`, one `material7` with version `7.4.47`; `testStdlibIsAskedOncePerServerForADay`; `testStdlibWithoutLibrariesIsNotPlantumlAndNotCached`; controller 200 and 503.
+- [ ] **Step 1: Write the failing tests** (as the fonts ones): `testStdlibIsTheServersLibraries` — 34 entries from the fixture, in the server's order, the first `['name' => 'adaml', 'version' => '0.1.2', 'source' => 'https://github.com/rocher/AdaML']`, one with `name` `c4`, one `material7` with version `7.4.47`; `testStdlibIsAskedOncePerServerForADay`; `testStdlibWithoutLibrariesIsNotPlantumlAndNotCached`; controller 200 and 503.
 - [ ] **Step 2:** `composer run test:unit -- --filter Stdlib` → FAIL.
 - [ ] **Step 3:** Read the text by line: a name line (`^[\w.-]{1,64}$`) followed by `Version (\S{1,32})` and `Delivered by (https?://\S{1,200})` makes an entry; anything else is skipped; at most 100 entries; none → `notPlantUml('txt answered stdlib without a list of libraries')`. `cached('stdlib', …)`. Controller and route (`// {"stdlib": [{name, version, source}]}, for !include <…> completion`) as `/fonts`.
 - [ ] **Step 4:** the tests PASS; unit, psalm, cs.

@@ -115,16 +115,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** the tests PASS; `npm test`; `npm run lint`.
 - [ ] **Step 5:** Spec C9/H10/W4 statuses stay `agreed` until ship. Commit `feat(editor): complete a tag's attributes`.
 
-### Task 5: Penpot — tag colours and the attribute list
+### Task 5: `GET /apps/plantuml/stdlib`
+
+**Files:**
+- Modify: `lib/Service/RenderService.php` (`stdlib()`), `lib/Controller/RenderController.php` (`stdlib()`), `appinfo/routes.php`
+- Create: `tests/unit/fixtures/stdlib.txt` (raw: POST `@startuml\nstdlib\n@enduml\n` to `http://plantuml.flow.svc/txt`)
+- Test: `tests/unit/RenderServiceTest.php`, `tests/unit/RenderControllerTest.php`
+
+**Interfaces:**
+- Produces: `RenderService::stdlib(): list<array{name: string, version: string, source: string}>`; route `{"stdlib": [...]}`.
+
+- [ ] **Step 1: Write the failing tests** (as the fonts ones): `testStdlibIsTheServersLibraries` — 37 entries from the fixture, in the server's order, the first `['name' => 'adaml', 'version' => '0.1.2', 'source' => 'https://github.com/rocher/AdaML']`, one with `name` `c4`, one `material7` with version `7.4.47`; `testStdlibIsAskedOncePerServerForADay`; `testStdlibWithoutLibrariesIsNotPlantumlAndNotCached`; controller 200 and 503.
+- [ ] **Step 2:** `composer run test:unit -- --filter Stdlib` → FAIL.
+- [ ] **Step 3:** Read the text by line: a name line (`^[\w.-]{1,64}$`) followed by `Version (\S{1,32})` and `Delivered by (https?://\S{1,200})` makes an entry; anything else is skipped; at most 100 entries; none → `notPlantUml('txt answered stdlib without a list of libraries')`. `cached('stdlib', …)`. Controller and route (`// {"stdlib": [{name, version, source}]}, for !include <…> completion`) as `/fonts`.
+- [ ] **Step 4:** the tests PASS; unit, psalm, cs.
+- [ ] **Step 5:** Commit `feat(render): the server's stdlib libraries`.
+
+### Task 6: `!include <` completes the stdlib (X5, C7's `!` line)
+
+**Files:**
+- Modify: `scripts/vocabulary.mjs` (a `stdlib` artifact writing one file per library folder), `src/editor/completion/server-list.js` (`serverStdlib()`), `src/editor/completion/local-files.js` (the `<` option reopens completion), `src/editor/completion/creole.js`, `src/editor/completion/tag-attributes.js`, `src/editor/completion/icons.js`, `src/editor/completion/emoji.js` (none on a `!` line), `src/editor/completion/index.js` (`sources`: `stdlib` before `creole`)
+- Create: `src/editor/completion/stdlib.js`, `src/editor/data/stdlib/<folder>.json` (generated, 30 files)
+- Test: `tests/js/vocabulary.test.js`, `tests/js/completion.test.js` (`describe('stdlib')`)
+
+**Interfaces:**
+- Consumes: Task 5's route.
+- Produces: `serverStdlib(): Promise<{name, version, source}[]>` (`[]` on failure); `export async function stdlib(context): CompletionResult|null`; each `stdlib/<folder>.json` = `{ "plantuml-stdlib": "7167ca0", "files": ["C4_Container", "dogus/scm", …] }` — paths below the folder, `.puml` dropped, sorted.
+
+- [ ] **Step 1: Write the failing tests**:
+  - `vocabulary.test.js`: an exported `stdlibIndex(tree)` over a GitHub tree fixture (`stdlib/C4/C4_Container.puml`, `stdlib/C4/README.md`, `stdlib/cloudogu/dogus/scm.puml`, `src/x.java`) → `{ C4: ['C4_Container'], cloudogu: ['dogus/scm'] }`; the committed `stdlib/C4.json` has `"plantuml-stdlib": "7167ca0"` and contains `C4_Container`.
+  - `completion.test.js` (stub `serverStdlib` via fetch answering three entries `c4` 2.13.0, `material7` 7.4.47, `nope` 1.0):
+    - `!include <|` → labels `c4`, `material7`, `nope`, details `2.13.0 · https://…`; no Creole tag (`<b>`) among all sources' options at that position (run every source as the first test of the file does).
+    - `!include <c4/|` → `C4_Container`, … (files), folders with `/`; `!include <material7/|` reads `material7.4.47.json`; `!include <nope/|` → null.
+    - Picking a folder inserts `name/` and reopens; picking a file inserts `C4_Container>` (no `.puml`); `!include_many`, `!include_once`, `!includesub` behave the same.
+    - Picking `<` from the local-files list (`!include |`) reopens completion onto the libraries.
+    - With `/stdlib` failing, `!include <|` → null and nothing throws.
+    - `!theme <|`-like other `!` lines: `!define X <b>|` offers no Creole tag (C7).
+- [ ] **Step 2:** run them → FAIL.
+- [ ] **Step 3:** Generator: fetch `https://api.github.com/repos/plantuml/plantuml-stdlib/git/trees/7167ca0?recursive=1` (unauthenticated is fine), `stdlibIndex(tree)` keeps `stdlib/<folder>/…​.puml` blobs, writes `src/editor/data/stdlib/<folder>.json`; run it and commit the files. `stdlib.js`: match `/^\s*!include(?:_many|_once|sub)?[ \t]+<([^>\s]*)$/`; level 0 from `serverStdlib()`; deeper levels from `import(`../data/stdlib/${folder}.json`)` (a Vite glob `import.meta.glob('../data/stdlib/*.json')` so each is its own chunk), the folder found per X5 (case-insensitive name, else name + version); folders `type: 'namespace'` with `apply` reopening, files `type: 'file'` inserting `name>`. In `creole.js`, `tag-attributes.js`, `icons.js`, `emoji.js`, return null when the line starts with `\s*!`.
+- [ ] **Step 4:** the tests PASS; `npm test`; `npm run lint`; `npm run build` and the CI chunk guard still passes (no static import of a stdlib chunk).
+- [ ] **Step 5:** Commit `feat(editor): !include < completes the server's stdlib`.
+
+### Task 7: Penpot — tag colours, the attribute list and the stdlib list
 
 - [ ] Follow `skill://penpot/penpot-router/SKILL.md` (kb) and the skill it routes to; reuse components (`source-pane`, `completion-row`, `value-chooser`, `number-stepper`, `color-swatch`) and tokens; one `execute_code` at a time.
 - [ ] Update the `source / code` text in `screens / editor-style` and `screens / editor-style-stepper` so tag parts follow H10 (maroon `<style`/`>`, attribute orange, grey `=`, green values); the maroon is a new token `color-syntax-tag` if the file has no matching token (record the light `#9f0808` / dark `#fa7777` values).
 - [ ] New board `screens / editor-tag-attributes`: a uml block with `note: <font |` on the cursor line and the completion popup open on `size=` and `color=`; a second line `<img src="logo.png" valign=top>` showing the pencil after `top`. Link its Source toggle like its siblings.
-- [ ] Export `docs/design/editor-tag-attributes.png` (and re-export the two updated boards); add the row to `docs/design/README.md` and the app spec's design table. Commit `docs(design): tag colours and the attribute list`.
+- [ ] New board `screens / editor-stdlib`: `!include <c4/|` with the popup listing `C4_Component`, `C4_Container`, `C4_Context`, … and the library level's detail shown on a second board state if cheap; link its Source toggle.
+- [ ] Export `docs/design/editor-tag-attributes.png` and `docs/design/editor-stdlib.png` (and re-export the two updated boards); add the row to `docs/design/README.md` and the app spec's design table. Commit `docs(design): tag colours and the attribute list`.
 
-### Task 6: Ship
+### Task 8: Ship
 
-- [ ] Specs: H10, C9, W4 and `/fonts` → `shipped (#PR)`; CHANGELOG `[Unreleased]` Added: tag parts coloured like HTML; a tag's attributes and values complete, with the chooser and stepper; `GET /apps/plantuml/fonts`.
+- [ ] Specs: H10, C9, W4, X5, C7's `!` line, `/fonts` and `/stdlib` → `shipped (#PR)`; CHANGELOG `[Unreleased]` Added: tag parts coloured like HTML; a tag's attributes and values complete, with the chooser and stepper; `GET /apps/plantuml/fonts`; `!include <` completes the server's stdlib (`GET /apps/plantuml/stdlib`); Fixed: `!include <` no longer offers Creole tags.
 - [ ] All checks (`npm test`, lint, build + entry gzip vs 240,193 B, PHP unit, psalm, cs); PR; bot threads; merge on green; deploy with `dist/chunks`; `apachectl -k graceful`.
-- [ ] Live, in selenium-flow on the selenium account's UML_Fun copy: the `<style file=…>` line's four colours; `<font |` offers `size=`/`color=`; `valign=` pencil lists top/middle/bottom; `<font:` lists the server's fonts; `/apps/plantuml/fonts` answers.
+- [ ] Live, in selenium-flow on the selenium account's UML_Fun copy: the `<style file=…>` line's four colours; `<font |` offers `size=`/`color=`; `valign=` pencil lists top/middle/bottom; `<font:` lists the server's fonts; `/apps/plantuml/fonts` answers; `!include <` lists the libraries and `!include <C4/` its files.
 - [ ] Propose Gherkin "Asking for the server's fonts" in chat.

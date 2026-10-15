@@ -63,8 +63,8 @@ const styleValue = {
       if (token === 'propertyName') {
         close()
         declaration = { property: text, end: to, tokens: [] }
-      } else if (token === 'operator' && declaration) {
-        // A dash pattern's separator: its numbers stay one declaration's values.
+      } else if (token === 'separator' && declaration) {
+        // A dash pattern's separator (a `;` ending the declaration reads as one too, and the next name closes it).
       } else if (declaration && VALUE_TOKENS.has(token)) {
         declaration.tokens.push({ token, from, to })
       } else {

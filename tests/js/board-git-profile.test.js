@@ -39,7 +39,7 @@ describe('the board profile', () => {
     expect(boardTokens('Title x')).toEqual([['Title', 'keyword']])
     expect(boardTokens('hide footbox')).toEqual([['hide', 'keyword']])
     expect(boardTokens('SHOW x')).toEqual([['SHOW', 'keyword']])
-    expect(boardTokens('Legend', '+ not a card', 'End Legend', '+Card')).toEqual([['Legend', 'keyword'], ['End Legend', 'keyword'], ['+', 'operator']])
+    expect(boardTokens('Legend', '+ not a card', 'End Legend', '+Card')).toEqual([['Legend', 'keyword'], ['End Legend', 'keyword'], ['+', 'list']])
   })
 
   it('names an activity, a line with no plus, a heading', () => {
@@ -47,10 +47,10 @@ describe('the board profile', () => {
     expect(boardTokens('Activity 2 : with colon')).toEqual([['Activity 2 : with colon', 'heading']])
   })
 
-  it('names the plus run an operator and leaves a card plain', () => {
-    expect(boardTokens('+Completion')).toEqual([['+', 'operator']])
-    expect(boardTokens('++Directives')).toEqual([['++', 'operator']])
-    expect(boardTokens('+++ Task a1')).toEqual([['+++', 'operator']])
+  it('names the plus run a list marker and leaves a card plain', () => {
+    expect(boardTokens('+Completion')).toEqual([['+', 'list']])
+    expect(boardTokens('++Directives')).toEqual([['++', 'list']])
+    expect(boardTokens('+++ Task a1')).toEqual([['+++', 'list']])
   })
 
   it('reads a plus that is not at column 0 as an activity named with it', () => {
@@ -91,7 +91,7 @@ describe('the git profile', () => {
 
   it('names the marker, the commit name and the message that is not drawn', () => {
     expect(gitTokens('* a1b2c3 Merge feature')).toEqual([
-      ['*', 'operator'],
+      ['*', 'LinkOperator'],
       ['a1b2c3', 'number'],
       ['Merge feature', 'comment'],
     ])
@@ -99,25 +99,25 @@ describe('the git profile', () => {
 
   it('names the refs group a type name, and the message after it a comment', () => {
     expect(gitTokens('* d4e5 (HEAD -> main, tag: v1) Add')).toEqual([
-      ['*', 'operator'],
+      ['*', 'LinkOperator'],
       ['d4e5', 'number'],
-      ['(HEAD -> main, tag: v1)', 'typeName'],
+      ['(', 'paren'], ['HEAD -> main, tag: v1', 'typeName'], [')', 'paren'],
       ['Add', 'comment'],
     ])
   })
 
-  it('names the graph characters operators, on a commit line or alone', () => {
-    expect(gitTokens('|\\')).toEqual([['|\\', 'operator']])
-    expect(gitTokens('|/')).toEqual([['|/', 'operator']])
+  it('names the graph characters link operators, on a commit line or alone', () => {
+    expect(gitTokens('|\\')).toEqual([['|\\', 'LinkOperator']])
+    expect(gitTokens('|/')).toEqual([['|/', 'LinkOperator']])
     expect(gitTokens('| * d4e5f6 Add stdlib')).toEqual([
-      ['|', 'operator'],
-      ['*', 'operator'],
+      ['|', 'LinkOperator'],
+      ['*', 'LinkOperator'],
       ['d4e5f6', 'number'],
       ['Add stdlib', 'comment'],
     ])
     expect(gitTokens('* | 2c1d0e9 fix z')).toEqual([
-      ['*', 'operator'],
-      ['|', 'operator'],
+      ['*', 'LinkOperator'],
+      ['|', 'LinkOperator'],
       ['2c1d0e9', 'number'],
       ['fix z', 'comment'],
     ])
@@ -125,21 +125,21 @@ describe('the git profile', () => {
 
   it('reads an octopus merge, whose marker has a tail', () => {
     expect(gitTokens('*-.   e5 octo', '|\\ \\')).toEqual([
-      ['*-.', 'operator'],
+      ['*-.', 'LinkOperator'],
       ['e5', 'number'],
       ['octo', 'comment'],
-      ['|\\', 'operator'],
-      ['\\', 'operator'],
+      ['|\\', 'LinkOperator'],
+      ['\\', 'LinkOperator'],
     ])
   })
 
   it('names a commit with no message, and one with refs only', () => {
-    expect(gitTokens('* a1')).toEqual([['*', 'operator'], ['a1', 'number']])
-    expect(gitTokens('* a1 (main)')).toEqual([['*', 'operator'], ['a1', 'number'], ['(main)', 'typeName']])
+    expect(gitTokens('* a1')).toEqual([['*', 'LinkOperator'], ['a1', 'number']])
+    expect(gitTokens('* a1 (main)')).toEqual([['*', 'LinkOperator'], ['a1', 'number'], ['(', 'paren'], ['main', 'typeName'], [')', 'paren']])
   })
 
   it('leaves a refs group that never closes to the message', () => {
-    expect(gitTokens('* a1 (main msg')).toEqual([['*', 'operator'], ['a1', 'number'], ['(main msg', 'comment']])
+    expect(gitTokens('* a1 (main msg')).toEqual([['*', 'LinkOperator'], ['a1', 'number'], ['(main msg', 'comment']])
   })
 
   it('leaves a line with neither a commit nor a graph plain, and a comment a comment', () => {
@@ -149,8 +149,8 @@ describe('the git profile', () => {
 
   it('starts each line afresh', () => {
     expect(gitTokens('* a1 (main) msg', '* a2')).toEqual([
-      ['*', 'operator'], ['a1', 'number'], ['(main)', 'typeName'], ['msg', 'comment'],
-      ['*', 'operator'], ['a2', 'number'],
+      ['*', 'LinkOperator'], ['a1', 'number'], ['(', 'paren'], ['main', 'typeName'], [')', 'paren'], ['msg', 'comment'],
+      ['*', 'LinkOperator'], ['a2', 'number'],
     ])
   })
 })

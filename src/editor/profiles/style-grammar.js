@@ -28,7 +28,7 @@ function value(stream, property) {
 /**
  * Selectors, `{ }`, and inside them declarations, `Property value`, ended by
  * `;` or the line's end, except inside a `LineStyle` dash pattern, `8.0;3.0` or
- * `8-3`, whose separator is an `operator` between two numbers. A word inside braces with a `{` after it on its
+ * `8-3`, whose separator is a `separator` between two numbers. A word inside braces with a `{` after it on its
  * declaration is a nested selector; any other is a property. `property` is
  * the last property read, for its values. `/' … '/` is a comment, over as many
  * lines as it takes.
@@ -50,7 +50,7 @@ export const styleMode = {
     state.dash = false
     if (dash && /^[;-]\d/.test(stream.string.slice(stream.pos))) {
       stream.next()
-      return 'operator'
+      return 'separator'
     }
     if (stream.eatSpace()) return null
     if (stream.peek() === "'" && !stream.string.slice(0, stream.pos).trim()) {
@@ -62,19 +62,19 @@ export const styleMode = {
       stream.next()
       state.depth = Math.max(0, state.depth + (ch === '{' ? 1 : -1))
       state.at = 'name'
-      return 'bracket'
+      return 'brace'
     }
     if (ch === ';') {
       stream.next()
       state.at = 'name'
-      return 'punctuation'
+      return 'separator'
     }
     if (state.at === 'value') {
       const token = value(stream, state.property)
       state.dash = token === 'StyleNumber' && /^linestyle$/i.test(state.property)
       return token
     }
-    if (stream.match(/^\.[^\s{},;.:]+/) || stream.match(/^:[\w-]+(?:\([^)]*\))?/)) return 'className'
+    if (stream.match(/^\.[^\s{},;.:]+/) || stream.match(/^:[\w-]+(?:\([^)]*\))?/)) return 'attributeName'
     const word = stream.match(/^[A-Za-z_][\w-]*/)
     if (word) {
       if (state.depth === 0 || /^[^;}]*\{/.test(stream.string.slice(stream.pos))) return 'typeName'

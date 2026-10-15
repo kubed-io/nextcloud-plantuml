@@ -8,15 +8,31 @@
  * they are read as its tokenizer reads them: the longest name at each position,
  * spaces or none, so `sinx` is `sin` and `x` and `alphabeta` two letters.
  * Functions are ochre, symbols slate, operators (`_`, `^` and `/` with them)
- * amber, brackets grey; numbers are numbers, and a `"text"` and the argument of
+ * by category (logic, comparison, arithmetic), brackets by shape; numbers are numbers, and a `"text"` and the argument of
  * `text( )` or `mbox( )` strings. A block's line starting `color`,
  * `backgroundcolor`, `scale` or `dpi` and a space is a setting: a keyword and its
  * value. PlantUML draws a formula it cannot read as text, so nothing is an error.
  */
 import data from '../data/asciimath.json'
 
+const LOGIC = new Set(['and', 'or', 'not', 'if', 'iff'])
+const COMPARE = new Set([
+  '=', '!=', '<', '>', '<=', '>=', 'lt', 'gt', 'le', 'ge', 'lt=', 'gt=', '-<', '>-', '-<=', '>-=', 'in', '!in', 'sub', 'sup',
+  'sube', 'supe', '-=', '~=', '~~', 'prop',
+])
+const ARITHMETIC = new Set(['+', '-', '*', '**', 'xx', '-:', '/'])
+const BRACKET = {
+  '(': 'paren', ')': 'paren', 'left(': 'paren', 'right)': 'paren',
+  '[': 'squareBracket', ']': 'squareBracket', 'left[': 'squareBracket', 'right]': 'squareBracket',
+  '{': 'brace', '}': 'brace', '{:': 'brace', ':}': 'brace', lbrace: 'brace', rbrace: 'brace',
+  '(:': 'angleBracket', ':)': 'angleBracket', '<<': 'angleBracket', '>>': 'angleBracket', langle: 'angleBracket', rangle: 'angleBracket',
+}
+
+/** An operator's category: logic, comparison and arithmetic apart, any other an `operator`. */
+const operator = (name) => (LOGIC.has(name) ? 'logicOperator' : COMPARE.has(name) ? 'compareOperator' : ARITHMETIC.has(name) ? 'arithmeticOperator' : 'operator')
+
 const TOKENS = { functions: 'FunctionName', symbols: 'VariableName', operators: 'operator', brackets: 'punctuation', keywords: 'keyword' }
-const NAMES = new Map(Object.entries(data.asciimath).flatMap(([role, names]) => names.map((name) => [name, TOKENS[role]])))
+const NAMES = new Map(Object.entries(data.asciimath).flatMap(([role, names]) => names.map((name) => [name, role === 'operators' ? operator(name) : role === 'brackets' ? BRACKET[name] ?? 'bracket' : TOKENS[role]])))
 const LONGEST = Math.max(...[...NAMES.keys()].map((name) => name.length))
 const SETTING = /^[ \t]*(?:(?:background)?color|scale|dpi)[ \t]/i
 const TEXT_CLOSER = { '(': ')', '[': ']', '{': '}' }
@@ -61,7 +77,7 @@ const mode = {
     if (/[A-Za-z]/.test(ch)) {
       return null
     }
-    return ch === ',' || ch === '\\' ? 'punctuation' : 'operator'
+    return ch === ',' ? 'separator' : ch === '\\' ? 'punctuation' : operator(ch)
   },
 }
 
@@ -101,14 +117,14 @@ function text(stream, state) {
     const closer = TEXT_CLOSER[stream.peek()]
     state.text = closer ?? null
     if (closer) {
-      stream.next()
-      return 'punctuation'
+      return BRACKET[stream.next()]
     }
     return mode.token(stream, state)
   }
-  if (stream.eat(state.text)) {
+  const close = state.text
+  if (stream.eat(close)) {
     state.text = null
-    return 'punctuation'
+    return BRACKET[close]
   }
   stream.match(TEXT_ARGUMENT[state.text])
   return 'string'

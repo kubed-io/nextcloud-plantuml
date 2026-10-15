@@ -46,7 +46,7 @@ const mode = {
     case 'rows':
       if (stream.match(/\}/)) {
         state.phase = 'top'
-        return 'punctuation'
+        return 'brace'
       }
       if (stream.match(/end[ \t]*sprite\b/)) {
         state.phase = 'top'
@@ -65,11 +65,11 @@ function head(stream, state) {
   // A whole `[WxH/N(z)]` or `[WxH/color]` is the size, as in the core; inside it `size` lexes the parts.
   if (stream.match(/\[(?=\d+x\d+\/(?:\d+z?|color)\])/)) {
     state.phase = 'size'
-    return 'punctuation'
+    return 'squareBracket'
   }
   if (stream.match(/\{(?=\s*$)/)) {
     state.phase = 'rows'
-    return 'punctuation'
+    return 'brace'
   }
   if (stream.match(/<svg(?=[\s>])/)) {
     state.phase = 'svg'
@@ -92,10 +92,10 @@ function size(stream, state) {
   }
   if (stream.match(']')) {
     state.phase = 'head'
-    return 'punctuation'
+    return 'squareBracket'
   }
   stream.next()
-  return 'punctuation'
+  return 'separator'
 }
 
 /** A tag's parts: its name and `>` tags, an attribute's name an attribute, a value (quoted or not) a string. */
@@ -114,7 +114,7 @@ function svg(stream, state) {
     return 'string'
   }
   if (stream.match('=')) {
-    return 'punctuation'
+    return 'definitionOperator'
   }
   // An unquoted value, as `attributes()` of the core reads it.
   if (stream.match(/[^\s>"',}]+/)) {

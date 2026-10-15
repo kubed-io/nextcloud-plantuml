@@ -4,7 +4,7 @@
  *
  * `@startboard` blocks (a story map). A line is an activity, a column: its
  * text a heading. After `+` at column 0 it is a card, `++` one level in, and
- * so on: the run of `+` an operator, the card's text left plain (Creole is
+ * so on: the run of `+` a list marker, the card's text left plain (Creole is
  * the editor's, which a profile does not import). An indented `+` is part of
  * an activity's name, as PlantUML reads it, and so is a `+` with nothing
  * after it. `'` comments are the editor's; `title`, `skinparam`, `hide` and the other
@@ -32,7 +32,7 @@ const mode = {
       return null
     }
     if (stream.match(CARD)) {
-      return 'operator'
+      return 'list'
     }
     if (stream.match(COMMAND)) {
       state.legend = stream.current().trim().toLowerCase() === 'legend'

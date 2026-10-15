@@ -64,7 +64,7 @@ describe('the style profile', () => {
     expect(typeof profile.mode.token).toBe('function')
   })
 
-  it('names selectors as tags, classes and depths as classes, braces, properties, colours, numbers and comments', () => {
+  it('names selectors as tags, classes and depths as attributes, braces, properties, colours, numbers and comments', () => {
     expect(tokens(
       '@startuml',
       '<style>',
@@ -84,23 +84,23 @@ describe('the style profile', () => {
       ['@startuml', 'keyword'],
       ['<style>', 'tagName'],
       ['root', 'typeName'],
-      ['{', 'bracket'],
+      ['{', 'brace'],
       ['FontSize', 'propertyName'],
       ['22', 'StyleNumber'],
-      ['}', 'bracket'],
-      ['.server', 'className'],
-      ['{', 'bracket'],
+      ['}', 'brace'],
+      ['.server', 'attributeName'],
+      ['{', 'brace'],
       ['BackGroundColor', 'propertyName'],
       ['#FFF3B0', 'ColorLiteral'],
-      [';', 'punctuation'],
+      [';', 'separator'],
       ['LineColor', 'propertyName'],
       ['red', 'ColorLiteral'],
-      ['}', 'bracket'],
+      ['}', 'brace'],
       ['node', 'typeName'],
-      [':depth(1)', 'className'],
-      ['{', 'bracket'],
+      [':depth(1)', 'attributeName'],
+      ['{', 'brace'],
       ["' a comment", 'comment'],
-      ['}', 'bracket'],
+      ['}', 'brace'],
       ['</style>', 'tagName'],
       ['@enduml', 'keyword'],
     ])
@@ -110,19 +110,19 @@ describe('the style profile', () => {
     expect(tokens('<style>', 'mindmapDiagram {', '  node { FontSize 1; LineColor #ABC }', '  arrow {', '  }', '}', '</style>')).toEqual([
       ['<style>', 'tagName'],
       ['mindmapDiagram', 'typeName'],
-      ['{', 'bracket'],
+      ['{', 'brace'],
       ['node', 'typeName'],
-      ['{', 'bracket'],
+      ['{', 'brace'],
       ['FontSize', 'propertyName'],
       ['1', 'StyleNumber'],
-      [';', 'punctuation'],
+      [';', 'separator'],
       ['LineColor', 'propertyName'],
       ['#ABC', 'ColorLiteral'],
-      ['}', 'bracket'],
+      ['}', 'brace'],
       ['arrow', 'typeName'],
-      ['{', 'bracket'],
-      ['}', 'bracket'],
-      ['}', 'bracket'],
+      ['{', 'brace'],
+      ['}', 'brace'],
+      ['}', 'brace'],
       ['</style>', 'tagName'],
     ])
   })
@@ -132,10 +132,10 @@ describe('the style profile', () => {
     expect(tokens('<style>note { BackgroundColor red }</style>', 'actor A')).toEqual([
       ['<style>', 'tagName'],
       ['note', 'typeName'],
-      ['{', 'bracket'],
+      ['{', 'brace'],
       ['BackgroundColor', 'propertyName'],
       ['red', 'ColorLiteral'],
-      ['}', 'bracket'],
+      ['}', 'brace'],
       ['</style>', 'tagName'],
       ['actor', 'keyword'],
     ])
@@ -143,7 +143,7 @@ describe('the style profile', () => {
 
   it('takes a word for a colour in a property whose name ends in Color, and for a word elsewhere', () => {
     const values = tokens('<style>', 'node {', '  FontColor Navy; BackGroundColor #AliceBlue', '  FontStyle bold; LineStyle dashed', '}', '</style>')
-      .filter(([, name]) => !['tagName', 'typeName', 'bracket', 'propertyName', 'punctuation'].includes(name))
+      .filter(([, name]) => !['tagName', 'typeName', 'brace', 'propertyName', 'separator'].includes(name))
     expect(values).toEqual([['Navy', 'ColorLiteral'], ['#AliceBlue', 'ColorLiteral'], ['bold', 'atom'], ['dashed', 'atom']])
   })
 
@@ -154,19 +154,19 @@ describe('the style profile', () => {
     ])
   })
 
-  it('reads a dash pattern, 8.0;3.0 or 8-3, as one value of two numbers, not a separator', () => {
-    const named = (...lines) => tokens('<style>', 'node {', ...lines, '}', '</style>').filter(([, name]) => !['tagName', 'typeName', 'bracket'].includes(name))
+  it('reads a dash pattern, 8.0;3.0 or 8-3, as one value of two numbers, not a declaration end', () => {
+    const named = (...lines) => tokens('<style>', 'node {', ...lines, '}', '</style>').filter(([, name]) => !['tagName', 'typeName', 'brace'].includes(name))
     expect(named('  LineStyle 8.0;3.0', '  LineColor red')).toEqual([
-      ['LineStyle', 'propertyName'], ['8.0', 'StyleNumber'], [';', 'operator'], ['3.0', 'StyleNumber'],
+      ['LineStyle', 'propertyName'], ['8.0', 'StyleNumber'], [';', 'separator'], ['3.0', 'StyleNumber'],
       ['LineColor', 'propertyName'], ['red', 'ColorLiteral'],
     ])
-    expect(named('  LineStyle 8-3')).toEqual([['LineStyle', 'propertyName'], ['8', 'StyleNumber'], ['-', 'operator'], ['3', 'StyleNumber']])
-    expect(named('  LineStyle 4; LineColor red').map(([, name]) => name)).toEqual(['propertyName', 'StyleNumber', 'punctuation', 'propertyName', 'ColorLiteral'])
+    expect(named('  LineStyle 8-3')).toEqual([['LineStyle', 'propertyName'], ['8', 'StyleNumber'], ['-', 'separator'], ['3', 'StyleNumber']])
+    expect(named('  LineStyle 4; LineColor red').map(([, name]) => name)).toEqual(['propertyName', 'StyleNumber', 'separator', 'propertyName', 'ColorLiteral'])
   })
 
   it('starts each line with no dash pattern open', () => {
-    const named = tokens('<style>', 'node {', '  LineStyle 8', '-3', '}', '</style>').filter(([, name]) => !['tagName', 'typeName', 'bracket'].includes(name))
-    expect(named).not.toContainEqual(['-', 'operator'])
+    const named = tokens('<style>', 'node {', '  LineStyle 8', '-3', '}', '</style>').filter(([, name]) => !['tagName', 'typeName', 'brace'].includes(name))
+    expect(named).not.toContainEqual(['-', 'separator'])
   })
 
   it('takes no #ABCDE for a colour: five hex digits are a broken hex, not a name', () => {
@@ -181,12 +181,12 @@ describe('the style profile', () => {
       ['<style>', 'tagName'],
       ["/' node { FontSise 1 } '/", 'comment'],
       ['node', 'typeName'],
-      ['{', 'bracket'],
+      ['{', 'brace'],
       ["/' a", 'comment'],
       ["  LineColor red '/", 'comment'],
       ['FontSize', 'propertyName'],
       ['2', 'StyleNumber'],
-      ['}', 'bracket'],
+      ['}', 'brace'],
       ['</style>', 'tagName'],
     ])
   })

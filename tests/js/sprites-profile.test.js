@@ -27,11 +27,6 @@ const spriteTokens = (...lines) => tokens('sprites', ...lines)
 const umlTokens = (...lines) => tokens('uml', ...lines)
 
 const header = [
-  ['sprite', 'keyword'], ['$bar', 'VariableName'], ['[', 'punctuation'], ['8', 'number'], ['x', 'punctuation'], ['4', 'number'],
-  ['/', 'punctuation'], ['16', 'number'], [']', 'punctuation'], ['{', 'punctuation'],
-]
-// The same line as the core reads it, in a uml block.
-const coreHeader = [
   ['sprite', 'keyword'], ['$bar', 'VariableName'], ['[', 'squareBracket'], ['8', 'number'], ['x', 'separator'], ['4', 'number'],
   ['/', 'separator'], ['16', 'number'], [']', 'squareBracket'], ['{', 'brace'],
 ]
@@ -43,7 +38,7 @@ describe('the sprites profile', () => {
 
   it('names a multi-line sprite: header, data rows, closing brace', () => {
     expect(spriteTokens('sprite $bar [8x4/16] {', 'FFFFFFFF', '0F0F0F0F', '}')).toEqual([
-      ...header, ['FFFFFFFF', 'SpriteData'], ['0F0F0F0F', 'SpriteData'], ['}', 'punctuation'],
+      ...header, ['FFFFFFFF', 'SpriteData'], ['0F0F0F0F', 'SpriteData'], ['}', 'brace'],
     ])
   })
 
@@ -57,8 +52,8 @@ describe('the sprites profile', () => {
 
   it('names a compressed sprite: z a keyword, the payload data', () => {
     expect(spriteTokens('sprite $c [16x16/16z] NOtH3W0W208Hx')).toEqual([
-      ['sprite', 'keyword'], ['$c', 'VariableName'], ['[', 'punctuation'], ['16', 'number'], ['x', 'punctuation'], ['16', 'number'],
-      ['/', 'punctuation'], ['16', 'number'], ['z', 'keyword'], [']', 'punctuation'], ['NOtH3W0W208Hx', 'SpriteData'],
+      ['sprite', 'keyword'], ['$c', 'VariableName'], ['[', 'squareBracket'], ['16', 'number'], ['x', 'separator'], ['16', 'number'],
+      ['/', 'separator'], ['16', 'number'], ['z', 'keyword'], [']', 'squareBracket'], ['NOtH3W0W208Hx', 'SpriteData'],
     ])
   })
 
@@ -70,21 +65,21 @@ describe('the sprites profile', () => {
   })
 
   it('names a colour sprite: color a keyword', () => {
-    expect(spriteTokens('sprite $s [2x1/color] GHab').slice(-3)).toEqual([['color', 'keyword'], [']', 'punctuation'], ['GHab', 'SpriteData']])
+    expect(spriteTokens('sprite $s [2x1/color] GHab').slice(-3)).toEqual([['color', 'keyword'], [']', 'squareBracket'], ['GHab', 'SpriteData']])
   })
 
   it('names an inline svg sprite as tag, attributes and strings', () => {
     expect(spriteTokens('sprite dot <svg viewBox="0 0 10 10"><circle r="4"/></svg>')).toEqual([
       ['sprite', 'keyword'], ['dot', 'VariableName'],
-      ['<svg', 'tagName'], ['viewBox', 'attributeName'], ['=', 'punctuation'], ['"0 0 10 10"', 'string'],
-      ['><circle', 'tagName'], ['r', 'attributeName'], ['=', 'punctuation'], ['"4"', 'string'], ['/></svg>', 'tagName'],
+      ['<svg', 'tagName'], ['viewBox', 'attributeName'], ['=', 'definitionOperator'], ['"0 0 10 10"', 'string'],
+      ['><circle', 'tagName'], ['r', 'attributeName'], ['=', 'definitionOperator'], ['"4"', 'string'], ['/></svg>', 'tagName'],
     ])
   })
 
   it('reads an unquoted attribute value as a string, as the PlantUML mode does', () => {
     expect(spriteTokens('sprite dot <svg width=10><circle r=4></svg>').slice(-8)).toEqual([
-      ['width', 'attributeName'], ['=', 'punctuation'], ['10', 'string'],
-      ['><circle', 'tagName'], ['r', 'attributeName'], ['=', 'punctuation'], ['4', 'string'], ['></svg>', 'tagName'],
+      ['width', 'attributeName'], ['=', 'definitionOperator'], ['10', 'string'],
+      ['><circle', 'tagName'], ['r', 'attributeName'], ['=', 'definitionOperator'], ['4', 'string'], ['></svg>', 'tagName'],
     ])
   })
 
@@ -110,7 +105,7 @@ describe('the sprites profile', () => {
 describe('a sprite in a uml block', () => {
   it('reads the pixel rows as data and the lines after as uml', () => {
     expect(umlTokens('sprite $bar [8x4/16] {', 'FFFFFFFF', '0F0F0F0F', '}', 'A -> B')).toEqual([
-      ...coreHeader, ['FFFFFFFF', 'SpriteData'], ['0F0F0F0F', 'SpriteData'], ['}', 'brace'], ['->', 'LinkOperator'],
+      ...header, ['FFFFFFFF', 'SpriteData'], ['0F0F0F0F', 'SpriteData'], ['}', 'brace'], ['->', 'LinkOperator'],
     ])
   })
 

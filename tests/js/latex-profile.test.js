@@ -51,18 +51,18 @@ describe('the latex profile', () => {
 describe('a @startlatex block', () => {
   it('reads a sum: commands, scripts, braces, numbers and relations', () => {
     expect(read('\\sum_{i=0}^{n-1} i = \\frac{n(n-1)}{2}')).toEqual([
-      ['\\sum', 'FunctionName'], ['_', 'operator'], ['{', 'punctuation'], ['=', 'operator'], ['0', 'number'], ['}', 'punctuation'],
-      ['^', 'operator'], ['{', 'punctuation'], ['-', 'operator'], ['1', 'number'], ['}', 'punctuation'], ['=', 'operator'],
-      ['\\frac', 'FunctionName'], ['{', 'punctuation'], ['(', 'punctuation'], ['-', 'operator'], ['1', 'number'], [')}{', 'punctuation'], ['2', 'number'], ['}', 'punctuation'],
+      ['\\sum', 'FunctionName'], ['_', 'operator'], ['{', 'brace'], ['=', 'operator'], ['0', 'number'], ['}', 'brace'],
+      ['^', 'operator'], ['{', 'brace'], ['-', 'operator'], ['1', 'number'], ['}', 'brace'], ['=', 'operator'],
+      ['\\frac', 'FunctionName'], ['{', 'brace'], ['(', 'paren'], ['-', 'operator'], ['1', 'number'], [')', 'paren'], ['}{', 'brace'], ['2', 'number'], ['}', 'brace'],
     ])
   })
 
   it('reads an environment: its name moss, & and \\\\ operators', () => {
     expect(read('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}')).toEqual([
-      ['\\begin', 'FunctionName'], ['{', 'punctuation'], ['pmatrix', 'typeName'], ['}', 'punctuation'], ['&', 'operator'],
-      ['\\\\', 'operator'], ['&', 'operator'], ['\\end', 'FunctionName'], ['{', 'punctuation'], ['pmatrix', 'typeName'], ['}', 'punctuation'],
+      ['\\begin', 'FunctionName'], ['{', 'brace'], ['pmatrix', 'typeName'], ['}', 'brace'], ['&', 'operator'],
+      ['\\\\', 'operator'], ['&', 'operator'], ['\\end', 'FunctionName'], ['{', 'brace'], ['pmatrix', 'typeName'], ['}', 'brace'],
     ])
-    expect(read('\\begin{align*}')).toEqual([['\\begin', 'FunctionName'], ['{', 'punctuation'], ['align*', 'typeName'], ['}', 'punctuation']])
+    expect(read('\\begin{align*}')).toEqual([['\\begin', 'FunctionName'], ['{', 'brace'], ['align*', 'typeName'], ['}', 'brace']])
   })
 
   it('takes any \\name as a command, and \\begin without braces as one too', () => {
@@ -81,13 +81,13 @@ describe('a @startlatex block', () => {
 
   it('reads [ ] as brackets and $ as grey', () => {
     expect(read('\\sqrt[3]{8} $$')).toEqual([
-      ['\\sqrt', 'FunctionName'], ['[', 'punctuation'], ['3', 'number'], [']{', 'punctuation'], ['8', 'number'],
-      ['}', 'punctuation'], ['$$', 'punctuation'],
+      ['\\sqrt', 'FunctionName'], ['[', 'squareBracket'], ['3', 'number'], [']', 'squareBracket'], ['{', 'brace'], ['8', 'number'],
+      ['}', 'brace'], ['$$', 'punctuation'],
     ])
   })
 
-  it('reads ( ) as punctuation', () => {
-    expect(read('f(x)')).toEqual([['(', 'punctuation'], [')', 'punctuation']])
+  it('reads ( ) as parens', () => {
+    expect(read('f(x)')).toEqual([['(', 'paren'], [')', 'paren']])
   })
 
   it('reads a setting line as a keyword and its value', () => {
@@ -98,7 +98,7 @@ describe('a @startlatex block', () => {
       ['DPI', 'keyword'], ['300', 'number'],
     ])
     // Without its space, it is no setting.
-    expect(read('color{red}')).toEqual([['{', 'punctuation'], ['}', 'punctuation']])
+    expect(read('color{red}')).toEqual([['{', 'brace'], ['}', 'brace']])
   })
 
   it("leaves a comment line PlantUML's, and never crashes on what LaTeX would not read", () => {

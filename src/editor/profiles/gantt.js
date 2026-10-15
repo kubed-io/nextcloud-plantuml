@@ -56,6 +56,7 @@ const startState = () => ({
   next: null, // the body the next line starts
   lead: false, // the token is the line's first
   colour: false, // 'any' where a colour goes, 'after' after one
+  part: null, // the rest of a `[task]`, `{resource}` or `<<stereotype>>` once its opener is read
   phase: null, // 'arrow' in `-[…]->`, 'link' in `with … link`, 'text' to the line's end
 })
 
@@ -84,13 +85,13 @@ function lineStart(stream, state) {
 function arrow(stream, state) {
   if (stream.match(/\]-*>/)) {
     state.phase = null
-    return 'operator'
+    return 'LinkOperator'
   }
   if (stream.match(HASH_COLOUR)) {
     return 'ColorLiteral'
   }
   if (stream.match(',')) {
-    return 'punctuation'
+    return 'separator'
   }
   if (stream.match(/[^,\]\s]+/)) {
     return 'attributeName'
@@ -112,6 +113,24 @@ function linkStyle(stream, state) {
   return 'ColorLiteral'
 }
 
+/** After an opener (`[`, `{`, `<<`): its body in `token`, then its closer, whose token is `bracket`. */
+function open(state, body, token, closer, bracket) {
+  state.part = { body, token, closer, bracket }
+  return bracket
+}
+
+/** The body and the closer of a bracketed name, one token each. */
+function part(stream, state) {
+  const { body, token, closer, bracket } = state.part
+  if (body && stream.match(body)) {
+    state.part = { body: null, token, closer, bracket }
+    return token
+  }
+  stream.match(closer)
+  state.part = null
+  return bracket
+}
+
 /** A run of keywords; one ending `colored in`, or `from`/`to` after a colour, is followed by one. */
 function keywords(stream, state) {
   const run = stream.current()
@@ -131,10 +150,14 @@ const mode = {
       state.lead = true
       state.colour = false
       state.phase = null
+      state.part = null
       if (state.next) {
         state.body = state.next
         state.next = null
       }
+    }
+    if (state.part) {
+      return part(stream, state)
     }
     if (stream.eatSpace()) {
       return null
@@ -175,7 +198,7 @@ const mode = {
     }
     if (state.colour === 'after' && stream.match('/')) {
       state.colour = 'any'
-      return 'punctuation'
+      return 'separator'
     }
     if (stream.match(HASH_COLOUR)) {
       state.colour = 'after'
@@ -194,11 +217,11 @@ const mode = {
     if (stream.match(/\[\[[^\]]*\]\]/)) {
       return 'link'
     }
-    if (stream.match(/\[[^[\]]*\]/)) {
-      return 'typeName'
+    if (stream.match(/\[(?=[^[\]]*\])/)) {
+      return open(state, /[^\]]+/, 'typeName', ']', 'squareBracket')
     }
-    if (stream.match(/\{[^{}]*\}/)) {
-      return 'VariableName'
+    if (stream.match(/\{(?=[^{}]*\})/)) {
+      return open(state, /[^}]+/, 'propertyName', '}', 'brace')
     }
     if (stream.match(/[$%][A-Za-z_]\w*(?=\()/)) {
       return 'FunctionName'
@@ -209,15 +232,15 @@ const mode = {
     if (stream.match(/"[^"]*"/)) {
       return 'string'
     }
-    if (stream.match(/<<[^>]*>>/)) {
-      return 'tagName'
+    if (stream.match(/<<(?=[^>]*>>)/)) {
+      return open(state, /[^>]+/, 'annotation', '>>', 'angleBracket')
     }
     if (stream.match(/-+>/)) {
-      return 'operator'
+      return 'LinkOperator'
     }
     if (stream.match(/-+\[/)) {
       state.phase = 'arrow'
-      return 'operator'
+      return 'LinkOperator'
     }
     stream.match(/\w+/) || stream.next()
     return null

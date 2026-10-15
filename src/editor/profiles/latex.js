@@ -5,12 +5,14 @@
  * LaTeX, in `@startlatex` blocks and, through the PlantUML mode, the middle of an inline
  * `<latex>…</latex>` and the lines of a `<latex>` block (T15). There is no list of names: any
  * `\name` is a command, as JLaTeXMath, which draws an unknown one as text, reads it, and the
- * name in `\begin{…}` and `\end{…}` is an environment. `{ }` and `[ ]` are brackets, `^`,
- * `_`, `&` and `\\` operators, `%` starts a comment to the line's end and `$` and `( )` are grey.
+ * name in `\begin{…}` and `\end{…}` is an environment. `{ }` are braces, `[ ]` square brackets, `( )` parens, `^`,
+ * `_`, `&` and `\\` operators, `%` starts a comment to the line's end and `$` is punctuation.
  * A block's line starting `color`, `backgroundcolor`, `scale` or `dpi` and a space is a setting,
  * a keyword and its value, as in the math profile.
  */
 const SETTING = /^[ \t]*(?:(?:background)?color|scale|dpi)[ \t]/i
+
+const BRACKETS = { '{': 'brace', '}': 'brace', '[': 'squareBracket', ']': 'squareBracket', '(': 'paren', ')': 'paren' }
 
 // What `\begin` or `\end` expects next: its brace, the name, the closing brace.
 const ENVIRONMENT = ['{', 'name', '}']
@@ -57,7 +59,10 @@ const mode = {
       return null
     }
     const ch = stream.next()
-    if ('{}[]()$'.includes(ch)) {
+    if (BRACKETS[ch]) {
+      return BRACKETS[ch]
+    }
+    if (ch === '$') {
       return 'punctuation'
     }
     return '^_&=+-*/<>|'.includes(ch) ? 'operator' : null
@@ -93,7 +98,7 @@ function environment(stream, state) {
     return 'typeName'
   }
   stream.next()
-  return 'punctuation'
+  return 'brace'
 }
 
 export default () => ({ type: 'latex', mode, completions: [], lints: [], values: [] })

@@ -27,13 +27,6 @@ const modes = Object.fromEntries([
 /** The YAML legacy mode's own tokens, which the dictionary does not hold it to. */
 const YAML_OWN = new Set(['atom', 'def', 'meta', 'string', 'number', 'comment', 'keyword', 'variable-2', 'operator', 'punctuation', 'variable', 'property'])
 
-/**
- * Tokens a grammar still emits that the dictionary does not list: the style
- * grammar's `.class` and `:depth(n)` are `className`, to become `attributeName`
- * (Y8) when it is re-tokened, and this entry goes with it.
- */
-const PENDING = new Set(['className'])
-
 /** R1: a name with `_` is valid when every part is a dictionary token. */
 const known = (name) => DICTIONARY_TOKENS.has(name.replace(/_/g, ' ')) || name.split('_').every((part) => DICTIONARY_TOKENS.has(part))
 
@@ -81,7 +74,7 @@ describe('the styling dictionary', () => {
   it.each(fixtures)('%s: every token is a dictionary token', (name) => {
     const found = nodes(readFileSync(new URL(name, DIR), 'utf8'))
     expect(found.length).toBeGreaterThan(0)
-    const bad = found.filter(([token, , inYaml]) => !(inYaml && YAML_OWN.has(token)) && !PENDING.has(token) && !known(token))
+    const bad = found.filter(([token, , inYaml]) => !(inYaml && YAML_OWN.has(token)) && !known(token))
     expect([...new Set(bad.map(([token, text]) => `${token} ${JSON.stringify(text)}`))]).toEqual([])
   })
 })

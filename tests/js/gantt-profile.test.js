@@ -75,43 +75,43 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
   })
 
   it('names a task moss, its verb a keyword and its duration a number', () => {
-    expect(read('[Build] lasts 3 days')).toEqual([['[Build]', 'typeName'], ['lasts', 'keyword'], ['3 days', 'number']])
+    expect(read('[Build] lasts 3 days')).toEqual([['[', 'squareBracket'], ['Build', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['3 days', 'number']])
     expect(read('[T] requires 2 weeks and 3 days')).toEqual([
-      ['[T]', 'typeName'], ['requires', 'keyword'], ['2 weeks', 'number'], ['and', 'keyword'], ['3 days', 'number'],
+      ['[', 'squareBracket'], ['T', 'typeName'], [']', 'squareBracket'], ['requires', 'keyword'], ['2 weeks', 'number'], ['and', 'keyword'], ['3 days', 'number'],
     ])
   })
 
   it("names a start after another task's end", () => {
     expect(read("[Build] starts at [Spec]'s end")).toEqual([
-      ['[Build]', 'typeName'], ['starts at', 'keyword'], ['[Spec]', 'typeName'], ["'s end", 'keyword'],
+      ['[', 'squareBracket'], ['Build', 'typeName'], [']', 'squareBracket'], ['starts at', 'keyword'], ['[', 'squareBracket'], ['Spec', 'typeName'], [']', 'squareBracket'], ["'s end", 'keyword'],
     ])
     expect(read("[Test] starts 3 working days after [Build]'s start")).toEqual([
-      ['[Test]', 'typeName'], ['starts', 'keyword'], ['3 working days', 'number'], ['after', 'keyword'], ['[Build]', 'typeName'], ["'s start", 'keyword'],
+      ['[', 'squareBracket'], ['Test', 'typeName'], [']', 'squareBracket'], ['starts', 'keyword'], ['3 working days', 'number'], ['after', 'keyword'], ['[', 'squareBracket'], ['Build', 'typeName'], [']', 'squareBracket'], ["'s start", 'keyword'],
     ])
   })
 
   it('reads an apostrophe inside a task as part of its name, not a comment', () => {
     expect(read("[End's committee] requires 2 days")).toEqual([
-      ["[End's committee]", 'typeName'], ['requires', 'keyword'], ['2 days', 'number'],
+      ['[', 'squareBracket'], ["End's committee", 'typeName'], [']', 'squareBracket'], ['requires', 'keyword'], ['2 days', 'number'],
     ])
   })
 
   it('names a resource slate, a percentage with it', () => {
     expect(read('{Alice:50%} is off on 2026-10-20')).toEqual([
-      ['{Alice:50%}', 'VariableName'], ['is off on', 'keyword'], ['2026-10-20', 'number'],
+      ['{', 'brace'], ['Alice:50%', 'propertyName'], ['}', 'brace'], ['is off on', 'keyword'], ['2026-10-20', 'number'],
     ])
     expect(read('[Design] on {Alice} {Bob:50%} lasts 5 days and is 40% complete')).toEqual([
-      ['[Design]', 'typeName'], ['on', 'keyword'], ['{Alice}', 'VariableName'], ['{Bob:50%}', 'VariableName'],
+      ['[', 'squareBracket'], ['Design', 'typeName'], [']', 'squareBracket'], ['on', 'keyword'], ['{', 'brace'], ['Alice', 'propertyName'], ['}', 'brace'], ['{', 'brace'], ['Bob:50%', 'propertyName'], ['}', 'brace'],
       ['lasts', 'keyword'], ['5 days', 'number'], ['and is', 'keyword'], ['40%', 'number'], ['complete', 'keyword'],
     ])
   })
 
   it('names the colours after colored in, a name or a hex, each a ColorLiteral', () => {
     expect(read('[A] is colored in Lavender/LightBlue')).toEqual([
-      ['[A]', 'typeName'], ['is colored in', 'keyword'], ['Lavender', 'ColorLiteral'], ['/', 'punctuation'], ['LightBlue', 'ColorLiteral'],
+      ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['is colored in', 'keyword'], ['Lavender', 'ColorLiteral'], ['/', 'separator'], ['LightBlue', 'ColorLiteral'],
     ])
     expect(read('[A] is coloured in #fa0 for completion from #red to blue')).toEqual([
-      ['[A]', 'typeName'], ['is coloured in', 'keyword'], ['#fa0', 'ColorLiteral'], ['for completion from', 'keyword'],
+      ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['is coloured in', 'keyword'], ['#fa0', 'ColorLiteral'], ['for completion from', 'keyword'],
       ['#red', 'ColorLiteral'], ['to', 'keyword'], ['blue', 'ColorLiteral'],
     ])
     expect(read('2026-10-14 to 2026-10-16 are colored in salmon and')).toEqual([
@@ -128,9 +128,9 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
   })
 
   it('names a colour after a task, and a coloured link', () => {
-    expect(read('[Task] #red/#blue')).toEqual([['[Task]', 'typeName'], ['#red', 'ColorLiteral'], ['/', 'punctuation'], ['#blue', 'ColorLiteral']])
+    expect(read('[Task] #red/#blue')).toEqual([['[', 'squareBracket'], ['Task', 'typeName'], [']', 'squareBracket'], ['#red', 'ColorLiteral'], ['/', 'separator'], ['#blue', 'ColorLiteral']])
     expect(read("[T] starts at [B]'s end with blue dotted link")).toEqual([
-      ['[T]', 'typeName'], ['starts at', 'keyword'], ['[B]', 'typeName'], ["'s end", 'keyword'],
+      ['[', 'squareBracket'], ['T', 'typeName'], [']', 'squareBracket'], ['starts at', 'keyword'], ['[', 'squareBracket'], ['B', 'typeName'], [']', 'squareBracket'], ["'s end", 'keyword'],
       ['with', 'keyword'], ['blue', 'ColorLiteral'], ['dotted', 'attributeName'], ['link', 'keyword'],
     ])
   })
@@ -140,10 +140,10 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     expect(read('--')).toEqual([['--', 'heading']])
   })
 
-  it('names a link arrow an operator, and a styled one in parts', () => {
-    expect(read('[A] -> [B]')).toEqual([['[A]', 'typeName'], ['->', 'operator'], ['[B]', 'typeName']])
+  it('names a link arrow a link operator, and a styled one in parts', () => {
+    expect(read('[A] -> [B]')).toEqual([['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['->', 'LinkOperator'], ['[', 'squareBracket'], ['B', 'typeName'], [']', 'squareBracket']])
     expect(read('[A] -[#FF0000,dashed]-> [B]')).toEqual([
-      ['[A]', 'typeName'], ['-[', 'operator'], ['#FF0000', 'ColorLiteral'], [',', 'punctuation'], ['dashed', 'attributeName'], [']->', 'operator'], ['[B]', 'typeName'],
+      ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['-[', 'LinkOperator'], ['#FF0000', 'ColorLiteral'], [',', 'separator'], ['dashed', 'attributeName'], [']->', 'LinkOperator'], ['[', 'squareBracket'], ['B', 'typeName'], [']', 'squareBracket'],
     ])
   })
 
@@ -154,21 +154,21 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
   })
 
   it('names relative dates and times numbers', () => {
-    expect(read('[A] starts D+5')).toEqual([['[A]', 'typeName'], ['starts', 'keyword'], ['D+5', 'number']])
+    expect(read('[A] starts D+5')).toEqual([['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['starts', 'keyword'], ['D+5', 'number']])
     expect(read('from 08:00 to 12:00 are working hours')).toEqual([
       ['from', 'keyword'], ['08:00', 'number'], ['to', 'keyword'], ['12:00', 'number'], ['are working hours', 'keyword'],
     ])
   })
 
   it('names a link, a display name and a stereotype', () => {
-    expect(read('[D] links to [[http://example.com]]')).toEqual([['[D]', 'typeName'], ['links to', 'keyword'], ['[[http://example.com]]', 'link']])
-    expect(read('[Build] is displayed as "Building"')).toEqual([['[Build]', 'typeName'], ['is displayed as', 'keyword'], ['"Building"', 'string']])
-    expect(read('[A] <<s>> lasts 2 days')).toEqual([['[A]', 'typeName'], ['<<s>>', 'tagName'], ['lasts', 'keyword'], ['2 days', 'number']])
+    expect(read('[D] links to [[http://example.com]]')).toEqual([['[', 'squareBracket'], ['D', 'typeName'], [']', 'squareBracket'], ['links to', 'keyword'], ['[[http://example.com]]', 'link']])
+    expect(read('[Build] is displayed as "Building"')).toEqual([['[', 'squareBracket'], ['Build', 'typeName'], [']', 'squareBracket'], ['is displayed as', 'keyword'], ['"Building"', 'string']])
+    expect(read('[A] <<s>> lasts 2 days')).toEqual([['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['<<', 'angleBracket'], ['s', 'annotation'], ['>>', 'angleBracket'], ['lasts', 'keyword'], ['2 days', 'number']])
   })
 
   it('leaves words it does not know plain', () => {
     expect(read('language de')).toEqual([['language', 'keyword']])
-    expect(read('A -> B')).toEqual([['->', 'operator']])
+    expect(read('A -> B')).toEqual([['->', 'LinkOperator']])
   })
 
   it('names comments, line and block', () => {
@@ -176,16 +176,16 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     expect(read("/' one '/")).toEqual([["/' one '/", 'comment']])
     expect(read("/' two", "[A] lasts", "'/", '[A] lasts 1 day')).toEqual([
       ["/' two", 'comment'], ['[A] lasts', 'comment'], ["'/", 'comment'],
-      ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'],
+      ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'],
     ])
   })
 
   it('reads the rest of a line after a comment as a line of its own', () => {
     expect(read("title My plan", "/' x '/ [A] lasts 1 day")).toEqual([
-      ['title', 'keyword'], ["/' x '/", 'comment'], ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'],
+      ['title', 'keyword'], ["/' x '/", 'comment'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'],
     ])
     expect(read("title My plan", "/' a", "x '/ [A] lasts 1 day")).toEqual([
-      ['title', 'keyword'], ["/' a", 'comment'], ["x '/", 'comment'], ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'],
+      ['title', 'keyword'], ["/' a", 'comment'], ["x '/", 'comment'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'],
     ])
   })
 
@@ -206,13 +206,13 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
       ['Project starts', 'keyword'], ['$start', 'VariableName'],
     ])
     expect(read('[A] lasts $days($n) days')).toEqual([
-      ['[A]', 'typeName'], ['lasts', 'keyword'], ['$days', 'FunctionName'], ['$n', 'VariableName'],
+      ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['$days', 'FunctionName'], ['$n', 'VariableName'],
     ])
   })
 
   it('reads a note, a legend and a title down to their ends, the text plain', () => {
     expect(read('note bottom', '[A] lasts 2 days', 'end note', '[A] lasts 1 day')).toEqual([
-      ['note bottom', 'keyword'], ['end note', 'keyword'], ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'],
+      ['note bottom', 'keyword'], ['end note', 'keyword'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'],
     ])
     expect(read('legend right', 'starts', 'endlegend')).toEqual([['legend right', 'keyword'], ['endlegend', 'keyword']])
     expect(read('title', 'Plan', 'end title')).toEqual([['title', 'keyword'], ['end title', 'keyword']])
@@ -221,7 +221,7 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
 
   it('reads a group around its tasks', () => {
     expect(read('group [Phase]', '[A] lasts 1 day', 'end group')).toEqual([
-      ['group', 'keyword'], ['[Phase]', 'typeName'], ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'], ['end group', 'keyword'],
+      ['group', 'keyword'], ['[', 'squareBracket'], ['Phase', 'typeName'], [']', 'squareBracket'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'], ['end group', 'keyword'],
     ])
   })
 
@@ -229,6 +229,6 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     const out = tokens(type, '<style>', 'ganttDiagram { }', '</style>', '[A] lasts 1 day')
     expect(out[0]).toEqual(['<style>', 'tagName'])
     expect(out).toContainEqual(['</style>', 'tagName'])
-    expect(out.slice(-3)).toEqual([['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number']])
+    expect(out.slice(-5)).toEqual([['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number']])
   })
 })

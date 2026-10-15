@@ -55,38 +55,38 @@ describe('the math profile', () => {
 describe('a @startmath block', () => {
   it('reads a formula: functions ochre, symbols slate, operators, scripts, numbers and brackets', () => {
     expect(read('f(t)=(a_0)/2 + sum_(n=1)^ooa_ncos((npit)/L)')).toEqual([
-      ['(', 'punctuation'], [')', 'punctuation'], ['=', 'operator'], ['(', 'punctuation'], ['_', 'operator'], ['0', 'number'],
-      [')', 'punctuation'], ['/', 'operator'], ['2', 'number'], ['+', 'operator'], ['sum', 'FunctionName'], ['_', 'operator'],
-      ['(', 'punctuation'], ['=', 'operator'], ['1', 'number'], [')', 'punctuation'], ['^', 'operator'], ['oo', 'VariableName'],
-      ['_', 'operator'], ['cos', 'FunctionName'], ['((', 'punctuation'], ['pi', 'VariableName'], [')', 'punctuation'],
-      ['/', 'operator'], [')', 'punctuation'],
+      ['(', 'paren'], [')', 'paren'], ['=', 'compareOperator'], ['(', 'paren'], ['_', 'operator'], ['0', 'number'],
+      [')', 'paren'], ['/', 'arithmeticOperator'], ['2', 'number'], ['+', 'arithmeticOperator'], ['sum', 'FunctionName'], ['_', 'operator'],
+      ['(', 'paren'], ['=', 'compareOperator'], ['1', 'number'], [')', 'paren'], ['^', 'operator'], ['oo', 'VariableName'],
+      ['_', 'operator'], ['cos', 'FunctionName'], ['((', 'paren'], ['pi', 'VariableName'], [')', 'paren'],
+      ['/', 'arithmeticOperator'], [')', 'paren'],
     ])
   })
 
   it('takes the longest name at any position, as PlantUML does', () => {
     expect(read('sinx')).toEqual([['sin', 'FunctionName']])
     expect(read('alphabeta')).toEqual([['alphabeta', 'VariableName']])
-    expect(read('x lt= y |-> z')).toEqual([['lt=', 'operator'], ['|->', 'operator']])
-    expect(read('1.5 xx 2.25')).toEqual([['1.5', 'number'], ['xx', 'operator'], ['2.25', 'number']])
+    expect(read('x lt= y |-> z')).toEqual([['lt=', 'compareOperator'], ['|->', 'operator']])
+    expect(read('1.5 xx 2.25')).toEqual([['1.5', 'number'], ['xx', 'arithmeticOperator'], ['2.25', 'number']])
   })
 
   it('reads AA and EE as symbols, and the word operators as operators', () => {
     expect(read('AA x in RR, EE y')).toEqual([
-      ['AA', 'VariableName'], ['in', 'operator'], ['RR', 'VariableName'], [',', 'punctuation'], ['EE', 'VariableName'],
+      ['AA', 'VariableName'], ['in', 'compareOperator'], ['RR', 'VariableName'], [',', 'separator'], ['EE', 'VariableName'],
     ])
-    expect(read('a and b => c')).toEqual([['and', 'operator'], ['=>', 'operator']])
+    expect(read('a and b => c')).toEqual([['and', 'logicOperator'], ['=>', 'operator']])
   })
 
   it('reads a quoted text and a text( ) argument as strings, whatever words they hold', () => {
     expect(read('"for all" x + text(a or b)')).toEqual([
-      ['"for all"', 'string'], ['+', 'operator'], ['text', 'FunctionName'], ['(', 'punctuation'], ['a or b', 'string'], [')', 'punctuation'],
+      ['"for all"', 'string'], ['+', 'arithmeticOperator'], ['text', 'FunctionName'], ['(', 'paren'], ['a or b', 'string'], [')', 'paren'],
     ])
     expect(read('x "open to the end')).toEqual([['"open to the end', 'string']])
   })
 
-  it('names the angle and invisible brackets punctuation', () => {
-    expect(read('(: a :)')).toEqual([['(:', 'punctuation'], [':)', 'punctuation']])
-    expect(read('{: x :}')).toEqual([['{:', 'punctuation'], [':}', 'punctuation']])
+  it('names the angle brackets angle brackets and the invisible ones braces', () => {
+    expect(read('(: a :)')).toEqual([['(:', 'angleBracket'], [':)', 'angleBracket']])
+    expect(read('{: x :}')).toEqual([['{:', 'brace'], [':}', 'brace']])
   })
 
   it('reads a setting line as a keyword and its value', () => {
@@ -97,7 +97,7 @@ describe('a @startmath block', () => {
       ['DPI', 'keyword'], ['300', 'number'],
     ])
     // Without its space, `color` is AsciiMath's colour command.
-    expect(read('color(red)(x)')).toEqual([['color', 'FunctionName'], ['(', 'punctuation'], [')(', 'punctuation'], [')', 'punctuation']])
+    expect(read('color(red)(x)')).toEqual([['color', 'FunctionName'], ['(', 'paren'], [')(', 'paren'], [')', 'paren']])
   })
 
   it("gives the colour pencil a setting's colour (C6)", async () => {

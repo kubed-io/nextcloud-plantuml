@@ -1207,7 +1207,7 @@ describe('the diagram tabs', () => {
   it('opens on the first diagram, one tab per diagram, at the top of the diagram pane', async () => {
     await open()
 
-    expect(q('.plantuml-editor__diagram').firstElementChild.getAttribute('role')).toBe('tablist')
+    expect(q('.plantuml-editor__diagram').firstElementChild.querySelector('[role="tablist"]')).not.toBeNull()
     expect(tabs().map((tab) => tab.textContent)).toEqual(['first', 'second', 'third'])
     expect(selected()).toEqual([true, false, false])
     expect(lastIndex()).toBe(0)
@@ -1218,7 +1218,7 @@ describe('the diagram tabs', () => {
     seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
     await open()
 
-    expect(q('.plantuml-editor__diagram [role="tablist"]').hidden).toBe(true)
+    expect(q('.plantuml-editor__diagram').firstElementChild.hidden).toBe(true)
   })
 
   it('follows the cursor into the second block, and draws it', async () => {

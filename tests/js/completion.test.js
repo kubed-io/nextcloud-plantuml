@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { CompletionContext, autocompletion, completionStatus, currentCompletions, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete'
+import { CompletionContext, autocompletion, nextSnippetField, completionStatus, currentCompletions, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
@@ -29,10 +29,11 @@ import { scan } from '../../src/editor/blocks.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
+import preprocessor from '../../src/editor/data/directives.json'
 import { filePath } from '../../src/editor/lint/state.js'
-import { listFolder } from '../../src/editor/save.js'
+import { listFolder, loadFile } from '../../src/editor/save.js'
 
-vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn() }))
+vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn(), loadFile: vi.fn() }))
 
 function stateAt(marked) {
   const pos = marked.indexOf('|')
@@ -95,7 +96,7 @@ describe('directives', () => {
     const result = complete(directives, '  !th|')
 
     expect(result.from).toBe(2)
-    expect(labels(result)).toEqual(['!theme', '!include', '!define', '!pragma'])
+    expect(labels(result)).toEqual(expect.arrayContaining(['!theme', '!include', '!define', '!pragma']))
     expect(labels(complete(directives, '@|'))).not.toContain('!theme')
     expect(complete(directives, 'A -> B : wow !|')).toBeNull()
   })
@@ -106,6 +107,54 @@ describe('directives', () => {
     expect(view.state.doc.toString()).toBe('!theme ')
     expect(view.state.selection.main.head).toBe('!theme '.length)
     view.destroy()
+  })
+})
+
+describe('every ! directive', () => {
+  const doc = (marked, label) => pick(marked, directives, label)
+
+  it('offers each word of the generated list, and the assignment', () => {
+    expect(labels(complete(directives, '!|')).sort()).toEqual([...preprocessor.directives, '!$'].sort())
+    expect(labels(complete(directives, '!$|'))).toContain('!$')
+  })
+
+  // The stops in the spec's field order (X3): each field selected in turn, the body last, `!$` ending on its value.
+  it.each([
+    ['!if', '!if condition\n\n!endif', ['!if condition', '!if condition\n']],
+    ['!while', '!while condition\n\n!endwhile', ['!while condition', '!while condition\n']],
+    ['!foreach', '!foreach $item in list\n\n!endfor', ['!foreach $item', '!foreach $item in list', '!foreach $item in list\n']],
+    ['!procedure', '!procedure $name()\n\n!endprocedure', ['!procedure $name', '!procedure $name(', '!procedure $name()\n']],
+    ['!function', '!function $name()\n!return \n!endfunction', ['!function $name', '!function $name(', '!function $name()\n!return ']],
+    ['!startsub', '!startsub NAME\n\n!endsub', ['!startsub NAME', '!startsub NAME\n']],
+    ['!$', '!$name = value', ['!$name', '!$name = value']],
+  ])('inserts %s as a block and visits its fields in order, ending on the body or value', (label, text, stops) => {
+    const view = doc(`${label.slice(0, 2)}|`, label)
+
+    expect(view.state.doc.toString()).toBe(text)
+    const heads = [view.state.selection.main.head]
+    for (let i = 1; i < stops.length; i++) {
+      nextSnippetField(view)
+      heads.push(view.state.selection.main.head)
+    }
+    expect(heads).toEqual(stops.map((stop) => stop.length))
+    view.destroy()
+  })
+
+  it('still inserts a plain word and a space', () => {
+    for (const label of ['!theme', '!include', '!pragma', '!undef']) {
+      const view = doc(`${label.slice(0, 3)}|`, label)
+
+      expect(view.state.doc.toString()).toBe(`${label} `)
+      view.destroy()
+    }
+  })
+
+  it('offers the way out of an open conditional first', () => {
+    expect(labels(complete(directives, '!if $a\n!if $b\n!endif\n!|')).slice(0, 3)).toEqual(['!else', '!elseif', '!endif'])
+    expect(complete(directives, '!if $a\n!if $b\n!endif\n!|').options.filter((o) => o.boost === 2)).toHaveLength(3)
+    expect(complete(directives, '!if $a\n!endif\n!|').options.some((o) => o.boost)).toBe(false)
+    expect(complete(directives, "/'\n!if $a\n'/\n!|").options.some((o) => o.boost)).toBe(false)
+    expect(labels(complete(directives, '!ifdef A\n!|')).slice(0, 3)).toEqual(['!else', '!elseif', '!endif'])
   })
 })
 
@@ -677,48 +726,140 @@ describe('connectors', () => {
 })
 
 describe('keywords', () => {
-  it('offers the keywords at the start of a line, after any indentation', () => {
-    const result = complete(keywords, '  part|')
+  it('offers the keywords at the start of a line, after any indentation', async () => {
+    const result = await complete(keywords, '  part|')
 
     expect(result.from).toBe(2)
     expect(result.options).toContainEqual(expect.objectContaining({ label: 'participant', type: 'keyword' }))
     expect(labels(result)).toEqual(expect.arrayContaining(['database', 'class', 'alt', 'autonumber', 'skinparam', 'endwhile', 'end fork']))
   })
 
-  it('offers nothing past the first word of a line', () => {
-    expect(complete(keywords, 'A -> part|')).toBeNull()
-    expect(complete(keywords, 'participant Al|')).toBeNull()
+  it('offers nothing past the first word of a line', async () => {
+    expect(await complete(keywords, 'A -> part|')).toBeNull()
+    expect(await complete(keywords, 'participant Al|')).toBeNull()
   })
 
-  it('keeps offering a two-word keyword after its space', () => {
-    const result = complete(keywords, '  end f|')
+  it('keeps offering a two-word keyword after its space', async () => {
+    const result = await complete(keywords, '  end f|')
 
     expect(result.from).toBe(2)
     expect(labels(result)).toContain('end fork')
     expect(result.validFor.test('end fo')).toBe(true)
   })
 
-  it('waits for a letter on an empty line unless asked', () => {
-    expect(complete(keywords, '|')).toBeNull()
-    expect(labels(complete(keywords, '|', true))).toContain('participant')
+  it('waits for a letter on an empty line unless asked', async () => {
+    expect(await complete(keywords, '|')).toBeNull()
+    expect(labels(await complete(keywords, '|', true))).toContain('participant')
+  })
+})
+
+describe('the server\'s keywords', () => {
+  // The hand-kept list as it was before the server's words joined it, in order.
+  const HAND = ['participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue', 'class', 'interface', 'abstract', 'enum', 'package', 'namespace', 'component', 'node', 'cloud', 'frame', 'folder', 'rectangle', 'usecase', 'state', 'object', 'alt', 'else', 'opt', 'loop', 'par', 'break', 'critical', 'group', 'end', 'note', 'ref', 'activate', 'deactivate', 'destroy', 'return', 'autonumber', 'title', 'header', 'footer', 'legend', 'skinparam', 'hide', 'show', 'left', 'right', 'top', 'bottom', 'start', 'stop', 'if', 'then', 'elseif', 'endif', 'while', 'endwhile', 'repeat', 'fork', 'end fork']
+  const ANSWER = { types: ['hexagon', 'actor'], keywords: ['hnote', 'left to right direction', 'alt', 'as'] }
+  let module
+
+  // The words are asked once per page, so each test loads a fresh module.
+  async function serving(fetch) {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    vi.stubGlobal('fetch', fetch)
+    module = await import('../../src/editor/completion/keywords.js')
+    return fetch
+  }
+  const ask = (marked, explicit = false) => complete(module.keywords, marked, explicit)
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('offers the server\'s element types and keywords', async () => {
+    const fetch = await serving(answering(ANSWER))
+
+    expect(labels(await ask('hex|'))).toContain('hexagon')
+    expect(labels(await ask('hn|'))).toContain('hnote')
+    expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/keywords', expect.objectContaining({ credentials: 'same-origin' }))
+  })
+
+  it('offers a multi-word keyword whole, while its words are typed', async () => {
+    await serving(answering(ANSWER))
+
+    for (const typed of ['left|', 'left |', 'left to|', 'left to |', 'left to ri|']) {
+      const result = await ask(typed)
+      expect(result.from).toBe(0)
+      expect(labels(result)).toContain('left to right direction')
+    }
+    expect(await ask('left to right direction x|')).toBeNull()
+    expect(await ask('note over A|')).toBeNull()
+
+    const { state, pos } = stateAt('left|')
+    const view = new EditorView({ state, parent: document.body })
+    const result = await module.keywords(new CompletionContext(view.state, pos, false))
+    const option = result.options.find((candidate) => candidate.label === 'left to right direction')
+    view.dispatch(insertCompletionText(view.state, option.apply ?? option.label, result.from, pos))
+    expect(view.state.doc.toString()).toBe('left to right direction')
+    view.destroy()
+  })
+
+  it('offers a word both lists have once, with the hand-kept detail', async () => {
+    await serving(answering(ANSWER))
+    const result = await ask('al|')
+
+    expect(labels(result).filter((label) => label === 'alt')).toHaveLength(1)
+    expect(labels(result).filter((label) => label === 'actor')).toHaveLength(1)
+    expect(result.options.find((option) => option.label === 'alt')).toMatchObject({ detail: 'alternatives', type: 'keyword' })
+  })
+
+  it('ranks the hand-kept words above the server-only ones', async () => {
+    await serving(answering(ANSWER))
+    const result = await ask('|', true)
+    const boost = (label) => result.options.find((option) => option.label === label).boost
+
+    expect(boost('participant')).toBe(1)
+    expect(boost('end fork')).toBe(1)
+    for (const label of ['hexagon', 'hnote', 'as', 'left to right direction']) {
+      expect(boost(label) ?? 0).toBeLessThan(boost('alt'))
+    }
+  })
+
+  it.each([
+    ['the request fails', () => vi.fn(async () => { throw new TypeError('offline') })],
+    ['the server answers 503', () => vi.fn(async () => new Response('{}', { status: 503 }))],
+    ['keywords is not a list', () => answering({ keywords: 'x' })],
+  ])('offers the hand-kept words alone when %s', async (_when, make) => {
+    await serving(make())
+
+    expect(labels(await ask('|', true))).toEqual(HAND)
+  })
+
+  it('keeps only the strings of each list', async () => {
+    await serving(answering({ types: [1, null], keywords: [{}, 'ok'] }))
+
+    expect(labels(await ask('|', true))).toEqual([...HAND, 'ok'])
+  })
+
+  it('keeps the exported lists as they were', async () => {
+    await serving(answering(ANSWER))
+
+    expect(module.KEYWORDS).toEqual(HAND.filter((label) => !label.includes(' ')))
+    expect(module.PARTICIPANTS).toEqual(HAND.slice(0, 8))
+    expect(module.STRUCTURES).toEqual(HAND.slice(8, 23))
+    expect(module.HELPER_HEADS).toEqual(['colors', 'help'])
   })
 })
 
 describe('helper commands', () => {
-  it('are offered on a line of their own in a uml block', () => {
-    expect(labels(complete(keywords, '@startuml\ncol|\n@enduml'))).toContain('colors')
-    const help = complete(keywords, '@startuml\nhelp t|\n@enduml')
+  it('are offered on a line of their own in a uml block', async () => {
+    expect(labels(await complete(keywords, '@startuml\ncol|\n@enduml'))).toContain('colors')
+    const help = await complete(keywords, '@startuml\nhelp t|\n@enduml')
     expect(labels(help)).toEqual(expect.arrayContaining(['help themes', 'help types']))
     expect(help.from).toBe('@startuml\n'.length)
   })
 
-  it('are not offered with anything else on the line', () => {
-    expect(labels(complete(keywords, '@startuml\ncol| x\n@enduml'))).not.toContain('colors')
+  it('are not offered with anything else on the line', async () => {
+    expect(labels(await complete(keywords, '@startuml\ncol| x\n@enduml'))).not.toContain('colors')
   })
 
-  it('are not offered in other block types or outside a block', () => {
-    expect(labels(complete(keywords, '@startmindmap\ncol|\n@endmindmap'))).not.toContain('colors')
-    expect(labels(complete(keywords, 'col|'))).not.toContain('colors')
+  it('are not offered in other block types or outside a block', async () => {
+    expect(labels(await complete(keywords, '@startmindmap\ncol|\n@endmindmap'))).not.toContain('colors')
+    expect(labels(await complete(keywords, 'col|'))).not.toContain('colors')
   })
 })
 
@@ -1010,9 +1151,9 @@ describe('inside a style block', () => {
     ['a body line', '<style>\nac|\n</style>'],
     ['the middle of a one-line block', '<style>node { Line| }</style>'],
     ['a body with no </style> yet', '<style>\nnode {\n  Al|'],
-  ])('leaves %s to the style sources', (_where, marked) => {
+  ])('leaves %s to the style sources', async (_where, marked) => {
     for (const source of [keywords, snippets, names, connectors]) {
-      expect(complete(source, DIAGRAM + marked, true)).toBeNull()
+      expect(await complete(source, DIAGRAM + marked, true)).toBeNull()
     }
   })
 
@@ -1033,8 +1174,8 @@ describe('inside a style block', () => {
     expect(complete(filesNote, '@startfiles\n<style>\n<|\n</style>\n@endfiles')).toBeNull()
   })
 
-  it('offers them all again after the block', () => {
-    expect(labels(complete(keywords, '<style>\n</style>\nac|'))).toContain('actor')
+  it('offers them all again after the block', async () => {
+    expect(labels(await complete(keywords, '<style>\n</style>\nac|'))).toContain('actor')
     expect(complete(styleTag, '<style>\n</style>\n<|')).not.toBeNull()
     expect(complete(connectors, '@startuml\n<style>\n@enduml\nnode1 |')).not.toBeNull()
   })
@@ -1166,5 +1307,147 @@ describe('local paths', () => {
     await new Promise((resolve) => setTimeout(resolve, 150))
     expect(listFolder).toHaveBeenCalledWith('/Diagrams/sub')
     view.destroy()
+  })
+})
+
+describe('sections and blocks of an included file', () => {
+  // The per-page cache is module-level, so each test reads its own file.
+  const DIAGRAM = '/apps/UML_Fun.puml'
+
+  beforeEach(() => {
+    vi.mocked(listFolder).mockReset()
+    vi.mocked(listFolder).mockResolvedValue([{ name: 'parts.puml', folder: false }])
+    vi.mocked(loadFile).mockReset()
+  })
+
+  function completeAt(marked, path = DIAGRAM) {
+    const pos = marked.indexOf('|')
+    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, plantumlCompletion, filePath.of(path)] })
+    return localFiles(new CompletionContext(state, pos, false))
+  }
+
+  function pickAfter(directive) {
+    const doc = `${directive} `
+    const view = new EditorView({ state: EditorState.create({ doc, selection: { anchor: doc.length }, extensions: [plantumlMode, plantumlCompletion, filePath.of(DIAGRAM)] }), parent: document.body })
+    return localFiles(new CompletionContext(view.state, doc.length, false)).then((result) => {
+      const option = result.options.find((candidate) => candidate.label === 'parts.puml')
+      if (typeof option.apply === 'function') {
+        option.apply(view, option, result.from, doc.length)
+      } else {
+        view.dispatch({ changes: { from: result.from, to: doc.length, insert: option.apply ?? option.label } })
+      }
+      return view
+    })
+  }
+
+  it('offers the !startsub names of the file after !includesub path!, once each, in order', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '!startsub ACTORS\nA -> B\n!endsub\n!startsub ACTORS\n!endsub\n!startsub LEGEND\n', etag: 'e' })
+
+    const result = await completeAt('!includesub ./parts.puml!|')
+
+    expect(loadFile).toHaveBeenCalledWith('/apps/parts.puml')
+    expect(labels(result)).toEqual(['ACTORS', 'LEGEND'])
+    expect(result.options.every((option) => option.type === 'constant')).toBe(true)
+    expect(result.from).toBe('!includesub ./parts.puml!'.length)
+  })
+
+  it('offers the named blocks after !include path!, and not the unnamed ones', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts\nA -> B\n@enduml\n@startuml(id=legend)\n@enduml\n@startmindmap\n* x\n', etag: 'e' })
+
+    const result = await completeAt('!include ./blocks.puml!|')
+
+    expect(loadFile).toHaveBeenCalledWith('/apps/blocks.puml')
+    expect(labels(result)).toEqual(['parts', 'legend'])
+  })
+
+  it('offers a block name as the resolver reads it: a dotted token, or an id with spaces', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts.v2\n@enduml\n@startuml(id = legend)\n@enduml\n', etag: 'e' })
+
+    const result = await completeAt('!include ./resolver-names.puml!|')
+
+    expect(labels(result)).toEqual(['parts.v2', 'legend'])
+  })
+
+  it('keeps offering while a dotted name is typed after the !', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts.v2\n@enduml\n', etag: 'e' })
+
+    const result = await completeAt('!include ./typed-dots.puml!parts.|')
+
+    expect(labels(result)).toEqual(['parts.v2'])
+    expect(result.validFor.test('parts.v')).toBe(true)
+  })
+
+  it('offers the open document\'s own sections first after a bare !includesub', async () => {
+    const result = await completeAt('!includesub |\n!startsub ACTORS\n!endsub')
+
+    expect(labels(result).slice(0, 1)).toEqual(['ACTORS'])
+    expect(result.options[0].type).toBe('constant')
+    expect(labels(result)).toContain('parts.puml')
+    expect(loadFile).not.toHaveBeenCalled()
+  })
+
+  it('adds the ! after a file picked for !includesub and opens the names, but not for !include', async () => {
+    const sub = await pickAfter('!includesub')
+    expect(sub.state.doc.toString()).toBe('!includesub parts.puml!')
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(completionStatus(sub.state)).toBe('active')
+    sub.destroy()
+
+    const plain = await pickAfter('!include')
+    expect(plain.state.doc.toString()).toBe('!include parts.puml')
+    plain.destroy()
+  })
+
+  it('offers nothing when the read fails', async () => {
+    vi.mocked(loadFile).mockRejectedValue(new Error('gone'))
+
+    expect(await completeAt('!includesub ./missing.puml!|')).toBeNull()
+  })
+
+  it('does not read a $ or % path, a <library> or a URL', async () => {
+    expect(await completeAt('!includesub $dir/x.puml!|')).toBeNull()
+    expect(await completeAt('!includesub %dir()/x.puml!|')).toBeNull()
+    expect(await completeAt('!includesub <C4/C4>!|')).toBeNull()
+    expect(await completeAt('!includesub https://x.org/a.puml!|')).toBeNull()
+    expect(loadFile).not.toHaveBeenCalled()
+  })
+
+  it('takes a quoted path with spaces, after !include and !includesub', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml spaced\n!startsub PART\n', etag: 'e' })
+
+    expect(labels(await completeAt('!includesub "a b.puml"!|'))).toEqual(['PART'])
+    expect(loadFile).toHaveBeenCalledWith('/apps/a b.puml')
+    expect(labels(await completeAt('!include "a b.puml"!|'))).toEqual(['spaced'])
+  })
+
+  it('still offers the diagram\'s own sections when the listing fails', async () => {
+    vi.mocked(listFolder).mockRejectedValue(new Error('offline'))
+
+    const result = await completeAt('!includesub |\n!startsub ACTORS')
+
+    expect(labels(result)).toEqual(['ACTORS'])
+    expect(await completeAt('!includesub |')).toBeNull()
+  })
+
+  it('reads again after a failed read, and after the page regains focus', async () => {
+    vi.mocked(loadFile).mockRejectedValueOnce(new Error('blip')).mockResolvedValue({ content: '!startsub RETRY\n', etag: 'e' })
+
+    expect(await completeAt('!includesub ./retry.puml!|')).toBeNull()
+    expect(labels(await completeAt('!includesub ./retry.puml!|'))).toEqual(['RETRY'])
+    expect(loadFile).toHaveBeenCalledTimes(2)
+
+    window.dispatchEvent(new Event('focus'))
+    await completeAt('!includesub ./retry.puml!|')
+    expect(loadFile).toHaveBeenCalledTimes(3)
+  })
+
+  it('reads a file once per page', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '!startsub ONCE\n', etag: 'e' })
+
+    await completeAt('!includesub ./once.puml!|')
+    const again = await completeAt('!includesub ./once.puml!O|')
+
+    expect(loadFile).toHaveBeenCalledTimes(1)
+    expect(labels(again)).toEqual(['ONCE'])
   })
 })

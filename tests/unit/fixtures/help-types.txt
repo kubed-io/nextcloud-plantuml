@@ -1,0 +1,90 @@
+                         
+Help on types            
+                         
+                         
+ The possible types are :
+                         
+            abstract     
+                         
+            action       
+            actor        
+                         
+            agent        
+            analog       
+                         
+            annotation   
+                         
+            archimate    
+            artifact     
+                         
+            binary       
+            boundary     
+                         
+            card         
+                         
+            class        
+            clock        
+                         
+            cloud        
+            collections  
+                         
+            component    
+                         
+            concise      
+            control      
+                         
+            database     
+            dataclass    
+                         
+            diamond      
+                         
+            entity       
+            enum         
+                         
+            exception    
+            file         
+                         
+            folder       
+                         
+            frame        
+            hexagon      
+                         
+            interface    
+            json         
+                         
+            label        
+                         
+            map          
+            metaclass    
+                         
+            network      
+            node         
+                         
+            nwdiag       
+                         
+            object       
+            package      
+                         
+            packetdiag   
+            participant  
+                         
+            person       
+                         
+            process      
+            protocol     
+                         
+            queue        
+            record       
+                         
+            rectangle    
+                         
+            relationship 
+            robust       
+                         
+            stack        
+            state        
+                         
+            storage      
+                         
+            struct       
+            usecase      

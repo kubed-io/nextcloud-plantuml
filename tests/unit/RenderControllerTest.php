@@ -287,6 +287,27 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
 	}
 
+	public function testKeywordsAreTheServersLists(): void {
+		$lists = ['diagrams' => ['uml'], 'types' => ['actor'], 'keywords' => ['alt', 'floating note']];
+		$render = $this->createStub(RenderService::class);
+		$render->method('keywords')->willReturn($lists);
+
+		$response = $this->controller($render, new NotFoundException())->keywords();
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame($lists, $response->getData());
+	}
+
+	public function testKeywordsFromAServerThatCannotAnswerIs503WithProblem(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('keywords')->willThrowException(new RenderException(RenderException::PROBLEM_NOT_PLANTUML));
+
+		$response = $this->controller($render, new NotFoundException())->keywords();
+
+		self::assertSame(503, $response->getStatus());
+		self::assertSame(['problem' => 'not a PlantUML server'], $response->getData());
+	}
+
 	public function testIconsAndEmojiAreTheServersLists(): void {
 		$render = $this->createStub(RenderService::class);
 		$render->method('icons')->willReturn(['account-login', 'clock']);

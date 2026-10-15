@@ -1,6 +1,6 @@
 # Design boards
 
-Exported from the Penpot file "NXT PlantUML" on 2026-10-13, updated 2026-10-14, one PNG per
+Exported from the Penpot file "NXT PlantUML" on 2026-10-13, updated 2026-10-15, one PNG per
 board. The spec's "The design" section says what each board shows and what the prototype links do.
 
 | Page | Board | File |
@@ -14,6 +14,8 @@ board. The spec's "The design" section says what each board shows and what the p
 | Editor | saved: the plain check | [editor-saved.png](editor-saved.png) |
 | Editor | the connector completions after `node1 ` | [editor-autocomplete.png](editor-autocomplete.png) |
 | Editor | an unnamed `@startuml` warned, and the Add name panel | [editor-lint.png](editor-lint.png) |
+| Editor | a `<style>` block, the pencil after `FontStyle bold` opening its list | [editor-style.png](editor-style.png) |
+| Editor | the stepper after `FontSize 22` | [editor-style-stepper.png](editor-style-stepper.png) |
 | Editor | the dark theme, with the search panel open | [editor-dark.png](editor-dark.png) |
 | Files | the Diagrams folder | [files.png](files.png) |
 | Files | the Viewer on a diagram | [viewer.png](viewer.png) |

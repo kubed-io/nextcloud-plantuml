@@ -45,3 +45,10 @@ All notable changes to this project are documented here. The format follows
 - `@startcreole` and `@startfiles` diagrams are highlighted and complete, and the rest of Creole is read: headings, lists, escapes, titled rules, coloured table cells and `<code>`.
 - Relative `!include`, `!includesub`, `<style file=…>` and `!import lib.zip` resolve in your own files, for the editor, the README and `.puml` files alike; a mistake in an included file lands on its include line.
 - Local path completion after `!include` and `<style file=`, one folder at a time.
+- Autocomplete offers every `!` directive, with a block snippet where it has one.
+- Autocomplete offers the section and block names of a file after `!includesub path!` and `!include path!`.
+- Line-start autocomplete adds the server's keywords and element types, from the new route `GET /apps/plantuml/keywords`.
+
+### Fixed
+
+- `!includesub NAME` of a section in the same diagram no longer shows a mistake.

@@ -151,8 +151,9 @@ final class IncludeResolver {
 			$this->import($path, $at, $context);
 			return;
 		}
+		// Without a `!`, PlantUML reads the whole as a section of this same diagram.
 		if ($kind === 'includesub' && $selector === null) {
-			$this->keep($at, "$shown needs !NAME");
+			$this->keep($at, null);
 			return;
 		}
 		$found = $this->located($path, $context, true, $at);

@@ -12,13 +12,13 @@ import { APP_ID } from '../../files-helpers.js'
 const asked = new Map()
 const HEX = /^#[\dA-Fa-f]{6}$/
 
-/** The route's answer under `name`, as `read` keeps it; `empty` when there is none. */
+/** The route's answer under `name`, as `read` keeps it (given the whole body too); `empty` when there is none. */
 function ask(name, read, empty) {
   if (!asked.has(name)) {
     asked.set(name, Promise.resolve()
       .then(() => fetch(OC.generateUrl(`/apps/${APP_ID}/${name}`), { credentials: 'same-origin' }))
       .then((res) => (res.ok ? res.json() : {}))
-      .then((body) => read(body?.[name]))
+      .then((body) => read(body?.[name], body))
       .catch(() => empty))
   }
   return asked.get(name)
@@ -39,4 +39,15 @@ export function serverColors() {
   return ask('colors', (map) => (map && typeof map === 'object' && !Array.isArray(map)
     ? Object.fromEntries(Object.entries(map).filter(([, hex]) => hex === null || (typeof hex === 'string' && HEX.test(hex))))
     : {}), {})
+}
+
+/**
+ * The server's element types (`help types`) and keywords (`help keywords`),
+ * strings only; both empty while it does not answer (X11).
+ *
+ * @return {Promise<{types: string[], keywords: string[]}>}
+ */
+export function serverKeywords() {
+  const strings = (list) => (Array.isArray(list) ? list.filter((item) => typeof item === 'string') : [])
+  return ask('keywords', (_ignored, body) => ({ types: strings(body?.types), keywords: strings(body?.keywords) }), { types: [], keywords: [] })
 }

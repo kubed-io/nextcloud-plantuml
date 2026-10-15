@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Regenerates src/editor/data/vocabulary.json from PlantUML's source at the tag
+// Regenerates src/editor/data/{vocabulary,builtins,directives}.json from PlantUML's source at the tag
 // of the pinned server image (X1). Needs network; the tests never do.
 // Run: node scripts/vocabulary.mjs
 import { writeFile } from 'node:fs/promises'
@@ -18,10 +18,13 @@ async function source(path) {
   return res.text()
 }
 
+/** Java source without its comments, so a commented-out declaration is not read. */
+const withoutComments = (java) => java.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
 // The constant names of a Java enum: the identifiers at the start of each
 // entry in the body, up to the first `;`, ignoring comments and arguments.
 export function enumConstants(java) {
-  const stripped = java.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+  const stripped = withoutComments(java)
   const open = stripped.indexOf('{', stripped.search(/\benum\b/))
   const end = stripped.indexOf(';', open)
   const body = stripped.slice(open + 1, end === -1 ? undefined : end)
@@ -38,6 +41,34 @@ export function enumConstants(java) {
     } else if (depth === 0 || ch !== ',') entry += ch
   }
   return names
+}
+
+/**
+ * The `!` lines of PlantUML's preprocessor, from its line classifier: each
+ * `simpleKeyword("!x")` or `RegexLeaf("!x")`, widened by the `RegexOr` of
+ * `RegexLeaf("y")` right after it in the same concat (`!include` + `url`
+ * gives `!includeurl`; a bare `!end` is not a line, `!endfunction` is), and
+ * the `!` + `function`/`procedure` declarations.
+ */
+export function directiveWords(java) {
+  const code = withoutComments(java)
+  const words = new Set()
+  const literal = /(?:simpleKeyword|new\s+RegexLeaf)\(\s*"(![a-z_]+)"\s*\)/g
+  const suffixes = /^(?:\s*,\s*RegexLeaf\.\w+\(\))*\s*,\s*(?:new\s+RegexOptional\(\s*)?new\s+RegexOr\(((?:\s*new\s+RegexLeaf\("\w+"\)\s*,?)+)\)/
+  for (const match of code.matchAll(literal)) {
+    const parts = code.slice(match.index + match[0].length).match(suffixes)?.[1]
+    const following = parts ? [...parts.matchAll(/"(\w+)"/g)].map((m) => m[1]) : []
+    if (!following.length) words.add(match[1])
+    // `!end` alone is not a line; `!include` is, with or without a suffix.
+    else {
+      if (match[1] !== '!end') words.add(match[1])
+      for (const part of following) words.add(match[1] + part)
+    }
+  }
+  for (const match of code.matchAll(/new\s+RegexLeaf\("!"\)[^;]*?new\s+RegexLeaf\("(function|procedure)"\)/g)) {
+    words.add(`!${match[1]}`)
+  }
+  return [...words].sort()
 }
 
 /**
@@ -91,15 +122,25 @@ async function style() {
   }
 }
 
+async function directives() {
+  const java = await source('text/TLineType.java')
+  // `!pragma` is a diagram command, not a TLineType line; `!local`/`!global`
+  // are the AFFECTATION forms and `!unquoted`/`!final` the function modifiers.
+  const extra = ['!pragma', '!local', '!global', '!unquoted', '!final']
+  return { plantuml: VERSION, directives: [...new Set([...directiveWords(java), ...extra])].sort() }
+}
+
 const artifacts = [
   { file: 'vocabulary.json', build: style },
   { file: 'builtins.json', build: builtins },
+  { file: 'directives.json', build: directives },
 ]
 
 async function write({ file, build }) {
   const data = await build()
   await writeFile(new URL(`../src/editor/data/${file}`, import.meta.url), JSON.stringify(data, null, 2) + '\n')
-  console.info(`${file}: ${Array.isArray(data) ? `${data.length} entries` : Object.entries(data.style).map(([k, v]) => `${v.length} ${k}`).join(', ')}`)
+  const counts = Array.isArray(data) ? { entries: data } : data.style ?? { directives: data.directives }
+  console.info(`${file}: ${Object.entries(counts).map(([k, v]) => `${v.length} ${k}`).join(', ')}`)
 }
 
 async function main() {

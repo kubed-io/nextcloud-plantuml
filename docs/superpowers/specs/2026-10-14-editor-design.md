@@ -231,6 +231,7 @@ case-insensitive (`<c4/…>` and `<C4/…>` both work).
 | X15 | **Colour forms.** Gradients `#Red/Yellow`, `#Red\|Yellow`, `#Red-Yellow`, `#Red\Yellow` (a second hex may drop its `#`: `#FF0000/FFFF00`), Gantt's `is colored in White/Red`, and the automatic text colour `#?black:white` are coloured as colours, each part a `ColorLiteral` with its own swatch. | plantuml.com/color | agreed (style round) |
 | X16 | **`@startcreole` blocks** are Creole from top to bottom: their lines use H8's Creole rules (bold, italic, monospace, underline, tags, `[[links]]`, tables, `----` rules), from core, with no profile. | Dr K: "a diagram type called `@startcreole` exists too" | agreed (style round) |
 | X17 | **Sub-diagrams** (plantuml.com/sub-diagram). Inside a note, a legend, a `[ … ]` description or a link label, a line `{{` or `{{<type>` opens a diagram drawn in place, up to a line `}}` (in a label, `{{\n…\n}}` inline). Its lines take that type's grammar: uml for a bare `{{`, a profile's for `{{salt`, `{{json`, `{{yaml`, `{{wbs`, `{{mindmap`, `{{gantt`, `{{regex`, `{{ebnf`, `{{chronology` (each drawn by the live server inside a note on 2026-10-15), the profile loaded as P3 does for a block. The region folds (B6), and after `{{` completion offers those types. | Dr K: "https://plantuml.com/sub-diagram" | agreed (round 2) |
+| X18 | **`@startfiles`** (plantuml.com/files-diagram), from core like X16: each line a path, its `/` separators punctuation, folder segments plain and the last segment (the file) plain, with Creole read in every segment (H8: `**bold**`, `<color:blue>`, …); `<note>` … `</note>` a tag pair whose lines between are Creole. `@startfiles` is offered by C2 now (not waiting for X2), with B8's whole block (`@startfiles <name>`, a `/` line, `@endfiles`); inside a files block, `<` at the start of a line offers `<note>` (inserting `<note>`, an empty line and `</note>`). | Dr K: "make sure we support … files-diagram, in the autocomplete options and syntax highlighting" | agreed (style round) |
 
 ### Choosing values
 
@@ -304,7 +305,7 @@ Each checked against the code on 2026-10-14.
 
 Not agreed; each waits on Dr K.
 
-- Grammars for the 20 types without one (X2; `creole` is X16): `chen`, `chart`, `chronology`, `files`, `nwdiag`, `packetdiag`, `math` and `latex` (CodeMirror's `stex` mode could serve both), `ditaa` (ASCII art: no grammar, plain text), `dot`, `jcckit`, `def`, `wire`, `git`, `hcl`, and the undocumented `board`, `bpm`, `flow`, `project`, `sprites`. Until then they are coloured as uml.
+- Grammars for the 19 types without one (X2; `creole` is X16, `files` X18): `chen`, `chart`, `chronology`, `nwdiag`, `packetdiag`, `math` and `latex` (CodeMirror's `stex` mode could serve both), `ditaa` (ASCII art: no grammar, plain text), `dot`, `jcckit`, `def`, `wire`, `git`, `hcl`, and the undocumented `board`, `bpm`, `flow`, `project`, `sprites`. Until then they are coloured as uml.
 - A hint on `skinparam` lines that `<style>` replaces it (plantuml.com calls it deprecated), maybe with a quick fix for the simple cases.
 
 - **L6** a fit / 100% toggle, maybe zoom.

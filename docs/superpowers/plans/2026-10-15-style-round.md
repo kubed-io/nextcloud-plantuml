@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Tech Stack:** CodeMirror 6 (`StreamLanguage`, `WidgetType`, `Decoration`, `@codemirror/autocomplete`, `@codemirror/lint`), vitest + jsdom, PHP 8.1+ / PHPUnit 12 with OCP stubs, Node 24 for the generator.
 
-**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` (X1 style part, X4's `%`, X8, X9, X10 style part, X13–X15, W1–W3, R1–R7) and the two render route rows of `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`.
+**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` (X1 style part, X4's `%`, X8, X9, X10 style part, X13–X16, X18, W1–W3, R1–R7) and the two render route rows of `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`.
 
 ## Global Constraints
 
@@ -97,6 +97,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - [ ] Tests first: `builtins.json` holds `%date`, `%lighten`, `%get_all_stdlib`, `%strlen` with descriptions, and functions without a readme row (e.g. `%get_current_theme`) with an empty description; after `%` anywhere (not in a `'` comment) the list is offered, each inserted as `%name()` with the cursor between the parentheses and the description as the detail; X13: on an empty line in a uml block, `col` offers `colors`, `help t` offers `help themes`/`help types`; not inside other block types.
 - [ ] Implement; suites, lint, build + guard (the builtins chunk is imported dynamically, never statically). Commit `feat(editor): built-in functions after % and PlantUML's helper commands (X4, X13)`.
+
+### Task 4d: Files diagrams (X18)
+
+**Files:** Modify `src/editor/plantuml-mode.js` (a `@startfiles` block: path lines and `<note>` bodies, Creole from the existing rules, as X16 does for creole), `src/editor/completion/directives.js` (`@startfiles`/`@endfiles`, B8 body `/`), `src/editor/completion/style-tag.js` or a new `completion/files-note.js` (`<note>` at line start inside a files block); Test `tests/js/plantuml-mode.test.js`, `tests/js/completion.test.js`.
+
+- [ ] Tests first, from plantuml.com/files-diagram's examples: `/src/example.py` gives `/` punctuation and plain segments; `/**creole_test**/""monospaced""` gives strong and monospace; `<note>` and `</note>` are `tagName`, the lines between Creole; the line after `@endfiles` is uml again; `@st` offers `@startfiles` and picking it inserts `@startfiles name` / `/` / `@endfiles`; `<` on an empty line inside a files block offers `<note>` first; outside a files block it does not.
+- [ ] Implement; suites, lint, build. Commit `feat(editor): files diagrams, highlighted and offered (X18)`.
 
 ### Task 5: IncludeResolver
 

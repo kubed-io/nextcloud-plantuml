@@ -23,7 +23,8 @@
  * that mode, except for `'` and `/' … '/` comments and `!` preprocessor lines. A `<style>`
  * block is a region of its own wherever it starts a line, read by
  * `inner.style` or else left plain, the middle of an inline `<math>…</math>` in Creole is read by
- * `inner.math` or else left plain, and a `@startcreole` block is Creole and a `@startfiles` block
+ * `inner.math` or else left plain, and likewise `<latex>…</latex>` by `inner.latex` and the lines
+ * of a Creole body between a line `<latex>` and a line `</latex>`, and a `@startcreole` block is Creole and a `@startfiles` block
  * is paths and `<note>` bodies.
  */
 import { StreamLanguage } from '@codemirror/language'
@@ -125,8 +126,9 @@ function creole(base) {
     { regex: /"".+?""/, token: on('monospace') },
     { regex: /__.+?__/, token: on('underline') },
     // An inline formula, PlantUML's `<math>(.+?)</math>` on one line: its middle is the
-    // state `math`'s, see `mathMiddle`.
+    // state `math`'s, see `inlineMiddle`.
     { regex: /<math>(?=.+?<\/math>)/, token: 'tagName', push: 'math' },
+    { regex: /<latex>(?=.+?<\/latex>)/, token: 'tagName', push: 'latex' },
     // A tag's parts (H10): its name and `>` are tags, `:`, `{`, `,` and `}` punctuation, an
     // attribute's name an attribute and its value a string, or a colour.
     { regex: new RegExp(`(<(?:color|back|u|s|w))(:)(#?${colourPart})(>)`), token: ['tagName', 'punctuation', 'ColorLiteral', 'tagName'] },
@@ -170,6 +172,8 @@ const lines = (code) => [
   atLineStart(/(?:\*{1,2}|#{1,2})(?=[ \t])/.source, 'punctuation'),
   atLineStart(/\|_/.source, 'punctuation'),
   atLineStart(/<code>(?=\s*$)/.source, 'tagName', { next: code }),
+  // A formula over several lines: exactly `<latex>`, down to a line that is exactly `</latex>`.
+  { regex: /<latex>$/, sol: true, token: 'tagName', push: 'latexBlock' },
 ]
 
 /** The lines of a `<code>` block: monospace down to `</code>`, or to the end of the body. */
@@ -315,8 +319,10 @@ const base = simpleMode({
   ],
   label: creole('labelName'),
   text: creole(null),
-  // Read by the language's token (`mathMiddle`); simple-mode wants the state to exist.
+  // Read by the language's token (`inlineMiddle`, `latexBody`); simple-mode wants the state to exist.
   math: [],
+  latex: [],
+  latexBlock: [],
   noteHead: head,
   legendHead: head,
   ...body('noteBody', /end\s*[hr]?note\b/.source),
@@ -365,6 +371,10 @@ const styleOpen = /^([ \t]*)(<style>)(\s*)$/
 const styleOneLine = /^([ \t]*)(<style>)(.*)<\/style>\s*$/
 const styleImport = /^([ \t]*)(<style)(\s+)([\w-]+)(\s*)(=)(\s*)([^>]*?)(\s*)(>)(\s*)$/
 const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
+
+// A `<latex>` block's last line, and the lines that end a Creole body with it unclosed.
+const latexClose = /^<\/latex>$/
+const bodyEnd = /^[ \t]*(?:end\s*(?:[hr]?note|legend|title|header|footer)\b|@end)/
 
 /**
  * Whether `pos` is in a style block's body, read by the line forms above: a
@@ -419,6 +429,7 @@ export function plantumlLanguage(inner = {}) {
   const modeOf = (block) => inner[block.type]
   const style = inner.style
   const math = inner.math
+  const latex = inner.latex
   const copyIn = (mode, state) => (mode?.copyState ? mode.copyState(state) : copyOf(state))
 
   /**
@@ -461,30 +472,56 @@ export function plantumlLanguage(inner = {}) {
   }
 
   /**
-   * The middle of an inline `<math>…</math>`, up to its first `</math>` (`until`), read by the
-   * math mode, kept from reading past it, or else plain; then that `</math>`, back in the
-   * Creole it was in.
+   * The middle of an inline `<math>…</math>` or `<latex>…</latex>` (`key`), up to its first
+   * closer (`until`), read by that mode, kept from reading past it, or else plain; then the
+   * closer, back in the Creole it was in.
    */
-  function mathMiddle(stream, state) {
-    state.math ??= { state: math?.startState ? math.startState(stream.indentUnit) : {}, until: stream.string.indexOf('</math>', stream.pos + 1) }
-    const { until } = state.math
+  function inlineMiddle(stream, state, key, mode) {
+    const closer = `</${key}>`
+    state[key] ??= { state: mode?.startState ? mode.startState(stream.indentUnit) : {}, until: stream.string.indexOf(closer, stream.pos + 1) }
+    const { until } = state[key]
     if (stream.pos >= until) {
-      state.math = null
+      state[key] = null
       state.state = state.stack.pop()
-      stream.pos = until + '</math>'.length
+      stream.pos = until + closer.length
       return 'tagName'
     }
-    if (!math) {
+    if (!mode) {
       stream.pos = until
       return null
     }
     const line = stream.string
     stream.string = line.slice(0, until)
     try {
-      return math.token(stream, state.math.state)
+      return mode.token(stream, state[key].state)
     } finally {
       stream.string = line
     }
+  }
+
+  /**
+   * A line of a `<latex>` block, read by the latex mode or else plain, to a line that is
+   * `</latex>`; a Creole body's own end leaves it unclosed, to be read as ever.
+   */
+  function latexBody(stream, state) {
+    if (stream.sol()) {
+      if (latexClose.test(stream.string)) {
+        state.latex = null
+        state.state = state.stack.pop()
+        return emit(stream, state, [['</latex>', 'tagName']])
+      }
+      if (bodyEnd.test(stream.string)) {
+        state.latex = null
+        state.state = state.stack.pop()
+        return base.token(stream, state)
+      }
+    }
+    state.latex ??= { state: latex?.startState ? latex.startState(stream.indentUnit) : {}, until: null }
+    if (!latex) {
+      stream.skipToEnd()
+      return null
+    }
+    return latex.token(stream, state.latex.state)
   }
 
   /** A line of a style block. PlantUML reads a block to its diagram's end at most. */
@@ -532,20 +569,23 @@ export function plantumlLanguage(inner = {}) {
 
   return StreamLanguage.define({
     ...base,
-    startState: () => ({ ...base.startState(), inner: null, style: null, math: null }),
+    startState: () => ({ ...base.startState(), inner: null, style: null, math: null, latex: null }),
     copyState(state) {
       const copy = base.copyState(state)
       const block = state.inner
       copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state), from: block.from }
       copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until }
       copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
+      copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
       return copy
     },
     token(stream, state) {
       // A rule matched at the start of a line hands back its groups one at a
       // time (`pending`), all still at the start: they belong to the state it set.
       if (state.pending) return base.token(stream, state)
-      if (state.state === 'math') return mathMiddle(stream, state)
+      if (state.state === 'math') return inlineMiddle(stream, state, 'math', math)
+      if (state.state === 'latex') return inlineMiddle(stream, state, 'latex', latex)
+      if (state.state === 'latexBlock') return latexBody(stream, state)
       // A `!` line is PlantUML's to its end, in a nested mode or a style block too.
       if (state.state === 'preprocessor') {
         if (!stream.sol()) return base.token(stream, state)

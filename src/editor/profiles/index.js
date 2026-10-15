@@ -42,6 +42,7 @@ export const PROFILES = {
   sprites: () => import('./sprites.js'),
   gantt: () => import('./gantt.js'),
   math: () => import('./math.js'),
+  latex: () => import('./latex.js'),
   // PlantUML's alias of gantt: the same chunk, its profile under the type `project`.
   project: () => import('./gantt.js').then((module) => ({ default: module.project })),
 }
@@ -49,11 +50,12 @@ export const PROFILES = {
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/
 const STYLE = /^[ \t]*<style/m
 const MATH = /<math>/
+const LATEX = /<latex>/
 
 /**
  * The profiles a file needs: its block types, archimate when a uml block
  * includes the library or draws an element, style when a line starts
- * `<style`, and math when a line holds an inline `<math>`. Only those with a
+ * `<style`, and math or latex when a line holds an inline `<math>` or a `<latex>`. Only those with a
  * profile, so the loader never asks for another.
  *
  * @param {import('../blocks.js').Diagram[]} diagrams
@@ -71,6 +73,9 @@ export function needed(diagrams, text) {
   }
   if (MATH.test(text)) {
     types.add('math')
+  }
+  if (LATEX.test(text)) {
+    types.add('latex')
   }
   return new Set([...types].filter((type) => Object.hasOwn(PROFILES, type)))
 }

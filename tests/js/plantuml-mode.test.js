@@ -768,6 +768,46 @@ describe('plantumlLanguage with an inner mode', () => {
     ])
   })
 
+  it('hands the middle of an inline <latex> to the latex mode, never past its </latex>', () => {
+    const texy = (...lines) => tokensOf(plantumlLanguage({ latex: whole('atom') }), lines)
+
+    expect(texy('note: area <latex>\\pi r^2</latex> m', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\pi r^2', 'atom'],
+      ['</latex>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    expect(texy('A -> B : <latex>a</latex>b</latex>')).toEqual([
+      ['->', 'operator'],
+      ['<latex>', 'tagName'],
+      ['a', 'atom'],
+      ['</latex>', 'tagName'],
+      ['b</latex>', 'labelName'],
+    ])
+  })
+
+  it('hands the lines of a <latex> block to the latex mode, to the line </latex> or the body end', () => {
+    const texy = (...lines) => tokensOf(plantumlLanguage({ latex: whole('atom') }), lines)
+
+    expect(texy('note left', '<latex>', '\\a', '', '\\b', '</latex>', 'x', 'end note', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['\\b', 'atom'],
+      ['</latex>', 'tagName'],
+      ['end note', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+    expect(texy('title', '<latex>', '\\a', 'end title', 'actor A')).toEqual([
+      ['title', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['end title', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+
   it('reads a style block inside a yaml block as style, and yaml again after it', () => {
     const language = plantumlLanguage({ yaml: whole('atom'), style: whole('string') })
 

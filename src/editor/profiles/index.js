@@ -40,6 +40,9 @@ export const PROFILES = {
   board: () => import('./board.js'),
   git: () => import('./git.js'),
   sprites: () => import('./sprites.js'),
+  gantt: () => import('./gantt.js'),
+  // PlantUML's alias of gantt: the same chunk, its profile under the type `project`.
+  project: () => import('./gantt.js').then((module) => ({ default: module.project })),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

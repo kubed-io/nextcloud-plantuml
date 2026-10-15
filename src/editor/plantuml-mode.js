@@ -20,7 +20,7 @@
  *
  * `plantumlLanguage(inner)` nests other stream modes: between `@start<type>`
  * and the next line starting `@end`, a type with a mode in `inner` is read by
- * that mode, except for `'` comment and `!` preprocessor lines. A `<style>`
+ * that mode, except for `'` and `/' … '/` comments and `!` preprocessor lines. A `<style>`
  * block is a region of its own wherever it starts a line, read by
  * `inner.style` or else left plain, and a `@startcreole` block is Creole and a `@startfiles` block
  * is paths and `<note>` bodies.
@@ -498,6 +498,8 @@ export function plantumlLanguage(inner = {}) {
         if (state.style || stream.pos > stream.start) return token
       }
       if (state.inner) {
+        // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
+        if (state.state === 'blockComment') return base.token(stream, state)
         if (stream.sol()) {
           const end = stream.match(/^([ \t]*)(@end\w*)/, false)
           if (end) {
@@ -507,7 +509,7 @@ export function plantumlLanguage(inner = {}) {
           const tags = styleStart(stream, state)
           if (tags !== undefined) return tags
           // Comment and preprocessor lines are PlantUML's in any diagram.
-          if (stream.match(/^[ \t]*['!]/, false)) return base.token(stream, state)
+          if (stream.match(/^[ \t]*(?:['!]|\/')/, false)) return base.token(stream, state)
         }
         return modeOf(state.inner).token(stream, state.inner.state)
       }

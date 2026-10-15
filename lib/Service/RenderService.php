@@ -45,6 +45,8 @@ final class RenderService {
 	private const FONTS_DIAGRAM = "@startuml\nhelp font\n@enduml\n";
 	private const FONTS_MARKER = 'The possible font on your system are';
 	private const FONTS_MAX = 200;
+	/** A family name: led by a word character, then anything but angle brackets and control characters, up to 64. */
+	private const FONTS_LINE = '/^\w[^<>\x00-\x1F\x7F]{0,63}$/';
 	/** The server's lists change only with its version. */
 	private const LISTS_TTL = 86400;
 	/** The error rides out as a response header, so it stays one short line. */
@@ -198,11 +200,8 @@ final class RenderService {
 	 */
 	public function fonts(): array {
 		return $this->cached('fonts', function (): array {
-			$fonts = array_slice(
-				self::linesAfter($this->helpText(self::FONTS_DIAGRAM, 'font'), self::FONTS_MARKER),
-				0,
-				self::FONTS_MAX,
-			);
+			$lines = self::linesAfter($this->helpText(self::FONTS_DIAGRAM, 'font'), self::FONTS_MARKER, self::FONTS_LINE);
+			$fonts = self::names($lines, self::FONTS_LINE, self::FONTS_MAX);
 			if ($fonts === []) {
 				throw $this->notPlantUml('txt answered help font without a list of fonts');
 			}
@@ -222,9 +221,10 @@ final class RenderService {
 	/**
 	 * The trimmed lines after `$marker` in `$body` that look like a keyword.
 	 *
+	 * @param non-empty-string $pattern
 	 * @return list<string>
 	 */
-	private static function linesAfter(string $body, string $marker): array {
+	private static function linesAfter(string $body, string $marker, string $pattern = '/^[@\w][\w -]{0,63}$/'): array {
 		$at = strpos($body, $marker);
 		if ($at === false) {
 			return [];
@@ -232,7 +232,7 @@ final class RenderService {
 		$lines = array_map('trim', explode("\n", substr($body, $at + strlen($marker))));
 		return array_values(array_filter(
 			$lines,
-			static fn (string $line): bool => preg_match('/^[@\w][\w -]{0,63}$/', $line) === 1,
+			static fn (string $line): bool => preg_match($pattern, $line) === 1,
 		));
 	}
 

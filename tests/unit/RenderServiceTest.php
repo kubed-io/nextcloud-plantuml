@@ -408,6 +408,22 @@ final class RenderServiceTest extends TestCase {
 		}
 		self::assertNotContains('Help on font', $fonts);
 		self::assertNotContains('The possible font on your system are :', $fonts);
+		$sorted = array_values(array_unique($fonts));
+		sort($sorted, SORT_STRING);
+		self::assertSame($sorted, $fonts, 'the server lists them unsorted; the answer is sorted and once each');
+	}
+
+	public function testFontsKeepPunctuationAndOnlyOnce(): void {
+		$body = self::helpFont() . "            Nimbus Sans L (X)\n            Foo's & Bar+Baz.Q\n            Dialog\n"
+			. "            <b>Tagged</b>\n";
+
+		$fonts = $this->service($this->clientAnswering($this->response(200, $body)))->fonts();
+
+		self::assertContains('Nimbus Sans L (X)', $fonts);
+		self::assertContains("Foo's & Bar+Baz.Q", $fonts);
+		self::assertSame(1, count(array_keys($fonts, 'Dialog', true)));
+		self::assertNotContains('<b>Tagged</b>', $fonts);
+		self::assertCount(27, $fonts);
 	}
 
 	public function testFontsAreAskedOncePerServerForADay(): void {

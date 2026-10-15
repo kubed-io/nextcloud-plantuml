@@ -469,6 +469,22 @@ describe('plantumlMode Creole', () => {
     expect(tokens('footer page **1**')).toEqual([['footer', 'keyword'], ['**1**', 'strong']])
   })
 
+  it('reads an inline <math> as its tags around plain text before the math profile, and the next line as ever', () => {
+    expect(tokens('note: area <math>pi r^2</math>', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<math>', 'tagName'],
+      ['</math>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    expect(label('<math>x</math> y')).toEqual([['<math>', 'tagName'], ['</math>', 'tagName'], [' y', 'labelName']])
+  })
+
+  it('takes no <math> in capitals, without its </math> on the line, or with nothing in it', () => {
+    expect(label('<MATH>x</MATH>')).toEqual([['<MATH>x</MATH>', 'labelName']])
+    expect(label('<math>x')).toEqual([['<math>x', 'labelName']])
+    expect(label('<math></math>')).toEqual([['<math></math>', 'labelName']])
+  })
+
   it('gives underline a tag of its own', () => {
     const tree = plantumlMode.parser.parse('note left\n__u__\nend note')
     const styled = []
@@ -730,6 +746,25 @@ describe('plantumlLanguage with an inner mode', () => {
       ['</style>', 'tagName'],
       ['b: 1', 'string'],
       ['@endyaml', 'keyword'],
+    ])
+  })
+
+  it('hands the middle of an inline <math> to the math mode, never past its </math>', () => {
+    const mathy = (...lines) => tokensOf(plantumlLanguage({ math: whole('atom') }), lines)
+
+    expect(mathy('note: area <math>pi r^2</math> m', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<math>', 'tagName'],
+      ['pi r^2', 'atom'],
+      ['</math>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    expect(mathy('A -> B : <math>a</math>b</math>')).toEqual([
+      ['->', 'operator'],
+      ['<math>', 'tagName'],
+      ['a', 'atom'],
+      ['</math>', 'tagName'],
+      ['b</math>', 'labelName'],
     ])
   })
 

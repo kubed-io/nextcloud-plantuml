@@ -77,7 +77,7 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:diagram')
   seams.answer = { error: null, svg: diagram() }
   // The answer never lands inside the change that asked for it.
-  seams.debouncedRender.mockImplementation((_source, _index, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.svg, seams.answer.mistake ?? null)))
+  seams.debouncedRender.mockImplementation((_source, _index, _path, cb) => queueMicrotask(() => cb(seams.answer.error, seams.answer.svg, seams.answer.mistake ?? null)))
   seams.loadFile.mockResolvedValue({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
   // A test about changes elsewhere says what the file's ETag is; any other
   // test's checks fail, which the editor keeps to the debug console.
@@ -139,7 +139,7 @@ describe('the editor overlay', () => {
   it('keeps the diagram on screen until the next one is drawn, then swaps it', async () => {
     await open()
     let answer
-    seams.debouncedRender.mockImplementation((_source, _index, cb) => { answer = cb })
+    seams.debouncedRender.mockImplementation((_source, _index, _path, cb) => { answer = cb })
 
     type("' edit\n")
     expect(image().hidden).toBe(false)
@@ -558,6 +558,17 @@ describe('after someone else changed the file', () => {
     saveButton().click()
     await settle()
     expect(seams.saveFile).toHaveBeenLastCalledWith('/Diagrams/Order flow (copy).puml', expect.stringContaining("' again"), '"copy"')
+  })
+
+  it('resolves the diagram\'s relative files against the copy once it carries on there (R4)', async () => {
+    await conflict()
+    seams.saveCopy.mockResolvedValue({ node: { path: '/Shared/Order flow (copy).puml', basename: 'Order flow (copy).puml' }, etag: '"copy"' })
+
+    copyButton().click()
+    await settle()
+    type("' again\n")
+
+    expect(seams.debouncedRender.mock.calls.at(-1)[2]).toBe('/Shared/Order flow (copy).puml')
   })
 
   it('says so when the copy cannot be saved, and still offers both actions', async () => {
@@ -1091,6 +1102,53 @@ describe('when the file changes elsewhere', () => {
   })
 })
 
+describe('the diagram\'s relative files', () => {
+  const PATH = '/Diagrams/Order flow.puml'
+  const lastRender = () => seams.debouncedRender.mock.calls.at(-1)
+  const showPage = () => document.dispatchEvent(new Event('visibilitychange'))
+  const focusPage = () => window.dispatchEvent(new Event('focus'))
+
+  it('resolve against the file\'s folder: each render sends its path (R4)', async () => {
+    await open()
+    type("' edit\n")
+
+    expect(lastRender().slice(0, 3)).toEqual([source(), 0, PATH])
+  })
+
+  it.each([['shown again', showPage], ['focused again', focusPage]])('are drawn again when the page is %s, so an edited include shows (R6)', async (_moment, moment) => {
+    await open()
+    type("' edit\n")
+    const renders = seams.debouncedRender.mock.calls.length
+
+    moment()
+
+    expect(seams.debouncedRender.mock.calls.length).toBe(renders + 1)
+    expect(lastRender().slice(0, 3)).toEqual([source(), 0, PATH])
+  })
+
+  it('are not drawn again while the page is hidden', async () => {
+    await open()
+    const renders = seams.debouncedRender.mock.calls.length
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+
+    showPage()
+
+    expect(seams.debouncedRender.mock.calls.length).toBe(renders)
+  })
+
+  it('are not drawn again once the editor is closed', async () => {
+    await open()
+    q('.plantuml-editor__close').click()
+    await settle()
+    const renders = seams.debouncedRender.mock.calls.length
+
+    showPage()
+    focusPage()
+
+    expect(seams.debouncedRender.mock.calls.length).toBe(renders)
+  })
+})
+
 describe('the Reload button', () => {
   const THEIRS = '@startuml\nA -> C\n@enduml\n'
 
@@ -1169,7 +1227,7 @@ describe('the diagram tabs', () => {
     view().dispatch({ selection: { anchor: lineStart(8) } })
 
     expect(selected()).toEqual([false, true, false])
-    expect(seams.debouncedRender).toHaveBeenLastCalledWith(DOC, 1, expect.any(Function))
+    expect(seams.debouncedRender).toHaveBeenLastCalledWith(DOC, 1, '/Diagrams/Order flow.puml', expect.any(Function))
   })
 
   it('draws nothing again while the cursor stays in the same diagram', async () => {
@@ -1243,7 +1301,7 @@ describe('the diagram tabs', () => {
   it('draws no answer under a tab it was not asked for', async () => {
     await open()
     const answers = []
-    seams.debouncedRender.mockImplementation((_source, _index, cb) => answers.push(cb))
+    seams.debouncedRender.mockImplementation((_source, _index, _path, cb) => answers.push(cb))
     type("' edit\n")
     view().dispatch({ selection: { anchor: lineStart(9) } })
 
@@ -1259,7 +1317,7 @@ describe('the diagram tabs', () => {
   it('marks no mistake from an answer for the tab left behind', async () => {
     await open()
     const answers = []
-    seams.debouncedRender.mockImplementation((_source, _index, cb) => answers.push(cb))
+    seams.debouncedRender.mockImplementation((_source, _index, _path, cb) => answers.push(cb))
     type("' edit\n")
     view().dispatch({ selection: { anchor: lineStart(9) } })
 

@@ -100,17 +100,25 @@ describe('attach', () => {
     expect(blocks(root)[1].outerHTML).toBe(mermaid)
   })
 
-  it('asks the render route for each fence by its source', async () => {
+  it('asks the render route for each fence by its source and the README\'s path (R4)', async () => {
     const root = workspace()
-    await attach(root, { dir: '/Diagrams', fences, images })
+    await attach(root, { dir: '/Diagrams', path: '/Diagrams/README.md', fences, images })
 
     expect(fetch).toHaveBeenCalledTimes(2)
     const [url, init] = fetch.mock.calls[0]
     expect(url).toBe('/index.php/apps/plantuml/render')
     expect(init.method).toBe('POST')
     expect(init.headers.requesttoken).toBe('token')
-    expect(JSON.parse(init.body)).toEqual({ source: ORDER })
-    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: CHARGE })
+    expect(JSON.parse(init.body)).toEqual({ source: ORDER, path: '/Diagrams/README.md' })
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: CHARGE, path: '/Diagrams/README.md' })
+  })
+
+  it('asks again for the same fence in another README, whose files it may include', async () => {
+    await attach(workspace(), { dir: '/Diagrams', path: '/Diagrams/README.md', fences, images })
+    await attach(workspace(), { dir: '/Shared', path: '/Shared/README.md', fences, images })
+
+    expect(fetch).toHaveBeenCalledTimes(4)
+    expect(JSON.parse(fetch.mock.calls[2][1].body)).toEqual({ source: ORDER, path: '/Shared/README.md' })
   })
 
   it('draws a .puml image from the file beside the README and leaves other images alone', async () => {
@@ -210,7 +218,7 @@ describe('attach', () => {
     await attach(...withReadme(many(64, 65)))
 
     expect(fetch).toHaveBeenCalledTimes(1)
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ source: 'A -> B: 0' })
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ source: 'A -> B: 0', path: '' })
   })
 
   it('asks again for a fence the server could not draw', async () => {

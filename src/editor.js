@@ -68,7 +68,9 @@ export function openEditor(node) {
     return
   }
   resetProfiles()
-  let path = node.path
+  // The file being edited, the copy's once Save as copy carries on there (S8):
+  // what is read and written, and what the diagram's relative files resolve against (R4).
+  let currentPath = node.path
   const name = node.basename
 
   const icon = el('span', 'plantuml-editor__icon', { 'aria-hidden': 'true' })
@@ -259,7 +261,7 @@ export function openEditor(node) {
     }
     const index = active
     // PlantUML's own count, which an unclosed block can make differ from the tab's.
-    debouncedRender(text, diagrams[index].render, (error, svgText, mistake) => {
+    debouncedRender(text, diagrams[index].render, currentPath, (error, svgText, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
       }
@@ -301,6 +303,13 @@ export function openEditor(node) {
     active = next
     tabs.update(diagrams, active)
     draw(state.doc.toString())
+  }
+
+  /** R6: a file the diagram includes may have changed while the page was away. */
+  function drawAgain() {
+    if (!closed && document.visibilityState === 'visible') {
+      draw(view.state.doc.toString())
+    }
   }
 
   /** The cursor follows the tab (B4): to the end of its `@start` or `newpage` line. */
@@ -346,14 +355,14 @@ export function openEditor(node) {
       }
       const doc = view.state.doc
       try {
-        etag = await saveFile(path, doc.toString(), etag)
+        etag = await saveFile(currentPath, doc.toString(), etag)
         markSaved(doc)
       } catch (e) {
         if (e instanceof ConflictError) {
           enterConflict()
           return
         }
-        console.error(`[${APP_ID}] could not save ${path}`, e)
+        console.error(`[${APP_ID}] could not save ${currentPath}`, e)
         fail(t(APP_ID, 'Could not save the file'))
       }
     })
@@ -367,7 +376,7 @@ export function openEditor(node) {
         return
       }
       try {
-        const file = await loadFile(path)
+        const file = await loadFile(currentPath)
         if (closed) {
           return
         }
@@ -375,7 +384,7 @@ export function openEditor(node) {
         replaceWith(file.content)
         markSaved(view.state.doc, { wrote: false })
       } catch (e) {
-        console.error(`[${APP_ID}] could not open ${path}`, e)
+        console.error(`[${APP_ID}] could not open ${currentPath}`, e)
         fail(t(APP_ID, 'Could not open the file'))
       }
     })
@@ -391,14 +400,14 @@ export function openEditor(node) {
       return
     }
     await exclusively(async () => {
-      if ((await currentEtag(path)) === etag || closing || closed) {
+      if ((await currentEtag(currentPath)) === etag || closing || closed) {
         return
       }
       if (isDirty()) {
         enterConflict()
         return
       }
-      const file = await loadFile(path)
+      const file = await loadFile(currentPath)
       if (closing || closed) {
         return
       }
@@ -423,9 +432,9 @@ export function openEditor(node) {
     await exclusively(async () => {
       const doc = view.state.doc
       try {
-        const copy = await saveCopy(path, doc.toString())
+        const copy = await saveCopy(currentPath, doc.toString())
         emit('files:node:created', copy.node)
-        path = copy.node.path
+        currentPath = copy.node.path
         title.textContent = copy.node.basename
         overlay.setAttribute('aria-label', copy.node.basename)
         image.setAttribute('aria-label', copy.node.basename)
@@ -433,7 +442,7 @@ export function openEditor(node) {
         etag = copy.etag
         markSaved(doc)
       } catch (e) {
-        console.error(`[${APP_ID}] could not save a copy of ${path}`, e)
+        console.error(`[${APP_ID}] could not save a copy of ${currentPath}`, e)
         fail(t(APP_ID, 'Could not save a copy'))
       }
     })
@@ -490,6 +499,8 @@ export function openEditor(node) {
     clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onKeydown)
+    document.removeEventListener('visibilitychange', drawAgain)
+    window.removeEventListener('focus', drawAgain)
     window.removeEventListener('beforeunload', onBeforeUnload)
     view?.destroy()
     overlay.remove()
@@ -531,7 +542,7 @@ export function openEditor(node) {
   document.addEventListener('keydown', onKeydown)
   window.addEventListener('beforeunload', onBeforeUnload)
 
-  loadFile(path).then(({ content, etag: loadedEtag }) => {
+  loadFile(currentPath).then(({ content, etag: loadedEtag }) => {
     if (closed) {
       return
     }
@@ -600,12 +611,14 @@ export function openEditor(node) {
     saveButton.hidden = refreshButton.hidden = sourceToggle.hidden = false
     showButtons()
     watcher = watchFile({ check })
+    document.addEventListener('visibilitychange', drawAgain)
+    window.addEventListener('focus', drawAgain)
     view.focus()
     diagrams = scan(content)
     follow(view.state, true)
     wantProfiles(diagrams, content)
   }, (e) => {
-    console.error(`[${APP_ID}] could not open ${path}`, e)
+    console.error(`[${APP_ID}] could not open ${currentPath}`, e)
     fail(t(APP_ID, 'Could not open the file'))
   })
 }

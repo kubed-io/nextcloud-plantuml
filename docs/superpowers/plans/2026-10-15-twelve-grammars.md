@@ -74,7 +74,7 @@ Tests: `* DDR3L [100x50] #salmon` → `*` `list`, `DDR3L` `typeName`, `[` `squar
 
 Two profiles, two files (`flow.js`, `bpm.js`), one task: both are a few line forms with no common lines.
 
-Tests, flow: `e work "Do the work"` → `e` `modifier`, `work` `typeName`, `"Do the work"` `string`; `start "Start"` → `start` `typeName`, no `keyword` (Review Focus 1); `w a` → `w` `modifier`, `a` plain; `title X` → no `keyword`, no `Title` (G4).
+Tests, flow: `e work "Do the work"` → `e` `modifier`, `work` `typeName`, `"Do the work"` `string`; `start "Start"` → `start` `typeName`, no `keyword` (Review Focus 1); `w a` → `w` `modifier`, `a` plain; `title X` → no `keyword` (G4).
 Tests, bpm: `:show new message;` → `:` `bracket`, text plain, `;` `bracket`; `:**bold**;` → `strong`; `20:<+>` → `20` `typeName`, `:` `separator`, `<+>` `LinkOperator`; `a<+>` → `a` `typeName`; `resume 20` and `goto a` → `keyword`, the id plain; `new branch`, `else`, `end branch` → `keyword`; `title X` → no `keyword`.
 
 ### Task 8: dot (T21)

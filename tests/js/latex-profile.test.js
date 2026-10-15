@@ -110,7 +110,7 @@ describe('an inline <latex>', () => {
   it('reads its middle as LaTeX and its tags as tags, in a note and a label', () => {
     expect(readDoc(['note: area <latex>\\alpha^2</latex>', 'actor A'])).toEqual([
       ['note', 'keyword'], ['<latex>', 'tagName'], ['\\alpha', 'FunctionName'], ['^', 'operator'], ['2', 'number'], ['</latex>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
     expect(readDoc(['A -> B : x <latex>\\pi</latex> y'])).toEqual([
       ['->', 'LinkOperator'], ['x ', 'labelName'], ['<latex>', 'tagName'], ['\\pi', 'FunctionName'], ['</latex>', 'tagName'], [' y', 'labelName'],
@@ -133,7 +133,7 @@ describe('a <latex> block', () => {
   it('reads the lines between a <latex> line and a </latex> line as LaTeX, in a note', () => {
     expect(readDoc(['note over A', '<latex>', '\\int_0^1 x', '</latex>', 'end note', 'actor B'])).toEqual([
       ['note', 'keyword'], ['<latex>', 'tagName'], ['\\int', 'FunctionName'], ['_', 'operator'], ['0', 'number'], ['^', 'operator'],
-      ['1', 'number'], ['</latex>', 'tagName'], ['end note', 'keyword'], ['actor', 'keyword'],
+      ['1', 'number'], ['</latex>', 'tagName'], ['end note', 'keyword'], ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
 
@@ -144,7 +144,7 @@ describe('a <latex> block', () => {
 
   it('ends with the note when never closed, and reads the note as ever after', () => {
     expect(readDoc(['note left', '<latex>', '\\a', 'end note', 'actor B'])).toEqual([
-      ['note', 'keyword'], ['<latex>', 'tagName'], ['\\a', 'FunctionName'], ['end note', 'keyword'], ['actor', 'keyword'],
+      ['note', 'keyword'], ['<latex>', 'tagName'], ['\\a', 'FunctionName'], ['end note', 'keyword'], ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
 })
@@ -161,7 +161,7 @@ describe('without the latex profile', () => {
   it('leaves the middle of an inline <latex> and of a block plain', () => {
     expect(read(['note: <latex>\\a^2</latex>'])).toEqual([['note', 'keyword'], ['<latex>', 'tagName'], ['</latex>', 'tagName']])
     expect(read(['note left', '<latex>', '\\a', '</latex>', 'end note', 'actor B'])).toEqual([
-      ['note', 'keyword'], ['<latex>', 'tagName'], ['</latex>', 'tagName'], ['end note', 'keyword'], ['actor', 'keyword'],
+      ['note', 'keyword'], ['<latex>', 'tagName'], ['</latex>', 'tagName'], ['end note', 'keyword'], ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
 })

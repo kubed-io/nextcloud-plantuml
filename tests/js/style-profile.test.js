@@ -138,6 +138,7 @@ describe('the style profile', () => {
       ['}', 'brace'],
       ['</style>', 'tagName'],
       ['actor', 'keyword'],
+      ['A', 'typeName'],
     ])
   })
 

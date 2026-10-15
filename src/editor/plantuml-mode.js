@@ -26,8 +26,9 @@
  */
 import { StreamLanguage } from '@codemirror/language'
 import {
-  argsState, arrow, atLineStart, body, callNames, calls, comma, codeLines, colours, creole, head, hex, lines, named, names,
-  number, numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState, stereotypes, styledClose, styledOpen, tagStates, toColon,
+  alias, argsState, arrow, atLineStart, blockComment, body, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
+  declarations, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState,
+  stereotypes, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
@@ -46,17 +47,22 @@ const lineKeywords = /abstract\s+class|end\s+(?:box|fork|group|merge|note|ref|sp
 /** The rules of a path slot, each ending in the state that reads the rest of the `!` line. */
 const toPreprocessor = (rules) => rules.map((rule) => ({ ...rule, next: 'preprocessor' }))
 
+/**
+ * A `!` line: its directive word (`!procedure`, the `!` of `!$x`), then the state `preprocessor`
+ * to the line's end. An include's, an import's and a theme's source is a path (H22), read before
+ * the operators. Each pushes, and its states end with their line (`lineStates`), so the state the
+ * line was read in, a class or a note body, comes back after it.
+ */
+const bang = [
+  atLineStart(/!(?:include(?:_many|_once|sub|url|def)?|import)(?=[ \t]+[^\s'$%])/.source, 'meta', { push: 'includePath' }),
+  atLineStart(/!theme(?=\s)/.source, 'meta', { push: 'theme' }),
+  atLineStart(/!\w*/.source, 'meta', { push: 'preprocessor' }),
+]
+
 const states = {
   start: [
-    atLineStart(/\/'.*?'\//.source, 'comment'),
-    atLineStart(/\/'.*/.source, 'comment', { next: 'blockComment' }),
-    atLineStart(/'.*/.source, 'comment'),
-    // A `!` line: its directive word (`!procedure`, the `!` of `!$x`), then the state
-    // `preprocessor` to the line's end.
-    // An include's, an import's and a theme's source is a path (H22), read before the operators.
-    atLineStart(/!(?:include(?:_many|_once|sub|url|def)?|import)(?=[ \t]+[^\s'$%])/.source, 'meta', { next: 'includePath' }),
-    atLineStart(/!theme(?=\s)/.source, 'meta', { next: 'theme' }),
-    atLineStart(/!\w*/.source, 'meta', { next: 'preprocessor' }),
+    ...comments,
+    ...bang,
     // `@start<type>` lines are read by `startLine` (lexicon/rules.js), see `plantumlLanguage`.
     atLineStart(/@end\w+\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
@@ -67,6 +73,8 @@ const states = {
     atLineStart(/legend\b/.source, 'keyword', { next: 'legendHead' }),
     ...['title', 'header', 'footer'].map((word) => atLineStart(`${word}(?=\\s*$)`, 'keyword', { next: `${word}Body` })),
     atLineStart(/(?:title|header|footer|caption|mainframe)(?=\s)/.source, 'keyword', { next: 'text' }),
+    // What a line declares is a type (H15); a class's `{` opens its members (H17).
+    ...declarations,
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
@@ -88,6 +96,7 @@ const states = {
     // `node web [` opens a description that runs to a line starting with `]`.
     { regex: /\[(?=\s*$)/, token: null, next: 'descBody' },
     { regex: /\b(?:elseif|equals|not|while)(?=\s*\()/, token: 'keyword' },
+    alias,
     { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
     // A sprite used as an element's icon (`rectangle <$foo> as r`).
     { regex: /<\$[^>\s]+>/, token: 'tagName' },
@@ -100,7 +109,10 @@ const states = {
   colonText: [...colours, { regex: /"[^"]*"/, token: 'string' }, ...creole(null)],
   stereotype: stereotypeState,
   args: argsState,
-  // The rest of a `!` line; it ends with its line, see `token`.
+  // A class's members, a `!` line among them pushed from here (H17).
+  classHead: classStates.classHead,
+  classBody: [...bang, ...classStates.classBody],
+  // The rest of a `!` line; it ends with its line, see `lineStates`.
   preprocessor: [
     { regex: /"[^"]*"|'[^']*'/, token: 'string' },
     ...names,
@@ -127,10 +139,7 @@ const states = {
     { regex: /\s+/, token: null },
     ...toPreprocessor(paths.slot),
   ],
-  blockComment: [
-    { regex: /.*?'\//, token: 'comment', next: 'start' },
-    { regex: /.+/, token: 'comment' },
-  ],
+  blockComment,
   // Inside a styled link's brackets.
   arrowAttr: [
     { regex: styledClose, token: 'LinkOperator', next: 'afterLink' },
@@ -154,15 +163,15 @@ const states = {
   latexBlock: [],
   noteHead: head,
   legendHead: head,
-  ...body('noteBody', /end\s*[hr]?note\b/.source),
-  ...body('legendBody', /end\s*legend\b/.source),
-  ...body('titleBody', /end\s*title\b/.source),
-  ...body('headerBody', /end\s*header\b/.source),
-  ...body('footerBody', /end\s*footer\b/.source),
-  ...body('descBody', /\]/.source, null),
+  ...body('noteBody', /end\s*[hr]?note\b/.source, 'keyword', bang),
+  ...body('legendBody', /end\s*legend\b/.source, 'keyword', bang),
+  ...body('titleBody', /end\s*title\b/.source, 'keyword', bang),
+  ...body('headerBody', /end\s*header\b/.source, 'keyword', bang),
+  ...body('footerBody', /end\s*footer\b/.source, 'keyword', bang),
+  ...body('descBody', /\]/.source, null, bang),
   // A creole diagram is Creole on every line, from the line after its start.
   creoleHead: [{ regex: /.+/, token: null }],
-  ...body('creoleBody', /@end\w*/.source),
+  ...body('creoleBody', /@end\w*/.source, 'keyword', bang),
   // A files diagram is a path on each line, and `<note>` bodies of Creole.
   filesHead: [{ regex: /.+/, token: null }],
   filesBody: [
@@ -190,8 +199,9 @@ const states = {
 // The states that end with their line, and the state the next line starts in.
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
-const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', colonText: 'start', label: 'start', text: 'start', noteHead: 'noteBody', includePath: 'start', theme: 'start', themePath: 'start', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
-const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args'] })
+// A `!` line's states are popped, back to the state it was read in.
+const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', colonText: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody', classHead: 'classBody' }
+const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args', 'preprocessor', 'includePath', 'theme', 'themePath'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a
@@ -430,7 +440,8 @@ export function plantumlLanguage(inner = {}) {
       // A `!` line is PlantUML's to its end, in a nested mode or a style block too.
       if (bangStates.has(state.state)) {
         if (!stream.sol()) return base.token(stream, state)
-        state.state = 'start'
+        // At the next line it is popped, back to the state the line was read in.
+        base.startLine(state)
       }
       if (state.style) {
         const token = styleBody(stream, state)

@@ -134,7 +134,7 @@ describe('a sprite in a uml block', () => {
   })
 
   it('leaves a package brace alone', () => {
-    expect(umlTokens('package X {', 'A -> B', '}')).toEqual([['package', 'keyword'], ['->', 'LinkOperator']])
+    expect(umlTokens('package X {', 'A -> B', '}')).toEqual([['package', 'keyword'], ['X', 'typeName'], ['->', 'LinkOperator']])
   })
 
   it('names listsprites a keyword', () => {

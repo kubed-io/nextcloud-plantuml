@@ -274,15 +274,99 @@ export const codeLines = (closer, back) => [
   { regex: /.+/, token: 'monospace' },
 ]
 
-/** Creole on the lines down to `closer`, and the state `key`Code for its `<code>` blocks. */
-export const body = (key, closer, token = 'keyword') => ({
+/**
+ * Creole on the lines down to `closer`, and the state `key`Code for its `<code>` blocks; `extra`
+ * rules are tried straight after the closer (the core's `!` lines).
+ */
+export const body = (key, closer, token = 'keyword', extra = []) => ({
   [key]: [
     atLineStart(closer, token, { next: 'start' }),
+    ...extra,
     ...lines(`${key}Code`),
     ...creole(null),
   ],
   [`${key}Code`]: codeLines(closer, key),
 })
+
+/**
+ * Comments: `'` to the end of the line, and `/' … '/`, which pushes the state `blockComment` when
+ * it runs on past its line, so the state it started in comes back at its `'/`.
+ */
+export const comments = [
+  atLineStart(/\/'.*?'\//.source, 'comment'),
+  atLineStart(/\/'.*/.source, 'comment', { push: 'blockComment' }),
+  atLineStart(/'.*/.source, 'comment'),
+]
+
+export const blockComment = [
+  { regex: /.*?'\//, token: 'comment', pop: true },
+  { regex: /.+/, token: 'comment' },
+]
+
+// The element keywords (H15): `PARTICIPANTS` and `STRUCTURES` of `../completion/keywords.js`,
+// copied here because that module pulls in the block scanner and the core grammar, with the
+// kinds PlantUML adds. Longest first, so `abstract class` is never `abstract` and a name `class`.
+const elements = [
+  'participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue',
+  'class', 'interface', 'abstract', 'enum', 'package', 'namespace', 'component', 'node', 'cloud', 'frame', 'folder', 'rectangle', 'usecase', 'state', 'object',
+  'abstract class', 'annotation', 'struct', 'protocol', 'map', 'json',
+]
+const alternation = (words) => [...new Set(words)].sort((a, b) => b.length - a.length).map((word) => word.replace(' ', '\\s+')).join('|')
+
+/** The element keywords a line declares a name with, as one regex alternation. */
+export const DECLARING = alternation(elements)
+
+// The kinds whose `{` opens members (H17).
+const BODIED = alternation(['class', 'interface', 'enum', 'abstract class', 'abstract', 'annotation', 'entity', 'struct', 'protocol', 'object', 'map'])
+// A URL is a path, never a name (`component https://x.org/a`).
+const declared = /(?![A-Za-z][\w+.-]*:\/\/)([A-Za-z_][\w.:]*)/.source
+const endsInBrace = /(?=.*\{\s*$)/.source
+
+/**
+ * A declaration (H15), at the start of a line: the element keyword, then the name it makes, a
+ * `typeName`. A kind with members whose line ends `{` pushes the state `classHead`, which reads
+ * the rest of the line and becomes `classBody` at the next one (a table's `nextLine`); a quoted
+ * name opens it too, its alias read there.
+ */
+export const declarations = [
+  { regex: new RegExp(`([ \\t]*)(${BODIED})(\\s+)${declared}${endsInBrace}`), sol: true, token: [null, 'keyword', null, 'typeName'], push: 'classHead' },
+  { regex: new RegExp(`([ \\t]*)(${BODIED})(?=\\s.*\\{\\s*$)`), sol: true, token: [null, 'keyword'], push: 'classHead' },
+  { regex: new RegExp(`([ \\t]*)(${DECLARING})(\\s+)${declared}`), sol: true, token: [null, 'keyword', null, 'typeName'] },
+]
+
+/** The alias after `as`, a name made there too (H15). */
+export const alias = { regex: /\b(as)(\s+)([A-Za-z_][\w.]*)/, token: ['keyword', null, 'typeName'] }
+
+/**
+ * A class body's states (H17). `classHead` is the rest of the declaring line, its `{` a brace.
+ * `classBody` is the members down to a line starting `}`: a visibility mark and `{static}` and
+ * the like modifiers, a divider a heading, a method's name a function, a type after `:` a
+ * `typeName`, the rest plain. A `!` line is the grammar's to add: it pushes from here.
+ */
+export const classStates = {
+  classHead: [
+    { regex: /\{(?=\s*$)/, token: 'brace' },
+    alias,
+    { regex: /"[^"]*"/, token: 'string' },
+    ...stereotypes,
+    ...colours,
+    { regex: /\w+/, token: null },
+  ],
+  classBody: [
+    atLineStart(/\}/.source, 'brace', { pop: true }),
+    atLineStart(/@end\w*/.source, 'keyword', { pop: true }),
+    ...comments,
+    atLineStart(/(?:--|\.\.|==|__)(?:.*?(?:--|\.\.|==|__))?\s*$/.source, 'heading'),
+    atLineStart(/[-+#~](?=\S)/.source, 'modifier'),
+    { regex: /(\{)(static|abstract|field|method|classifier)(\})/, token: ['brace', 'modifier', 'brace'] },
+    { regex: /(\s*)(:)(\s*)([A-Za-z_][\w.<>[\],]*)/, token: [null, 'separator', null, 'typeName'] },
+    ...calls,
+    ...callNames,
+    { regex: /"[^"]*"/, token: 'string' },
+    ...stereotypes,
+    { regex: /\w+/, token: null },
+  ],
+}
 
 /** The rest of a line whose text starts on the next one: `note left of A #pink`. */
 export const head = [

@@ -116,7 +116,7 @@ describe('an inline <math>', () => {
   it('reads its middle as AsciiMath and its tags as tags, in a note and a label', () => {
     expect(readDoc(['note: area <math>pi r^2</math>', 'actor A'])).toEqual([
       ['note', 'keyword'], ['<math>', 'tagName'], ['pi', 'VariableName'], ['^', 'operator'], ['2', 'number'], ['</math>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
     expect(readDoc(['A -> B : x <math>sinx</math> y'])).toEqual([
       ['->', 'LinkOperator'], ['x ', 'labelName'], ['<math>', 'tagName'], ['sin', 'FunctionName'], ['</math>', 'tagName'], [' y', 'labelName'],

@@ -40,8 +40,8 @@ describe('plantumlMode', () => {
     ])
   })
 
-  it('names a participant declaration as a keyword and leaves the name plain', () => {
-    expect(tokens('participant Shop')).toEqual([['participant', 'keyword']])
+  it('names a participant declaration as a keyword and the name it makes a type (H15)', () => {
+    expect(tokens('participant Shop')).toEqual([['participant', 'keyword'], ['Shop', 'typeName']])
   })
 
   it('names `as` inside a line as a keyword', () => {
@@ -49,6 +49,7 @@ describe('plantumlMode', () => {
       ['actor', 'keyword'],
       ['"Big Customer"', 'string'],
       ['as', 'keyword'],
+      ['C', 'typeName'],
     ])
   })
 
@@ -85,10 +86,10 @@ describe('plantumlMode', () => {
   })
 
   it('never carries a label, a styled link or a note line into the next line', () => {
-    expect(tokens('A -> B : hi', 'participant C')).toEqual([['->', 'LinkOperator'], ['hi', 'labelName'], ['participant', 'keyword']])
-    expect(tokens('A -> B', 'participant C : x')).toEqual([['->', 'LinkOperator'], ['participant', 'keyword']])
-    expect(tokens('note left of A : hi', 'actor B')).toEqual([['note', 'keyword'], ['actor', 'keyword']])
-    expect(tokens('title A **b**', 'actor B')).toEqual([['title', 'keyword'], ['**b**', 'strong'], ['actor', 'keyword']])
+    expect(tokens('A -> B : hi', 'participant C')).toEqual([['->', 'LinkOperator'], ['hi', 'labelName'], ['participant', 'keyword'], ['C', 'typeName']])
+    expect(tokens('A -> B', 'participant C : x')).toEqual([['->', 'LinkOperator'], ['participant', 'keyword'], ['C', 'typeName']])
+    expect(tokens('note left of A : hi', 'actor B')).toEqual([['note', 'keyword'], ['actor', 'keyword'], ['B', 'typeName']])
+    expect(tokens('title A **b**', 'actor B')).toEqual([['title', 'keyword'], ['**b**', 'strong'], ['actor', 'keyword'], ['B', 'typeName']])
   })
 
   it('labels a headless link, a quoted end, and a label with no spaces round the colon', () => {
@@ -100,6 +101,7 @@ describe('plantumlMode', () => {
   it('finds no arrow inside a word or a URL, but keeps o and x heads', () => {
     expect(tokens('database db [[https://www.postgresql.org/docs/ Postgres docs]]')).toEqual([
       ['database', 'keyword'],
+      ['db', 'typeName'],
       ['[[https://www.postgresql.org/docs/ Postgres docs]]', 'link'],
     ])
     expect(tokens('A --o B')).toEqual([['--o', 'LinkOperator']])
@@ -109,7 +111,7 @@ describe('plantumlMode', () => {
 
   it('leaves a lone dash, a member type and an activity action unlabelled', () => {
     expect(tokens('- item')).toEqual([])
-    expect(tokens('class A', '-field : int')).toEqual([['class', 'keyword']])
+    expect(tokens('class A', '-field : int')).toEqual([['class', 'keyword'], ['A', 'typeName']])
     expect(tokens(':pay the bill;')).toEqual([])
   })
 
@@ -127,7 +129,7 @@ describe('plantumlMode', () => {
     expect(tokens("/' one", "two '/", 'actor A')).toEqual([
       ["/' one", 'comment'],
       ["two '/", 'comment'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
   })
 
@@ -188,7 +190,7 @@ describe('plantumlMode preprocessor', () => {
   })
 
   it('ends with its line', () => {
-    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number'], ['actor', 'keyword']])
+    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number'], ['actor', 'keyword'], ['A', 'typeName']])
   })
 
   it('leaves a price, a sprite, a string, a link and a comment as they were', () => {
@@ -204,7 +206,7 @@ describe('plantumlMode preprocessor', () => {
     expect(tokens('sprite $foo [16x16/16] {')[0]).toEqual(['sprite', 'keyword'])
     expect(tokens('sprite $foo [16x16/16] {')[1]).toEqual(['$foo', 'VariableName'])
     expect(tokens('  sprite foo <svg/>').slice(0, 2)).toEqual([['sprite', 'keyword'], ['foo', 'VariableName']])
-    expect(tokens('rectangle <$foo> as r')).toEqual([['rectangle', 'keyword'], ['<$foo>', 'tagName'], ['as', 'keyword']])
+    expect(tokens('rectangle <$foo> as r')).toEqual([['rectangle', 'keyword'], ['<$foo>', 'tagName'], ['as', 'keyword'], ['r', 'typeName']])
   })
 
   it('names a variable before a spaced bracket a variable, not a call', () => {
@@ -215,23 +217,23 @@ describe('plantumlMode preprocessor', () => {
 describe('plantumlMode colours', () => {
   it('names a hex colour a ColorLiteral, the node the colour picker looks for', () => {
     expect(tokens('skinparam backgroundColor #2B3E50')).toEqual([['skinparam', 'keyword'], ['#2B3E50', 'ColorLiteral']])
-    expect(tokens('participant Shop #99FF99')).toEqual([['participant', 'keyword'], ['#99FF99', 'ColorLiteral']])
+    expect(tokens('participant Shop #99FF99')).toEqual([['participant', 'keyword'], ['Shop', 'typeName'], ['#99FF99', 'ColorLiteral']])
   })
 
   it.each(['#ABC', '#abcd', '#A1B2C3', '#A1B2C3D4'])('takes %s as a colour', (hex) => {
-    expect(tokens(`node foo ${hex}`)).toEqual([['node', 'keyword'], [hex, 'ColorLiteral']])
+    expect(tokens(`node foo ${hex}`)).toEqual([['node', 'keyword'], ['foo', 'typeName'], [hex, 'ColorLiteral']])
   })
 
   it.each(['#ABCDE', '#ABCDEFA', '#line:red', '#line.dashed', '#back:red'])('takes %s for something other than a colour', (word) => {
-    expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword']])
+    expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword'], ['foo', 'typeName']])
   })
 
   it.each(['#Red', '#AliceBlue', '#APPLICATION', '#lightblue'])('takes the named colour %s as a colour', (word) => {
-    expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword'], [word, 'ColorLiteral']])
+    expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword'], ['foo', 'typeName'], [word, 'ColorLiteral']])
   })
 
   it('takes a named colour where a colour goes: an element style, a note, a styled link, a Creole tag', () => {
-    expect(tokens('node foo #Red;line:blue;line.dashed')).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral']])
+    expect(tokens('node foo #Red;line:blue;line.dashed')).toEqual([['node', 'keyword'], ['foo', 'typeName'], ['#Red', 'ColorLiteral']])
     expect(tokens('note left of A #pink', 'x', 'end note').slice(0, 2)).toEqual([['note', 'keyword'], ['#pink', 'ColorLiteral']])
     expect(tokens('A -[#Red,bold]-> B')).toEqual([['-[', 'LinkOperator'], ['#Red', 'ColorLiteral'], ['bold', 'attributeName'], [']->', 'LinkOperator']])
     expect(tokens('A -> B : <color:#Red>hot</color>').slice(1, 5)).toEqual([['<color', 'tagName'], [':', 'separator'], ['#Red', 'ColorLiteral'], ['>', 'tagName']])
@@ -243,12 +245,12 @@ describe('plantumlMode colours', () => {
   })
 
   it.each(['/', '|', '-', '\\'])('takes each part of a %s gradient for a colour of its own', (stroke) => {
-    expect(tokens(`node foo #Red${stroke}Yellow`)).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral'], [stroke, 'punctuation'], ['Yellow', 'ColorLiteral']])
+    expect(tokens(`node foo #Red${stroke}Yellow`)).toEqual([['node', 'keyword'], ['foo', 'typeName'], ['#Red', 'ColorLiteral'], [stroke, 'punctuation'], ['Yellow', 'ColorLiteral']])
   })
 
   it('takes a gradient\'s second hex without its #', () => {
-    expect(tokens('rectangle A #FF0000/FFFF00')).toEqual([['rectangle', 'keyword'], ['#FF0000', 'ColorLiteral'], ['/', 'punctuation'], ['FFFF00', 'ColorLiteral']])
-    expect(tokens('rectangle A #Red/FFF')).toEqual([['rectangle', 'keyword'], ['#Red', 'ColorLiteral'], ['/', 'punctuation'], ['FFF', 'ColorLiteral']])
+    expect(tokens('rectangle A #FF0000/FFFF00')).toEqual([['rectangle', 'keyword'], ['A', 'typeName'], ['#FF0000', 'ColorLiteral'], ['/', 'punctuation'], ['FFFF00', 'ColorLiteral']])
+    expect(tokens('rectangle A #Red/FFF')).toEqual([['rectangle', 'keyword'], ['A', 'typeName'], ['#Red', 'ColorLiteral'], ['/', 'punctuation'], ['FFF', 'ColorLiteral']])
   })
 
   it('takes both colours of an automatic text colour', () => {
@@ -269,7 +271,7 @@ describe('plantumlMode colours', () => {
   })
 
   it('takes the colour out of an element style, and leaves its line and text parts', () => {
-    expect(tokens('node foo #FF0000;line:red;line.dashed;text:blue')).toEqual([['node', 'keyword'], ['#FF0000', 'ColorLiteral']])
+    expect(tokens('node foo #FF0000;line:red;line.dashed;text:blue')).toEqual([['node', 'keyword'], ['foo', 'typeName'], ['#FF0000', 'ColorLiteral']])
   })
 
   it('highlights a ColorLiteral as a colour', () => {
@@ -317,7 +319,7 @@ describe('plantumlMode paths and protocols', () => {
 
   it('reads a URL on an element line, and leaves a string, a link and a comment (R7)', () => {
     expect(tokens('component https://x.org/a')).toEqual([['component', 'keyword'], ['https://x.org/a', 'url']])
-    expect(tokens('node n [[https://x]]')).toEqual([['node', 'keyword'], ['[[https://x]]', 'link']])
+    expect(tokens('node n [[https://x]]')).toEqual([['node', 'keyword'], ['n', 'typeName'], ['[[https://x]]', 'link']])
     expect(tokens("' https://x.org")).toEqual([["' https://x.org", 'comment']])
     expect(tokens('component "https://x.org"')).toEqual([['component', 'keyword'], ['"https://x.org"', 'string']])
   })
@@ -329,8 +331,8 @@ describe('plantumlMode paths and protocols', () => {
 
   it('leaves a computed or quoted include to the preprocessor', () => {
     expect(tokens('!include %get_json_attribute($a, "b")')).toEqual(include([['%get_json_attribute', 'FunctionName'], ['(', 'paren'], ['$a', 'VariableName'], [',', 'separator'], ['"b"', 'string'], [')', 'paren']]))
-    expect(tokens('!include', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword']])
-    expect(tokens('!include   ', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword']])
+    expect(tokens('!include', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword'], ['A', 'typeName']])
+    expect(tokens('!include   ', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword'], ['A', 'typeName']])
   })
 
   it('reads a URL in a label, and the rest of the label as a label', () => {
@@ -516,7 +518,7 @@ describe('plantumlMode Creole', () => {
       ['|', 'separator'],
       ['----', 'heading'],
       ['end note', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
 
@@ -538,13 +540,15 @@ describe('plantumlMode Creole', () => {
       ['__u__', 'underline'],
       ['....', 'heading'],
       ['endlegend', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['B', 'typeName'],
     ])
     expect(tokens('node web [', '//front// end', '====', ']', 'node db')).toEqual([
       ['node', 'keyword'],
+      ['web', 'typeName'],
       ['//front//', 'emphasis'],
       ['====', 'heading'],
       ['node', 'keyword'],
+      ['db', 'typeName'],
     ])
   })
 
@@ -555,7 +559,7 @@ describe('plantumlMode Creole', () => {
       ['title', 'keyword'],
       ['""x""', 'monospace'],
       ['end title', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['B', 'typeName'],
     ])
     expect(tokens('header', '<b>h</b>', 'endheader')).toEqual([['header', 'keyword'], ['<b>', 'tagName'], ['</b>', 'tagName'], ['endheader', 'keyword']])
     expect(tokens('footer page **1**')).toEqual([['footer', 'keyword'], ['**1**', 'strong']])
@@ -566,7 +570,7 @@ describe('plantumlMode Creole', () => {
       ['note', 'keyword'],
       ['<math>', 'tagName'],
       ['</math>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
     expect(label('<math>x</math> y')).toEqual([['<math>', 'tagName'], ['</math>', 'tagName'], [' y', 'labelName']])
   })
@@ -600,7 +604,7 @@ describe('plantumlMode @startcreole', () => {
       ['[[https://x.org]]', 'link'],
       ['----', 'heading'],
       ['@endcreole', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
 })
@@ -616,7 +620,7 @@ describe('plantumlMode @startfiles', () => {
       ['/', 'punctuation'],
       ['""monospaced""', 'monospace'],
       ['@endfiles', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
 
@@ -676,7 +680,7 @@ describe('plantumlMode style blocks', () => {
       ['@startuml', 'keyword'],
       ['<style>', 'tagName'],
       ['</style>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
       ['@enduml', 'keyword'],
     ])
   })
@@ -694,7 +698,7 @@ describe('plantumlMode style blocks', () => {
       ['=', 'definitionOperator'],
       ['my.css', 'url'],
       ['>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
   })
 
@@ -703,12 +707,12 @@ describe('plantumlMode style blocks', () => {
       ['@startuml', 'keyword'],
       ['<style>', 'tagName'],
       ['@enduml', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
   })
 
   it('takes no <style> inside a note, or after text on the line', () => {
-    expect(tokens('note left', '<style>', 'end note', 'actor A')).toEqual([['note', 'keyword'], ['end note', 'keyword'], ['actor', 'keyword']])
+    expect(tokens('note left', '<style>', 'end note', 'actor A')).toEqual([['note', 'keyword'], ['end note', 'keyword'], ['actor', 'keyword'], ['A', 'typeName']])
     expect(tokens('A -> B : <style>')).toEqual([['->', 'LinkOperator'], ['<style>', 'labelName']])
   })
 })
@@ -760,7 +764,7 @@ describe('plantumlLanguage with an inner mode', () => {
   })
 
   it('reads PlantUML again after the block', () => {
-    expect(nested('@startyaml', 'a: 1', '@endyaml', 'actor A').slice(3)).toEqual([['actor', 'keyword']])
+    expect(nested('@startyaml', 'a: 1', '@endyaml', 'actor A').slice(3)).toEqual([['actor', 'keyword'], ['A', 'typeName']])
   })
 
   it('keeps the inner mode to the end of the file when the block is never closed', () => {
@@ -769,7 +773,7 @@ describe('plantumlLanguage with an inner mode', () => {
 
   it('reads the body of a block of a type it has no mode for as before, its @start and @end lines keywords', () => {
     const lines = ['@startyaml', 'fruits:', '  - "apple"', "' a note", '@endyaml', 'actor A']
-    const expected = [['@startyaml', 'keyword'], ['"apple"', 'string'], ["' a note", 'comment'], ['@endyaml', 'keyword'], ['actor', 'keyword']]
+    const expected = [['@startyaml', 'keyword'], ['"apple"', 'string'], ["' a note", 'comment'], ['@endyaml', 'keyword'], ['actor', 'keyword'], ['A', 'typeName']]
     expect(tokensOf(plantumlLanguage({}), lines)).toEqual(expected)
     expect(tokensOf(plantumlLanguage({ json: whole('atom') }), lines)).toEqual(expected)
   })
@@ -802,7 +806,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['note {', 'atom'],
       ['}', 'atom'],
       ['</style>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
       ['@enduml', 'keyword'],
     ])
     expect(styled('<style>', "' a note", '  !$x = 1', 'a {', '</style>')).toEqual([
@@ -825,7 +829,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['<style>', 'tagName'],
       ['a { b }', 'atom'],
       ['</style>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
     // Two tokens of one name side by side are one node.
     expect(styled('<style></style>', '<style>a</style>x</style>')).toEqual([
@@ -852,7 +856,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['<math>', 'tagName'],
       ['pi r^2', 'atom'],
       ['</math>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
     expect(mathy('A -> B : <math>a</math>b</math>')).toEqual([
       ['->', 'LinkOperator'],
@@ -871,7 +875,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['<latex>', 'tagName'],
       ['\\pi r^2', 'atom'],
       ['</latex>', 'tagName'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
     expect(texy('A -> B : <latex>a</latex>b</latex>')).toEqual([
       ['->', 'LinkOperator'],
@@ -892,14 +896,14 @@ describe('plantumlLanguage with an inner mode', () => {
       ['\\b', 'atom'],
       ['</latex>', 'tagName'],
       ['end note', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
     expect(texy('title', '<latex>', '\\a', 'end title', 'actor A')).toEqual([
       ['title', 'keyword'],
       ['<latex>', 'tagName'],
       ['\\a', 'atom'],
       ['end title', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
   })
 
@@ -914,9 +918,11 @@ describe('plantumlLanguage with an inner mode', () => {
     ])
     expect(texy('node web [', '<latex>', '\\a', ']', 'node db')).toEqual([
       ['node', 'keyword'],
+      ['web', 'typeName'],
       ['<latex>', 'tagName'],
       ['\\a', 'atom'],
       ['node', 'keyword'],
+      ['db', 'typeName'],
     ])
     // Elsewhere neither ends it: a note's LaTeX may hold a line starting `]`.
     expect(texy('note left', '<latex>', ']', '\\b', 'end note')).toContainEqual(['\\b', 'atom'])
@@ -933,9 +939,9 @@ describe('plantumlLanguage with an inner mode', () => {
       ['</style>', 'tagName'],
       ['b: 2', 'atom'],
       ['@endyaml', 'keyword'],
-      ['actor', 'keyword'],
+      ['actor', 'keyword'], ['A', 'typeName'],
     ])
-    expect(tokensOf(language, ['@startyaml', '<style>', 'node {', '@endyaml', 'actor A']).slice(-2)).toEqual([['@endyaml', 'keyword'], ['actor', 'keyword']])
+    expect(tokensOf(language, ['@startyaml', '<style>', 'node {', '@endyaml', 'actor A']).slice(-3)).toEqual([['@endyaml', 'keyword'], ['actor', 'keyword'], ['A', 'typeName']])
   })
 
   /** The parser's state after reading `lines`. */
@@ -1064,11 +1070,11 @@ describe('plantumlMode Creole, complete (X19)', () => {
       ['</code>', 'tagName'],
       ['**bold**', 'strong'],
     ])
-    expect(tokens('@startcreole', '<code>', 'x', '</code>', '@endcreole', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'tagName', 'keyword', 'keyword'])
+    expect(tokens('@startcreole', '<code>', 'x', '</code>', '@endcreole', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'tagName', 'keyword', 'keyword', 'typeName'])
   })
 
   it('ends a note at its closer even inside an unclosed <code>', () => {
-    expect(tokens('note left of A', '<code>', 'x', 'end note', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'keyword', 'keyword'])
+    expect(tokens('note left of A', '<code>', 'x', 'end note', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'keyword', 'keyword', 'typeName'])
   })
 })
 
@@ -1173,22 +1179,22 @@ describe('stereotypes (H13)', () => {
   const gt = ['>>', 'angleBracket']
 
   it('reads <<name>> as brackets round an annotation', () => {
-    expect(tokens('class Foo <<entity>>')).toEqual([['class', 'keyword'], lt, ['entity', 'annotation'], gt])
+    expect(tokens('class Foo <<entity>>')).toEqual([['class', 'keyword'], ['Foo', 'typeName'], lt, ['entity', 'annotation'], gt])
   })
 
   it('reads several in a row', () => {
-    expect(tokens('class Foo <<a>> <<b>>').slice(1)).toEqual([lt, ['a', 'annotation'], gt, lt, ['b', 'annotation'], gt])
+    expect(tokens('class Foo <<a>> <<b>>').slice(2)).toEqual([lt, ['a', 'annotation'], gt, lt, ['b', 'annotation'], gt])
   })
 
   it('reads the spot form', () => {
-    expect(tokens('class Foo <<(C,#FF7700) Control>>').slice(1)).toEqual([
+    expect(tokens('class Foo <<(C,#FF7700) Control>>').slice(2)).toEqual([
       lt, ['(', 'paren'], ['C', 'atom'], [',', 'separator'], ['#FF7700', 'ColorLiteral'], [')', 'paren'], ['Control', 'annotation'], gt,
     ])
   })
 
   it('reads a sprite, its scale and its braces', () => {
-    expect(tokens('class Foo <<$cog*2>>').slice(1)).toEqual([lt, ['$cog', 'tagName'], ['*2', 'number'], gt])
-    expect(tokens('class Foo <<$cog{scale=2}>>').slice(1)).toEqual([
+    expect(tokens('class Foo <<$cog*2>>').slice(2)).toEqual([lt, ['$cog', 'tagName'], ['*2', 'number'], gt])
+    expect(tokens('class Foo <<$cog{scale=2}>>').slice(2)).toEqual([
       lt, ['$cog', 'tagName'], ['{', 'brace'], ['scale', 'attributeName'], ['=', 'definitionOperator'], ['2', 'string'], ['}', 'brace'], gt,
     ])
   })
@@ -1285,5 +1291,94 @@ describe('numbers and calls (H14, H16)', () => {
       expect(out.slice(-1)).toEqual([['->', 'LinkOperator']])
       expect(out.filter(([, t]) => t === 'paren').length).toBe(open.split('(').length - 1)
     }
+  })
+})
+
+describe('declarations and class bodies (H15, H17)', () => {
+  const types = (...lines) => tokens(...lines).filter(([, t]) => t === 'typeName')
+
+  it('reads the name a line declares as a type', () => {
+    expect(tokens('class Foo')).toEqual([['class', 'keyword'], ['Foo', 'typeName']])
+    expect(tokens('participant Alice')).toEqual([['participant', 'keyword'], ['Alice', 'typeName']])
+    expect(tokens('abstract class Block')).toEqual([['abstract class', 'keyword'], ['Block', 'typeName']])
+    expect(tokens('  component api.v1')).toEqual([['component', 'keyword'], ['api.v1', 'typeName']])
+  })
+
+  it('reads the alias after as, the quoted name a string', () => {
+    expect(tokens('actor "Dr K" as drk')).toEqual([['actor', 'keyword'], ['"Dr K"', 'string'], ['as', 'keyword'], ['drk', 'typeName']])
+  })
+
+  it('leaves a name used again plain', () => {
+    expect(types('Alice -> Bob')).toEqual([])
+    expect(types('Alice -> Bob : hello')).toEqual([])
+    expect(types('classifier Foo')).toEqual([])
+  })
+
+  it('reads a class body as members', () => {
+    const out = tokens('class Diagram {', '  +name : String', '  +render() : Svg', '  {static} count : int', '  -- private --', '}', 'A -> B')
+    expect(out).toEqual([
+      ['class', 'keyword'], ['Diagram', 'typeName'], ['{', 'brace'],
+      ['+', 'modifier'], [':', 'separator'], ['String', 'typeName'],
+      ['+', 'modifier'], ['render', 'FunctionName'], ['()', 'paren'], [':', 'separator'], ['Svg', 'typeName'],
+      ['{', 'brace'], ['static', 'modifier'], ['}', 'brace'], [':', 'separator'], ['int', 'typeName'],
+      ['-- private --', 'heading'],
+      ['}', 'brace'],
+      ['->', 'LinkOperator'],
+    ])
+  })
+
+  it('reads the dividers alone and around a title, never as links', () => {
+    for (const divider of ['--', '..', '==', '__', '.. Getters ..', '== Static ==', '__ Fields __']) {
+      expect(tokens('class A {', `  ${divider}`, '}')).toContainEqual([divider, 'heading'])
+    }
+  })
+
+  it('reads every visibility mark and member modifier', () => {
+    const out = tokens('class A {', '  -id', '  #parent', '  ~pkg', '  {abstract} draw()', '  {field} x', '  {method} y', '  {classifier} z', '}')
+    expect(out.filter(([, t]) => t === 'modifier').map(([s]) => s)).toEqual(['-', '#', '~', 'abstract', 'field', 'method', 'classifier'])
+  })
+
+  it('opens a body for the kinds that have members, its line ending {', () => {
+    for (const kind of ['interface', 'enum', 'abstract', 'annotation', 'entity', 'struct', 'protocol', 'object', 'map']) {
+      expect(tokens(`${kind} A {`, '  +x : int', '}')).toContainEqual(['int', 'typeName'])
+    }
+    // A package's braces hold elements, not members.
+    expect(tokens('package p {', '  -- x --', '}')).toContainEqual(['--', 'LinkOperator'])
+  })
+
+  it('reads stereotypes, strings and comments in a body, and ends it at @end', () => {
+    const out = tokens('class A <<x>> {', "  ' a note", '  +s : String <<y>>', '  "q"', '@enduml', 'A -> B')
+    expect(out).toContainEqual(['x', 'annotation'])
+    expect(out).toContainEqual(["' a note", 'comment'])
+    expect(out).toContainEqual(['y', 'annotation'])
+    expect(out).toContainEqual(['"q"', 'string'])
+    expect(out.slice(-2)).toEqual([['@enduml', 'keyword'], ['->', 'LinkOperator']])
+  })
+
+  it('keeps the body through a block comment', () => {
+    expect(tokens('class A {', "  /' a", "  b '/", '  +x : int', '}', 'A -> B').slice(-3)).toEqual([['int', 'typeName'], ['}', 'brace'], ['->', 'LinkOperator']])
+  })
+
+  it('keeps a body through a ! line (Review Focus 2)', () => {
+    expect(tokens('enum Kind {', '!foreach $k in $kinds', '  $k', '!endfor', '}')).toEqual([
+      ['enum', 'keyword'], ['Kind', 'typeName'], ['{', 'brace'],
+      ['!foreach', 'meta'], ['$k', 'VariableName'], ['$kinds', 'VariableName'],
+      ['$k', 'VariableName'],
+      ['!endfor', 'meta'],
+      ['}', 'brace'],
+    ])
+  })
+
+  it('reads a ! line in a note body, and Creole after it', () => {
+    expect(tokens('note left', '!if $x', '**b**', 'end note', 'A -> B')).toEqual([
+      ['note', 'keyword'], ['!if', 'meta'], ['$x', 'VariableName'], ['**b**', 'strong'], ['end note', 'keyword'], ['->', 'LinkOperator'],
+    ])
+  })
+
+  it('ends a ! line with its line at the top level too', () => {
+    expect(tokens('!include foo.puml', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
+    expect(tokens('!theme x from y', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
+    expect(tokens('!theme x', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
+    expect(tokens('!$x = 1', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
   })
 })

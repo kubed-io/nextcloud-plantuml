@@ -22,12 +22,17 @@ import { creole } from '../../src/editor/completion/creole.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
 import { builtins } from '../../src/editor/completion/builtins.js'
+import { localFiles } from '../../src/editor/completion/local-files.js'
 import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
 import { scan } from '../../src/editor/blocks.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
+import { filePath } from '../../src/editor/lint/state.js'
+import { listFolder } from '../../src/editor/save.js'
+
+vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn() }))
 
 function stateAt(marked) {
   const pos = marked.indexOf('|')
@@ -45,7 +50,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, icons, emoji, colors, builtins])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, icons, emoji, colors, builtins, localFiles])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -888,5 +893,106 @@ describe('style', () => {
     expect(complete(style, '<sty|le>\n</style>', true)).toBeNull()
     expect(complete(style, "<style>\nnode {\n  ' Fo|\n}\n</style>", true)).toBeNull()
     expect(complete(style, '@startuml\n<style>\n@enduml\nno|', true)).toBeNull()
+  })
+})
+
+describe('local paths', () => {
+  const FOLDERS = {
+    '/Diagrams': [
+      { name: 'shared.puml', folder: false },
+      { name: 'Order flow.puml', folder: false },
+      { name: 'theme.css', folder: false },
+      { name: 'notes.txt', folder: false },
+      { name: 'photo.png', folder: false },
+      { name: 'sub', folder: true },
+    ],
+    '/Diagrams/sub': [{ name: 'deep.iuml', folder: false }, { name: 'skin.css', folder: false }],
+    '/': [{ name: 'top.pu', folder: false }, { name: 'Diagrams', folder: true }],
+  }
+
+  beforeEach(() => {
+    vi.mocked(listFolder).mockReset()
+    vi.mocked(listFolder).mockImplementation(async (path) => FOLDERS[path] ?? [])
+  })
+
+  function completeAt(marked, path = '/Diagrams/Order flow.puml') {
+    const pos = marked.indexOf('|')
+    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, plantumlCompletion, filePath.of(path)] })
+    return localFiles(new CompletionContext(state, pos, false))
+  }
+
+  it('offers < and https:// first, then the folder\'s diagrams and folders, after a bare !include', async () => {
+    for (const directive of ['!include', '!include_many', '!include_once', '!includesub']) {
+      const result = await completeAt(`${directive} |`)
+      expect(labels(result).slice(0, 2)).toEqual(['<', 'https://'])
+      expect(labels(result).slice(2).sort()).toEqual(['../', 'Order flow.puml', 'notes.txt', 'shared.puml', 'sub/'].sort())
+    }
+    expect(listFolder).toHaveBeenLastCalledWith('/Diagrams')
+  })
+
+  it('lists the folder named by ./sub/, relative to the file', async () => {
+    const result = await completeAt('!include ./sub/|')
+
+    expect(listFolder).toHaveBeenCalledWith('/Diagrams/sub')
+    expect(labels(result).sort()).toEqual(['../', 'deep.iuml'])
+  })
+
+  it('goes up with ../, and from the root with /', async () => {
+    const up = await completeAt('!include ../|')
+    expect(listFolder).toHaveBeenLastCalledWith('/')
+    expect(labels(up).sort()).toEqual(['Diagrams/', 'top.pu'])
+
+    const root = await completeAt('!include /|')
+    expect(listFolder).toHaveBeenLastCalledWith('/')
+    expect(labels(root).sort()).toEqual(['Diagrams/', 'top.pu'])
+
+    await completeAt('!include /Diagrams/sub/|')
+    expect(listFolder).toHaveBeenLastCalledWith('/Diagrams/sub')
+  })
+
+  it('offers no ../ at the root, and nothing above it', async () => {
+    const result = await completeAt('!include |', '/top.pu')
+    expect(listFolder).toHaveBeenLastCalledWith('/')
+    expect(labels(result)).not.toContain('../')
+
+    expect(await completeAt('!include ../|', '/top.pu')).toBeNull()
+    expect(await completeAt('!include ./../|', '/Diagrams/x.puml')
+      .then((r) => labels(r).sort())).toEqual(['Diagrams/', 'top.pu'])
+  })
+
+  it('completes the style sheets after <style file=', async () => {
+    const result = await completeAt('<style file=|')
+
+    expect(labels(result).sort()).toEqual(['../', 'notes.txt', 'sub/', 'theme.css'])
+    expect(result.options.some((option) => option.label === '<')).toBe(false)
+  })
+
+  it('offers nothing in the stdlib, after a URL or elsewhere', async () => {
+    expect(await completeAt('!include <|')).toBeNull()
+    expect(await completeAt('!include <cloudogu/|')).toBeNull()
+    expect(await completeAt('!include https://x.org/|')).toBeNull()
+    expect(await completeAt('Alice -> Bob|')).toBeNull()
+    expect(await completeAt('!define x|')).toBeNull()
+    expect(listFolder).not.toHaveBeenCalled()
+  })
+
+  it('offers nothing when the listing fails, or the file\'s path is not known', async () => {
+    vi.mocked(listFolder).mockRejectedValue(new Error('offline'))
+    expect(await completeAt('!include |')).toBeNull()
+    expect(await completeAt('!include |', '')).toBeNull()
+  })
+
+  it('inserts a folder with its slash and opens the next level', async () => {
+    const view = new EditorView({ state: EditorState.create({ doc: '!include ', selection: { anchor: 9 }, extensions: [plantumlMode, plantumlCompletion, filePath.of('/Diagrams/Order flow.puml')] }), parent: document.body })
+    const result = await localFiles(new CompletionContext(view.state, 9, false))
+    const sub = result.options.find((option) => option.label === 'sub/')
+
+    sub.apply(view, sub, result.from, 9)
+
+    expect(view.state.doc.toString()).toBe('!include sub/')
+    vi.mocked(listFolder).mockClear()
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(listFolder).toHaveBeenCalledWith('/Diagrams/sub')
+    view.destroy()
   })
 })

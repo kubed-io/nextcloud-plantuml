@@ -34,7 +34,7 @@ import { valueWidgets } from './editor/values/widgets.js'
 import { colorSwatches } from './editor/swatches.js'
 import { plantumlLint } from './editor/lint/index.js'
 import { plantumlFolding } from './editor/folding.js'
-import { fileName, setServerError } from './editor/lint/state.js'
+import { fileName, filePath, setServerError } from './editor/lint/state.js'
 import { ConflictError, currentEtag, loadFile, saveCopy, saveFile } from './editor/save.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { toInlineSvg } from './editor/inline-svg.js'
@@ -438,7 +438,7 @@ export function openEditor(node) {
         title.textContent = copy.node.basename
         overlay.setAttribute('aria-label', copy.node.basename)
         image.setAttribute('aria-label', copy.node.basename)
-        view.dispatch({ effects: nameConfig.reconfigure(fileName.of(copy.node.basename)) })
+        view.dispatch({ effects: nameConfig.reconfigure([fileName.of(copy.node.basename), filePath.of(currentPath)]) })
         etag = copy.etag
         markSaved(doc)
       } catch (e) {
@@ -566,7 +566,7 @@ export function openEditor(node) {
           plantumlCompletion,
           plantumlLint,
           plantumlFolding,
-          nameConfig.of(fileName.of(name)),
+          nameConfig.of([fileName.of(name), filePath.of(currentPath)]),
           plantumlTheme,
           // A swatch before each ColorLiteral, named ones too; picking a colour writes it back as #rrggbb.
           colorSwatches,

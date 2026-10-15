@@ -20,7 +20,7 @@ const MESSAGE = new RegExp(`${arrow.source}[^:]*:`)
 /** Where a name is not wanted: a comment, a directive, a string, a message, a Creole tag, a colour. */
 function unwanted(lineBefore) {
   return /^\s*['@!]/.test(lineBefore) || lineBefore.split('"').length % 2 === 0 || MESSAGE.test(lineBefore)
-    || /<(?:\/?[a-z]*|&[\w-]*|:[\w+-]*)$/.test(lineBefore) || /#\w*$/.test(lineBefore) || /^\s*colors[ \t]+\w*$/.test(lineBefore)
+    || /<(?:\/?[a-z]*|&[\w-]*|:[\w+-]*)$/.test(lineBefore) || /<[\w&$:/][^<>]*$/.test(lineBefore) || /#\w*$/.test(lineBefore) || /^\s*colors[ \t]+\w*$/.test(lineBefore)
 }
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */

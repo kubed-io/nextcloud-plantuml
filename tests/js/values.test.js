@@ -215,14 +215,16 @@ describe('a tag\'s values (W4)', () => {
     expect(await family.options()).toEqual(['DejaVu Sans', 'Dialog'])
   })
 
-  // A family holds spaces, so an unclosed `<font:` reads to the next `<`, and there to its
-  // first word's end, or to the end of the word the cursor is in.
+  // A family holds spaces, so an unclosed `<font:` is what is typed up to the cursor, or, with
+  // the cursor elsewhere, its first word (the pencil's).
   it.each([
     ['<font:De| and more', 'De'],
     ['<font:DejaVu Sa|', 'DejaVu Sa'],
-    ['<font:Dej|aVu Sans and more', 'DejaVu'],
-    ['A -> B : <font:|hello</font>', 'hello'],
+    ['<font:Dej|aVu Sans and more', 'Dej'],
+    ['A -> B : <font:|hello</font>', ''],
+    ['<font:Sans Serif and more|', 'Sans Serif and more'],
     ['<font:Sans Serif and more <b>x</b>|', 'Sans'],
+    ['A|<font:Sans Serif', 'Sans'],
     ['<font:DejaVu Sans>x</font>|', 'DejaVu Sans'],
   ])('reads the family of %j as %j', (marked, family) => {
     const state = EditorState.create({ doc: marked.replace('|', ''), selection: { anchor: marked.indexOf('|') } })
@@ -232,8 +234,8 @@ describe('a tag\'s values (W4)', () => {
   })
 
   it.each([
-    ['A -> B : <font:|hello</font>', 'A -> B : <font:Dialog</font>'],
-    ['<font:De| and more', '<font:Dialog and more'],
+    ['A -> B : <font:|hello</font>', 'A -> B : <font:Dialog>hello</font>'],
+    ['<font:De| and more', '<font:Dialog> and more'],
     ['<font:Dej|aVu Sans>x', '<font:Dialog>x'],
   ])('a font picked in %j keeps the text after the family', async (marked, picked) => {
     open(marked)

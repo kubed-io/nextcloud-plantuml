@@ -19,7 +19,8 @@ export async function values(context) {
     return null
   }
   const labels = await value.options()
-  const filtered = (now) => ({ from: now.from, to: now.to, options: labels.map((label) => ({ label, type: 'constant' })), validFor: WORD })
+  const option = (close) => (label) => (close ? { label, type: 'constant', apply: label + close } : { label, type: 'constant' })
+  const filtered = (now) => ({ from: now.from, to: now.to, options: labels.map(option(now.close)), validFor: WORD })
   if (!context.explicit) {
     return filtered(value)
   }
@@ -28,7 +29,7 @@ export async function values(context) {
   return {
     from: value.from,
     to: value.to,
-    options: ordered.map((label) => ({ label, type: 'constant' })),
+    options: ordered.map(option(value.close)),
     filter: false,
     // No validFor, so the first change asks `update`, which filters by what was typed.
     update: (result, from, to, next) => {

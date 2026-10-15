@@ -24,7 +24,7 @@ function ask(name, read, empty) {
   return asked.get(name)
 }
 
-/** @param {'themes'|'icons'|'emoji'} name */
+/** @param {'themes'|'icons'|'emoji'|'fonts'} name */
 export function serverList(name) {
   return ask(name, (list) => (Array.isArray(list) ? list.filter((item) => typeof item === 'string') : []), [])
 }

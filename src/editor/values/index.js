@@ -20,6 +20,7 @@
  */
 import { Facet } from '@codemirror/state'
 import { themeValue } from '../completion/themes.js'
+import { serverList } from '../completion/server-list.js'
 
 /** The loaded profiles' entries, read beside `coreValues`. */
 export const valuesFacet = Facet.define({ combine: (values) => values.flat() })
@@ -80,8 +81,49 @@ const sizeValue = {
   },
 }
 
+const VALIGNS = ['top', 'middle', 'bottom']
+const TAG_NUMBER = '["\']?(-?\\d+(?:\\.\\d+)?)'
+
+/**
+ * A Creole tag's attribute: every `attr=` inside a `tag`, as `make` turns the
+ * attribute's `[found, value]` into the value's range, offset from the line's
+ * start. `tag` is the tag's opening through its `>` or `}`.
+ */
+function attributes(lineText, lineFrom, tag, attr, make) {
+  return [...lineText.matchAll(tag)].flatMap((tagFound) => [...tagFound[0].matchAll(attr)].map((found) => {
+    const from = lineFrom + tagFound.index + found.index + found[0].length - found[1].length
+    return { from, to: from + found[1].length, ...make() }
+  }))
+}
+
+const IMG = /<img\b[^>]*>?/gi
+const FONT = /<font\b[^>]*>?/gi
+const BRACES = /\{[^}]*\}?/g
+
+const valignValue = {
+  match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, IMG, /\bvalign=(\w*)/gi, () => ({ kind: 'list', options: () => VALIGNS })),
+}
+
+// `size=` is a font's, `vspace=` an image's; neither is ever below 0.
+const tagNumberValue = {
+  match: (lineText, state, lineFrom) => [
+    ...attributes(lineText, lineFrom, FONT, new RegExp(`\\bsize=${TAG_NUMBER}`, 'gi'), () => ({ kind: 'number', min: 0 })),
+    ...attributes(lineText, lineFrom, IMG, new RegExp(`\\bvspace=${TAG_NUMBER}`, 'gi'), () => ({ kind: 'number', min: 0 })),
+    ...attributes(lineText, lineFrom, BRACES, new RegExp(`\\bscale=${TAG_NUMBER}`, 'gi'), () => ({ kind: 'number', min: 0 })),
+  ],
+}
+
+const spaceValue = {
+  match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, /<space:[^>]*>?/gi, /<space:(\d+(?:\.\d+)?)/gi, () => ({ kind: 'number', min: 0 })),
+}
+
+// The family may hold spaces (`DejaVu Sans`), so it runs to the `>`.
+const fontFamilyValue = {
+  match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, /<font:[^>]*/gi, /<font:([^>]*)/gi, () => ({ kind: 'list', options: () => serverList('fonts') })),
+}
+
 /** @type {ValueEntry[]} */
-export const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue]
+export const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue, valignValue, tagNumberValue, spaceValue, fontFamilyValue]
 
 /**
  * The values on line `number`, in the order they sit.

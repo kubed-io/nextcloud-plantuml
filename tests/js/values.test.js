@@ -14,14 +14,15 @@ import { scan } from '../../src/editor/blocks.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import { plantumlCompletion } from '../../src/editor/completion/index.js'
-import { valueAt } from '../../src/editor/values/index.js'
+import { stepNumber, valueAt, valuesOn } from '../../src/editor/values/index.js'
 import { valueWidgets } from '../../src/editor/values/widgets.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 
 const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
 // The theme list is asked once per page, so once for this file.
 vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200 })))
+const fetch = vi.fn(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200 }))
+vi.stubGlobal('fetch', fetch)
 
 const profile = styleProfile({ scan, t: translate })
 const extensions = [profileExtension([profile]), plantumlCompletion, history(), valueWidgets]
@@ -164,6 +165,70 @@ describe('valueAt', () => {
     expect(valueAt(stateAt('A -> B : !theme x'), 16)).toBeNull()
     expect(valueAt(stateAt('skinparam backgroundColor red'), 27)).toBeNull()
     expect(valueAt(stateAt('A -> B : 12'), 10)).toBeNull()
+  })
+})
+
+describe('a tag\'s values (W4)', () => {
+  const on = (text) => valuesOn(stateAt(text), 1)
+
+  it('finds valign as a list and vspace as a number in an img tag', async () => {
+    const text = '<img src=x.png valign=top vspace=4>'
+    const [valign, vspace] = on(text)
+
+    expect(valign).toMatchObject({ from: text.indexOf('top'), to: text.indexOf('top') + 3, kind: 'list' })
+    expect(await valign.options()).toEqual(['top', 'middle', 'bottom'])
+    expect(vspace).toMatchObject({ from: text.indexOf('4'), to: text.indexOf('4') + 1, kind: 'number', min: 0 })
+  })
+
+  it.each([
+    ['<font size=12>', '12'],
+    ['<font color=red size="9.5">', '9.5'],
+    ['<space:8>', '8'],
+    ['<&star{scale=1.5}>', '1.5'],
+    ['<&star{color=red,scale=2}>', '2'],
+  ])('finds a number, never below 0, in %j', (text, word) => {
+    const from = text.indexOf(word)
+    expect(on(text)).toEqual([expect.objectContaining({ from, to: from + word.length, kind: 'number', min: 0 })])
+  })
+
+  it('finds none where the attribute belongs to another tag', () => {
+    expect(on('<font vspace=4> <img size=3> <u scale=2> <b>x</b>')).toEqual([])
+  })
+
+  it('steps a scale by its own last decimal and stops at 0', () => {
+    expect(stepNumber('0.1', -1, 0)).toBe('0.0')
+    expect(stepNumber('0', -1, 0)).toBe('0')
+    expect(stepNumber('1.5', 1, 0)).toBe('1.6')
+  })
+
+  it('finds an empty valign for the list to open on', () => {
+    const text = '<img valign=>'
+    expect(on(text)).toEqual([expect.objectContaining({ from: text.indexOf('>'), to: text.indexOf('>'), kind: 'list' })])
+  })
+
+  it('takes the server\'s fonts for <font:family>, spaces kept', async () => {
+    const text = '<font:DejaVu Sans>x</font>'
+    fetch.mockImplementation(async () => new Response(JSON.stringify({ fonts: ['DejaVu Sans', 'Dialog'] }), { status: 200 }))
+    const [family] = on(text)
+
+    expect(family).toMatchObject({ from: '<font:'.length, to: '<font:DejaVu Sans'.length, kind: 'list' })
+    expect(await family.options()).toEqual(['DejaVu Sans', 'Dialog'])
+  })
+
+  it('resolves no fonts when the server cannot answer', async () => {
+    vi.resetModules()
+    fetch.mockImplementation(async () => new Response('{}', { status: 503 }))
+    const { valuesOn: fresh } = await import('../../src/editor/values/index.js')
+    const state = EditorState.create({ doc: '<font:Dialog>' })
+
+    expect(await fresh(state, 1)[0].options()).toEqual([])
+  })
+
+  it('draws a pencil after a valign and a stepper after a vspace on the cursor\'s line', () => {
+    open('<img src=x.png valign=top| vspace=4>')
+
+    expect(choosers()).toHaveLength(1)
+    expect(steppers()).toHaveLength(1)
   })
 })
 

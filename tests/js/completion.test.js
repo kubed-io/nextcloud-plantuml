@@ -284,6 +284,13 @@ function answering(body) {
   return vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 }
 
+describe('a tag\'s values', () => {
+  it('offers valign\'s three on Ctrl-Space, the current one first', async () => {
+    expect(labels(await complete(values, '<img valign=|>', true))).toEqual(['top', 'middle', 'bottom'])
+    expect(labels(await complete(values, '<img valign=mid|dle>', true))).toEqual(['middle', 'top', 'bottom'])
+  })
+})
+
 describe('icons', () => {
   const ICONS = ['account-login', 'clock', 'cloud-download', 'zoom-out']
   let fetch
@@ -443,6 +450,31 @@ describe('named colours', () => {
   ])('offers none in `%s`', async (marked) => {
     expect(await complete(colorsSource, marked)).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  // W4: a Creole tag's colour, with or without a `#`.
+  it.each([
+    '<font color=|',
+    '<font size=12 color=re|',
+    'A -> B : <u:|',
+    'A -> B : <w:Al|',
+    'A -> B : <s:|',
+    'A -> B : <color:|',
+    'A -> B : <back:Re|',
+    '<&star{color=|',
+    '<&star{scale=2,color=Al|',
+    '<&star{color:|',
+  ])('offers the server\'s colours, each with its swatch, in the tag `%s`', async (marked) => {
+    const result = await complete(colorsSource, marked)
+    const typed = /\w*(?=\|)/.exec(marked)[0]
+
+    expect(result.from).toBe(marked.indexOf('|') - typed.length)
+    expect(labels(result)).toEqual(Object.keys(COLORS))
+    expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
+  })
+
+  it.each(['<font size=|', 'A -> B : <b>color=|', '<&star{scale=|'])('offers none in `%s`', async (marked) => {
+    expect(await complete(colorsSource, marked)).toBeNull()
   })
 
   // X9: plantuml.com writes `BackgroundColor lightGreen`.

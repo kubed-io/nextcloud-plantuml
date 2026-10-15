@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Named colours after a `#` where a colour goes (X14): an element's colour
- * after its declaration, a styled link's brackets, `<color:#` and `<back:#`,
+ * after its declaration, a styled link's brackets, `<color:`, `<back:`, `<u:`,
+ * `<s:` and `<w:` (the `#` optional), a `<font color=` and a `{color=`,
  * and a skinparam's `…Color` value, on its line or in its block. In a style
  * block, a `…Color` property's value, with its `#` or without (X9), and on a
  * uml line of its own, after `colors` (X13). The names are the configured
@@ -24,7 +25,9 @@ const PLACES = [
   // `actor Bob #`, `[Web] #`, `note left of A #`: a declaration, before any label.
   new RegExp(`^[ \\t]*(?:(?:${KINDS.join('|')})(?![\\w-])|\\[[^\\]]*\\]|\\([^)]*\\)|:[^:]+:)(?:[ \\t](?:"[^"]*"|[^:"'])*)?[ \\t]#(\\w*)$`),
   /[-.]\[(?:[^\]]*[,;])?#(\w*)$/,
-  /<(?:color|back):#(\w*)$/,
+  /<(?:color|back|u|s|w):#?(\w*)$/,
+  /<font\b[^>]*\scolor=["']?#?(\w*)$/i,
+  /\{[^}]*color[=:]#?(\w*)$/,
   /^[ \t]*skinparam[ \t]+\S*colou?r\S*[ \t]+#(\w*)$/i,
 ]
 // A line of a `skinparam … {` block, and a style declaration, which may follow a `{` or `;`.

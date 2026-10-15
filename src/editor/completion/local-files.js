@@ -7,7 +7,7 @@
  * the edited file's folder (`/` is the user's root, never above it). A folder
  * inserts `name/` and opens the next level. The stdlib after `<` is not here.
  */
-import { startCompletion } from '@codemirror/autocomplete'
+import { pickedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { listFolder } from '../save.js'
 import { filePath } from '../lint/state.js'
 
@@ -17,7 +17,12 @@ const INCLUDE_FILES = /\.(?:puml|iuml|plantuml|pu|txt)$/i
 const STYLE_FILES = /\.(?:css|txt)$/i
 
 function reopen(view, completion, from, to) {
-  view.dispatch({ changes: { from, to, insert: completion.label }, selection: { anchor: from + completion.label.length } })
+  view.dispatch({
+    changes: { from, to, insert: completion.label },
+    selection: { anchor: from + completion.label.length },
+    userEvent: 'input.complete',
+    annotations: pickedCompletion.of(completion),
+  })
   startCompletion(view)
 }
 
@@ -57,7 +62,7 @@ export async function localFiles(context) {
     return null
   }
   const typed = match[1]
-  if (typed.startsWith('<') || typed.startsWith('http')) {
+  if (typed.startsWith('<') || /^https?:/.test(typed)) {
     return null
   }
   const slash = typed.lastIndexOf('/')

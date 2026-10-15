@@ -3,17 +3,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * A `<` at the start of a line inside a files diagram offers its `<note>`
- * block, above Creole's tags.
+ * block, above Creole's tags; not in a style block there.
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
 import { blocksOf, scan } from '../blocks.js'
+import { inStyleBody } from '../plantuml-mode.js'
 
 const option = snippetCompletion('<note>\n${}\n</note>', { label: '<note>', detail: 'files note', type: 'text', boost: 3 })
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function filesNote(context) {
   const typed = context.matchBefore(/^\s*<[a-z]*/)
-  if (!typed) {
+  if (!typed || inStyleBody(context.state, context.pos)) {
     return null
   }
   const line = context.state.doc.lineAt(context.pos).number

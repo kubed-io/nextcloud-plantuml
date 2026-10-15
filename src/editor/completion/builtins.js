@@ -8,18 +8,27 @@
  */
 let loaded = null
 
+function option({ name, description, example }) {
+  return {
+    label: name,
+    type: 'function',
+    detail: description,
+    ...(example && { info: example }),
+    apply: (view, completion, from, to) => {
+      const insert = `${name}()`
+      view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length - 1 }, userEvent: 'input.complete' })
+    },
+  }
+}
+
+/** The list, loaded once; a failed load is forgotten, so the next `%` tries again. */
 function options() {
-  loaded ??= import('../data/builtins.json').then(({ default: list }) =>
-    list.map(({ name, description, example }) => ({
-      label: name,
-      type: 'function',
-      detail: description,
-      ...(example && { info: example }),
-      apply: (view, completion, from, to) => {
-        const insert = `${name}()`
-        view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length - 1 }, userEvent: 'input.complete' })
-      },
-    })))
+  loaded ??= import('../data/builtins.json')
+    .then(({ default: list }) => list.map(option))
+    .catch((error) => {
+      loaded = null
+      throw error
+    })
   return loaded
 }
 
@@ -29,5 +38,9 @@ export async function builtins(context) {
   if (!typed || /^\s*'/.test(context.state.doc.lineAt(context.pos).text)) {
     return null
   }
-  return { from: typed.from, options: await options(), validFor: /^%\w*$/ }
+  try {
+    return { from: typed.from, options: await options(), validFor: /^%\w*$/ }
+  } catch {
+    return null
+  }
 }

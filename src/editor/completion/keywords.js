@@ -6,6 +6,7 @@
  * A word joins a list here; a `detail` is for the few whose name says little.
  */
 import { diagramAt, scan } from '../blocks.js'
+import { inStyleBody } from '../plantuml-mode.js'
 
 /** Sequence participants; `names.js` reads declarations with these too. */
 export const PARTICIPANTS = ['participant', 'actor', 'boundary', 'control', 'entity', 'database', 'collections', 'queue']
@@ -52,6 +53,9 @@ const HELPERS = {
   'help colors': 'the colour help',
 }
 
+/** The helpers that take more after a space: no connector is due after one. */
+export const HELPER_HEADS = ['colors', 'help']
+
 const helpers = Object.entries(HELPERS).map(([label, detail]) => ({ label, type: 'keyword', detail }))
 
 const options = labels.map((label) => ({ label, type: 'keyword', ...(DETAILS[label] && { detail: DETAILS[label] }) }))
@@ -60,7 +64,7 @@ const options = labels.map((label) => ({ label, type: 'keyword', ...(DETAILS[lab
 const TWO_WORD = new Set([...labels, ...Object.keys(HELPERS)].filter((label) => label.includes(' ')).map((label) => label.split(' ')[0]))
 
 /** Whether the line sits in a `@startuml` block; the line itself is blanked, as it is still being typed. */
-function inUml(state, number) {
+export function inUml(state, number) {
   const lines = state.doc.toString().split('\n')
   lines[number - 1] = ''
   const diagram = diagramAt(scan(lines.join('\n')), number)
@@ -70,7 +74,7 @@ function inUml(state, number) {
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function keywords(context) {
   const typed = context.matchBefore(/^\s*(?:\w+ )?\w*/)
-  if (!typed) {
+  if (!typed || inStyleBody(context.state, context.pos)) {
     return null
   }
   const word = typed.text.trimStart()

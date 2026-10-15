@@ -45,7 +45,7 @@ const SCALE = /^\s*scale\s/
 const SIZE = /<size:(\d+(?:\.\d+)?)>/gi
 
 /** Whether line `number` is inside a `skinparam … {` block: its opening line comes first going up. */
-function inSkinparamBlock(state, number) {
+export function inSkinparamBlock(state, number) {
   for (let at = number - 1; at >= 1; at--) {
     const text = state.doc.line(at).text
     if (SKINPARAM_OPEN.test(text)) return true

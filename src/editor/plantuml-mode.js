@@ -255,6 +255,34 @@ const styleOneLine = /^([ \t]*)(<style>)(.*)<\/style>\s*$/
 const styleImport = /^([ \t]*)(<style\s+[\w-]+\s*=[^>]*>)(\s*)$/
 const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
 
+/**
+ * Whether `pos` is in a style block's body, read by the line forms above: a
+ * line between `<style>` and `</style>` (or the next `@end`) that is not
+ * PlantUML's own `'` or `!` line, or the middle of a one-line block. The core
+ * completion sources leave such a place to the style profile's.
+ *
+ * @param {import('@codemirror/state').EditorState} state
+ * @param {number} pos
+ */
+export function inStyleBody(state, pos) {
+  const line = state.doc.lineAt(pos)
+  const one = styleOneLine.exec(line.text)
+  if (one) {
+    const column = pos - line.from
+    const from = one[1].length + one[2].length
+    return column >= from && column <= from + one[3].length
+  }
+  if (styleOpen.test(line.text) || styleClose.test(line.text) || /^[ \t]*(?:['!]|@end)/.test(line.text)) {
+    return false
+  }
+  let open = false
+  for (let number = 1; number < line.number; number++) {
+    const text = state.doc.line(number).text
+    open = open ? !(styleClose.test(text) || /^[ \t]*@end/.test(text)) : styleOpen.test(text)
+  }
+  return open
+}
+
 /** CodeMirror's own copy for a stream mode without copyState: the object, and any array in it. */
 const copyOf = (state) => (state && typeof state === 'object'
   ? Object.fromEntries(Object.entries(state).map(([key, value]) => [key, Array.isArray(value) ? value.slice() : value]))

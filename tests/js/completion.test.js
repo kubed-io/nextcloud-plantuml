@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { CompletionContext, autocompletion, completionStatus, currentCompletions, insertCompletionText, startCompletion } from '@codemirror/autocomplete'
+import { CompletionContext, autocompletion, completionStatus, currentCompletions, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
@@ -363,7 +363,7 @@ describe('named colours', () => {
     'skinparam ArrowColor #|',
     'skinparam class {\n  BackgroundColor #|',
     '<style>\nnode {\n  BackGroundColor #|',
-    '<style>note { FontSize 2; LineColor #|',
+    '<style>note { FontSize 2; LineColor #|}</style>',
   ])('offers the server\'s colours, each with its swatch, after the # in `%s`', async (marked) => {
     const result = await complete(colorsSource, marked)
 
@@ -384,9 +384,51 @@ describe('named colours', () => {
     'A -> B : issue #|',
     'actor "Bob #|',
     'Bob -> Alice #|',
+    'A -> B : font color #|',
+    'A -> B : LineColor #|',
+    'note right\n  font color #|\nend note',
+    'note right\n  LineColor #|\nend note',
+    'title BackgroundColor #|',
+    '<style>\nnote #|\n</style>',
+    '<style>note { FontSize 2; LineColor #|',
   ])('offers none in `%s`', async (marked) => {
     expect(await complete(colorsSource, marked)).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  // X9: plantuml.com writes `BackgroundColor lightGreen`.
+  it.each([
+    '<style>\nnode {\n  BackgroundColor |\n}\n</style>',
+    '<style>\nnode {\n  LineColor li|',
+    '<style>node { FontSize 2; FontColor |}</style>',
+  ])('offers the names without a # after a style colour property and a space in `%s`', async (marked) => {
+    const result = await complete(colorsSource, marked)
+    const typed = /\w*(?=\|)/.exec(marked)[0]
+
+    expect(result.from).toBe(marked.indexOf('|') - typed.length)
+    expect(labels(result)).toEqual(Object.keys(COLORS))
+    expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
+  })
+
+  // X13: `colors <colour>` draws the shades around one.
+  it.each(['@startuml\ncolors |\n@enduml', '@startuml\n  colors Al|\n@enduml'])('offers the names after colors on a line of its own in a uml block (%j)', async (marked) => {
+    const result = await complete(colorsSource, marked)
+    const typed = /\w*(?=\|)/.exec(marked)[0]
+
+    expect(result.from).toBe(marked.indexOf('|') - typed.length)
+    expect(labels(result)).toEqual(Object.keys(COLORS))
+  })
+
+  it.each([
+    'skinparam ArrowColor |',
+    'node {\n  LineColor |\n}',
+    '<style>\nnode {\n  FontSize |\n}\n</style>',
+    '@startuml\ncolors | x\n@enduml',
+    '@startmindmap\ncolors |\n@endmindmap',
+    'colors |',
+    '@startuml\nA -> B : colors |\n@enduml',
+  ])('offers no names without a # in `%s`', async (marked) => {
+    expect(await complete(colorsSource, marked)).toBeNull()
   })
 
   it('asks the server once, and offers none when it cannot answer', async () => {
@@ -413,7 +455,7 @@ describe('creole', () => {
 
     expect(result.from).toBe(marked.indexOf('<'))
     expect(labels(result)).toEqual(expect.arrayContaining([
-      '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>', '<code>', '<r>',
+      '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>', '<r>',
     ]))
     expect(result.options.every((option) => option.type === 'text' && option.detail)).toBe(true)
     expect(result.validFor.test('<si')).toBe(true)
@@ -459,12 +501,20 @@ describe('creole', () => {
   })
 
   it('offers <code> with an empty line between its tags, the cursor on it, and <r>', () => {
-    const view = pick('title <co|', creole, '<code>')
+    const view = pick('note left\n<co|', creole, '<code>')
 
-    expect(view.state.doc.toString()).toBe('title <code>\n\n</code>')
-    expect(view.state.selection.main.head).toBe('title <code>\n'.length)
+    expect(view.state.doc.toString()).toBe('note left\n<code>\n\n</code>')
+    expect(view.state.selection.main.head).toBe('note left\n<code>\n'.length)
     expect(labels(complete(creole, 'title <|'))).toContain('<r>')
     view.destroy()
+  })
+
+  // A `<code>` block opens on a line of its own.
+  it.each(['A -> B : <|', 'title <|', 'note right: x <|'])('offers no <code> in the one-line label of `%s`, and the inline tags still', (marked) => {
+    const shown = labels(complete(creole, marked))
+
+    expect(shown).not.toContain('<code>')
+    expect(shown).toEqual(expect.arrayContaining(['<b>', '<size:12>', '<r>']))
   })
 
   it('offers the closers of the tags still open on the line after </, innermost first', () => {
@@ -600,6 +650,8 @@ describe('connectors', () => {
     ['the reference still being typed', 'nod|e1 '],
     ['the reference before its space', 'node1|'],
     ['a comment', "' node1 |"],
+    ['a helper command', '@startuml\ncolors |\n@enduml'],
+    ['a two-word helper command', '@startuml\nhelp |\n@enduml'],
   ])('are not offered after %s', (_what, marked) => {
     expect(complete(connectors, marked)).toBeNull()
   })
@@ -689,6 +741,20 @@ describe('built-in functions', () => {
     expect(view.state.doc.toString()).toBe('A: %strlen()')
     expect(view.state.selection.main.head).toBe('A: %strlen('.length)
     view.destroy()
+  })
+
+  it('asks again after the list failed to load, rather than keeping the failure', async () => {
+    vi.resetModules()
+    vi.doMock('../../src/editor/data/builtins.json', () => {
+      throw new Error('offline')
+    })
+    const { builtins: fresh } = await import('../../src/editor/completion/builtins.js')
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(await complete(fresh, '%str|')).toBeNull()
+    vi.doUnmock('../../src/editor/data/builtins.json')
+    expect(labels(await complete(fresh, '%str|'))).toContain('%strlen')
+    vi.mocked(console.error).mockRestore()
   })
 
   it('stays silent without a % and inside a comment', async () => {
@@ -896,6 +962,84 @@ describe('style', () => {
   })
 })
 
+describe('inside a style block', () => {
+  const COLORS = { AliceBlue: '#F0F8FF', Red: '#FF0000' }
+  const profile = styleProfile({ scan, t: (app, text) => text })
+  const { selectors, fontStyles } = vocabulary.style
+  let extensions
+
+  // The colours are asked once per page, so each test loads fresh modules, the profile's facets with them.
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    vi.stubGlobal('fetch', answering({ colors: COLORS }))
+    const { plantumlCompletion: completion } = await import('../../src/editor/completion/index.js')
+    const { profileExtension: profiles } = await import('../../src/editor/profiles/index.js')
+    extensions = [profiles([profile]), completion]
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** What the popup shows on Ctrl-Space at the cursor, or over a selection `[…]` as the chooser makes it, with every source. */
+  async function asked(marked) {
+    const anchor = marked.replace(/[[\]]/g, '').indexOf('|')
+    const plain = marked.replace('|', '')
+    const selection = plain.includes('[') ? { anchor: plain.indexOf('['), head: plain.indexOf(']') - 1 } : { anchor }
+    const view = new EditorView({
+      state: EditorState.create({ doc: plain.replace(/[[\]]/g, ''), extensions }),
+      parent: document.body,
+    })
+    view.dispatch({ selection })
+    startCompletion(view)
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    const shown = currentCompletions(view.state).map((option) => option.label)
+    view.destroy()
+    return shown
+  }
+
+  const DIAGRAM = 'actor Alice\nAlice -> Bob\n'
+
+  it('offers only the selectors at the start of a body line: no keyword twice, no snippets, no names', async () => {
+    const shown = await asked(`@startuml\n${DIAGRAM}<style>\n|\n</style>\n@enduml`)
+
+    expect(shown).toHaveLength(selectors.length)
+    expect(new Set(shown)).toEqual(new Set(selectors))
+    expect((await asked(`${DIAGRAM}<style>\nac|\n</style>`)).filter((label) => label === 'actor')).toHaveLength(1)
+  })
+
+  it.each([
+    ['a body line', '<style>\nac|\n</style>'],
+    ['the middle of a one-line block', '<style>node { Line| }</style>'],
+    ['a body with no </style> yet', '<style>\nnode {\n  Al|'],
+  ])('leaves %s to the style sources', (_where, marked) => {
+    for (const source of [keywords, snippets, names, connectors]) {
+      expect(complete(source, DIAGRAM + marked, true)).toBeNull()
+    }
+  })
+
+  it('offers no connectors or names after a colour property, only the named colours', async () => {
+    expect(await asked(`${DIAGRAM}<style>\nnode {\n  LineColor |\n}\n</style>`)).toEqual(Object.keys(COLORS))
+  })
+
+  it('offers only the font styles after FontStyle, on Ctrl-Space and from the chooser', async () => {
+    expect(await asked(`${DIAGRAM}<style>\nnode {\n  FontStyle |\n}\n</style>`)).toEqual(fontStyles)
+    const chosen = await asked(`${DIAGRAM}<style>\nnode {\n  FontStyle [bold]|\n}\n</style>`)
+    expect(new Set(chosen)).toEqual(new Set(fontStyles))
+    expect(chosen[0]).toBe('bold')
+  })
+
+  it('offers neither <style> nor Creole tags after a < on a body line', () => {
+    expect(complete(styleTag, '<style>\n<|\n</style>')).toBeNull()
+    expect(complete(creole, '<style>\nnode { <|\n</style>')).toBeNull()
+    expect(complete(filesNote, '@startfiles\n<style>\n<|\n</style>\n@endfiles')).toBeNull()
+  })
+
+  it('offers them all again after the block', () => {
+    expect(labels(complete(keywords, '<style>\n</style>\nac|'))).toContain('actor')
+    expect(complete(styleTag, '<style>\n</style>\n<|')).not.toBeNull()
+    expect(complete(connectors, '@startuml\n<style>\n@enduml\nnode1 |')).not.toBeNull()
+  })
+})
+
 describe('local paths', () => {
   const FOLDERS = {
     '/Diagrams': [
@@ -971,9 +1115,37 @@ describe('local paths', () => {
     expect(await completeAt('!include <|')).toBeNull()
     expect(await completeAt('!include <cloudogu/|')).toBeNull()
     expect(await completeAt('!include https://x.org/|')).toBeNull()
+    expect(await completeAt('!include http:|')).toBeNull()
     expect(await completeAt('Alice -> Bob|')).toBeNull()
     expect(await completeAt('!define x|')).toBeNull()
     expect(listFolder).not.toHaveBeenCalled()
+  })
+
+  it('lists a folder whose name starts with http', async () => {
+    await completeAt('!include httpdocs/|')
+
+    expect(listFolder).toHaveBeenCalledWith('/Diagrams/httpdocs')
+  })
+
+  it('opens the next level as a completion pick, so the popup reads it as one', async () => {
+    const picks = []
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '!include ',
+        selection: { anchor: 9 },
+        extensions: [plantumlMode, plantumlCompletion, filePath.of('/Diagrams/Order flow.puml'), EditorView.updateListener.of((update) => picks.push(...update.transactions))],
+      }),
+      parent: document.body,
+    })
+    const result = await localFiles(new CompletionContext(view.state, 9, false))
+    const sub = result.options.find((option) => option.label === 'sub/')
+
+    sub.apply(view, sub, result.from, 9)
+
+    const [pick] = picks.filter((tr) => tr.docChanged)
+    expect(pick.isUserEvent('input.complete')).toBe(true)
+    expect(pick.annotation(pickedCompletion)).toBe(sub)
+    view.destroy()
   })
 
   it('offers nothing when the listing fails, or the file\'s path is not known', async () => {

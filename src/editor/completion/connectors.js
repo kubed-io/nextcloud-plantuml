@@ -7,11 +7,13 @@
  * An element is a word, a "quoted name", a [component], a (use case) or an
  * :actor:, and a keyword such as `node` or `loop` starts a line of its own kind.
  * Picking one adds a space and offers the names to connect to. Where the value
- * registry has a value, a style property's say, no connector is due.
+ * registry has a value, in a style block, or after `colors` or `help`, no
+ * connector is due.
  */
 import { insertCompletionText, startCompletion } from '@codemirror/autocomplete'
-import { KEYWORDS } from './keywords.js'
+import { HELPER_HEADS, KEYWORDS } from './keywords.js'
 import { valueAt } from '../values/index.js'
+import { inStyleBody } from '../plantuml-mode.js'
 
 /** [connector, detail], the commonest first. */
 const CONNECTORS = [
@@ -46,7 +48,7 @@ const options = CONNECTORS.map(([label, detail], i) => ({ label, detail, type: '
 const ELEMENT = /(?:\w+|"[^"]*"|\[[^\]]*\]|\([^)]*\)|:[^:]+:)/.source
 // A connector starts with one of these; the rest of it is anything but a space.
 const LINE = new RegExp(`^\\s*(${ELEMENT})\\s+((?:[-.~=<*o][^\\s]*)?)$`)
-const keywords = new Set(KEYWORDS)
+const keywords = new Set([...KEYWORDS, ...HELPER_HEADS])
 
 /**
  * The connector typed so far where one is due in `lineBefore`, `''` when none
@@ -61,7 +63,7 @@ export function connectorTyped(lineBefore) {
 export function connectors(context) {
   const line = context.state.doc.lineAt(context.pos)
   const typed = connectorTyped(context.state.sliceDoc(line.from, context.pos))
-  if (typed === null || valueAt(context.state, context.pos)) {
+  if (typed === null || valueAt(context.state, context.pos) || inStyleBody(context.state, context.pos)) {
     return null
   }
   return { from: context.pos - typed.length, options, validFor: /^\S*$/ }

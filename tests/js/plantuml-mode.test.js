@@ -655,7 +655,7 @@ describe('plantumlLanguage with an inner mode', () => {
     expect(nested('@startyaml', 'a: 1', 'actor A')).toEqual([['@startyaml', 'keyword'], ['a: 1', 'atom'], ['actor A', 'atom']])
   })
 
-  it('reads a block of a type it has no mode for as it always has', () => {
+  it('reads the body of a block of a type it has no mode for as before, its @start and @end lines keywords', () => {
     const lines = ['@startyaml', 'fruits:', '  - "apple"', "' a note", '@endyaml', 'actor A']
     const expected = [['@startyaml', 'keyword'], ['"apple"', 'string'], ["' a note", 'comment'], ['@endyaml', 'keyword'], ['actor', 'keyword']]
     expect(tokensOf(plantumlLanguage({}), lines)).toEqual(expected)

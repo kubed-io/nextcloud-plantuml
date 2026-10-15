@@ -163,6 +163,30 @@ describe('the all diagrams menu', () => {
     expect(document.activeElement).toBe(items()[11])
   })
 
+  it('names each item "label, type" and shows the type only when it differs from the label', () => {
+    size(4000, 600)
+    tabs.update(scan(THREE), 0)
+
+    expect(items().map((item) => item.getAttribute('aria-label'))).toEqual(['order 1, uml', 'order 2, uml', 'salt, salt'])
+    expect(items().map((item) => item.lastChild.textContent)).toEqual(['uml', 'uml', ''])
+  })
+
+  it('disconnects its observer and drops its window listeners when destroyed', () => {
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect = disconnect })
+    const removed = vi.spyOn(window, 'removeEventListener')
+    try {
+      const own = createTabs({ onActivate })
+      own.destroy()
+
+      expect(disconnect).toHaveBeenCalledOnce()
+      expect(removed).toHaveBeenCalledWith('resize', expect.any(Function))
+    } finally {
+      removed.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('activates the pick and closes', () => {
     size(4000, 600)
     tabs.update(scan(MANY), 0)

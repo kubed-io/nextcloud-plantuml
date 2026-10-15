@@ -216,11 +216,12 @@ describe('a tag\'s values (W4)', () => {
   })
 
   // A family holds spaces, so an unclosed `<font:` is what is typed up to the cursor, or, with
-  // the cursor elsewhere, its first word (the pencil's).
+  // the cursor in a word, up to that word's end, and with the cursor elsewhere, its first word (the pencil's).
   it.each([
     ['<font:De| and more', 'De'],
     ['<font:DejaVu Sa|', 'DejaVu Sa'],
-    ['<font:Dej|aVu Sans and more', 'Dej'],
+    ['<font:Dej|aVu Sans and more', 'DejaVu'],
+    ['<font:DejaVu Sa|ns and more', 'DejaVu Sans'],
     ['A -> B : <font:|hello</font>', ''],
     ['<font:Sans Serif and more|', 'Sans Serif and more'],
     ['<font:Sans Serif and more <b>x</b>|', 'Sans'],
@@ -236,6 +237,7 @@ describe('a tag\'s values (W4)', () => {
   it.each([
     ['A -> B : <font:|hello</font>', 'A -> B : <font:Dialog>hello</font>'],
     ['<font:De| and more', '<font:Dialog> and more'],
+    ['<font:Dej|aVu Sans and more', '<font:Dialog> Sans and more'],
     ['<font:Dej|aVu Sans>x', '<font:Dialog>x'],
   ])('a font picked in %j keeps the text after the family', async (marked, picked) => {
     open(marked)

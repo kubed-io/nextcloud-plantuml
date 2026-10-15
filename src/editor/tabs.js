@@ -24,7 +24,7 @@ const MOVES = {
  * @param {object} options
  * @param {(index: number) => void} options.onActivate called with the index of the tab activated
  * @param {string} [options.controls] the id of the element showing the diagram
- * @return {{ element: HTMLElement, list: HTMLElement, update: (diagrams: import('./blocks.js').Diagram[], active: number) => void }}
+ * @return {{ element: HTMLElement, list: HTMLElement, update: (diagrams: import('./blocks.js').Diagram[], active: number) => void, destroy: () => void }}
  */
 export function createTabs({ onActivate, controls }) {
   const element = document.createElement('div')
@@ -193,8 +193,17 @@ export function createTabs({ onActivate, controls }) {
       close(false)
     }
   }
+  let observer = null
   if (typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(checkOverflow).observe(list)
+    observer = new ResizeObserver(checkOverflow)
+    observer.observe(list)
+  }
+
+  /** The editor closing: stop observing and drop the listeners an open menu holds on the document and window. */
+  function destroy() {
+    observer?.disconnect()
+    close(false)
+    window.removeEventListener('resize', place)
   }
 
   /** Tabs are kept and relabelled rather than rebuilt, so a focused one stays focused. */
@@ -215,7 +224,8 @@ export function createTabs({ onActivate, controls }) {
       tab.setAttribute('aria-selected', String(i === current))
       tab.tabIndex = i === current ? 0 : -1
       items[i].firstChild.textContent = text
-      items[i].lastChild.textContent = diagrams[i].type
+      items[i].lastChild.textContent = diagrams[i].type === text ? '' : diagrams[i].type
+      items[i].setAttribute('aria-label', `${text}, ${diagrams[i].type}`)
       items[i].setAttribute('aria-checked', String(i === current))
     })
     element.hidden = diagrams.length < 2
@@ -228,5 +238,5 @@ export function createTabs({ onActivate, controls }) {
     checkOverflow()
   }
 
-  return { element, list, update }
+  return { element, list, update, destroy }
 }

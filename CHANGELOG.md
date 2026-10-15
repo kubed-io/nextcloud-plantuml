@@ -52,6 +52,14 @@ All notable changes to this project are documented here. The format follows
 - Tags are coloured like HTML: the tag, its attribute names, a quiet `=`, and values in the string colour.
 - A tag's attributes complete (`<font size= color=>`, `<img src= vspace= valign=>`, `<style file=>`, `{scale= color=}` after icons, emoji and sprites), and their values too: `valign`'s three, the server's fonts and named colours, with the pencil and the stepper on them. New route `GET /apps/plantuml/fonts`.
 - `!include <` completes PlantUML's standard library: the libraries the server has (new route `GET /apps/plantuml/stdlib`), then each library's folders and files.
+- An **All diagrams** menu at the end of the tab strip when the tabs overflow: every diagram, its type beside it, a pick activating it.
+
+### Changed
+
+- Style blocks colour selectors moss and property names slate.
+- The preprocessor colours `$variables` and function names, no longer the whole line in one colour.
+- Every `@start…` and `@end…` line is coloured, whatever the diagram type.
+- A warmer orange for attributes.
 
 ### Fixed
 
@@ -59,3 +67,6 @@ All notable changes to this project are documented here. The format follows
 - `!includesub NAME` of a section in the same diagram no longer shows a mistake.
 - `!includesub ./file.puml` without a section name says which sections the file has, instead of PlantUML's bare "cannot include".
 - Tags such as `<style …>`, `<b>` and `<&icon>` are maroon, no longer the grey of a comment.
+- The tabs after a block with arguments (`@startjcckit(300,200)`) no longer draw the block before them.
+- Picking a font in an unclosed `<font:` closes the tag.
+- Element names are no longer offered inside a tag.

@@ -121,8 +121,9 @@ const spaceValue = {
 
 // The family may hold spaces (`DejaVu Sans`), so it runs to the `>`. While the
 // tag is unclosed (`<font:Dej`) the value is what is typed so far: from the
-// colon to the cursor when the cursor is in it, else the first word, so a pick
-// keeps the text after it. An unclosed value carries `close: '>'`, which a
+// colon to the cursor when the cursor is at its end, to the end of the word the
+// cursor is in, at the cursor when it sits before a word; with the cursor
+// elsewhere, the first word. So a pick keeps the text after it. An unclosed value carries `close: '>'`, which a
 // pick adds. None once the server is known to list no fonts, so the chooser
 // draws no pencil for nothing.
 const FONT_FAMILY = /<font:([^<>]*)(>?)/gi
@@ -138,7 +139,13 @@ const fontFamilyValue = {
       let to = from + found[1].length
       const value = { kind: 'list', options: () => serverList('fonts') }
       if (!found[2]) {
-        to = head >= from && head <= to ? head : from + /^\S*/.exec(found[1])[0].length
+        if (head >= from && head <= to) {
+          const before = lineText[head - 1]
+          const inWord = head > from && before !== undefined && !/\s/.test(before)
+          to = inWord ? head + /^\S*/.exec(lineText.slice(head, to))[0].length : head
+        } else {
+          to = from + /^\S*/.exec(found[1])[0].length
+        }
         value.close = '>'
       }
       return { ...value, from: lineFrom + from, to: lineFrom + to }

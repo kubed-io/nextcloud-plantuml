@@ -1005,8 +1005,11 @@ describe('names', () => {
   })
 
   it('still offers names after an arrow, after a closed tag and after a left arrow', () => {
-    for (const marked of ['api -> b|', '<b>x</b> api -> b|', 'api <-- b|']) {
-      const result = complete(names, 'participant api\nparticipant bee\n' + marked)
+    for (const marked of ['api -> b|', '<b>x</b> api -> b|', 'api <-- b|', 'A <|-- b|', 'A <.. b|', 'A <- b|', 'class A <<x>> -- b|']) {
+      // The cursor is the last character, as `A <|-- ` holds a `|` of its own.
+      const doc = 'participant api\nparticipant bee\n' + marked.slice(0, -1)
+      const state = EditorState.create({ doc, extensions: [plantumlMode, plantumlCompletion] })
+      const result = names(new CompletionContext(state, doc.length, false))
       expect([marked, result && labels(result)]).toEqual([marked, expect.arrayContaining(['bee'])])
     }
   })

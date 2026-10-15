@@ -502,6 +502,7 @@ export function openEditor(node) {
     document.removeEventListener('visibilitychange', drawAgain)
     window.removeEventListener('focus', drawAgain)
     window.removeEventListener('beforeunload', onBeforeUnload)
+    tabs.destroy()
     view?.destroy()
     overlay.remove()
     for (const sibling of inerted) {

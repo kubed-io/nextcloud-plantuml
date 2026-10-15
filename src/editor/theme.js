@@ -257,9 +257,10 @@ export const surfaceRules = {
   '.cm-completionIcon-operator': { color: towardText('--color-element-warning') },
   '.cm-completionIcon-operator:after': { content: '"→"' },
 
-  // The colour picker's swatch: the library paints the colour on the span and
-  // hides the native input's own swatch past its edge. Core's input rules give
-  // that input a margin and a 30px height, which are taken back.
+  // The colour picker's swatch (swatches.js), and a named colour's in the
+  // completion list: the colour is painted on the span, and the native input's
+  // own swatch hidden past its edge. Core's input rules give that input a
+  // margin and a 30px height, which are taken back.
   'span[data-color]': {
     width: '0.9em',
     height: '0.9em',

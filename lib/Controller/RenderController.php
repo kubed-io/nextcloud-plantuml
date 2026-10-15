@@ -107,6 +107,17 @@ final class RenderController extends Controller {
 		}
 	}
 
+	/** The editor's named colours (X14): each name with its hex. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function colors(): JSONResponse {
+		try {
+			return new JSONResponse(['colors' => $this->render->colors()]);
+		} catch (RenderException $e) {
+			return $this->problem($e);
+		}
+	}
+
 	/** The editor's `<&icon>` completion. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]

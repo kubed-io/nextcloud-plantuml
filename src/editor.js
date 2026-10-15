@@ -23,7 +23,6 @@ import { bracketMatching } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import { closeLintPanel, lintKeymap } from '@codemirror/lint'
-import { color } from '@uiw/codemirror-extensions-color'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
@@ -32,6 +31,7 @@ import { profileExtension, profileLoader, resetProfiles } from './editor/profile
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
 import { valueWidgets } from './editor/values/widgets.js'
+import { colorSwatches } from './editor/swatches.js'
 import { plantumlLint } from './editor/lint/index.js'
 import { plantumlFolding } from './editor/folding.js'
 import { fileName, setServerError } from './editor/lint/state.js'
@@ -557,8 +557,8 @@ export function openEditor(node) {
           plantumlFolding,
           nameConfig.of(fileName.of(name)),
           plantumlTheme,
-          // A swatch before each ColorLiteral; picking a colour writes it back as #rrggbb.
-          color,
+          // A swatch before each ColorLiteral, named ones too; picking a colour writes it back as #rrggbb.
+          colorSwatches,
           // A chooser after each value with a list, a stepper after each number, on the cursor's line.
           valueWidgets,
           // Long lines wrap, so the source pane never scrolls sideways.

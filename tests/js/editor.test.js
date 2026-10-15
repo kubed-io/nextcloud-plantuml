@@ -60,8 +60,15 @@ const diagram = (label = 'docs') => '<svg xmlns="http://www.w3.org/2000/svg" xml
   + ` preserveAspectRatio="none"><a target="_top" href="https://example.com/docs" xlink:href="https://example.com/docs">`
   + `<text x="5" y="20">${label}</text></a></svg>`
 
+// The server's named colours (X14), asked once for the page, so set before any test.
+const COLORS = { AliceBlue: '#F0F8FF', Red: '#FF0000', Yellow: '#FFFF00', Odd: null }
+
 beforeAll(async () => {
   window.OCA = {}
+  window.OC = { generateUrl: (url) => `/index.php${url}` }
+  globalThis.fetch = async (url) => (url === '/index.php/apps/plantuml/colors'
+    ? new Response(JSON.stringify({ colors: COLORS }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    : new Response('{}', { status: 404 }))
   await import('../../src/editor.js')
 })
 
@@ -368,6 +375,70 @@ describe('the colour picker', () => {
 
     expect(source()).toBe(`@startuml\n${line.replace(colour, '#00ff00')}\n@enduml\n`)
     expect(indicator()).toBe('unsaved')
+  })
+
+  const swatches = () => [...document.querySelectorAll('.cm-content span[data-color]')]
+  const pick = (input, value) => {
+    input.value = value
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+
+  it('puts the server\'s swatch on a named colour, one per colour, and a pick writes #rrggbb', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nnode web #AliceBlue\nnode db #FF0000\n@enduml\n', etag: '"get"' })
+    await open()
+    await vi.waitFor(() => expect(swatches()).toHaveLength(2))
+
+    const named = swatches()[0].querySelector('input')
+    expect(named.dataset.colorraw).toBe('#AliceBlue')
+    expect(named.value).toBe('#f0f8ff')
+    expect(swatches()[0].style.backgroundColor).toBe('rgb(240, 248, 255)')
+
+    pick(named, '#00ff00')
+
+    expect(source()).toBe('@startuml\nnode web #00ff00\nnode db #FF0000\n@enduml\n')
+  })
+
+  it('gives each part of a gradient its swatch, and a pick keeps the second without its #', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nrectangle A #Red/Yellow\n@enduml\n', etag: '"get"' })
+    await open()
+    await vi.waitFor(() => expect(swatches()).toHaveLength(2))
+
+    expect(swatches().map((swatch) => swatch.dataset.color)).toEqual(['#ff0000', '#ffff00'])
+    pick(swatches()[1].querySelector('input'), '#00ff00')
+    expect(source()).toBe('@startuml\nrectangle A #Red/00ff00\n@enduml\n')
+    pick(swatches()[0].querySelector('input'), '#0000ff')
+    expect(source()).toBe('@startuml\nrectangle A #0000ff/00ff00\n@enduml\n')
+  })
+
+  it('puts a swatch on a named colour in a style block, and a pick writes #rrggbb', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\n<style>\nnode { LineColor yellow; FontStyle bold }\n</style>\n@enduml\n', etag: '"get"' })
+    await open()
+    await vi.waitFor(() => expect(swatches()).toHaveLength(1))
+
+    expect(swatches()[0].dataset.color).toBe('#ffff00')
+    pick(swatches()[0].querySelector('input'), '#00ff00')
+    expect(source()).toBe('@startuml\n<style>\nnode { LineColor #00ff00; FontStyle bold }\n</style>\n@enduml\n')
+  })
+
+  it('puts no swatch on a name the server does not draw', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nnode a #NoSuchColour\nnode b #Odd\nnode c #Red\n@enduml\n', etag: '"get"' })
+    await open()
+    await vi.waitFor(() => expect(swatches()).toHaveLength(1))
+
+    expect(swatches()[0].querySelector('input').dataset.colorraw).toBe('#Red')
+  })
+
+  it('offers the server\'s colours after a # with their swatches', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml\nactor Bob #\n@enduml\n', etag: '"get"' })
+    await open()
+    const view = EditorView.findFromDOM(q('.cm-editor'))
+    view.dispatch({ selection: { anchor: '@startuml\nactor Bob #'.length } })
+    startCompletion(view)
+    await vi.waitFor(() => expect(q('.cm-tooltip-autocomplete')).not.toBeNull())
+
+    const offered = Object.fromEntries([...document.querySelectorAll('.cm-tooltip-autocomplete li')]
+      .map((item) => [item.querySelector('.cm-completionLabel').textContent, item.querySelector('span[data-color]')?.dataset.color ?? null]))
+    expect(offered).toEqual(COLORS)
   })
 })
 

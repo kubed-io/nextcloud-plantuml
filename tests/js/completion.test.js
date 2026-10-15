@@ -20,6 +20,7 @@ import { styleTag } from '../../src/editor/completion/style-tag.js'
 import { creole } from '../../src/editor/completion/creole.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
+import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
 import { scan } from '../../src/editor/blocks.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
@@ -42,7 +43,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji, colors])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -329,6 +330,75 @@ describe('emoji', () => {
   })
 })
 
+describe('named colours', () => {
+  const COLORS = { APPLICATION: '#C2F0FF', AliceBlue: '#F0F8FF', Red: '#FF0000', Odd: null }
+  let fetch
+  let colorsSource
+
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    fetch = answering({ colors: COLORS })
+    vi.stubGlobal('fetch', fetch)
+    colorsSource = (await import('../../src/editor/completion/colors.js')).colors
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it.each([
+    'actor Bob #|',
+    'node x #Al|',
+    'rectangle "My #1" as R <<s>> #|',
+    'archimate #|',
+    'A -[#|',
+    'A -[bold,#|',
+    'A -> B : <color:#|',
+    'title <back:#Al|',
+    'skinparam ArrowColor #|',
+    'skinparam class {\n  BackgroundColor #|',
+    '<style>\nnode {\n  BackGroundColor #|',
+    '<style>note { FontSize 2; LineColor #|',
+  ])('offers the server\'s colours, each with its swatch, after the # in `%s`', async (marked) => {
+    const result = await complete(colorsSource, marked)
+
+    expect(result.from).toBe(marked.lastIndexOf('#') + 1)
+    expect(labels(result)).toEqual(Object.keys(COLORS))
+    expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
+    expect(result.validFor.test('AliceB')).toBe(true)
+    expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/colors', expect.objectContaining({ credentials: 'same-origin' }))
+  })
+
+  it.each([
+    '#|',
+    '  #high|',
+    'node x #line.|',
+    'node x #Red;line:|',
+    "' actor Bob #|",
+    'note left: see #|',
+    'A -> B : issue #|',
+    'actor "Bob #|',
+    'Bob -> Alice #|',
+  ])('offers none in `%s`', async (marked) => {
+    expect(await complete(colorsSource, marked)).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('asks the server once, and offers none when it cannot answer', async () => {
+    fetch.mockImplementation(async () => new Response('{"problem":"unreachable"}', { status: 503 }))
+
+    expect(labels(await complete(colorsSource, 'actor Bob #|'))).toEqual([])
+    expect(labels(await complete(colorsSource, 'actor Bob #A|'))).toEqual([])
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps only names with a hex or none', async () => {
+    fetch.mockImplementation(answering({ colors: { Good: '#00FF00', Bad: 'red', Worse: 7, None: null } }))
+
+    const result = await complete(colorsSource, 'actor Bob #|')
+
+    expect(labels(result)).toEqual(['Good', 'None'])
+  })
+})
+
 describe('creole', () => {
   it('offers the text tags after a < in text', () => {
     const marked = 'A -> B : <|'
@@ -578,6 +648,11 @@ describe('names', () => {
       expect(complete(names, diagram + marked)).toBeNull()
     }
     expect(labels(complete(names, diagram + 'Shop <-Ware|'))).toContain('Warehouse')
+  })
+
+  it('offers nothing after a #, where a colour goes', () => {
+    expect(complete(names, diagram + 'actor Bob #Cus|')).toBeNull()
+    expect(complete(names, diagram + 'actor Bob #|', true)).toBeNull()
   })
 
   it('offers anywhere on a line, and nothing in a comment or a preprocessor line', () => {

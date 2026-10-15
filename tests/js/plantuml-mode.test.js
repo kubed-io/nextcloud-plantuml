@@ -57,8 +57,8 @@ describe('plantumlMode', () => {
     expect(tokens(`node1 ${link} node2`)).toEqual([[link, 'operator']])
   })
 
-  it('names a styled link in pieces: the strokes and brackets operators, a hex colour a colour, the rest attributes', () => {
-    expect(tokens('A -[#red]-> B')).toEqual([['-[', 'operator'], ['#red', 'attributeName'], [']->', 'operator']])
+  it('names a styled link in pieces: the strokes and brackets operators, a colour a colour, the rest attributes', () => {
+    expect(tokens('A -[#red]-> B')).toEqual([['-[', 'operator'], ['#red', 'ColorLiteral'], [']->', 'operator']])
     expect(tokens('node1 -[hidden]- node2')).toEqual([['-[', 'operator'], ['hidden', 'attributeName'], [']-', 'operator']])
     expect(tokens('api -[#FF6F61,bold]-> jobs : deploys')).toEqual([
       ['-[', 'operator'],
@@ -74,7 +74,7 @@ describe('plantumlMode', () => {
       ['thickness=2', 'attributeName'],
       [']..>', 'operator'],
     ])
-    expect(tokens('A <-[#red]- B')).toEqual([['<-[', 'operator'], ['#red', 'attributeName'], [']-', 'operator']])
+    expect(tokens('A <-[#red]- B')).toEqual([['<-[', 'operator'], ['#red', 'ColorLiteral'], [']-', 'operator']])
   })
 
   it('never carries a label, a styled link or a note line into the next line', () => {
@@ -143,8 +143,49 @@ describe('plantumlMode colours', () => {
     expect(tokens(`node foo ${hex}`)).toEqual([['node', 'keyword'], [hex, 'ColorLiteral']])
   })
 
-  it.each(['#Red', '#ABCDE', '#ABCDEFA', '#line:red', '#line.dashed'])('takes %s for something other than a hex colour', (word) => {
+  it.each(['#ABCDE', '#ABCDEFA', '#line:red', '#line.dashed', '#back:red'])('takes %s for something other than a colour', (word) => {
     expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword']])
+  })
+
+  it.each(['#Red', '#AliceBlue', '#APPLICATION', '#lightblue'])('takes the named colour %s as a colour', (word) => {
+    expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword'], [word, 'ColorLiteral']])
+  })
+
+  it('takes a named colour where a colour goes: an element style, a note, a styled link, a Creole tag', () => {
+    expect(tokens('node foo #Red;line:blue;line.dashed')).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral']])
+    expect(tokens('note left of A #pink', 'x', 'end note').slice(0, 2)).toEqual([['note', 'keyword'], ['#pink', 'ColorLiteral']])
+    expect(tokens('A -[#Red,bold]-> B')).toEqual([['-[', 'operator'], ['#Red', 'ColorLiteral'], ['bold', 'attributeName'], [']->', 'operator']])
+    expect(tokens('A -> B : <color:#Red>hot</color>').slice(1, 4)).toEqual([['<color:', 'tagName'], ['#Red', 'ColorLiteral'], ['>', 'tagName']])
+  })
+
+  it('takes no word after a # at the start of a line for a colour', () => {
+    expect(tokens('#highlight "a" / "b"')).toEqual([['"a"', 'string'], ['"b"', 'string']])
+    expect(tokens('  #HotPink:action;')).toEqual([])
+  })
+
+  it.each(['/', '|', '-', '\\'])('takes each part of a %s gradient for a colour of its own', (stroke) => {
+    expect(tokens(`node foo #Red${stroke}Yellow`)).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral'], [stroke, 'punctuation'], ['Yellow', 'ColorLiteral']])
+  })
+
+  it('takes a gradient\'s second hex without its #', () => {
+    expect(tokens('rectangle A #FF0000/FFFF00')).toEqual([['rectangle', 'keyword'], ['#FF0000', 'ColorLiteral'], ['/', 'punctuation'], ['FFFF00', 'ColorLiteral']])
+    expect(tokens('rectangle A #Red/FFF')).toEqual([['rectangle', 'keyword'], ['#Red', 'ColorLiteral'], ['/', 'punctuation'], ['FFF', 'ColorLiteral']])
+  })
+
+  it('takes both colours of an automatic text colour', () => {
+    expect(tokens('skinparam rectangleFontColor #?black:white')).toEqual([
+      ['skinparam', 'keyword'],
+      ['#?', 'punctuation'],
+      ['black', 'ColorLiteral'],
+      [':', 'punctuation'],
+      ['white', 'ColorLiteral'],
+    ])
+  })
+
+  it('takes Gantt\'s `is colored in` colours', () => {
+    expect(tokens('[Task] is colored in White/Red')).toEqual([['is', 'keyword'], ['White', 'ColorLiteral'], ['/', 'punctuation'], ['Red', 'ColorLiteral']])
+    expect(tokens('[Task] is colored in #00ff00')).toEqual([['is', 'keyword'], ['#00ff00', 'ColorLiteral']])
+    expect(tokens('[Task] is 2 days')).toEqual([['is', 'keyword']])
   })
 
   it('takes the colour out of an element style, and leaves its line and text parts', () => {

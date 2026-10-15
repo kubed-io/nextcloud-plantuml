@@ -20,13 +20,15 @@ import { styleTag } from './style-tag.js'
 import { creole } from './creole.js'
 import { icons } from './icons.js'
 import { emoji } from './emoji.js'
+import { colors, swatchOption } from './colors.js'
 
-export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji]
+export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji, colors]
 
 // One data entry per source: an array under `autocomplete` is read as a list
 // of completions, not of sources. autocompletion() binds completionKeymap
-// (Ctrl-Space, arrows, Enter, Escape) and leaves Tab alone.
+// (Ctrl-Space, arrows, Enter, Escape) and leaves Tab alone. A named colour
+// shows its swatch in the list.
 export const plantumlCompletion = [
   ...sources.map((source) => EditorState.languageData.of(() => [{ autocomplete: source }])),
-  autocompletion(),
+  autocompletion({ addToOptions: [swatchOption] }),
 ]

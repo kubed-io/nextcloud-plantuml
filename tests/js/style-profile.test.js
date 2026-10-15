@@ -61,7 +61,7 @@ describe('the style profile', () => {
       ['#FFF3B0', 'ColorLiteral'],
       [';', 'punctuation'],
       ['LineColor', 'propertyName'],
-      ['red', 'atom'],
+      ['red', 'ColorLiteral'],
       ['}', 'bracket'],
       ['node', 'tagName'],
       [':depth(1)', 'className'],
@@ -100,11 +100,17 @@ describe('the style profile', () => {
       ['<style>note', 'tagName'],
       ['{', 'bracket'],
       ['BackgroundColor', 'propertyName'],
-      ['red', 'atom'],
+      ['red', 'ColorLiteral'],
       ['}', 'bracket'],
       ['</style>', 'tagName'],
       ['actor', 'keyword'],
     ])
+  })
+
+  it('takes a word for a colour in a property whose name ends in Color, and for a word elsewhere', () => {
+    const values = tokens('<style>', 'node {', '  FontColor Navy; BackGroundColor #AliceBlue', '  FontStyle bold; LineStyle dashed', '}', '</style>')
+      .filter(([, name]) => !['tagName', 'bracket', 'propertyName', 'punctuation'].includes(name))
+    expect(values).toEqual([['Navy', 'ColorLiteral'], ['#AliceBlue', 'ColorLiteral'], ['bold', 'atom'], ['dashed', 'atom']])
   })
 
   it('ends a value at the end of its line, so the next line starts a declaration', () => {

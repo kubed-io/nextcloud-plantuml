@@ -273,6 +273,26 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame([503, ['problem' => 'not set']], [$controller->emoji()->getStatus(), $controller->emoji()->getData()]);
 	}
 
+	public function testColorsAreTheServersNamesWithTheirHex(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('colors')->willReturn(['APPLICATION' => '#C2F0FF', 'AliceBlue' => '#F0F8FF', 'Odd' => null]);
+
+		$response = $this->controller($render, new NotFoundException())->colors();
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame(['colors' => ['APPLICATION' => '#C2F0FF', 'AliceBlue' => '#F0F8FF', 'Odd' => null]], $response->getData());
+		self::assertSame('{"colors":{"APPLICATION":"#C2F0FF","AliceBlue":"#F0F8FF","Odd":null}}', $response->render());
+	}
+
+	public function testColorsFromAServerThatCannotAnswerAre503WithProblem(): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('colors')->willThrowException(new RenderException(RenderException::PROBLEM_UNREACHABLE));
+
+		$response = $this->controller($render, new NotFoundException())->colors();
+
+		self::assertSame([503, ['problem' => 'unreachable']], [$response->getStatus(), $response->getData()]);
+	}
+
 	public function testSyntaxErrorIsStillAnImage(): void {
 		$errorImage = '<svg xmlns="http://www.w3.org/2000/svg"><text>Syntax Error?</text></svg>';
 

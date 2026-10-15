@@ -9,11 +9,16 @@
  */
 const HEX = /^#(?:[\dA-Fa-f]{8}|[\dA-Fa-f]{6}|[\dA-Fa-f]{3,4})(?!\w)/
 
-/** A value: a hex colour, a number, a string, or a word (a named colour, `bold`, `true`, …). */
-function value(stream) {
+/**
+ * A value: a hex colour, a number, a string, or a word (`bold`, `true`, …). A
+ * word of a property whose name ends in `Color` is a named colour, which the
+ * swatches look up by name: an unknown one simply gets none.
+ */
+function value(stream, property) {
   if (stream.match(HEX)) return 'ColorLiteral'
   if (stream.match(/^-?\d+(?:\.\d+)?(?![\w.])/)) return 'number'
   if (stream.match(/^"[^"]*"?/)) return 'string'
+  if (/color$/i.test(property ?? '') && stream.match(/^#?[A-Za-z]\w*(?![\w-])/)) return 'ColorLiteral'
   if (stream.match(/^#?[\w-]+/)) return 'atom'
   stream.next()
   return null
@@ -50,7 +55,7 @@ export const styleMode = {
       state.at = 'name'
       return 'punctuation'
     }
-    if (state.at === 'value') return value(stream)
+    if (state.at === 'value') return value(stream, state.property)
     if (stream.match(/^\.[^\s{},;.:]+/) || stream.match(/^:[\w-]+(?:\([^)]*\))?/)) return 'className'
     const word = stream.match(/^[A-Za-z_][\w-]*/)
     if (word) {

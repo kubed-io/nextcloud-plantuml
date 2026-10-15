@@ -7,9 +7,10 @@
  * MIT, Copyright (c) 2012 Lea Verou): its comments, preprocessor lines,
  * @start/@enduml, arrows, strings and keywords. Its times, variables and
  * punctuation are left plain. Added here: headless links (`--`, `..`, `~~`,
- * `==`), bodies of `=` and `~`, a link's label, separator lines, `#hex` colours
- * (named `ColorLiteral`, the node the colour picker looks for), and Creole in
- * labels, notes, legends, `[ … ]` descriptions and titles.
+ * `==`), bodies of `=` and `~`, a link's label, separator lines, colours (hex,
+ * named, gradients and automatic: each a `ColorLiteral`, the node the colour
+ * swatches look for), and Creole in labels, notes, legends, `[ … ]`
+ * descriptions and titles.
  *
  * Prism anchors several rules to the start of a line after any indentation,
  * which a stream mode cannot look back for. Those rules match at the start of
@@ -49,9 +50,27 @@ const styled = `${arrowPrefix}(?:${styledBody}${arrowRight}|${arrowLeft}${styled
 const styledOpen = new RegExp(`(?=${styled})${arrowPrefix}(?:${arrowLeft})?(?:-+|\\.+)?\\[`)
 const styledClose = new RegExp(`\\](?:-+|\\.+)?(?:${arrowRight})?${arrowSuffix}${arrowEnd}`)
 
-// #RGB, #RGBA, #RRGGBB or #RRGGBBAA. A named colour (`#Red`) or a style part
-// (`#line:red`, `#line.dashed`) is never all hex digits.
-const hex = /#(?:[\dA-Fa-f]{8}|[\dA-Fa-f]{6}|[\dA-Fa-f]{3,4})(?!\w)/
+// #RGB, #RGBA, #RRGGBB or #RRGGBBAA.
+const hexDigits = /(?:[\dA-Fa-f]{8}|[\dA-Fa-f]{6}|[\dA-Fa-f]{3,4})(?!\w)/.source
+const hex = new RegExp(`#${hexDigits}`)
+// A colour's name is a word, never all hex digits (`#ABCDE` is a broken hex);
+// a style part (`#line:red`, `#line.dashed`) is a word with `:` or `.` after it.
+const colourName = /(?![\dA-Fa-f]+(?!\w))[A-Za-z]\w*/.source
+const colourPart = `(?:${hexDigits}|${colourName})`
+const notStylePart = /(?![\w.:])/.source
+const named = new RegExp(`#${colourName}${notStylePart}`)
+
+/**
+ * Colours where one goes: gradients (`#Red/Yellow`, `|`, `-`, `\`, the second
+ * part without its `#`), the automatic text colour (`#?black:white`), a hex
+ * and a name; each part a `ColorLiteral`.
+ */
+const colours = [
+  { regex: new RegExp(`(#${colourPart})([/|\\\\-])(${colourPart})${notStylePart}`), token: ['ColorLiteral', 'punctuation', 'ColorLiteral'] },
+  { regex: new RegExp(`(#\\?)(${colourPart})(:)(${colourPart})${notStylePart}`), token: ['punctuation', 'ColorLiteral', 'punctuation', 'ColorLiteral'] },
+  { regex: hex, token: 'ColorLiteral' },
+  { regex: named, token: 'ColorLiteral' },
+]
 
 // `== Section ==`, and a delay: `...` alone or `... 5 minutes later ...`.
 const separator = /={2,}[^=].*?={2,}\s*$|\.{3,}(?:.*?\.{3,})?\s*$/.source
@@ -84,7 +103,7 @@ function creole(base) {
     { regex: /\/\/.+?\/\//, token: on('emphasis') },
     { regex: /"".+?""/, token: on('monospace') },
     { regex: /__.+?__/, token: on('underline') },
-    { regex: new RegExp(`(<(?:color|back):)(${hex.source})(>)`), token: ['tagName', 'ColorLiteral', 'tagName'] },
+    { regex: new RegExp(`(<(?:color|back):)(#${colourPart})(>)`), token: ['tagName', 'ColorLiteral', 'tagName'] },
     { regex: /<\/?(?:b|i|u|s|w|plain|sub|sup|size|font|color|back)(?:[:\s][^>]*)?>/, token: 'tagName' },
     // An OpenIconic icon, an emoji, an image.
     { regex: /<(?:&[^>\s]+|:[^>\s]+:|img:[^>]+)>/, token: 'tagName' },
@@ -103,7 +122,7 @@ const body = (closer, token = 'keyword') => [
 
 /** The rest of a line whose text starts on the next one: `note left of A #pink`. */
 const head = [
-  { regex: hex, token: 'ColorLiteral' },
+  ...colours,
   { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
   { regex: /\w+/, token: null },
 ]
@@ -125,11 +144,15 @@ const base = simpleMode({
     ...['title', 'header', 'footer'].map((word) => atLineStart(`${word}(?=\\s*$)`, 'keyword', { next: `${word}Body` })),
     atLineStart(/(?:title|header|footer|caption)(?=\s)/.source, 'keyword', { next: 'text' }),
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
+    // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
+    atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     { regex: styledOpen, token: 'operator', next: 'arrowAttr' },
     { regex: arrow, token: 'operator', next: 'afterLink' },
-    { regex: hex, token: 'ColorLiteral' },
+    // Gantt: `[Task] is colored in White/Red`, a fill and a line.
+    { regex: new RegExp(`\\b(is)(\\s+colou?red\\s+in\\s+)(#?${colourPart})(?:(/)(#?${colourPart}))?${notStylePart}`), token: ['keyword', null, 'ColorLiteral', 'punctuation', 'ColorLiteral'] },
+    ...colours,
     // `node web [` opens a description that runs to a line starting with `]`.
     { regex: /\[(?=\s*$)/, token: null, next: 'descBody' },
     { regex: /\b(?:elseif|equals|not|while)(?=\s*\()/, token: 'keyword' },
@@ -144,6 +167,7 @@ const base = simpleMode({
   arrowAttr: [
     { regex: styledClose, token: 'operator', next: 'afterLink' },
     { regex: hex, token: 'ColorLiteral' },
+    { regex: named, token: 'ColorLiteral' },
     { regex: /[^,\]\s][^,\]]*/, token: 'attributeName' },
   ],
   // The far end of a link is plain; a colon starts its label.

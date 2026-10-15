@@ -33,6 +33,10 @@ final class RenderService {
 	private const ICONS_MAX = 500;
 	private const EMOJI_MAX = 2000;
 	private const EMOJI_BLOCKS_MAX = 16;
+	private const COLORS_DIAGRAM = "@startuml\nhelp colors\n@enduml\n";
+	private const COLORS_MARKER = 'The possible colors are';
+	private const SWATCHES_DIAGRAM = "@startuml\ncolors\n@enduml\n";
+	private const COLORS_MAX = 500;
 	/** The server's lists change only with its version. */
 	private const LISTS_TTL = 86400;
 	/** The error rides out as a response header, so it stays one short line. */
@@ -90,20 +94,71 @@ final class RenderService {
 		if ($response->getStatusCode() >= 400) {
 			throw $this->notPlantUml('txt answered help themes with HTTP ' . $response->getStatusCode());
 		}
-		$body = (string)$response->getBody();
-		$at = strpos($body, self::THEMES_MARKER);
-		$list = $at === false ? '' : substr($body, $at + strlen(self::THEMES_MARKER));
-		$tokens = preg_split('/\s+/', trim(ltrim(trim($list), ':')), -1, PREG_SPLIT_NO_EMPTY);
-		// Only what looks like a theme name, and a sane number of them: anything a
-		// later server prints after the list must not become a theme.
-		$themes = array_slice(array_values(array_filter(
-			$tokens === false ? [] : $tokens,
-			static fn (string $token): bool => preg_match('/^[\w-]{1,64}$/', $token) === 1,
-		)), 0, self::THEMES_MAX);
+		// Only what looks like a theme name: anything a later server prints after
+		// the list must not become a theme.
+		$themes = self::wordsAfter((string)$response->getBody(), self::THEMES_MARKER, '/^[\w-]{1,64}$/', self::THEMES_MAX);
 		if ($themes === []) {
 			throw $this->notPlantUml('txt answered help themes without a list of themes');
 		}
 		return $themes;
+	}
+
+	/**
+	 * The named colours the server knows, each with its hex as `#RRGGBB`: the
+	 * names after "The possible colors are" on `help colors` as text, the hex
+	 * off the `colors` drawing, where each name's `<text>` follows its swatch's
+	 * `<rect>`. A name the drawing lacks is null. In the server's order.
+	 *
+	 * @return array<string, string|null>
+	 * @throws RenderException
+	 */
+	public function colors(): array {
+		return $this->cached('colors', function (): array {
+			$response = $this->post('txt', self::COLORS_DIAGRAM);
+			if ($response->getStatusCode() >= 400) {
+				throw $this->notPlantUml('txt answered help colors with HTTP ' . $response->getStatusCode());
+			}
+			$names = array_unique(self::wordsAfter((string)$response->getBody(), self::COLORS_MARKER, '/^[A-Za-z]\w{0,63}$/', self::COLORS_MAX));
+			if ($names === []) {
+				throw $this->notPlantUml('txt answered help colors without a list of colors');
+			}
+			$drawing = $this->post('svg', self::SWATCHES_DIAGRAM);
+			if ($drawing->getStatusCode() >= 400) {
+				throw $this->notPlantUml('svg answered colors with HTTP ' . $drawing->getStatusCode());
+			}
+			preg_match_all(
+				'/<rect\b[^>]*\bfill="#([\dA-Fa-f]{6}|[\dA-Fa-f]{3})"[^>]*\/>\s*<text\b[^>]*>([^<]*)<\/text>/',
+				(string)$drawing->getBody(),
+				$pairs,
+				PREG_SET_ORDER,
+			);
+			$hex = [];
+			foreach ($pairs as [, $digits, $name]) {
+				$six = strlen($digits) === 3 ? $digits[0] . $digits[0] . $digits[1] . $digits[1] . $digits[2] . $digits[2] : $digits;
+				$hex[html_entity_decode(trim($name))] ??= '#' . strtoupper($six);
+			}
+			$colors = [];
+			foreach ($names as $name) {
+				$colors[$name] = $hex[$name] ?? null;
+			}
+			return $colors;
+		});
+	}
+
+	/**
+	 * The words after `$marker` in `$body` that match `$pattern`, at most `$max`.
+	 *
+	 * @param non-empty-string $pattern
+	 * @return list<string>
+	 */
+	private static function wordsAfter(string $body, string $marker, string $pattern, int $max): array {
+		$at = strpos($body, $marker);
+		$list = $at === false ? '' : substr($body, $at + strlen($marker));
+		$tokens = preg_split('/\s+/', trim(ltrim(trim($list), ':')), -1, PREG_SPLIT_NO_EMPTY);
+		return array_slice(array_values(array_filter(
+			$tokens === false ? [] : $tokens,
+			static fn (string $token): bool => preg_match($pattern, $token) === 1,
+		)), 0, $max);
 	}
 
 	/**
@@ -175,8 +230,9 @@ final class RenderService {
 	/**
 	 * A list from the server, cached a day per server URL.
 	 *
-	 * @param callable(): list<string> $read
-	 * @return list<string>
+	 * @template T of array
+	 * @param callable(): T $read
+	 * @return T
 	 * @throws RenderException
 	 */
 	private function cached(string $name, callable $read): array {
@@ -184,7 +240,7 @@ final class RenderService {
 		$key = md5($this->config->getUrl());
 		$cached = $cache->get($key);
 		if (is_array($cached)) {
-			/** @var list<string> */
+			/** @var T */
 			return $cached;
 		}
 		$list = $read();

@@ -301,6 +301,100 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame(RenderException::PROBLEM_UNREACHABLE, $this->problemOf(fn () => $down->themes()));
 	}
 
+	/** `help colors` as text and `colors` as SVG, as plantuml/plantuml-server 1.2026.8 answers them. */
+	private static function colorsFixture(string $name): string {
+		return (string)file_get_contents(__DIR__ . "/fixtures/{$name}");
+	}
+
+	/**
+	 * A client answering `help colors` and `colors`, and noting what it was asked.
+	 *
+	 * @param list<string> $asked
+	 */
+	private function colorsServer(array &$asked, ?IResponse $text = null, ?IResponse $svg = null): IClient {
+		$client = $this->createStub(IClient::class);
+		$client->method('post')->willReturnCallback(function (string $url, array $options) use (&$asked, $text, $svg): IResponse {
+			$asked[] = substr($url, strlen(self::URL)) . ' ' . $options['body'];
+			return str_ends_with($url, '/txt')
+				? $text ?? $this->response(200, self::colorsFixture('help-colors.txt'))
+				: $svg ?? $this->response(200, self::colorsFixture('colors.svg'), ['Content-Type' => 'image/svg+xml']);
+		});
+		return $client;
+	}
+
+	public function testColorsAreTheNamesTheServerListsWithTheHexItDraws(): void {
+		$asked = [];
+
+		$colors = $this->service($this->colorsServer($asked))->colors();
+
+		self::assertSame(["/txt @startuml\nhelp colors\n@enduml\n", "/svg @startuml\ncolors\n@enduml\n"], $asked);
+		self::assertCount(154, $colors);
+		self::assertSame(['APPLICATION', 'AliceBlue', 'AntiqueWhite'], array_slice(array_keys($colors), 0, 3));
+		self::assertSame('#F0F8FF', $colors['AliceBlue']);
+		self::assertSame('#C2F0FF', $colors['APPLICATION']);
+		// The drawing writes some as three digits; they come back as six.
+		self::assertSame('#FF0000', $colors['Red']);
+		self::assertSame('#778899', $colors['LightSlateGray']);
+		self::assertSame('#9ACD32', $colors['YellowGreen']);
+		self::assertNotContains('possible', array_keys($colors));
+	}
+
+	public function testAColorTheDrawingLacksHasNoHex(): void {
+		$asked = [];
+		$svg = $this->response(200, '<svg><rect x="0" fill="#F0F8FF" style="stroke:#F0F8FF;"/><text x="5">AliceBlue</text><text>Red</text></svg>');
+
+		$colors = $this->service($this->colorsServer($asked, svg: $svg))->colors();
+
+		self::assertCount(154, $colors);
+		self::assertSame('#F0F8FF', $colors['AliceBlue']);
+		self::assertArrayHasKey('Red', $colors);
+		self::assertNull($colors['Red']);
+	}
+
+	public function testColorsAreOnlyNameLikeWordsAndCapped(): void {
+		$asked = [];
+		$names = implode("\n", array_map(static fn (int $i): string => sprintf('C%03d', $i), range(1, 600)));
+		$text = $this->response(200, "Help on colors\n The possible colors are :\n 1st <b> Two-words\n{$names}\n");
+
+		$colors = $this->service($this->colorsServer($asked, $text))->colors();
+
+		self::assertCount(500, $colors);
+		self::assertSame('C001', array_key_first($colors));
+	}
+
+	public function testColorsAreAskedOncePerServerForADay(): void {
+		$asked = [];
+		$client = $this->colorsServer($asked);
+
+		$this->service($client)->colors();
+		$cached = $this->service($client)->colors();
+		$this->service($client, 'https://other.example.com')->colors();
+
+		self::assertCount(4, $asked);
+		self::assertSame('#F0F8FF', $cached['AliceBlue']);
+		self::assertSame([86400, 86400], array_values($this->cache->ttls));
+	}
+
+	public function testColorsWithoutTheListOrADrawingAreNotPlantumlAndNotCached(): void {
+		$asked = [];
+		$page = $this->service($this->colorsServer($asked, $this->response(200, '<html>')));
+		$noText = $this->service($this->colorsServer($asked, $this->response(404, self::colorsFixture('help-colors.txt'))));
+		$noSvg = $this->service($this->colorsServer($asked, svg: $this->response(500, 'Internal Server Error')));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $page->colors()));
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $noText->colors()));
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $noSvg->colors()));
+		self::assertSame([], $this->cache->values);
+	}
+
+	public function testColorsFromAnUnsetOrUnreachableServer(): void {
+		$unset = $this->serviceWith($this->createStub(IClientService::class), '');
+		$down = $this->service($this->clientAnswering(new \Exception('cURL error 7')));
+
+		self::assertSame(RenderException::PROBLEM_NOT_SET, $this->problemOf(fn () => $unset->colors()));
+		self::assertSame(RenderException::PROBLEM_UNREACHABLE, $this->problemOf(fn () => $down->colors()));
+	}
+
 	/** `listopeniconic` as plantuml/plantuml-server 1.2026.8 draws it to SVG, the icons' paths removed. */
 	private static function listOpenIconic(): string {
 		return (string)file_get_contents(__DIR__ . '/fixtures/listopeniconic.svg');

@@ -35,8 +35,9 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.heading, color: 'var(--color-text-maxcontrast)', fontWeight: 'bold' },
   // A colour is a literal value, as a string is; its swatch shows the colour itself.
   { tag: tags.color, color: towardText('--color-element-success') },
-  // `bold`, `dashed` in a styled link are part of the link.
-  { tag: tags.attributeName, color: towardText('--color-element-warning') },
+  // `bold`, `dashed` in a styled link are part of the link; a style's
+  // `.stereotype` and `:depth(n)` are part of its selector.
+  { tag: [tags.attributeName, tags.className], color: towardText('--color-element-warning') },
   // Creole. The text styles set no colour, so they keep that of the text they sit in.
   { tag: tags.strong, fontWeight: 'bold' },
   { tag: tags.emphasis, fontStyle: 'italic' },
@@ -60,6 +61,26 @@ const tint = (percent) => `color-mix(in srgb, var(--color-main-text) ${percent}%
 const ERROR = 'var(--color-element-error, var(--color-error))'
 const WARNING = 'var(--color-element-warning, var(--color-warning))'
 const INFO = 'var(--color-element-info, var(--color-info))'
+
+/** Core's button rules (height, padding, border, margin, hover ground) taken back. */
+const QUIET_BUTTON = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '0',
+  minHeight: '0',
+  margin: '0',
+  padding: '0',
+  backgroundColor: 'transparent',
+  border: 'none',
+  borderRadius: '0',
+  boxShadow: 'none',
+  outline: 'none',
+  cursor: 'pointer',
+}
+
+/** A button's selector with core's state selectors beside it, which outrank it alone. */
+const buttonStates = (selector) => [selector, `${selector}:not(:disabled):hover`, `${selector}:not(:disabled):active`, `${selector}:focus`].join(', ')
 
 /**
  * Over CodeMirror's base theme, which assumes a white page, wherever the editor
@@ -236,9 +257,10 @@ export const surfaceRules = {
   '.cm-completionIcon-operator': { color: towardText('--color-element-warning') },
   '.cm-completionIcon-operator:after': { content: '"→"' },
 
-  // The colour picker's swatch: the library paints the colour on the span and
-  // hides the native input's own swatch past its edge. Core's input rules give
-  // that input a margin and a 30px height, which are taken back.
+  // The colour picker's swatch (swatches.js), and a named colour's in the
+  // completion list: the colour is painted on the span, and the native input's
+  // own swatch hidden past its edge. Core's input rules give that input a
+  // margin and a 30px height, which are taken back.
   'span[data-color]': {
     width: '0.9em',
     height: '0.9em',
@@ -253,6 +275,15 @@ export const surfaceRules = {
     margin: '0',
     cursor: 'pointer',
   },
+
+  // The chooser (W1) and the stepper (W2) after a value on the cursor's line:
+  // quiet until pointed at.
+  [buttonStates('.cm-plantuml-chooser')]: { ...QUIET_BUTTON, display: 'inline-flex', width: '16px', height: '16px', marginLeft: '2px', verticalAlign: 'middle' },
+  '.cm-plantuml-chooser svg': { width: '12px', height: '12px' },
+  '.cm-plantuml-stepper': { display: 'inline-flex', flexDirection: 'column', width: '12px', height: '18px', marginLeft: '2px', verticalAlign: 'middle' },
+  [buttonStates('.cm-plantuml-stepper button')]: { ...QUIET_BUTTON, width: '12px', height: '9px', fontSize: '7px', lineHeight: '1' },
+  '.cm-plantuml-chooser, .cm-plantuml-stepper button': { color: 'var(--color-text-maxcontrast)' },
+  '.cm-plantuml-chooser:hover, .cm-plantuml-stepper button:hover': { color: 'var(--color-main-text)' },
 
   // Diagnostics. The stock wavy underline is an SVG with its colour baked in, so
   // it is redrawn as a wavy text-decoration, whose colour can be a variable.

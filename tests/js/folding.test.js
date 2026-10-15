@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Each @start line folds its block, @end excluded; the keys are B6's, fold
-// and unfold at the cursor only.
+// Each @start line folds its block, @end excluded, and each <style> line its
+// style block; the keys are B6's, fold and unfold at the cursor only.
 import { afterEach, describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { defaultKeymap } from '@codemirror/commands'
@@ -29,6 +29,17 @@ describe('folding', () => {
     expect(at(6)).toBeNull()
     expect(at(8)).toBeNull()
     for (const n of [2, 3, 4, 5, 7]) {
+      expect(at(n)).toBeNull()
+    }
+  })
+
+  it('folds a style block from its <style> line to the line before </style>', () => {
+    const state = stateOf('@startuml\n  <style>\n  note {\n  }\n  </style>\n<style>\n</style>\n<style>a {}</style>\n<style>\nx\n@enduml\n')
+    const at = (n) => foldable(state, lineStart(state, n), state.doc.line(n).to)
+
+    expect(at(2)).toEqual({ from: state.doc.line(2).to, to: state.doc.line(4).to })
+    expect(at(1)).toEqual({ from: state.doc.line(1).to, to: state.doc.line(10).to })
+    for (const n of [3, 5, 6, 8, 9]) {
       expect(at(n)).toBeNull()
     }
   })

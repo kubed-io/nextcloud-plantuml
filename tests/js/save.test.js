@@ -5,7 +5,7 @@
 // would go over the wire and what the caller gets back.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const client = { getFileContents: vi.fn(), customRequest: vi.fn(), stat: vi.fn() }
+const client = { getFileContents: vi.fn(), customRequest: vi.fn(), stat: vi.fn(), getDirectoryContents: vi.fn() }
 vi.mock('@nextcloud/files/dav', () => ({
   getClient: () => client,
   getRootPath: () => '/files/drk',
@@ -14,7 +14,7 @@ vi.mock('@nextcloud/files/dav', () => ({
   resultToNode: (stat) => ({ fromStat: stat }),
 }))
 
-const { ConflictError, currentEtag, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
+const { ConflictError, currentEtag, listFolder, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
 
 /** webdav's handleResponseCode: an Error carrying the status. */
 function davError(status) {
@@ -195,5 +195,34 @@ describe('saveCopy', () => {
 
     await expect(saveCopy('/Diagrams/Order flow.puml', 'mine')).rejects.toBe(failure)
     expect(client.customRequest).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('listFolder', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('lists a folder with one Depth-1 PROPFIND, without the folder itself, and keeps the answer', async () => {
+    client.getDirectoryContents.mockResolvedValue([
+      { filename: '/files/drk/Diagrams', basename: 'Diagrams', type: 'directory' },
+      { filename: '/files/drk/Diagrams/a.puml', basename: 'a.puml', type: 'file' },
+      { filename: '/files/drk/Diagrams/sub', basename: 'sub', type: 'directory' },
+    ])
+
+    const expected = [{ name: 'a.puml', folder: false }, { name: 'sub', folder: true }]
+    await expect(listFolder('/Diagrams')).resolves.toEqual(expected)
+    await expect(listFolder('/Diagrams')).resolves.toEqual(expected)
+
+    expect(client.getDirectoryContents).toHaveBeenCalledTimes(1)
+    expect(client.getDirectoryContents).toHaveBeenCalledWith('/files/drk/Diagrams')
+  })
+
+  it('asks once per folder, and does not keep a failure', async () => {
+    client.getDirectoryContents.mockRejectedValueOnce(davError(503)).mockResolvedValue([])
+
+    await expect(listFolder('/Other')).rejects.toThrow('503')
+    await expect(listFolder('/Other')).resolves.toEqual([])
+    await expect(listFolder('/Third')).resolves.toEqual([])
+
+    expect(client.getDirectoryContents.mock.calls.map(([path]) => path)).toEqual(['/files/drk/Other', '/files/drk/Other', '/files/drk/Third'])
   })
 })

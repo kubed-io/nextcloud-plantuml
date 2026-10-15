@@ -17,19 +17,20 @@ const DELAY_MS = 300
 /**
  * @param {string} source
  * @param {number} [index] which diagram of the file to draw, from 0
+ * @param {string} [path] the file whose folder its includes resolve against (R4); none, they go as written
  * @return {Promise<string>} the SVG
  */
-export async function render(source, index = 0) {
-  return (await request(source, index)).svg
+export async function render(source, index = 0, path = '') {
+  return (await request(source, index, path)).svg
 }
 
 /** @return {Promise<{svg: string, mistake: {message: string, line: number}|null}>} */
-async function request(source, index) {
+async function request(source, index, path) {
   const res = await fetch(OC.generateUrl(`/apps/${APP_ID}/render`), {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', requesttoken: OC.requestToken },
-    body: JSON.stringify({ source, index }),
+    body: JSON.stringify({ source, index, path }),
   })
   if (res.ok && res.headers.get('Content-Type')?.startsWith('image/')) {
     return { svg: await res.text(), mistake: mistakeOf(res.headers) }
@@ -41,11 +42,20 @@ async function request(source, index) {
 /**
  * PlantUML counts the line from 0 at the top of the source it was sent, blank
  * lines and comments before `@startuml` included; the editor counts from 1.
+ * The routes percent-encode the message past ASCII, and its `%`.
  */
 function mistakeOf(headers) {
-  const message = headers.get('X-PlantUML-Diagram-Error')
+  const message = decoded(headers.get('X-PlantUML-Diagram-Error'))
   const line = headers.get('X-PlantUML-Diagram-Error-Line') ?? ''
   return message && /^\d+$/.test(line) ? { message, line: Number(line) + 1 } : null
+}
+
+function decoded(text) {
+  try {
+    return text && decodeURIComponent(text)
+  } catch {
+    return text
+  }
 }
 
 function problemOf(body) {
@@ -74,11 +84,12 @@ let parked = null
  *
  * @param {string} source
  * @param {number} index which diagram of the file to draw, from 0
+ * @param {string} path the file whose folder its includes resolve against
  * @param {(error: Error|null, svg?: string, mistake?: {message: string, line: number}|null) => void} cb
  */
-export function debouncedRender(source, index, cb) {
+export function debouncedRender(source, index, path, cb) {
   clearTimeout(timer)
-  timer = setTimeout(() => send(source, index, cb), DELAY_MS)
+  timer = setTimeout(() => send(source, index, path, cb), DELAY_MS)
 }
 
 /** Drops the waiting source and the parked one; an answer already out still arrives. */
@@ -87,20 +98,20 @@ export function cancel() {
   parked = null
 }
 
-function send(source, index, cb) {
+function send(source, index, path, cb) {
   if (inFlight) {
-    parked = { source, index, cb }
+    parked = { source, index, path, cb }
     return
   }
   inFlight = true
-  request(source, index)
+  request(source, index, path)
     .then(({ svg, mistake }) => [null, svg, mistake], (error) => [error])
     .then(([error, svg, mistake]) => {
       inFlight = false
       if (parked) {
         const next = parked
         parked = null
-        send(next.source, next.index, next.cb)
+        send(next.source, next.index, next.path, next.cb)
       } else {
         cb(error, svg, mistake)
       }

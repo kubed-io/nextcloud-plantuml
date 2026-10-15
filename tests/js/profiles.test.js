@@ -9,16 +9,21 @@ import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { diagnosticCount } from '@codemirror/lint'
 import { scan } from '../../src/editor/blocks.js'
+import { translate } from '@nextcloud/l10n'
 import { plantumlLint, profileRules } from '../../src/editor/lint/index.js'
 import { fileName } from '../../src/editor/lint/state.js'
-import { PROFILES, needed, profileExtension } from '../../src/editor/profiles/index.js'
+import { PROFILES, needed, profileExtension, profileLoader } from '../../src/editor/profiles/index.js'
+import { valuesFacet } from '../../src/editor/values/index.js'
 
 const neededFor = (text) => needed(scan(text), text)
+
+const STYLE = PROFILES.style
 
 afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
   delete PROFILES.archimate
+  PROFILES.style = STYLE
 })
 
 describe('the profiles a file needs', () => {
@@ -45,6 +50,41 @@ describe('the profiles a file needs', () => {
   })
 })
 
+describe('the style profile', () => {
+  it('is needed when a line starts with <style, in any block', () => {
+    expect(neededFor('@startuml\n  <style>\nnote { }\n</style>\n@enduml\n')).toEqual(new Set(['style']))
+    expect(neededFor('<style file=my.css>\nA -> B\n')).toEqual(new Set(['style']))
+    expect(neededFor('@startyaml\n<style>\n</style>\n@endyaml\n')).toEqual(new Set(['yaml', 'style']))
+    expect(neededFor('A -> B : <style>\n')).toEqual(new Set())
+  })
+
+  it('is left out while it has no profile, so the loader never asks for it', async () => {
+    delete PROFILES.style
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const apply = vi.fn()
+    const text = '<style>\nnote { }\n</style>\n'
+
+    expect(neededFor(text)).toEqual(new Set())
+    profileLoader(apply)(scan(text), text)
+    // A type with no profile would fail to load in a microtask, and log.
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(console.error).not.toHaveBeenCalled()
+    expect(apply).not.toHaveBeenCalled()
+  })
+
+  it('loads when a file needs it, adding its completion and its lint', async () => {
+    const apply = vi.fn()
+    const text = '<style>\nnote { }\n</style>\n'
+
+    profileLoader(apply)(scan(text), text)
+
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledTimes(1))
+    const state = EditorState.create({ doc: text, extensions: apply.mock.calls[0][0] })
+    expect(state.languageDataAt('autocomplete', 0)).toHaveLength(1)
+    expect(state.facet(profileRules)).toHaveLength(1)
+  })
+})
+
 describe('loadProfile', () => {
   // What is loaded stays loaded for the page, so each test gets a new page.
   let profiles
@@ -66,7 +106,7 @@ describe('loadProfile', () => {
     expect(typeof first.mode.token).toBe('function')
   })
 
-  it('makes the profile from its module\'s factory, handing it the core it needs', async () => {
+  it('makes the profile from its module\'s factory, handing it the core it needs: the scan and the translator', async () => {
     const made = { type: 'yaml', completions: [], lints: [] }
     const factory = vi.fn(() => made)
     vi.spyOn(profiles.PROFILES, 'yaml').mockResolvedValue({ default: factory })
@@ -74,7 +114,8 @@ describe('loadProfile', () => {
     expect(await loadProfile('yaml')).toBe(made)
     expect(factory).toHaveBeenCalledTimes(1)
     const [[core]] = factory.mock.calls
-    expect(Object.keys(core)).toEqual(['scan'])
+    expect(Object.keys(core)).toEqual(['scan', 't'])
+    expect(core.t).toBe(translate)
     expect(core.scan('@startyaml\na: 1\n@endyaml')[0]).toMatchObject({ type: 'yaml', start: 1, end: 3 })
   })
 
@@ -106,6 +147,14 @@ describe('loadProfile', () => {
 describe('profileExtension', () => {
   const profiles = new Compartment()
   const word = (stream) => { stream.skipToEnd(); return 'atom' }
+
+  it('adds each profile\'s values to the value registry', () => {
+    const entry = { match: () => [] }
+    const state = EditorState.create({ extensions: profileExtension([{ type: 'style', completions: [], lints: [], values: [entry] }]) })
+
+    expect(state.facet(valuesFacet)).toEqual([entry])
+    expect(state.facet(profileRules)).toEqual([])
+  })
 
   it('registers each profile\'s completion sources as language data', () => {
     const source = () => null

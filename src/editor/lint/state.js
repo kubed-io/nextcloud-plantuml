@@ -2,13 +2,16 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * What the rules know beyond the text, fed in by the editor: the file's name,
- * which changes after Save as copy, and the last mistake the server named.
+ * What the rules know beyond the text, fed in by the editor: the file's name
+ * and path, which change after Save as copy, and the last mistake the server named.
  */
 import { Facet, StateEffect, StateField } from '@codemirror/state'
 
 /** The file's base name, such as `Order flow.puml`. */
 export const fileName = Facet.define({ combine: (values) => values[0] ?? '' })
+
+/** The file's full path in the user's files, such as `/Diagrams/Order flow.puml`. */
+export const filePath = Facet.define({ combine: (values) => values[0] ?? '' })
 
 /** `{ message, line }` (1-based) from the latest render, or null when it came back clean. */
 export const setServerError = StateEffect.define()

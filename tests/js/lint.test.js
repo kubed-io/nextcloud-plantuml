@@ -4,7 +4,7 @@
 //
 // Each lint rule against a real EditorState: what is asserted is what the
 // editor would underline, and what a diagnostic's action writes.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { rules } from '../../src/editor/lint/index.js'
@@ -13,6 +13,8 @@ import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.j
 import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
 import { yamlLint as yamlRule } from '../../src/editor/lint/yaml.js'
+import { styleLint as styleRule } from '../../src/editor/lint/style.js'
+import { translate } from '@nextcloud/l10n'
 import { scan } from '../../src/editor/blocks.js'
 
 const yamlLint = yamlRule({ scan })
@@ -271,5 +273,114 @@ describe('blocks', () => {
       ['warning', 'No diagram to end', doc.indexOf('@endjson')],
     ])
     expect(found[0].to).toBe('@enduml'.length)
+  })
+})
+
+const WORD_WRAP = `<style>
+node {
+    Padding 12
+    Margin 3
+    HorizontalAlignment center
+    LineColor blue
+    LineThickness 3.0
+    BackgroundColor gold
+    RoundCorner 40
+    MaximumWidth 100
+}
+
+rootNode {
+    LineStyle 8.0;3.0
+    LineColor red
+    BackgroundColor white
+    LineThickness 1.0
+    RoundCorner 0
+    Shadowing 0.0
+}
+
+leafNode {
+    LineColor gold
+    RoundCorner 0
+    Padding 3
+}
+
+arrow {
+    LineStyle 4
+    LineThickness 0.5
+    LineColor green
+}
+</style>`
+
+describe('style', () => {
+  // The real translator: its sanitizing would strip a `</style>` from a message.
+  const run = (doc) => styleRule({ t: translate })(stateOf(doc))
+  const apply = (doc, diagnostic, action = 0) => {
+    const view = new EditorView({ state: stateOf(doc), parent: document.body })
+    diagnostic.actions[action].apply(view, diagnostic.from, diagnostic.to)
+    const result = view.state.doc.toString()
+    view.destroy()
+    return result
+  }
+
+  it('has nothing to say of the Word Wrap block of plantuml.com/mindmap-diagram', () => {
+    expect(run(`@startmindmap\n${WORD_WRAP}\n* a\n@endmindmap\n`)).toEqual([])
+  })
+
+  it('warns on an unknown property, and changes it to the nearest known one', () => {
+    const doc = '@startuml\n<style>\nnode {\n  FontSise 12\n}\n</style>\n@enduml\n'
+    const [diagnostic, ...rest] = run(doc)
+
+    expect(rest).toEqual([])
+    expect(diagnostic).toMatchObject({ severity: 'warning', message: 'Unknown style property FontSise', from: doc.indexOf('FontSise'), to: doc.indexOf('FontSise') + 'FontSise'.length })
+    expect(diagnostic.actions.map((action) => action.name)).toEqual(['FontSize'])
+    expect(apply(doc, diagnostic)).toBe(doc.replace('FontSise', 'FontSize'))
+    expect(run(apply(doc, diagnostic))).toEqual([])
+  })
+
+  it('matches a property whatever its case', () => {
+    expect(run('<style>\nnode {\n  fontsize 12\n  BACKGROUNDCOLOR red; linecolor #FFF\n}\n</style>\n')).toEqual([])
+  })
+
+  it('never checks a selector, a stereotype class or a depth', () => {
+    expect(run('<style>\nwhatever {\n  .my-class {\n    nested:depth(2) {\n      FontSize 1\n    }\n  }\n}\n</style>\n')).toEqual([])
+  })
+
+  it('checks the middle of a one-line block, and leaves an imported sheet alone', () => {
+    const doc = '<style>node { Colour red }</style>\n<style file=my.css>\n'
+    const found = run(doc)
+
+    expect(found.map((d) => [d.severity, d.message, d.from, d.to])).toEqual([['warning', 'Unknown style property Colour', doc.indexOf('Colour'), doc.indexOf('Colour') + 6]])
+  })
+
+  it("skips PlantUML's own comment and preprocessor lines inside a block", () => {
+    expect(run("<style>\nnode {\n  ' FontSise 12\n  !$x = 1\n}\n</style>\n")).toEqual([])
+  })
+
+  it("skips /' … '/ comments inside a block, on one line or several", () => {
+    expect(run("<style>\nnode {\n  /' FontSise 12 '/\n  /' Colour red\n  FontSise 1 '/ FontSize 2\n}\n</style>\n")).toEqual([])
+  })
+
+  it('errors on a <style> no </style> closes, before the diagram ends or at the end of the file', () => {
+    const doc = '@startuml\n  <style>\nnode {\n@enduml\n<style>\n'
+    const found = run(doc)
+
+    expect(found.map((d) => [d.severity, d.message, d.from, d.to])).toEqual([
+      ['error', 'No </style> for this style block', doc.indexOf('<style>'), doc.indexOf('<style>') + '<style>'.length],
+      ['error', 'No </style> for this style block', doc.lastIndexOf('<style>'), doc.lastIndexOf('<style>') + '<style>'.length],
+    ])
+  })
+
+  it('translates its messages under the app id, the tag in them kept as text', () => {
+    const t = vi.fn((_app, text, vars) => text.replace('{name}', vars?.name))
+    const found = styleRule({ t })(stateOf('<style>\nnode {\n  FontSise 1\n'))
+
+    expect(found.map((d) => d.message)).toEqual(['No </style> for this style block', 'Unknown style property FontSise'])
+    expect(t.mock.calls).toEqual([
+      ['plantuml', 'No </style> for this style block', undefined, undefined, { escape: false, sanitize: false }],
+      ['plantuml', 'Unknown style property {name}', { name: 'FontSise' }, undefined, { escape: false, sanitize: false }],
+    ])
+  })
+
+  it('says nothing outside a style block', () => {
+    expect(run('@startuml\nnode {\n  FontSise 12\n}\n@enduml\n')).toEqual([])
   })
 })

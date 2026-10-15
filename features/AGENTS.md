@@ -208,9 +208,12 @@ unit-tested, what stays plain included, and every colour is a Nextcloud theme
 variable, so the source reads on the light, dark and high-contrast themes.
 Creole is marked up only where PlantUML reads text (link labels, notes, legends,
 `[ … ]` descriptions, titles, headers, footers, captions), and every `#hex`
-colour (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) is a `ColorLiteral`, which
-`@uiw/codemirror-extensions-color` finds and puts a swatch before. A picked
-colour is an edit like any other, so it autosaves.
+colour (`#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`) and every named colour
+(`#Red`, a gradient's parts) is a `ColorLiteral`; the app's own swatch layer
+(`src/editor/swatches.js`) puts a swatch before each, a named one as the
+configured server draws it (`GET /apps/plantuml/colors`), and keeps only
+`@uiw/codemirror-extensions-color`'s base theme. A picked colour is an edit
+like any other, so it autosaves.
 
 Validation is the same pattern: one rule per file in `src/editor/lint/`, each a
 pure function of the editor state, unit-tested the same way. A diagram opened

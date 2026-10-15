@@ -41,10 +41,10 @@ function readme() {
     })
     cached = entry
   }
-  return cached.found.then((found) => found ?? { dir, fences: [], images: [] })
+  return cached.found.then((found) => found ?? { dir, path: '', fences: [], images: [] })
 }
 
-/** @return {Promise<{dir, fences, images}|null>} null when the README cannot be read */
+/** @return {Promise<{dir, path, fences, images}|null>} null when the README cannot be read */
 async function lookup(dir) {
   try {
     const response = await fetch(`${generateOcsUrl('apps/text/workspace')}?${new URLSearchParams({ path: dir, format: 'json' })}`, {
@@ -54,7 +54,7 @@ async function lookup(dir) {
     const path = (await response.json())?.ocs?.data?.file?.path
     if (path) {
       const { content } = await loadFile(path)
-      return { dir: path.slice(0, path.lastIndexOf('/')), fences: findFences(content), images: findImages(content) }
+      return { dir: path.slice(0, path.lastIndexOf('/')), path, fences: findFences(content), images: findImages(content) }
     }
   } catch {
     // Fall through: a .puml image needs only its own path.

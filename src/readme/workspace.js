@@ -30,7 +30,8 @@
  * non-editable, and lock() puts that back if Text's binding resets it.
  *
  * Text draws each README twice per folder open (the preview, then the editor
- * that replaces it), so fence renders are cached by source.
+ * that replaces it), so fence renders are cached by source and README: a fence
+ * includes files beside its README (R4).
  */
 import { getRequestToken } from '@nextcloud/auth'
 import { translate as t } from '@nextcloud/l10n'
@@ -41,7 +42,7 @@ const FIGURES = 'figure[data-component="image-view"]'
 const DRAWN_SOURCE = '.code-block[data-plantuml="done"] pre, .code-block[data-plantuml="done"] pre code'
 const CACHED_RENDERS = 64
 
-/** source → its SVG, or null when the server could not draw it. Oldest out first. */
+/** README path and source → its SVG, or null when the server could not draw it. Oldest out first. */
 const renders = new Map()
 
 /** Elements already looked at. Text draws fresh ones each time it re-renders. */
@@ -64,11 +65,11 @@ export function lock(root) {
 
 /**
  * @param {Element} root one rendered README
- * @param {{dir: string, fences: Array<{lang: string, source: string}>, images: Array<{alt: string, src: string}>}} readme
- *   `dir` is the README's folder in the user's files
+ * @param {{dir: string, path?: string, fences: Array<{lang: string, source: string}>, images: Array<{alt: string, src: string}>}} readme
+ *   `path` is the README in the user's files, `dir` its folder
  * @return {Promise<void>} settles when every fence has been drawn or left alone
  */
-export async function attach(root, { dir, fences, images }) {
+export async function attach(root, { dir, path = '', fences, images }) {
   lock(root)
   const drawing = []
   root.querySelectorAll(BLOCKS).forEach((block, index) => {
@@ -78,7 +79,7 @@ export async function attach(root, { dir, fences, images }) {
     seen.add(block)
     const fence = fences[index]
     if (fence?.lang === 'plantuml' && block.querySelector('pre code')?.textContent.trim() === fence.source.trim()) {
-      drawing.push(drawFence(block, fence.source))
+      drawing.push(drawFence(block, fence.source, path))
     }
   })
   for (const figure of root.querySelectorAll(FIGURES)) {
@@ -94,13 +95,13 @@ export async function attach(root, { dir, fences, images }) {
   await Promise.all(drawing)
 }
 
-async function render(source) {
+async function render(source, path) {
   try {
     const response = await fetch(OC.generateUrl(`/apps/${APP_ID}/render`), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', requesttoken: getRequestToken() ?? '' },
-      body: JSON.stringify({ source }),
+      body: JSON.stringify({ source, path }),
     })
     return response.ok ? await response.blob() : null
   } catch {
@@ -108,25 +109,26 @@ async function render(source) {
   }
 }
 
-function cachedRender(source) {
-  if (!renders.has(source)) {
-    const svg = render(source).then((blob) => {
+function cachedRender(source, path) {
+  const key = JSON.stringify([path, source])
+  if (!renders.has(key)) {
+    const svg = render(source, path).then((blob) => {
       // A failure is not kept: the next re-render asks the server again.
       if (blob === null) {
-        renders.delete(source)
+        renders.delete(key)
       }
       return blob
     })
-    renders.set(source, svg)
+    renders.set(key, svg)
     if (renders.size > CACHED_RENDERS) {
       renders.delete(renders.keys().next().value)
     }
   }
-  return renders.get(source)
+  return renders.get(key)
 }
 
-async function drawFence(block, source) {
-  const svg = await cachedRender(source)
+async function drawFence(block, source, path) {
+  const svg = await cachedRender(source, path)
   // A server problem leaves Text's code block showing the source.
   if (svg === null) {
     return

@@ -30,7 +30,7 @@ describe('render', () => {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', requesttoken: 'tok' },
-      body: JSON.stringify({ source: '@startuml\n@enduml\n', index: 0 }),
+      body: JSON.stringify({ source: '@startuml\n@enduml\n', index: 0, path: '' }),
     })
   })
 
@@ -41,6 +41,15 @@ describe('render', () => {
     await render('@startuml\n@enduml\n', 3)
 
     expect(JSON.parse(fetch.mock.calls[0][1].body).index).toBe(3)
+  })
+
+  it('posts the path of the file its includes resolve against (R4)', async () => {
+    const fetch = vi.fn(async () => svg())
+    vi.stubGlobal('fetch', fetch)
+
+    await render('@startuml\n!include parts.iuml\n@enduml\n', 0, '/Diagrams/Order flow.puml')
+
+    expect(JSON.parse(fetch.mock.calls[0][1].body).path).toBe('/Diagrams/Order flow.puml')
   })
 
   it('resolves with the SVG\'s text, for the editor to draw inline', async () => {
@@ -107,7 +116,7 @@ describe('a mistake in the diagram', () => {
     vi.stubGlobal('fetch', vi.fn(async () => mistaken(header)))
     const cb = vi.fn()
 
-    debouncedRender(source, 0, cb)
+    debouncedRender(source, 0, '', cb)
     await vi.advanceTimersByTimeAsync(300)
 
     const [error, svgText, mistake] = cb.mock.calls[0]
@@ -120,13 +129,30 @@ describe('a mistake in the diagram', () => {
   it('is no mistake when the server names none, or no line for it', async () => {
     const cb = vi.fn()
     vi.stubGlobal('fetch', vi.fn(async () => svg()))
-    debouncedRender('a', 0, cb)
+    debouncedRender('a', 0, '', cb)
     await vi.advanceTimersByTimeAsync(300)
     vi.stubGlobal('fetch', vi.fn(async () => mistaken('')))
-    debouncedRender('b', 0, cb)
+    debouncedRender('b', 0, '', cb)
     await vi.advanceTimersByTimeAsync(300)
 
     expect(cb.mock.calls.map((call) => call[2])).toEqual([null, null])
+  })
+
+  it.each([
+    ['past ASCII', 'Cannot find %C3%9Cbersicht.puml', 'Cannot find Übersicht.puml'],
+    ['with a %', '100%25 wrong', '100% wrong'],
+    ['not encoded at all', 'Cannot find 100% of it', 'Cannot find 100% of it'],
+  ])('is decoded from the percent-encoded header, %s', async (_what, header, message) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<svg/>', {
+      status: 200,
+      headers: { 'Content-Type': 'image/svg+xml', 'X-PlantUML-Diagram-Error': header, 'X-PlantUML-Diagram-Error-Line': '1' },
+    })))
+    const cb = vi.fn()
+
+    debouncedRender('@startuml\n!include x\n@enduml\n', 0, '', cb)
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(cb.mock.calls[0][2]).toEqual({ message, line: 2 })
   })
 
   it('still resolves render() with the image alone', async () => {
@@ -144,17 +170,17 @@ describe('debouncedRender', () => {
     vi.stubGlobal('fetch', fetch)
     const cb = vi.fn()
 
-    debouncedRender('a', 0, cb)
+    debouncedRender('a', 0, '', cb)
     await vi.advanceTimersByTimeAsync(50)
-    debouncedRender('ab', 0, cb)
+    debouncedRender('ab', 0, '', cb)
     await vi.advanceTimersByTimeAsync(50)
-    debouncedRender('abc', 0, cb)
+    debouncedRender('abc', 0, '', cb)
     await vi.advanceTimersByTimeAsync(299)
     expect(fetch).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
 
     expect(fetch).toHaveBeenCalledTimes(1)
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ source: 'abc', index: 0 })
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ source: 'abc', index: 0, path: '' })
     expect(cb).toHaveBeenCalledTimes(1)
     expect(cb.mock.calls[0][0]).toBeNull()
     expect(cb.mock.calls[0][1]).toBe('<svg/>')
@@ -164,7 +190,7 @@ describe('debouncedRender', () => {
     vi.stubGlobal('fetch', vi.fn(async () => problem('not set')))
     const cb = vi.fn()
 
-    debouncedRender('a', 0, cb)
+    debouncedRender('a', 0, '', cb)
     await vi.advanceTimersByTimeAsync(300)
 
     expect(cb).toHaveBeenCalledTimes(1)
@@ -179,9 +205,9 @@ describe('debouncedRender', () => {
     vi.stubGlobal('fetch', fetch)
     const cb = vi.fn()
 
-    debouncedRender('old', 0, cb)
+    debouncedRender('old', 0, '', cb)
     await vi.advanceTimersByTimeAsync(300)
-    debouncedRender('new', 0, cb)
+    debouncedRender('new', 0, '', cb)
     await vi.advanceTimersByTimeAsync(300)
     answerFirst(svg())
     await vi.advanceTimersByTimeAsync(0)
@@ -197,10 +223,10 @@ describe('debouncedRender', () => {
     vi.stubGlobal('fetch', fetch)
     const cb = vi.fn()
 
-    debouncedRender('first', 0, cb)
+    debouncedRender('first', 0, '', cb)
     await vi.advanceTimersByTimeAsync(300)
     for (const source of ['second', 'third', 'fourth']) {
-      debouncedRender(source, 0, cb)
+      debouncedRender(source, 0, '', cb)
       await vi.advanceTimersByTimeAsync(300)
     }
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -208,7 +234,7 @@ describe('debouncedRender', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(fetch).toHaveBeenCalledTimes(2)
-    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: 'fourth', index: 0 })
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: 'fourth', index: 0, path: '' })
     expect(cb).toHaveBeenCalledTimes(1)
   })
 
@@ -219,25 +245,43 @@ describe('debouncedRender', () => {
       .mockImplementation(async () => svg())
     vi.stubGlobal('fetch', fetch)
 
-    debouncedRender('first', 0, vi.fn())
+    debouncedRender('first', 0, '', vi.fn())
     await vi.advanceTimersByTimeAsync(300)
-    debouncedRender('second', 1, vi.fn())
+    debouncedRender('second', 1, '', vi.fn())
     await vi.advanceTimersByTimeAsync(300)
-    debouncedRender('third', 2, vi.fn())
+    debouncedRender('third', 2, '', vi.fn())
     await vi.advanceTimersByTimeAsync(300)
     answerFirst(svg())
     await vi.advanceTimersByTimeAsync(0)
 
     expect(fetch).toHaveBeenCalledTimes(2)
-    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: 'third', index: 2 })
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: 'third', index: 2, path: '' })
+  })
+
+  it('posts the path with the source, a parked render keeping its own', async () => {
+    let answerFirst
+    const fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => { answerFirst = resolve }))
+      .mockImplementation(async () => svg())
+    vi.stubGlobal('fetch', fetch)
+
+    debouncedRender('first', 0, '/Diagrams/Order flow.puml', vi.fn())
+    await vi.advanceTimersByTimeAsync(300)
+    debouncedRender('second', 0, '/Diagrams/Order flow (copy).puml', vi.fn())
+    await vi.advanceTimersByTimeAsync(300)
+    answerFirst(svg())
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(fetch.mock.calls.map((call) => JSON.parse(call[1].body).path))
+      .toEqual(['/Diagrams/Order flow.puml', '/Diagrams/Order flow (copy).puml'])
   })
 
   it('sends one request, for the last index, within the delay', async () => {
     const fetch = vi.fn(async () => svg())
     vi.stubGlobal('fetch', fetch)
 
-    debouncedRender('a', 1, vi.fn())
-    debouncedRender('a', 0, vi.fn())
+    debouncedRender('a', 1, '', vi.fn())
+    debouncedRender('a', 0, '', vi.fn())
     await vi.advanceTimersByTimeAsync(300)
 
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -248,7 +292,7 @@ describe('debouncedRender', () => {
     const fetch = vi.fn(async () => svg())
     vi.stubGlobal('fetch', fetch)
 
-    debouncedRender('a', 0, vi.fn())
+    debouncedRender('a', 0, '', vi.fn())
     cancel()
     await vi.advanceTimersByTimeAsync(300)
 

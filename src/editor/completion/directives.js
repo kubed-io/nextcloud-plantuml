@@ -18,6 +18,7 @@ const DIRECTIVES = [
   '@startsalt', '@endsalt',
   '@startregex', '@endregex',
   '@startebnf', '@endebnf',
+  '@startfiles', '@endfiles',
 ]
 
 /** The lines that open a diagram; `lint/unnamed-start.js` reads these too. */
@@ -32,7 +33,7 @@ const BRACED = ['salt', 'json']
 /** Picking a start inserts the whole block: the name a field, then the body. */
 function startOption(label) {
   const type = label.slice('@start'.length)
-  const body = BRACED.includes(type) ? '{\n\t${}\n}' : '${}'
+  const body = BRACED.includes(type) ? '{\n\t${}\n}' : type === 'files' ? '/${}' : '${}'
   return snippetCompletion(`${label} \${name}\n${body}\n@end${type}`, { label, type: 'keyword' })
 }
 

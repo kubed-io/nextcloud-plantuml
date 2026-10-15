@@ -5,10 +5,10 @@
  * The names the diagram already uses, offered wherever a word is typed:
  * each declared participant or element (its alias, when it has one) and both
  * ends of every arrow, found with the grammar's own arrow. Not in a comment,
- * a directive or preprocessor line, a string, an arrow's message or a Creole
- * tag, where a name is not wanted.
+ * a directive or preprocessor line, a string, an arrow's message, a Creole
+ * tag, after a `#` or `colors`, or in a style block, where a name is not wanted.
  */
-import { arrow } from '../plantuml-mode.js'
+import { arrow, inStyleBody } from '../plantuml-mode.js'
 import { PARTICIPANTS, STRUCTURES } from './keywords.js'
 
 const kinds = [...PARTICIPANTS, ...STRUCTURES].map((kind) => (kind === 'abstract' ? 'abstract(?:[ \\t]+class)?' : kind))
@@ -17,17 +17,17 @@ const DECLARATION = new RegExp(`^[ \\t]*(?:${kinds.join('|')})[ \\t]+(?:"[^"]*"|
 const ARROW = new RegExp(`^[ \\t]*(\\w+)[ \\t]*${arrow.source}[ \\t]*(\\w+)?`, 'gmd')
 const MESSAGE = new RegExp(`${arrow.source}[^:]*:`)
 
-/** Where a name is not wanted: a comment, a directive, a string, a message, a Creole tag. */
+/** Where a name is not wanted: a comment, a directive, a string, a message, a Creole tag, a colour. */
 function unwanted(lineBefore) {
   return /^\s*['@!]/.test(lineBefore) || lineBefore.split('"').length % 2 === 0 || MESSAGE.test(lineBefore)
-    || /<(?:\/?[a-z]*|&[\w-]*|:[\w+-]*)$/.test(lineBefore)
+    || /<(?:\/?[a-z]*|&[\w-]*|:[\w+-]*)$/.test(lineBefore) || /#\w*$/.test(lineBefore) || /^\s*colors[ \t]+\w*$/.test(lineBefore)
 }
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function names(context) {
   const { state, pos } = context
   const line = state.doc.lineAt(pos)
-  if (unwanted(state.sliceDoc(line.from, pos))) {
+  if (unwanted(state.sliceDoc(line.from, pos)) || inStyleBody(state, pos)) {
     return null
   }
   const before = context.matchBefore(/\w+/)

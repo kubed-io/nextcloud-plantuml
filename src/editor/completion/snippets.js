@@ -7,6 +7,7 @@
  * an empty one, and a leading tab one indent.
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
+import { inStyleBody } from '../plantuml-mode.js'
 
 const SNIPPETS = [
   ['note', 'note ${right} of ${participant}\n\t${}\nend note', 'note block'],
@@ -21,7 +22,7 @@ const options = SNIPPETS.map(([label, template, detail]) => snippetCompletion(te
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function snippets(context) {
   const typed = context.matchBefore(/^\s*\w+/)
-  if (!typed) {
+  if (!typed || inStyleBody(context.state, context.pos)) {
     return null
   }
   return { from: typed.to - typed.text.trimStart().length, options, validFor: /^\w*$/ }

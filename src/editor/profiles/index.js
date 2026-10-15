@@ -10,33 +10,42 @@
  * A profile module's default export is a factory given `Core`: a profile that
  * imported core modules itself would make them a chunk the editor imports
  * statically, which one failed download would then break whole. A profile
- * imports libraries only.
+ * imports only libraries the editor does not, as a shared one becomes such a
+ * chunk too; what it needs of the editor's comes in `Core`.
  *
  * @typedef {object} Core
  * @property {typeof scan} scan
+ * @property {typeof translate} t @nextcloud/l10n's translate, called with the
+ *   app id written out so Nextcloud's string extractor finds the strings
  *
  * @typedef {object} Profile
  * @property {string} type the word after `@start`
  * @property {object} [mode] a stream mode for the block's lines
  * @property {Function[]} completions completion sources
  * @property {Function[]} lints lint rules
+ * @property {object[]} values where its values sit, for choosers and steppers
  */
 import { EditorState } from '@codemirror/state'
+import { translate } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
 import { scan } from '../blocks.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
 import { profileRules } from '../lint/index.js'
+import { valuesFacet } from '../values/index.js'
 
 /** @type {Record<string, () => Promise<{ default: (core: Core) => Profile }>>} */
 export const PROFILES = {
   yaml: () => import('./yaml.js'),
+  style: () => import('./style.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/
+const STYLE = /^[ \t]*<style/m
 
 /**
- * The profiles a file needs: its block types, and archimate when a uml block
- * includes the library or draws an element. Only those with a profile.
+ * The profiles a file needs: its block types, archimate when a uml block
+ * includes the library or draws an element, and style when a line starts
+ * `<style`. Only those with a profile, so the loader never asks for another.
  *
  * @param {import('../blocks.js').Diagram[]} diagrams
  * @param {string} text
@@ -48,10 +57,13 @@ export function needed(diagrams, text) {
   if (diagrams.some((d) => d.type === 'uml' && lines.slice(d.from - 1, d.to).some((line) => ARCHIMATE.test(line)))) {
     types.add('archimate')
   }
+  if (STYLE.test(text)) {
+    types.add('style')
+  }
   return new Set([...types].filter((type) => Object.hasOwn(PROFILES, type)))
 }
 
-const core = { scan }
+const core = { scan, t: translate }
 const loading = new Map() // type → Promise<Profile|null>, for the page
 const failed = new Set()
 
@@ -86,7 +98,8 @@ export function resetProfiles() {
 
 /**
  * What the loaded profiles add to the editor, for its profiles Compartment: a
- * PlantUML language that reads their blocks, their completion and their lint.
+ * PlantUML language that reads their blocks, their completion, their lint and
+ * their values.
  *
  * @param {Profile[]} profiles
  */
@@ -96,6 +109,7 @@ export function profileExtension(profiles) {
     plantumlLanguage(inner),
     ...profiles.flatMap((p) => p.completions).map((source) => EditorState.languageData.of(() => [{ autocomplete: source }])),
     profileRules.of(profiles.flatMap((p) => p.lints)),
+    valuesFacet.of(profiles.flatMap((p) => p.values ?? [])),
   ]
 }
 

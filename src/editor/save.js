@@ -11,6 +11,8 @@ import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextc
 
 const COPY_ATTEMPTS = 9
 
+const listings = new Map()
+
 /** The file changed on the server since it was read. */
 export class ConflictError extends Error {
   constructor() {
@@ -104,6 +106,25 @@ export async function saveCopy(path, content) {
     return { node: resultToNode(stat.data), etag }
   }
   throw new Error('Could not save a copy')
+}
+
+/**
+ * A folder's entries, for path completion: one Depth-1 PROPFIND per folder,
+ * kept for the page. A failed listing is not kept, so the next try asks again.
+ *
+ * @param {string} path the folder, in the user's folder; `/` is the root
+ * @return {Promise<Array<{name: string, folder: boolean}>>}
+ */
+export function listFolder(path) {
+  if (!listings.has(path)) {
+    const davPath = getRootPath() + path
+    const listing = getClient().getDirectoryContents(davPath).then((entries) => entries
+      .filter((entry) => entry.filename.replace(/\/+$/, '') !== davPath.replace(/\/+$/, ''))
+      .map((entry) => ({ name: entry.basename, folder: entry.type === 'directory' })))
+    listing.catch(() => listings.delete(path))
+    listings.set(path, listing)
+  }
+  return listings.get(path)
 }
 
 function copyPath(path, n) {

@@ -38,3 +38,10 @@ All notable changes to this project are documented here. The format follows
 - `@startyaml` blocks are highlighted as YAML and checked, every mistake underlined; each diagram type's support loads only when a file holds that type.
 - Drawing one diagram of several: `POST /apps/plantuml/render` takes an `index`.
 - The editor bundle is an ES module, with its per-type chunks in `dist/chunks/`.
+- A style editor: `<style>` blocks have their own colours, completion for selectors, properties and values, checks for unknown properties and unclosed blocks, and folding; style blocks no longer confuse the rest of the diagram.
+- Pencil choosers on values from a list and steppers on numbers, on the line you are editing.
+- Named colours (`#Red`) complete with a swatch and get one in the source, gradients are coloured part by part, and `GET /apps/plantuml/colors` lists the server's names.
+- `%` completes PlantUML's built-in functions, and helper commands such as `colors`, `listsprite` and `help themes` complete on a line of their own.
+- `@startcreole` and `@startfiles` diagrams are highlighted and complete, and the rest of Creole is read: headings, lists, escapes, titled rules, coloured table cells and `<code>`.
+- Relative `!include`, `!includesub`, `<style file=…>` and `!import lib.zip` resolve in your own files, for the editor, the README and `.puml` files alike; a mistake in an included file lands on its include line.
+- Local path completion after `!include` and `<style file=`, one folder at a time.

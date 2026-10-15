@@ -17,5 +17,7 @@ return [
 		// {"icons": [...]} and {"emoji": [...]}, for `<&icon>` and `<:emoji:>`
 		['name' => 'render#icons', 'url' => '/icons', 'verb' => 'GET'],
 		['name' => 'render#emoji', 'url' => '/emoji', 'verb' => 'GET'],
+		// {"colors": {"AliceBlue": "#F0F8FF", ...}}, for named colours' completion and swatches
+		['name' => 'render#colors', 'url' => '/colors', 'verb' => 'GET'],
 	],
 ];

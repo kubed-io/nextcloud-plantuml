@@ -57,8 +57,8 @@ describe('plantumlMode', () => {
     expect(tokens(`node1 ${link} node2`)).toEqual([[link, 'operator']])
   })
 
-  it('names a styled link in pieces: the strokes and brackets operators, a hex colour a colour, the rest attributes', () => {
-    expect(tokens('A -[#red]-> B')).toEqual([['-[', 'operator'], ['#red', 'attributeName'], [']->', 'operator']])
+  it('names a styled link in pieces: the strokes and brackets operators, a colour a colour, the rest attributes', () => {
+    expect(tokens('A -[#red]-> B')).toEqual([['-[', 'operator'], ['#red', 'ColorLiteral'], [']->', 'operator']])
     expect(tokens('node1 -[hidden]- node2')).toEqual([['-[', 'operator'], ['hidden', 'attributeName'], [']-', 'operator']])
     expect(tokens('api -[#FF6F61,bold]-> jobs : deploys')).toEqual([
       ['-[', 'operator'],
@@ -74,7 +74,7 @@ describe('plantumlMode', () => {
       ['thickness=2', 'attributeName'],
       [']..>', 'operator'],
     ])
-    expect(tokens('A <-[#red]- B')).toEqual([['<-[', 'operator'], ['#red', 'attributeName'], [']-', 'operator']])
+    expect(tokens('A <-[#red]- B')).toEqual([['<-[', 'operator'], ['#red', 'ColorLiteral'], [']-', 'operator']])
   })
 
   it('never carries a label, a styled link or a note line into the next line', () => {
@@ -143,8 +143,49 @@ describe('plantumlMode colours', () => {
     expect(tokens(`node foo ${hex}`)).toEqual([['node', 'keyword'], [hex, 'ColorLiteral']])
   })
 
-  it.each(['#Red', '#ABCDE', '#ABCDEFA', '#line:red', '#line.dashed'])('takes %s for something other than a hex colour', (word) => {
+  it.each(['#ABCDE', '#ABCDEFA', '#line:red', '#line.dashed', '#back:red'])('takes %s for something other than a colour', (word) => {
     expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword']])
+  })
+
+  it.each(['#Red', '#AliceBlue', '#APPLICATION', '#lightblue'])('takes the named colour %s as a colour', (word) => {
+    expect(tokens(`node foo ${word}`)).toEqual([['node', 'keyword'], [word, 'ColorLiteral']])
+  })
+
+  it('takes a named colour where a colour goes: an element style, a note, a styled link, a Creole tag', () => {
+    expect(tokens('node foo #Red;line:blue;line.dashed')).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral']])
+    expect(tokens('note left of A #pink', 'x', 'end note').slice(0, 2)).toEqual([['note', 'keyword'], ['#pink', 'ColorLiteral']])
+    expect(tokens('A -[#Red,bold]-> B')).toEqual([['-[', 'operator'], ['#Red', 'ColorLiteral'], ['bold', 'attributeName'], [']->', 'operator']])
+    expect(tokens('A -> B : <color:#Red>hot</color>').slice(1, 4)).toEqual([['<color:', 'tagName'], ['#Red', 'ColorLiteral'], ['>', 'tagName']])
+  })
+
+  it('takes no word after a # at the start of a line for a colour', () => {
+    expect(tokens('#highlight "a" / "b"')).toEqual([['"a"', 'string'], ['"b"', 'string']])
+    expect(tokens('  #HotPink:action;')).toEqual([])
+  })
+
+  it.each(['/', '|', '-', '\\'])('takes each part of a %s gradient for a colour of its own', (stroke) => {
+    expect(tokens(`node foo #Red${stroke}Yellow`)).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral'], [stroke, 'punctuation'], ['Yellow', 'ColorLiteral']])
+  })
+
+  it('takes a gradient\'s second hex without its #', () => {
+    expect(tokens('rectangle A #FF0000/FFFF00')).toEqual([['rectangle', 'keyword'], ['#FF0000', 'ColorLiteral'], ['/', 'punctuation'], ['FFFF00', 'ColorLiteral']])
+    expect(tokens('rectangle A #Red/FFF')).toEqual([['rectangle', 'keyword'], ['#Red', 'ColorLiteral'], ['/', 'punctuation'], ['FFF', 'ColorLiteral']])
+  })
+
+  it('takes both colours of an automatic text colour', () => {
+    expect(tokens('skinparam rectangleFontColor #?black:white')).toEqual([
+      ['skinparam', 'keyword'],
+      ['#?', 'punctuation'],
+      ['black', 'ColorLiteral'],
+      [':', 'punctuation'],
+      ['white', 'ColorLiteral'],
+    ])
+  })
+
+  it('takes Gantt\'s `is colored in` colours', () => {
+    expect(tokens('[Task] is colored in White/Red')).toEqual([['is', 'keyword'], ['White', 'ColorLiteral'], ['/', 'punctuation'], ['Red', 'ColorLiteral']])
+    expect(tokens('[Task] is colored in #00ff00')).toEqual([['is', 'keyword'], ['#00ff00', 'ColorLiteral']])
+    expect(tokens('[Task] is 2 days')).toEqual([['is', 'keyword']])
   })
 
   it('takes the colour out of an element style, and leaves its line and text parts', () => {
@@ -295,6 +336,124 @@ describe('plantumlMode Creole', () => {
   })
 })
 
+describe('plantumlMode @startcreole', () => {
+  it('reads every line of the block as Creole, and PlantUML again after it', () => {
+    expect(tokens('@startcreole page', '**b** //i//', '<color:#F00>red</color>', '[[https://x.org]]', '----', 'note {', '@endcreole', 'actor B')).toEqual([
+      ['@startcreole', 'keyword'],
+      ['**b**', 'strong'],
+      ['//i//', 'emphasis'],
+      ['<color:', 'tagName'],
+      ['#F00', 'ColorLiteral'],
+      ['>', 'tagName'],
+      ['</color>', 'tagName'],
+      ['[[https://x.org]]', 'link'],
+      ['----', 'heading'],
+      ['@endcreole', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+})
+
+describe('plantumlMode @startfiles', () => {
+  it('reads a path with its slashes as punctuation and Creole in its segments', () => {
+    expect(tokens('@startfiles', '/src/example.py', '/**creole_test**/""monospaced""', '@endfiles', 'actor B')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['/', 'punctuation'],
+      ['/', 'punctuation'],
+      ['/', 'punctuation'],
+      ['**creole_test**', 'strong'],
+      ['/', 'punctuation'],
+      ['""monospaced""', 'monospace'],
+      ['@endfiles', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+
+  it('reads <note> and </note> as tags and the lines between them as Creole', () => {
+    expect(tokens('@startfiles x', '/a/b', '<note>', 'a **bold** word', '</note>', '/c', '@endfiles')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['/', 'punctuation'],
+      ['/', 'punctuation'],
+      ['<note>', 'tagName'],
+      ['**bold**', 'strong'],
+      ['</note>', 'tagName'],
+      ['/', 'punctuation'],
+      ['@endfiles', 'keyword'],
+    ])
+  })
+
+  it('ends an unclosed <code> at the </note> of its note', () => {
+    expect(tokens('@startfiles', '<note>', '<code>', 'x', '</note>', '/c', '@endfiles')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['<note>', 'tagName'],
+      ['<code>', 'tagName'],
+      ['x', 'monospace'],
+      ['</note>', 'tagName'],
+      ['/', 'punctuation'],
+      ['@endfiles', 'keyword'],
+    ])
+  })
+
+  it('leaves a <style> region and the notes of uml as before', () => {
+    expect(tokens('@startfiles', '/a', '@endfiles', '<style>', 'note {', '</style>', 'note left of A', '**b**', 'end note')).toEqual([
+      ['@startfiles', 'keyword'],
+      ['/', 'punctuation'],
+      ['@endfiles', 'keyword'],
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
+      ['note', 'keyword'],
+      ['**b**', 'strong'],
+      ['end note', 'keyword'],
+    ])
+  })
+})
+
+describe('plantumlMode style blocks', () => {
+  it('leaves the lines between <style> and </style> plain without a style mode, and reads PlantUML after them', () => {
+    expect(tokens('<style>', 'note {', '  BackgroundColor #FFF', '}', 'legend {', 'title {', 'node {', '</style>', 'note left of A', '**b**', 'end note')).toEqual([
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
+      ['note', 'keyword'],
+      ['**b**', 'strong'],
+      ['end note', 'keyword'],
+    ])
+  })
+
+  it('finds indented tags inside a uml block, and keeps the indentation plain', () => {
+    expect(tokens('@startuml', '  <style>  ', '  note {', '  </style>', 'actor A', '@enduml')).toEqual([
+      ['@startuml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
+      ['actor', 'keyword'],
+      ['@enduml', 'keyword'],
+    ])
+  })
+
+  it('reads a one-line block as its tags around plain text, and an imported style sheet as one tag', () => {
+    expect(tokens('<style>note { BackgroundColor red }</style>', 'note left', 'x', 'end note')).toEqual([
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
+      ['note', 'keyword'],
+      ['end note', 'keyword'],
+    ])
+    expect(tokens('  <style file=my.css>', 'actor A')).toEqual([['<style file=my.css>', 'tagName'], ['actor', 'keyword']])
+  })
+
+  it('ends a block left open at @end, as PlantUML does', () => {
+    expect(tokens('@startuml', '<style>', 'note {', '@enduml', 'actor A')).toEqual([
+      ['@startuml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['@enduml', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+
+  it('takes no <style> inside a note, or after text on the line', () => {
+    expect(tokens('note left', '<style>', 'end note', 'actor A')).toEqual([['note', 'keyword'], ['end note', 'keyword'], ['actor', 'keyword']])
+    expect(tokens('A -> B : <style>')).toEqual([['->', 'operator'], ['<style>', 'labelName']])
+  })
+})
+
 describe('plantumlMode language data', () => {
   const state = (doc) => EditorState.create({ doc, extensions: [plantumlMode, closeBrackets()] })
 
@@ -374,6 +533,70 @@ describe('plantumlLanguage with an inner mode', () => {
     ])
   })
 
+  it("hands a style block's lines to the style mode, at top level and inside a uml block", () => {
+    const styled = (...lines) => tokensOf(plantumlLanguage({ style: whole('atom') }), lines)
+
+    expect(styled('@startuml', '<style>', 'note {', '}', '</style>', 'actor A', '@enduml')).toEqual([
+      ['@startuml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['note {', 'atom'],
+      ['}', 'atom'],
+      ['</style>', 'tagName'],
+      ['actor', 'keyword'],
+      ['@enduml', 'keyword'],
+    ])
+    expect(styled('<style>', "' a note", '  !$x = 1', 'a {', '</style>')).toEqual([
+      ['<style>', 'tagName'],
+      ["' a note", 'comment'],
+      ['!$x = 1', 'meta'],
+      ['a {', 'atom'],
+      ['</style>', 'tagName'],
+    ])
+    expect(styled('@startstyle', 'a {', '@endstyle')).toEqual([])
+  })
+
+  it('hands the middle of a one-line block to the style mode, never its tags, at top level and in a nested mode', () => {
+    const styled = (...lines) => tokensOf(plantumlLanguage({ style: whole('atom'), yaml: whole('string') }), lines)
+
+    expect(styled('  <style>a { b }</style>  ', 'actor A')).toEqual([
+      ['<style>', 'tagName'],
+      ['a { b }', 'atom'],
+      ['</style>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    // Two tokens of one name side by side are one node.
+    expect(styled('<style></style>', '<style>a</style>x</style>')).toEqual([
+      ['<style></style>', 'tagName'],
+      ['<style>', 'tagName'],
+      ['a</style>x', 'atom'],
+      ['</style>', 'tagName'],
+    ])
+    expect(styled('@startyaml', '<style>a {}</style>', 'b: 1', '@endyaml')).toEqual([
+      ['@startyaml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['a {}', 'atom'],
+      ['</style>', 'tagName'],
+      ['b: 1', 'string'],
+      ['@endyaml', 'keyword'],
+    ])
+  })
+
+  it('reads a style block inside a yaml block as style, and yaml again after it', () => {
+    const language = plantumlLanguage({ yaml: whole('atom'), style: whole('string') })
+
+    expect(tokensOf(language, ['@startyaml', 'a: 1', '  <style>', 'node {', '  </style>', 'b: 2', '@endyaml', 'actor A'])).toEqual([
+      ['@startyaml', 'keyword'],
+      ['a: 1', 'atom'],
+      ['<style>', 'tagName'],
+      ['node {', 'string'],
+      ['</style>', 'tagName'],
+      ['b: 2', 'atom'],
+      ['@endyaml', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+    expect(tokensOf(language, ['@startyaml', '<style>', 'node {', '@endyaml', 'actor A']).slice(-2)).toEqual([['@endyaml', 'keyword'], ['actor', 'keyword']])
+  })
+
   /** The parser's state after reading `lines`. */
   function stateAfter(parser, lines) {
     const state = parser.startState(2)
@@ -406,7 +629,102 @@ describe('plantumlLanguage with an inner mode', () => {
     expect(streamParser.copyState(state).inner.state).toEqual({ depth: 1, copied: true })
   })
 
+  it("copies the style state with the style mode's own copyState, and passes it blank lines", () => {
+    const style = {
+      startState: () => ({ blanks: 0 }),
+      copyState: (state) => ({ ...state, copied: true }),
+      blankLine: (state) => { state.blanks++ },
+      token: (stream) => { stream.skipToEnd(); return 'atom' },
+    }
+    const { streamParser } = plantumlLanguage({ style })
+    const state = stateAfter(streamParser, ['<style>', '', 'a {'])
+
+    expect(state.style.state).toEqual({ blanks: 1 })
+    expect(streamParser.copyState(state).style.state).toEqual({ blanks: 1, copied: true })
+  })
+
   it('builds a new language on every call', () => {
     expect(plantumlLanguage({})).not.toBe(plantumlLanguage({}))
+  })
+})
+
+describe('plantumlMode Creole, complete (X19)', () => {
+  const note = (...lines) => tokens('note left of A', ...lines, 'end note')
+  const inner = (...lines) => note(...lines).slice(1, -1)
+  const P = (text) => [text, 'punctuation']
+
+  it.each([
+    ['a note body', (...lines) => inner(...lines)],
+    ['a @startcreole block', (...lines) => tokens('@startcreole', ...lines, '@endcreole').slice(1, -1)],
+  ])('reads headings, list markers and tree lines at the start of a line in %s', (_, read) => {
+    expect(read('== Large heading')).toEqual([['== Large heading', 'heading']])
+    expect(read('=== Third', '= First')).toEqual([['=== Third', 'heading'], ['= First', 'heading']])
+    expect(read('** Sub item', '# one', '  ## two')).toEqual([P('**'), P('#'), P('##')])
+    expect(read('  |_ Level 2a')).toEqual([P('|_')])
+    expect(read('..My title..', '==Title==', '--Another title--', '____', '----')).toEqual([
+      ['..My title..', 'heading'],
+      ['==Title==', 'heading'],
+      ['--Another title--', 'heading'],
+      ['____', 'heading'],
+      ['----', 'heading'],
+    ])
+  })
+
+  it('leaves a bold run at the start of a line bold, not a list item', () => {
+    expect(inner('**b** x')).toEqual([['**b**', 'strong']])
+  })
+
+  it('reads no heading or list marker in a one-line label, where # is a colour', () => {
+    expect(tokens('A -> B : == x')).toEqual([['->', 'operator'], ['== x', 'labelName']])
+    expect(tokens('A -> B : * x')).toEqual([['->', 'operator'], ['* x', 'labelName']])
+    expect(tokens('note right of A : * x')).toEqual([['note', 'keyword']])
+    expect(tokens('note right of A : # x')).toEqual([['note', 'keyword']])
+  })
+
+  it('dims a ~ escape and leaves the next character plain', () => {
+    expect(inner('~**not bold~**')).toEqual([P('~'), P('~')])
+    expect(tokens('A -> B : ~**x~** **y**').slice(1)).toEqual([
+      ['~', 'punctuation'],
+      ['**x', 'labelName'],
+      ['~', 'punctuation'],
+      ['** ', 'labelName'],
+      ['**y**', 'strong_labelName'],
+    ])
+  })
+
+  it('keeps ~~wave~~ plain', () => {
+    expect(tokens('A -> B : ~~wavy~~')).toEqual([['->', 'operator'], ['~~wavy~~', 'labelName']])
+  })
+
+  it('reads Unicode and numeric character tags', () => {
+    expect(inner('<U+221E> and &#8734;')).toEqual([['<U+221E>', 'tagName'], ['&#8734;', 'tagName']])
+  })
+
+  it('reads table row and cell colours as tags with colour literals, and a coloured emoji', () => {
+    expect(inner('<#lightblue,#red>|=  Step  |', '|<#FF8080> red |', '<#green:sunny:>')).toEqual([
+      ['<', 'tagName'], ['#lightblue', 'ColorLiteral'], [',', 'tagName'], ['#red', 'ColorLiteral'], ['>', 'tagName'],
+      P('|='), P('|'),
+      P('|'), ['<', 'tagName'], ['#FF8080', 'ColorLiteral'], ['>', 'tagName'], P('|'),
+      ['<', 'tagName'], ['#green', 'ColorLiteral'], [':sunny:>', 'tagName'],
+    ])
+    expect(inner('<#00FF00,#FF0000>|=')[1]).toEqual(['#00FF00', 'ColorLiteral'])
+  })
+
+  it('reads <r> as a tag', () => {
+    expect(inner('|<r> x |')).toEqual([P('|'), ['<r>', 'tagName'], P('|')])
+  })
+
+  it('reads the lines between <code> and </code> as monospace, and keeps going after', () => {
+    expect(inner('<code>', '**not bold**', '</code>', '**bold**')).toEqual([
+      ['<code>', 'tagName'],
+      ['**not bold**', 'monospace'],
+      ['</code>', 'tagName'],
+      ['**bold**', 'strong'],
+    ])
+    expect(tokens('@startcreole', '<code>', 'x', '</code>', '@endcreole', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'tagName', 'keyword', 'keyword'])
+  })
+
+  it('ends a note at its closer even inside an unclosed <code>', () => {
+    expect(tokens('note left of A', '<code>', 'x', 'end note', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'keyword', 'keyword'])
   })
 })

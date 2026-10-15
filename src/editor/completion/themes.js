@@ -3,17 +3,22 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * The built-in themes after `!theme `, as the configured PlantUML server lists
- * them (GET /apps/plantuml/themes).
+ * them (GET /apps/plantuml/themes): a value with a list in the registry
+ * (values/index.js), so completion and the chooser both offer it. An empty
+ * name still has a place, for the list to open on right after the space.
  */
 import { serverList } from './server-list.js'
 
-/** @param {import('@codemirror/autocomplete').CompletionContext} context */
-export async function themes(context) {
-  const typed = context.matchBefore(/^\s*!theme\s+[\w-]*/)
-  if (!typed) {
-    return null
-  }
-  const name = typed.text.match(/[\w-]*$/)[0]
-  const options = (await serverList('themes')).map((label) => ({ label, type: 'constant' }))
-  return { from: typed.to - name.length, options, validFor: /^[\w-]*$/ }
+const THEME = /^(\s*!theme\s+)([\w-]*)/
+
+/** @type {import('../values/index.js').ValueEntry} */
+export const themeValue = {
+  match(lineText, state, lineFrom) {
+    const found = THEME.exec(lineText)
+    if (!found) {
+      return []
+    }
+    const from = lineFrom + found[1].length
+    return [{ from, to: from + found[2].length, kind: 'list', options: () => serverList('themes') }]
+  },
 }

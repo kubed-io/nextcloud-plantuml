@@ -22,4 +22,4 @@ const mode = {
 }
 
 /** @param {import('./index.js').Core} core */
-export default (core) => ({ type: 'yaml', mode, completions: [], lints: [yamlLint(core)] })
+export default (core) => ({ type: 'yaml', mode, completions: [], lints: [yamlLint(core)], values: [] })

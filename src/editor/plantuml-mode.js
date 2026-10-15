@@ -465,7 +465,7 @@ export function plantumlLanguage(inner = {}) {
     // StreamLanguage names a node after its token, and takes the highlight from
     // here for a name @lezer/highlight has no tag for. The legacy names an inner
     // mode emits (`atom`, `number`, `property`, `def`, `variable-2`, …) map already.
-    tokenTable: { ColorLiteral: tags.color, underline },
+    tokenTable: { ColorLiteral: tags.color, StyleNumber: tags.string, underline },
   })
 }
 

@@ -87,7 +87,7 @@ describe('the style profile', () => {
       ['root', 'typeName'],
       ['{', 'bracket'],
       ['FontSize', 'propertyName'],
-      ['22', 'number'],
+      ['22', 'StyleNumber'],
       ['}', 'bracket'],
       ['.server', 'className'],
       ['{', 'bracket'],
@@ -115,7 +115,7 @@ describe('the style profile', () => {
       ['node', 'typeName'],
       ['{', 'bracket'],
       ['FontSize', 'propertyName'],
-      ['1', 'number'],
+      ['1', 'StyleNumber'],
       [';', 'punctuation'],
       ['LineColor', 'propertyName'],
       ['#ABC', 'ColorLiteral'],
@@ -158,11 +158,11 @@ describe('the style profile', () => {
   it('reads a dash pattern, 8.0;3.0 or 8-3, as one value of two numbers, not a separator', () => {
     const named = (...lines) => tokens('<style>', 'node {', ...lines, '}', '</style>').filter(([, name]) => !['tagName', 'typeName', 'bracket'].includes(name))
     expect(named('  LineStyle 8.0;3.0', '  LineColor red')).toEqual([
-      ['LineStyle', 'propertyName'], ['8.0', 'number'], [';', 'operator'], ['3.0', 'number'],
+      ['LineStyle', 'propertyName'], ['8.0', 'StyleNumber'], [';', 'operator'], ['3.0', 'StyleNumber'],
       ['LineColor', 'propertyName'], ['red', 'ColorLiteral'],
     ])
-    expect(named('  LineStyle 8-3')).toEqual([['LineStyle', 'propertyName'], ['8', 'number'], ['-', 'operator'], ['3', 'number']])
-    expect(named('  LineStyle 4; LineColor red').map(([, name]) => name)).toEqual(['propertyName', 'number', 'punctuation', 'propertyName', 'ColorLiteral'])
+    expect(named('  LineStyle 8-3')).toEqual([['LineStyle', 'propertyName'], ['8', 'StyleNumber'], ['-', 'operator'], ['3', 'StyleNumber']])
+    expect(named('  LineStyle 4; LineColor red').map(([, name]) => name)).toEqual(['propertyName', 'StyleNumber', 'punctuation', 'propertyName', 'ColorLiteral'])
   })
 
   it('starts each line with no dash pattern open', () => {
@@ -186,7 +186,7 @@ describe('the style profile', () => {
       ["/' a", 'comment'],
       ["  LineColor red '/", 'comment'],
       ['FontSize', 'propertyName'],
-      ['2', 'number'],
+      ['2', 'StyleNumber'],
       ['}', 'bracket'],
       ['</style>', 'tagName'],
     ])
@@ -195,6 +195,6 @@ describe('the style profile', () => {
   it('reads the Word Wrap block of plantuml.com/mindmap-diagram', () => {
     const names = tokens(...WORD_WRAP.split('\n')).map(([, name]) => name)
     expect(names).not.toContain(null)
-    expect(tokens(...WORD_WRAP.split('\n'))).toContainEqual(['8.0', 'number'])
+    expect(tokens(...WORD_WRAP.split('\n'))).toContainEqual(['8.0', 'StyleNumber'])
   })
 })

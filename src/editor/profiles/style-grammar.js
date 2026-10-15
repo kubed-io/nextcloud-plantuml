@@ -16,7 +16,7 @@ const HEX = /^#(?:[\dA-Fa-f]{8}|[\dA-Fa-f]{6}|[\dA-Fa-f]{3,4})(?!\w)/
  */
 function value(stream, property) {
   if (stream.match(HEX)) return 'ColorLiteral'
-  if (stream.match(/^-?\d+(?:\.\d+)?(?![\w.])/)) return 'number'
+  if (stream.match(/^-?\d+(?:\.\d+)?(?![\w.])/)) return 'StyleNumber'
   if (stream.match(/^"[^"]*"?/)) return 'string'
   // As the PlantUML mode: a name is never all hex digits (`#ABCDE` is a broken hex).
   if (/color$/i.test(property ?? '') && stream.match(/^#?(?![\dA-Fa-f]+(?!\w))[A-Za-z]\w*(?![\w-])/)) return 'ColorLiteral'
@@ -71,7 +71,7 @@ export const styleMode = {
     }
     if (state.at === 'value') {
       const token = value(stream, state.property)
-      state.dash = token === 'number' && /^linestyle$/i.test(state.property)
+      state.dash = token === 'StyleNumber' && /^linestyle$/i.test(state.property)
       return token
     }
     if (stream.match(/^\.[^\s{},;.:]+/) || stream.match(/^:[\w-]+(?:\([^)]*\))?/)) return 'className'

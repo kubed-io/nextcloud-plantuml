@@ -66,9 +66,8 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
   // A nested mode's values and names (YAML's keys are atoms). Atom would
   // otherwise inherit the keyword's bold.
-  // A style block's numbers are values like its words, so the string green too.
-  { tag: [tags.atom, tags.number, tags.special(tags.variableName)], color: towardText('--color-element-success') },
-  { tag: tags.definition(tags.variableName), color: 'var(--color-info-text)' },
+  { tag: [tags.atom, tags.special(tags.variableName)], color: towardText('--color-element-success') },
+  { tag: [tags.number, tags.definition(tags.variableName)], color: 'var(--color-info-text)' },
 ])
 
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */

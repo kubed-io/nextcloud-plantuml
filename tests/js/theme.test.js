@@ -85,6 +85,7 @@ describe('the colours of a style block', () => {
   /** The colour each word of `doc` is drawn in, found by the class the highlighter gives it. */
   function colours(doc, profiles) {
     const out = {}
+    // A rule's first tag stands for it: the highlighter's class belongs to the whole rule.
     const classes = new Map(highlightStyle.specs.map((spec) => [highlightStyle.style([[spec.tag].flat()[0]]), spec.color]))
     highlightTree(plantumlLanguage(profiles).parser.parse(doc), highlightStyle, (from, to, cls) => {
       out[doc.slice(from, to)] = classes.get(cls)
@@ -119,9 +120,10 @@ describe('the colours of a style block', () => {
     expect(plain.color).toBe(ORANGE)
   })
 
-  it('leaves a YAML block as it was: keys green, list markers the directive blue', () => {
-    const yaml = colours('@startyaml\nkey: value\n- item\n@endyaml', { yaml: yamlProfile({ scan }).mode })
+  it('leaves a YAML block as it was: keys green, numbers info blue, list markers the directive blue', () => {
+    const yaml = colours('@startyaml\nkey: value\ncount: 5\n- item\n@endyaml', { yaml: yamlProfile({ scan }).mode })
     expect(yaml.key).toBe(GREEN)
+    expect(yaml['5']).toBe('var(--color-info-text)')
     expect(yaml['- ']).toBe('var(--color-primary-element)')
   })
 

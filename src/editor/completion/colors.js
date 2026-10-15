@@ -4,13 +4,13 @@
  *
  * Named colours after a `#` where a colour goes (X14): an element's colour
  * after its declaration, a styled link's brackets, `<color:`, `<back:`, `<u:`,
- * `<s:` and `<w:` (the `#` optional), a `<font color=` and a `{color=`,
- * and a skinparam's `…Color` value, on its line or in its block. In a style
- * block, a `…Color` property's value, with its `#` or without (X9), and on a
- * uml line of its own, after `colors` (X13). The names are the configured
- * server's (GET /apps/plantuml/colors), each shown with its swatch. Not after
- * a `#` that starts a line (`#highlight`, a Creole list), in a style part
- * (`#line.dashed`), a comment, a string, a label or a note's text.
+ * `<s:` and `<w:` (the `#` optional), a `<font color=`, a `{color=` after an
+ * icon, an emoji or a sprite, and a skinparam's `…Color` value, on its line or
+ * in its block. In a style block, a `…Color` property's value, with its `#` or
+ * without (X9), and on a uml line of its own, after `colors` (X13). The names
+ * are the configured server's (GET /apps/plantuml/colors), each shown with its
+ * swatch. Not after a `#` that starts a line (`#highlight`, a Creole list), in
+ * a style part (`#line.dashed`), a comment, a string, a label or a note's text.
  */
 import { PARTICIPANTS, STRUCTURES, inUml } from './keywords.js'
 import { serverColors } from './server-list.js'
@@ -27,7 +27,9 @@ const PLACES = [
   /[-.]\[(?:[^\]]*[,;])?#(\w*)$/,
   /<(?:color|back|u|s|w):#?(\w*)$/,
   /<font\b[^>]*\scolor=["']?#?(\w*)$/i,
-  /\{[^}]*color[=:]#?(\w*)$/,
+  // The braces after an icon, an emoji or a sprite (values/index.js BRACES, less an image
+  // and a QR code, which take a scale only), not any brace.
+  /<(?:&[\w-]+|:[^:>]*:|\$[\w-]+)>?\{[^}]*color[=:]#?(\w*)$/,
   /^[ \t]*skinparam[ \t]+\S*colou?r\S*[ \t]+#(\w*)$/i,
 ]
 // A line of a `skinparam … {` block, and a style declaration, which may follow a `{` or `;`.

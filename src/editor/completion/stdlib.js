@@ -7,8 +7,9 @@
  * /apps/plantuml/stdlib), then a library's folders and `.puml` files. The
  * server lists no files, so those come from an index per library folder,
  * generated from plantuml-stdlib (scripts/vocabulary.mjs), each its own chunk
- * loaded the first time that library is opened. A folder inserts `name/` and
- * opens the next level; a file its path and the closing `>`.
+ * loaded the first time that library is opened; a folder that only links to
+ * another is read as that one. A folder inserts `name/` and opens the next
+ * level; a file its path and the closing `>`.
  */
 import { reopen } from './local-files.js'
 import { serverStdlib } from './server-list.js'
@@ -40,10 +41,18 @@ function folderOf({ name, version }) {
 /** Each index, loaded once; a failed load is forgotten, so the next key tries again. */
 const loaded = new Map()
 
+/** A folder's files; a folder whose README links to another (`awslib` → `awslib14`) has that one's. */
+async function load(folder) {
+  const { default: index } = await indexes[folder]()
+  if (index.link && indexes[index.link]) {
+    return (await indexes[index.link]()).default.files ?? []
+  }
+  return index.files ?? []
+}
+
 function files(folder) {
   if (!loaded.has(folder)) {
-    loaded.set(folder, indexes[folder]()
-      .then(({ default: index }) => index.files)
+    loaded.set(folder, load(folder)
       .catch((error) => {
         loaded.delete(folder)
         throw error

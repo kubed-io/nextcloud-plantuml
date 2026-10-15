@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { acceptCompletion, completionStatus, currentCompletions, setSelectedCompletion } from '@codemirror/autocomplete'
+import { acceptCompletion, completionStatus, currentCompletions, setSelectedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { history, undo } from '@codemirror/commands'
 import { translate } from '@nextcloud/l10n'
 import { scan } from '../../src/editor/blocks.js'
@@ -213,6 +213,34 @@ describe('a tag\'s values (W4)', () => {
 
     expect(family).toMatchObject({ from: '<font:'.length, to: '<font:DejaVu Sans'.length, kind: 'list' })
     expect(await family.options()).toEqual(['DejaVu Sans', 'Dialog'])
+  })
+
+  // A family holds spaces, so an unclosed `<font:` reads to the next `<`, and there to its
+  // first word's end, or to the end of the word the cursor is in.
+  it.each([
+    ['<font:De| and more', 'De'],
+    ['<font:DejaVu Sa|', 'DejaVu Sa'],
+    ['<font:Dej|aVu Sans and more', 'DejaVu'],
+    ['A -> B : <font:|hello</font>', 'hello'],
+    ['<font:Sans Serif and more <b>x</b>|', 'Sans'],
+    ['<font:DejaVu Sans>x</font>|', 'DejaVu Sans'],
+  ])('reads the family of %j as %j', (marked, family) => {
+    const state = EditorState.create({ doc: marked.replace('|', ''), selection: { anchor: marked.indexOf('|') } })
+    const [value] = valuesOn(state, 1)
+
+    expect(state.sliceDoc(value.from, value.to)).toBe(family)
+  })
+
+  it.each([
+    ['A -> B : <font:|hello</font>', 'A -> B : <font:Dialog</font>'],
+    ['<font:De| and more', '<font:Dialog and more'],
+    ['<font:Dej|aVu Sans>x', '<font:Dialog>x'],
+  ])('a font picked in %j keeps the text after the family', async (marked, picked) => {
+    open(marked)
+    startCompletion(view)
+    await pick('Dialog')
+
+    expect(doc()).toBe(picked)
   })
 
   it('resolves no fonts when the server cannot answer', async () => {

@@ -478,6 +478,8 @@ describe('named colours', () => {
     '<&star{color=|',
     '<&star{scale=2,color=Al|',
     '<&star{color:|',
+    'A -> B : <:sunny:{color=|',
+    'A -> B : <$box>{color=|',
   ])('offers the server\'s colours, each with its swatch, in the tag `%s`', async (marked) => {
     const result = await complete(colorsSource, marked)
     const typed = /\w*(?=\|)/.exec(marked)[0]
@@ -496,7 +498,7 @@ describe('named colours', () => {
     expect(await complete(colorsSource, 'A -> B : "<font color=re|')).toBeNull()
   })
 
-  it.each(['<font size=|', 'A -> B : <b>color=|', '<&star{scale=|'])('offers none in `%s`', async (marked) => {
+  it.each(['<font size=|', 'A -> B : <b>color=|', '<&star{scale=|', 'A -> B : {color=|', 'A -> B : <img:x.png{color=|'])('offers none in `%s`', async (marked) => {
     expect(await complete(colorsSource, marked)).toBeNull()
   })
 
@@ -1668,6 +1670,19 @@ describe('stdlib', () => {
 
     expect(labels(result)).toContain('AccountUser/')
     expect(labels((await at('!include <material7/AccountUser/|')))).toContain('AccountAlert')
+  })
+
+  it('reads a library whose folder links to another as that one', async () => {
+    fetch.mockImplementation(answering({ stdlib: [
+      { name: 'awslib', version: '14.0', source: 'https://github.com/awslabs/aws-icons-for-plantuml' },
+      { name: 'bootstrap', version: '1.13.1', source: 'https://github.com/twbs/icons' },
+      { name: 'material', version: '2.1.19', source: 'https://github.com/Templarian/MaterialDesign-SVG/' },
+    ] }))
+
+    expect(labels(await at('!include <awslib/|'))).toEqual(expect.arrayContaining(['AWSCommon', 'Compute/']))
+    expect(labels(await at('!include <awslib/Compute/|'))).toContain('EC2')
+    expect(labels(await at('!include <bootstrap/|'))).toEqual(['_examples_/', 'bootstrap'])
+    expect(labels(await at('!include <material/|'))).toEqual(expect.arrayContaining(['_examples_/', 'account_alert']))
   })
 
   it('offers nothing below a library with no index, and offers its name alone', async () => {

@@ -278,6 +278,16 @@ describe('plantumlMode Creole', () => {
         ['<img', 'tagName'], ...attr('src', '"a b.png"'), ...attr('valign', 'top'), ['>', 'tagName'],
       ])
       expect(note('<text fill=blue>')).toEqual([['<text', 'tagName'], ...attr('fill', 'blue'), ['>', 'tagName']])
+      expect(note('<img src=a/b.png/>')).toEqual([['<img', 'tagName'], ...attr('src', 'a/b.png/'), ['>', 'tagName']])
+    })
+
+    it('keeps a quoted colour\'s swatch, its quotes a string', () => {
+      for (const [quote, colour] of [['"', '#FF0000'], ['"', 'red'], ["'", 'red']]) {
+        expect(note(`<font color=${quote}${colour}${quote}>`)).toEqual([
+          ['<font', 'tagName'], ...attr('color', quote), [colour, 'ColorLiteral'], [quote, 'string'], ['>', 'tagName'],
+        ])
+      }
+      expect(note('<&star{color="red"}>').slice(4, 7)).toEqual([['"', 'string'], ['red', 'ColorLiteral'], ['"', 'string']])
     })
 
     it('reads the colon forms', () => {

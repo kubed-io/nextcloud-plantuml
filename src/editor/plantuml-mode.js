@@ -128,10 +128,12 @@ function creole(base) {
 /** The pieces of `name=value`, as they stand in a tag; `end` is what may follow a value. */
 const attributes = (end) => [
   { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(#?${colourPart})${end}`), token: ['attributeName', null, 'punctuation', null, 'ColorLiteral'] },
+  // A quoted colour keeps its swatch (C6), its quotes a string.
+  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(["'])(#?${colourPart})(\\5)`), token: ['attributeName', null, 'punctuation', null, 'string', 'ColorLiteral', 'string'] },
   { regex: /[\w-]+(?=\s*=)/, token: 'attributeName' },
   { regex: /=/, token: 'punctuation' },
   { regex: /"[^"]*"|'[^']*'/, token: 'string' },
-  { regex: new RegExp(`(?:[^\\s>"',}]|/(?!>))+`), token: 'string' },
+  { regex: /[^\s>"',}]+/, token: 'string' },
   { regex: /./, token: null },
 ]
 

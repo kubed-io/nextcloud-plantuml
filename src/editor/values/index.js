@@ -118,13 +118,29 @@ const spaceValue = {
   match: (lineText, state, lineFrom) => attributes(lineText, lineFrom, /<space:[^>]*>?/gi, /<space:(\d+(?:\.\d+)?)/gi, () => ({ kind: 'number', min: 0 })),
 }
 
-// The family may hold spaces (`DejaVu Sans`), so it runs to the `>`; while the
-// tag is unclosed (`<font:Dej`) it reads to the line's end. None once the
-// server is known to list no fonts, so the chooser draws no pencil for nothing.
+// The family may hold spaces (`DejaVu Sans`), so it runs to the `>`. While the
+// tag is unclosed (`<font:Dej`) it stops at the next `<`, and there at its
+// first word's end, or at the end of the word the cursor is in, so a pick
+// keeps the text after it. None once the server is known to list no fonts, so
+// the chooser draws no pencil for nothing.
+const FONT_FAMILY = /<font:([^<>]*)(>?)/gi
+
 const fontFamilyValue = {
-  match: (lineText, state, lineFrom) => (serverListNow('fonts')?.length === 0
-    ? []
-    : attributes(lineText, lineFrom, /<font:[^>]*/gi, /<font:([^>]*)/gi, () => ({ kind: 'list', options: () => serverList('fonts') }))),
+  match(lineText, state, lineFrom) {
+    if (serverListNow('fonts')?.length === 0) {
+      return []
+    }
+    const head = state.selection.main.head - lineFrom
+    return [...lineText.matchAll(FONT_FAMILY)].map((found) => {
+      const from = found.index + '<font:'.length
+      let to = from + found[1].length
+      if (!found[2]) {
+        const word = head >= from && head <= to ? head : from
+        to = word + /^\S*/.exec(lineText.slice(word, to))[0].length
+      }
+      return { from: lineFrom + from, to: lineFrom + to, kind: 'list', options: () => serverList('fonts') }
+    })
+  },
 }
 
 /** @type {ValueEntry[]} */

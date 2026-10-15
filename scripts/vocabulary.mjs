@@ -3,7 +3,8 @@
 //
 // Regenerates src/editor/data/{vocabulary,builtins,directives}.json from PlantUML's source at the tag
 // of the pinned server image (X1), and src/editor/data/stdlib/<folder>.json from plantuml-stdlib at
-// the last commit before that release (X5). Needs network; the tests never do.
+// the last commit before that release, its files or the folder its README links to (X5). Needs
+// network; the tests never do.
 // Run: node scripts/vocabulary.mjs
 import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
@@ -146,13 +147,40 @@ export function stdlibIndex(tree) {
   return index
 }
 
+/** The library folders with a README of their own, sorted. */
+export function stdlibReadmes(tree) {
+  return tree.tree.flatMap(({ path, type }) => (type === 'blob' && /^stdlib\/([^/]+)\/README\.md$/.exec(path)?.[1]) || []).sort()
+}
+
+/**
+ * Each folder's entry: its files, or, for a folder whose README's front matter
+ * says `link: <folder>` (`awslib` → `awslib14`), that folder, if it has files.
+ */
+export function stdlibEntries(tree, readmes) {
+  const index = stdlibIndex(tree)
+  const entries = {}
+  for (const folder of new Set([...Object.keys(index), ...Object.keys(readmes)])) {
+    const frontMatter = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(readmes[folder] ?? '')?.[1] ?? ''
+    const link = /^link:[ \t]*(\S+)/m.exec(frontMatter)?.[1]
+    if (link && link !== folder && index[link]) entries[folder] = { 'plantuml-stdlib': STDLIB, link }
+    else if (index[folder]) entries[folder] = { 'plantuml-stdlib': STDLIB, files: index[folder] }
+  }
+  return entries
+}
+
 async function stdlib() {
   const api = `https://api.github.com/repos/plantuml/plantuml-stdlib/git/trees/${STDLIB}?recursive=1`
   const res = await fetch(api)
   if (!res.ok) throw new Error(`${api}: HTTP ${res.status}`)
   const tree = await res.json()
   if (tree.truncated) throw new Error(`${api}: truncated`)
-  return Object.fromEntries(Object.entries(stdlibIndex(tree)).map(([folder, files]) => [folder, { 'plantuml-stdlib': STDLIB, files }]))
+  const readmes = await Promise.all(stdlibReadmes(tree).map(async (folder) => {
+    const url = `https://raw.githubusercontent.com/plantuml/plantuml-stdlib/${STDLIB}/stdlib/${folder}/README.md`
+    const readme = await fetch(url)
+    if (!readme.ok) throw new Error(`${url}: HTTP ${readme.status}`)
+    return [folder, await readme.text()]
+  }))
+  return stdlibEntries(tree, Object.fromEntries(readmes))
 }
 
 const artifacts = [
@@ -170,8 +198,10 @@ async function write({ file, folder, build }) {
     // One file per entry, so each is its own chunk.
     await mkdir(new URL(`../src/editor/data/${folder}/`, import.meta.url), { recursive: true })
     for (const [name, entry] of Object.entries(data)) await save(`${folder}/${name}.json`, entry)
-    const files = Object.values(data).reduce((sum, entry) => sum + entry.files.length, 0)
-    console.info(`${folder}/: ${Object.keys(data).length} folders, ${files} files`)
+    const entries = Object.values(data)
+    const files = entries.reduce((sum, entry) => sum + (entry.files?.length ?? 0), 0)
+    const links = entries.filter((entry) => entry.link).length
+    console.info(`${folder}/: ${entries.length} folders (${links} links), ${files} files`)
     return
   }
   await save(file, data)

@@ -261,7 +261,9 @@ final class RenderService {
 	}
 
 	/**
-	 * The trimmed lines after `$marker` in `$body` that look like a keyword.
+	 * The trimmed lines after `$marker` in `$body` that match `$pattern`, by
+	 * default a keyword: `@` or a word character, then word characters, spaces
+	 * and hyphens, 64 characters at most.
 	 *
 	 * @param non-empty-string $pattern
 	 * @return list<string>

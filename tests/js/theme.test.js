@@ -6,12 +6,20 @@
 import { describe, expect, it } from 'vitest'
 import { highlightTree, tags } from '@lezer/highlight'
 import { highlightStyle, surfaceRules } from '../../src/editor/theme.js'
-import { plantumlLanguage, underline } from '../../src/editor/plantuml-mode.js'
+import { plantumlLanguage, underline, variable } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 
 const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\b(?:white|black)\b/i
+
+// The palette's mixes (H11, X7), as the theme must spell them.
+const MOSS = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-success) 55%, var(--color-element-warning)) 72%, var(--color-main-text))'
+const SLATE = 'color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))'
+const ORANGE = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-warning) 75%, var(--color-element-error)) 75%, var(--color-main-text))'
+const GREEN = 'color-mix(in srgb, var(--color-element-success) 75%, var(--color-main-text))'
+const MAROON = 'color-mix(in srgb, var(--color-element-error) 75%, var(--color-main-text))'
+const OCHRE = 'color-mix(in srgb, var(--color-favorite) 55%, var(--color-text-maxcontrast))'
 
 /** The colour each word of `doc` is drawn in, found by the class the highlighter gives it. */
 function colours(doc, profiles) {
@@ -28,7 +36,7 @@ describe('the editor highlight style', () => {
   const styled = highlightStyle.specs.flatMap((spec) => spec.tag)
 
   it('colours every token the PlantUML mode emits', () => {
-    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation, tags.variableName, tags.function(tags.variableName)]) {
+    for (const tag of [tags.meta, tags.keyword, tags.string, tags.operator, tags.comment, tags.labelName, tags.heading, tags.color, tags.attributeName, tags.link, tags.tagName, tags.punctuation, variable, tags.function(tags.variableName)]) {
       expect(styled).toContain(tag)
     }
   })
@@ -87,11 +95,6 @@ describe('the editor highlight style', () => {
 
 // H11: a style block has colours of its own; nothing else may move with them.
 describe('the colours of a style block', () => {
-  const MOSS = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-success) 55%, var(--color-element-warning)) 72%, var(--color-main-text))'
-  const SLATE = 'color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))'
-  const ORANGE = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-warning) 75%, var(--color-element-error)) 75%, var(--color-main-text))'
-  const GREEN = 'color-mix(in srgb, var(--color-element-success) 75%, var(--color-main-text))'
-  const MAROON = 'color-mix(in srgb, var(--color-element-error) 75%, var(--color-main-text))'
 
   const style = { style: styleProfile({ scan }).mode }
   const sheet = colours('<style>\n.server mindmapDiagram {\n  node:depth(1) { BackgroundColor #FFF3B0; FontSize 14; FontStyle bold }\n  arrow { LineColor red }\n}\n</style>', style)
@@ -168,8 +171,6 @@ describe('the editor surface', () => {
 
 // X7: a preprocessor line's directive keeps its bold blue; its names are coloured as editors colour them.
 describe('the colours of the preprocessor', () => {
-  const SLATE = 'color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))'
-  const OCHRE = 'color-mix(in srgb, var(--color-favorite) 55%, var(--color-text-maxcontrast))'
   const pre = colours('!procedure $ask($to)\n  A -> $to : $ask(1)\n!endprocedure\n!if %strlen("a") > 3\n!endif', {})
 
   it('draws variables in slate and functions, declared, called or built in, in the muted ochre', () => {
@@ -184,7 +185,14 @@ describe('the colours of the preprocessor', () => {
     for (const word of ['!procedure', '!endprocedure', '!if', '!endif']) {
       expect(pre[word], word).toBe('var(--color-primary-element)')
     }
-    expect(pre['"a"']).toBe('color-mix(in srgb, var(--color-element-success) 75%, var(--color-main-text))')
+    expect(pre['"a"']).toBe(GREEN)
     expect(pre['3']).toBe('var(--color-info-text)')
+  })
+
+  // A YAML anchor and alias are the legacy `variable`; the slate is the preprocessor's alone.
+  it('leaves a YAML anchor and alias uncoloured, as they were', () => {
+    const yaml = colours('@startyaml\na: &x 1\nb: *x\n@endyaml', { yaml: yamlProfile({ scan }).mode })
+    expect(yaml['&x']).toBeUndefined()
+    expect(yaml['*x']).toBeUndefined()
   })
 })

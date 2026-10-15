@@ -138,7 +138,7 @@ describe('plantumlMode', () => {
 // X7: the directive word is meta; variables and functions are coloured as editors colour them.
 describe('plantumlMode preprocessor', () => {
   it('names the directive word meta, a variable a variable and its value a string', () => {
-    expect(tokens('!$app = "Nextcloud"')).toEqual([['!', 'meta'], ['$app', 'variableName'], ['=', 'punctuation'], ['"Nextcloud"', 'string']])
+    expect(tokens('!$app = "Nextcloud"')).toEqual([['!', 'meta'], ['$app', 'VariableName'], ['=', 'punctuation'], ['"Nextcloud"', 'string']])
   })
 
   it('names a procedure where it is declared a function, and its parameters variables', () => {
@@ -146,19 +146,19 @@ describe('plantumlMode preprocessor', () => {
       ['!procedure', 'meta'],
       ['$ask', 'FunctionName'],
       ['(', 'punctuation'],
-      ['$from', 'variableName'],
+      ['$from', 'VariableName'],
       [',', 'punctuation'],
-      ['$to', 'variableName'],
+      ['$to', 'VariableName'],
       [',', 'punctuation'],
-      ['$what', 'variableName'],
+      ['$what', 'VariableName'],
       [')', 'punctuation'],
     ])
   })
 
   it('names variables on a body line too, a label and a note included', () => {
-    expect(tokens('  $from -> $to : $what')).toEqual([['$from', 'variableName'], ['->', 'operator'], ['$to', 'variableName'], ['$what', 'variableName']])
-    expect(tokens('note over $to : sent by $from')).toEqual([['note', 'keyword'], ['$to', 'variableName'], ['$from', 'variableName']])
-    expect(tokens('note left of $to', 'by $from', 'end note')).toEqual([['note', 'keyword'], ['$to', 'variableName'], ['$from', 'variableName'], ['end note', 'keyword']])
+    expect(tokens('  $from -> $to : $what')).toEqual([['$from', 'VariableName'], ['->', 'operator'], ['$to', 'VariableName'], ['$what', 'VariableName']])
+    expect(tokens('note over $to : sent by $from')).toEqual([['note', 'keyword'], ['$to', 'VariableName'], ['$from', 'VariableName']])
+    expect(tokens('note left of $to', 'by $from', 'end note')).toEqual([['note', 'keyword'], ['$to', 'VariableName'], ['$from', 'VariableName'], ['end note', 'keyword']])
   })
 
   it('names a built-in and a call functions, strings strings and numbers numbers', () => {
@@ -183,7 +183,7 @@ describe('plantumlMode preprocessor', () => {
   })
 
   it('ends with its line', () => {
-    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'variableName'], ['=', 'punctuation'], ['1', 'number'], ['actor', 'keyword']])
+    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'punctuation'], ['1', 'number'], ['actor', 'keyword']])
   })
 
   it('leaves a price, a sprite, a string, a link and a comment as they were', () => {
@@ -193,6 +193,16 @@ describe('plantumlMode preprocessor', () => {
     expect(tokens('participant "a $b"')).toEqual([['participant', 'keyword'], ['"a $b"', 'string']])
     expect(tokens('A -> B : [[http://x/$y $z]]')).toEqual([['->', 'operator'], ['[[http://x/$y $z]]', 'link']])
     expect(tokens("' $x and %f(1)")).toEqual([["' $x and %f(1)", 'comment']])
+  })
+
+  it('leaves a sprite plain where it is declared and a tag where it is used', () => {
+    expect(tokens('sprite $foo [16x16/16] {')).toEqual([])
+    expect(tokens('  sprite foo <svg/>')).toEqual([])
+    expect(tokens('rectangle <$foo> as r')).toEqual([['rectangle', 'keyword'], ['<$foo>', 'tagName'], ['as', 'keyword']])
+  })
+
+  it('names a variable before a spaced bracket a variable, not a call', () => {
+    expect(tokens('A -> $b (x)')).toEqual([['->', 'operator'], ['$b', 'VariableName']])
   })
 })
 
@@ -687,7 +697,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['<style>', 'tagName'],
       ["' a note", 'comment'],
       ['!', 'meta'],
-      ['$x', 'variableName'],
+      ['$x', 'VariableName'],
       ['=', 'punctuation'],
       ['1', 'number'],
       ['a {', 'atom'],

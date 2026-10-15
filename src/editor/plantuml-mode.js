@@ -92,12 +92,15 @@ const atLineStart = (pattern, token, extra = {}) => ({
  * declared or called (`$ask(`) and a built-in (`%strlen(`), and a variable. `$5` is a price.
  */
 const names = [
-  { regex: /[$%][A-Za-z_]\w*(?=\s*\()/, token: 'FunctionName' },
-  { regex: /\$[A-Za-z_]\w*/, token: 'variableName' },
+  { regex: /[$%][A-Za-z_]\w*(?=\()/, token: 'FunctionName' },
+  { regex: /\$[A-Za-z_]\w*/, token: 'VariableName' },
 ]
 
 /** PlantUML's `__underline__`, which no tag in @lezer/highlight names. */
 export const underline = Tag.define()
+
+/** A preprocessor variable: its own tag, so a nested mode's `variable` (YAML's `&anchor`) keeps its colour. */
+export const variable = Tag.define(tags.variableName)
 
 /**
  * Creole, in any text. Runs of plain text are `base`, and so are bold, italic,
@@ -217,6 +220,8 @@ const base = simpleMode({
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
+    // A sprite's name where it is declared is no variable.
+    atLineStart(/sprite\s+\$?\w+/.source, null),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     { regex: styledOpen, token: 'operator', next: 'arrowAttr' },
@@ -228,6 +233,8 @@ const base = simpleMode({
     { regex: /\[(?=\s*$)/, token: null, next: 'descBody' },
     { regex: /\b(?:elseif|equals|not|while)(?=\s*\()/, token: 'keyword' },
     { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
+    // A sprite used as an element's icon (`rectangle <$foo> as r`).
+    { regex: /<\$[^>\s]+>/, token: 'tagName' },
     ...names,
     { regex: /\w+/, token: null },
   ],
@@ -500,7 +507,7 @@ export function plantumlLanguage(inner = {}) {
     // StreamLanguage names a node after its token, and takes the highlight from
     // here for a name @lezer/highlight has no tag for. The legacy names an inner
     // mode emits (`atom`, `number`, `property`, `def`, `variable-2`, …) map already.
-    tokenTable: { ColorLiteral: tags.color, StyleNumber: tags.string, FunctionName: tags.function(tags.variableName), underline },
+    tokenTable: { ColorLiteral: tags.color, StyleNumber: tags.string, VariableName: variable, FunctionName: tags.function(tags.variableName), underline },
   })
 }
 

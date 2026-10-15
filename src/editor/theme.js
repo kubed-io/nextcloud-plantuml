@@ -9,7 +9,7 @@
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { underline } from './plantuml-mode.js'
+import { underline, variable } from './plantuml-mode.js'
 
 /**
  * A status element colour pulled a quarter of the way to the text colour: the
@@ -65,7 +65,7 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.typeName, color: MOSS },
   { tag: tags.propertyName, color: SLATE },
   // The preprocessor's `$variables`, and its procedures' and built-ins' names (`$ask(`, `%strlen(`).
-  { tag: tags.variableName, color: SLATE },
+  { tag: variable, color: SLATE },
   { tag: tags.function(tags.variableName), color: OCHRE },
   // Table bars and the like recede behind the text they mark up.
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },

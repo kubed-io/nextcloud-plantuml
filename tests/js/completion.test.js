@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { CompletionContext, autocompletion, completionStatus, currentCompletions, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete'
+import { CompletionContext, autocompletion, nextSnippetField, completionStatus, currentCompletions, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
@@ -121,17 +121,21 @@ describe('every ! directive', () => {
   it.each([
     ['!if', '!if condition\n\n!endif', 'condition', '!if condition\n'.length],
     ['!while', '!while condition\n\n!endwhile', 'condition', '!while condition\n'.length],
-    ['!foreach', '!foreach $item in list\n\n!endfor', 'item', '!foreach $item in list\n'.length],
-    ['!procedure', '!procedure $name()\n\n!endprocedure', 'name', '!procedure $name()\n'.length],
-    ['!function', '!function $name()\n!return \n!endfunction', 'name', '!function $name()\n!return '.length],
+    ['!foreach', '!foreach $item in list\n\n!endfor', 'item', '!foreach $item in list'.length],
+    ['!procedure', '!procedure $name()\n\n!endprocedure', 'name', '!procedure $name('.length],
+    ['!function', '!function $name()\n!return \n!endfunction', 'name', '!function $name('.length],
     ['!startsub', '!startsub NAME\n\n!endsub', 'NAME', '!startsub NAME\n'.length],
-    ['!$', '!$name = value', 'name', '!$'.length + 'name'.length],
-  ])('inserts %s as a block with its first field selected', (label, text, field) => {
+    ['!$', '!$name = value', 'name', '!$name = value'.length],
+  ])('inserts %s as a block with its first field selected, then its body next', (label, text, field, body) => {
     const view = doc(`${label.slice(0, 2)}|`, label)
 
     expect(view.state.doc.toString()).toBe(text)
     const { from, to } = view.state.selection.main
     expect(view.state.sliceDoc(from, to)).toBe(field)
+    if (body !== undefined) {
+      nextSnippetField(view)
+      expect(view.state.selection.main.head).toBe(body)
+    }
     view.destroy()
   })
 
@@ -149,7 +153,7 @@ describe('every ! directive', () => {
     expect(complete(directives, '!if $a\n!if $b\n!endif\n!|').options.filter((o) => o.boost === 2)).toHaveLength(3)
     expect(complete(directives, '!if $a\n!endif\n!|').options.some((o) => o.boost)).toBe(false)
     expect(complete(directives, "/'\n!if $a\n'/\n!|").options.some((o) => o.boost)).toBe(false)
-    expect(complete(directives, '!ifdef A\n!|').options.some((o) => o.boost)).toBe(true)
+    expect(labels(complete(directives, '!ifdef A\n!|')).slice(0, 3)).toEqual(['!else', '!elseif', '!endif'])
   })
 })
 

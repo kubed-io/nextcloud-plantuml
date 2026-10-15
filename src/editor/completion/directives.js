@@ -93,7 +93,7 @@ export function directives(context) {
   if (type) {
     list = [...starts, { label: `@end${type}`, type: 'keyword' }]
   } else if (typed.text[at] === '!' && conditionalOpen(context.state, line)) {
-    list = [...CONTINUES.map((label) => ({ label, type: 'keyword', apply: `${label} `, boost: 2 })), ...list.filter((option) => !CONTINUES.includes(option.label))]
+    list = [...list.filter((option) => CONTINUES.includes(option.label)).map((option) => ({ ...option, boost: 2 })), ...list.filter((option) => !CONTINUES.includes(option.label))]
   }
   return { from: typed.from + at, options: list, validFor: /^[@!][\w$]*$/ }
 }

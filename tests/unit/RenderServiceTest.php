@@ -293,6 +293,94 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->themes()));
 	}
 
+	/**
+	 * A client answering `help keywords` and `help types`, and noting what it was asked.
+	 *
+	 * @param list<string> $asked
+	 */
+	private function keywordsServer(array &$asked, ?string $keywords = null, int $status = 200): IClient {
+		$client = $this->createStub(IClient::class);
+		$client->method('post')->willReturnCallback(function (string $url, array $options) use (&$asked, $keywords, $status): IResponse {
+			$asked[] = substr($url, strlen(self::URL)) . ' ' . $options['body'];
+			return str_contains($options['body'], 'help types')
+				? $this->response($status, (string)file_get_contents(__DIR__ . '/fixtures/help-types.txt'))
+				: $this->response($status, $keywords ?? (string)file_get_contents(__DIR__ . '/fixtures/help-keywords.txt'));
+		});
+		return $client;
+	}
+
+	public function testKeywordsAreTheServersLists(): void {
+		$asked = [];
+
+		$lists = $this->service($this->keywordsServer($asked))->keywords();
+
+		self::assertSame(
+			["/txt @startuml\nhelp keywords\n@enduml\n", "/txt @startuml\nhelp types\n@enduml\n"],
+			$asked,
+		);
+		self::assertSame(['diagrams', 'types', 'keywords'], array_keys($lists));
+		self::assertCount(30, $lists['diagrams']);
+		self::assertSame(['board', 'bpm', 'chart'], array_slice($lists['diagrams'], 0, 3));
+		self::assertContains('uml', $lists['diagrams']);
+		self::assertContains('creole', $lists['diagrams']);
+		self::assertContains('files', $lists['diagrams']);
+		self::assertCount(53, $lists['types']);
+		foreach (['actor', 'usecase', 'json'] as $type) {
+			self::assertContains($type, $lists['types']);
+		}
+		foreach (['alt', 'hnote', 'newpage', 'left to right direction', 'floating note', 'v2-axis'] as $keyword) {
+			self::assertContains($keyword, $lists['keywords']);
+		}
+		foreach ($lists as $list) {
+			foreach ($list as $word) {
+				self::assertStringNotContainsString('@', $word);
+			}
+		}
+		self::assertSame($lists['keywords'], array_values(array_unique($lists['keywords'])));
+	}
+
+	public function testKeywordsKeepOnlyLinesThatLookLikeKeywords(): void {
+		$body = (string)file_get_contents(__DIR__ . '/fixtures/help-keywords.txt')
+			. "\n  See https://plantuml.com/ (more soon!)\n" . str_repeat('x', 80) . "\n";
+		$asked = [];
+
+		$lists = $this->service($this->keywordsServer($asked, $body))->keywords();
+
+		self::assertNotContains('See https://plantuml.com/ (more soon!)', $lists['keywords']);
+		self::assertNotContains(str_repeat('x', 80), $lists['keywords']);
+		self::assertContains('while', $lists['keywords']);
+	}
+
+	public function testKeywordsAreAskedOncePerServerForADay(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::exactly(4))->method('post')->willReturnCallback(
+			fn (string $url, array $options): IResponse => $this->response(200, (string)file_get_contents(
+				__DIR__ . '/fixtures/' . (str_contains($options['body'], 'help types') ? 'help-types.txt' : 'help-keywords.txt'),
+			)),
+		);
+
+		$this->service($client)->keywords();
+		$cached = $this->service($client)->keywords();
+		$this->service($client, 'https://other.example.com')->keywords();
+
+		self::assertCount(30, $cached['diagrams']);
+		self::assertSame([86400, 86400], array_values($this->cache->ttls));
+	}
+
+	public function testKeywordsWithoutTheListAreNotPlantumlAndNotCached(): void {
+		$service = $this->service($this->clientAnswering($this->response(200, '<html>')));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->keywords()));
+		self::assertSame([], $this->cache->values);
+	}
+
+	public function testKeywordsAnswered404AreNotPlantuml(): void {
+		$asked = [];
+		$service = $this->service($this->keywordsServer($asked, null, 404));
+
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->keywords()));
+	}
+
 	public function testThemesFromAnUnsetOrUnreachableServer(): void {
 		$clients = $this->createStub(IClientService::class);
 

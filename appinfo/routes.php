@@ -19,5 +19,7 @@ return [
 		['name' => 'render#emoji', 'url' => '/emoji', 'verb' => 'GET'],
 		// {"colors": {"AliceBlue": "#F0F8FF", ...}}, for named colours' completion and swatches
 		['name' => 'render#colors', 'url' => '/colors', 'verb' => 'GET'],
+		// {"diagrams", "types", "keywords"}, for the editor's line-start completion
+		['name' => 'render#keywords', 'url' => '/keywords', 'verb' => 'GET'],
 	],
 ];

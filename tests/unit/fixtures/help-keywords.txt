@@ -1,0 +1,319 @@
+                                   
+Help on keywords                   
+                                   
+                                   
+ The possible keywords are :       
+                                   
+            @endboard              
+                                   
+            @endbpm                
+            @endchart              
+                                   
+            @endchen               
+            @endchronology         
+                                   
+            @endcreole             
+                                   
+            @enddef                
+            @endditaa              
+                                   
+            @enddot                
+            @endebnf               
+                                   
+            @endfiles              
+                                   
+            @endflow               
+            @endgantt              
+                                   
+            @endgit                
+            @endhcl                
+                                   
+            @endjcckit             
+                                   
+            @endjson               
+            @endlatex              
+                                   
+            @endmath               
+            @endmindmap            
+                                   
+            @endnwdiag             
+                                   
+            @endpacketdiag         
+            @endproject            
+                                   
+            @endregex              
+            @endsalt               
+                                   
+            @endsprites            
+                                   
+            @enduml                
+            @endwbs                
+                                   
+            @endwire               
+            @endyaml               
+                                   
+            @startboard            
+                                   
+            @startbpm              
+            @startchart            
+                                   
+            @startchen             
+            @startchronology       
+                                   
+            @startcreole           
+                                   
+            @startdef              
+            @startditaa            
+                                   
+            @startdot              
+            @startebnf             
+                                   
+            @startfiles            
+                                   
+            @startflow             
+            @startgantt            
+                                   
+            @startgit              
+            @starthcl              
+                                   
+            @startjcckit           
+                                   
+            @startjson             
+            @startlatex            
+                                   
+            @startmath             
+            @startmindmap          
+                                   
+            @startnwdiag           
+                                   
+            @startpacketdiag       
+            @startproject          
+                                   
+            @startregex            
+            @startsalt             
+                                   
+            @startsprites          
+                                   
+            @startuml              
+            @startwbs              
+                                   
+            @startwire             
+            @startyaml             
+                                   
+            across                 
+                                   
+            activate               
+            address                
+                                   
+            again                  
+            allow_mixing           
+                                   
+            allowmixing            
+                                   
+            also                   
+            alt                    
+                                   
+            annotation             
+            area                   
+                                   
+            as                     
+                                   
+            at                     
+            attribute              
+                                   
+            attributes             
+            autonumber             
+                                   
+            backward               
+                                   
+            bar                    
+            bold                   
+                                   
+            bottom                 
+            box                    
+                                   
+            break                  
+                                   
+            caption                
+            case                   
+                                   
+            center                 
+            circle                 
+                                   
+            circled                
+                                   
+            circles                
+            color                  
+                                   
+            create                 
+            critical               
+                                   
+            dashed                 
+                                   
+            deactivate             
+            description            
+                                   
+            destroy                
+            detach                 
+                                   
+            dotted                 
+                                   
+            down                   
+            else                   
+                                   
+            elseif                 
+            empty                  
+                                   
+            end                    
+                                   
+            endcaption             
+            endfooter              
+                                   
+            endfork                
+            endheader              
+                                   
+            endif                  
+                                   
+            endlegend              
+            endmerge               
+                                   
+            endswitch              
+            endtitle               
+                                   
+            endwhile               
+                                   
+            false                  
+            field                  
+                                   
+            fields                 
+            floating note          
+                                   
+            footbox                
+                                   
+            footer                 
+            fork                   
+                                   
+            goto                   
+            grid                   
+                                   
+            group                  
+                                   
+            h-axis                 
+            header                 
+                                   
+            hide                   
+            highlight              
+                                   
+            hnote                  
+                                   
+            if                     
+            is                     
+                                   
+            italic                 
+            kill                   
+                                   
+            label                  
+                                   
+            left                   
+            left to right direction
+                                   
+            legend                 
+            line                   
+                                   
+            link                   
+                                   
+            loop                   
+            mainframe              
+                                   
+            member                 
+            members                
+                                   
+            merge                  
+                                   
+            method                 
+            methods                
+                                   
+            namespace              
+            newpage                
+                                   
+            normal                 
+                                   
+            not                    
+            note                   
+                                   
+            null                   
+            of                     
+                                   
+            on                     
+                                   
+            opt                    
+            order                  
+                                   
+            orientation            
+            over                   
+                                   
+            package                
+                                   
+            page                   
+            par                    
+                                   
+            partition              
+            plain                  
+                                   
+            private                
+                                   
+            protected              
+            public                 
+                                   
+            ref                    
+            repeat                 
+                                   
+            repeatwhile            
+                                   
+            return                 
+            right                  
+                                   
+            rnote                  
+            rotate                 
+                                   
+            scatter                
+                                   
+            shape                  
+            show                   
+                                   
+            skin                   
+            skinparam              
+                                   
+            spacing                
+                                   
+            split                  
+            sprite                 
+                                   
+            stackMode              
+            start                  
+                                   
+            stereotype             
+                                   
+            stereotypes            
+            stop                   
+                                   
+            style                  
+            switch                 
+                                   
+            then                   
+                                   
+            ticks                  
+            title                  
+                                   
+            together               
+            top                    
+                                   
+            top to bottom direction
+                                   
+            true                   
+            up                     
+                                   
+            v-axis                 
+            v2-axis                
+                                   
+            while                  

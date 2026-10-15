@@ -37,6 +37,11 @@ final class RenderService {
 	private const COLORS_MARKER = 'The possible colors are';
 	private const SWATCHES_DIAGRAM = "@startuml\ncolors\n@enduml\n";
 	private const COLORS_MAX = 500;
+	private const KEYWORDS_DIAGRAM = "@startuml\nhelp keywords\n@enduml\n";
+	private const KEYWORDS_MARKER = 'The possible keywords are';
+	private const TYPES_DIAGRAM = "@startuml\nhelp types\n@enduml\n";
+	private const TYPES_MARKER = 'The possible types are';
+	private const KEYWORDS_MAX = 500;
 	/** The server's lists change only with its version. */
 	private const LISTS_TTL = 86400;
 	/** The error rides out as a response header, so it stays one short line. */
@@ -143,6 +148,67 @@ final class RenderService {
 			}
 			return $colors;
 		});
+	}
+
+	/**
+	 * The diagram kinds (`@start…` without the `@start`), the other keywords and
+	 * the element types the server knows, read off its `help keywords` and
+	 * `help types` as text. A keyword may hold spaces (`left to right
+	 * direction`), so each list is read by line. Cached a day per server URL.
+	 *
+	 * @return array{diagrams: list<string>, types: list<string>, keywords: list<string>}
+	 * @throws RenderException
+	 */
+	public function keywords(): array {
+		return $this->cached('keywords', function (): array {
+			$words = self::linesAfter($this->helpText(self::KEYWORDS_DIAGRAM, 'keywords'), self::KEYWORDS_MARKER);
+			$types = array_slice(array_values(array_unique(
+				self::linesAfter($this->helpText(self::TYPES_DIAGRAM, 'types'), self::TYPES_MARKER),
+			)), 0, self::KEYWORDS_MAX);
+			$diagrams = [];
+			$keywords = [];
+			foreach ($words as $word) {
+				if (preg_match('/^@start(\w+)$/', $word, $m) === 1) {
+					$diagrams[] = $m[1];
+				} elseif (!str_starts_with($word, '@')) {
+					$keywords[] = $word;
+				}
+			}
+			$keywords = array_slice(array_values(array_unique($keywords)), 0, self::KEYWORDS_MAX);
+			if ($keywords === []) {
+				throw $this->notPlantUml('txt answered help keywords without a list of keywords');
+			}
+			if ($types === []) {
+				throw $this->notPlantUml('txt answered help types without a list of types');
+			}
+			return ['diagrams' => array_values(array_unique($diagrams)), 'types' => $types, 'keywords' => $keywords];
+		});
+	}
+
+	/** @throws RenderException */
+	private function helpText(string $diagram, string $what): string {
+		$response = $this->post('txt', $diagram);
+		if ($response->getStatusCode() >= 400) {
+			throw $this->notPlantUml("txt answered help {$what} with HTTP " . $response->getStatusCode());
+		}
+		return (string)$response->getBody();
+	}
+
+	/**
+	 * The trimmed lines after `$marker` in `$body` that look like a keyword.
+	 *
+	 * @return list<string>
+	 */
+	private static function linesAfter(string $body, string $marker): array {
+		$at = strpos($body, $marker);
+		if ($at === false) {
+			return [];
+		}
+		$lines = array_map('trim', explode("\n", substr($body, $at + strlen($marker))));
+		return array_values(array_filter(
+			$lines,
+			static fn (string $line): bool => preg_match('/^[@\w][\w -]{0,63}$/', $line) === 1,
+		));
 	}
 
 	/**

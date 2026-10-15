@@ -131,6 +131,17 @@ final class RenderController extends Controller {
 		}
 	}
 
+	/** The editor's line-start completion (X11): diagram kinds, element types, keywords. */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	public function keywords(): JSONResponse {
+		try {
+			return new JSONResponse($this->render->keywords());
+		} catch (RenderException $e) {
+			return $this->problem($e);
+		}
+	}
+
 	/** The editor's named colours (X14): each name with its hex. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]

@@ -6,7 +6,8 @@
 import { describe, expect, it } from 'vitest'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 import builtins from '../../src/editor/data/builtins.json'
-import { enumConstants, readmeRows, signatures } from '../../scripts/vocabulary.mjs'
+import directives from '../../src/editor/data/directives.json'
+import { directiveWords, enumConstants, readmeRows, signatures } from '../../scripts/vocabulary.mjs'
 
 describe('style vocabulary', () => {
   it('records the PlantUML version it came from', () => {
@@ -67,5 +68,35 @@ describe('the generator', () => {
   it('reads a readme row and skips its continuation rows', () => {
     const md = '| ``%chr`` | A [link](http://x) | ``%chr(65)`` | ``A`` |\n|  | more | ``%chr(66)`` | ``B`` |'
     expect([...readmeRows(md)]).toEqual([['%chr', { description: 'A link', example: '%chr(65)' }]])
+  })
+})
+
+describe('directives', () => {
+  it('reads the lines of a classifier, widened by the Or that follows, and none that is commented out', () => {
+    const java = `
+      A = simpleKeyword("!ifdef");
+      B = new RegexConcat(new RegexLeaf("!define"), RegexLeaf.spaceOneOrMore(), X);
+      C = new RegexConcat(new RegexLeaf("!include"), RegexLeaf.spaceZeroOrMore(),
+        new RegexOptional(new RegexOr(new RegexLeaf("url"), new RegexLeaf("_many"), new RegexLeaf("_once"))), new RegexLeaf("\\b"));
+      D = new RegexConcat(new RegexLeaf("!end"), RegexLeaf.spaceZeroOrMore(),
+        new RegexOr(new RegexLeaf("function"), new RegexLeaf("definelong"), new RegexLeaf("procedure")));
+      E = new RegexConcat(new RegexLeaf("!"), new RegexLeaf(1, "(unquoted\\s|final\\s)*"), new RegexLeaf("function"));
+      F = new RegexConcat(new RegexLeaf("!"), new RegexLeaf(1, "(unquoted\\s|final\\s)*"), new RegexLeaf("procedure"));
+      // G = simpleKeyword("!include_sprites");
+    `
+    const words = directiveWords(java)
+
+    expect(words).toEqual(['!define', '!enddefinelong', '!endfunction', '!endprocedure', '!function', '!ifdef', '!include', '!include_many', '!include_once', '!includeurl', '!procedure'])
+    for (const absent of ['!end', '!', '!include_sprites']) expect(words).not.toContain(absent)
+  })
+
+  it('is the committed list, sorted, once each', () => {
+    expect(directives.plantuml).toBe('1.2026.8')
+    expect(directives.directives).toEqual([...new Set(directives.directives)].sort())
+    expect(new Set(directives.directives)).toEqual(new Set((
+      '!assert !define !definelong !dump_memory !else !elseif !endfor !endfunction !enddefinelong !endif !endprocedure !endsub !endwhile ' +
+      '!foreach !function !if !ifdef !ifndef !import !include !include_many !include_once !includedef !includesub !includeurl !log !option ' +
+      '!procedure !return !startsub !theme !undef !while !pragma !local !global !unquoted !final'
+    ).split(' ')))
   })
 })

@@ -29,6 +29,7 @@ import { scan } from '../../src/editor/blocks.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
+import preprocessor from '../../src/editor/data/directives.json'
 import { filePath } from '../../src/editor/lint/state.js'
 import { listFolder } from '../../src/editor/save.js'
 
@@ -95,7 +96,7 @@ describe('directives', () => {
     const result = complete(directives, '  !th|')
 
     expect(result.from).toBe(2)
-    expect(labels(result)).toEqual(['!theme', '!include', '!define', '!pragma'])
+    expect(labels(result)).toEqual(expect.arrayContaining(['!theme', '!include', '!define', '!pragma']))
     expect(labels(complete(directives, '@|'))).not.toContain('!theme')
     expect(complete(directives, 'A -> B : wow !|')).toBeNull()
   })
@@ -106,6 +107,49 @@ describe('directives', () => {
     expect(view.state.doc.toString()).toBe('!theme ')
     expect(view.state.selection.main.head).toBe('!theme '.length)
     view.destroy()
+  })
+})
+
+describe('every ! directive', () => {
+  const doc = (marked, label) => pick(marked, directives, label)
+
+  it('offers each word of the generated list, and the assignment', () => {
+    expect(labels(complete(directives, '!|')).sort()).toEqual([...preprocessor.directives, '!$'].sort())
+    expect(labels(complete(directives, '!$|'))).toContain('!$')
+  })
+
+  it.each([
+    ['!if', '!if condition\n\n!endif', 'condition', '!if condition\n'.length],
+    ['!while', '!while condition\n\n!endwhile', 'condition', '!while condition\n'.length],
+    ['!foreach', '!foreach $item in list\n\n!endfor', 'item', '!foreach $item in list\n'.length],
+    ['!procedure', '!procedure $name()\n\n!endprocedure', 'name', '!procedure $name()\n'.length],
+    ['!function', '!function $name()\n!return \n!endfunction', 'name', '!function $name()\n!return '.length],
+    ['!startsub', '!startsub NAME\n\n!endsub', 'NAME', '!startsub NAME\n'.length],
+    ['!$', '!$name = value', 'name', '!$'.length + 'name'.length],
+  ])('inserts %s as a block with its first field selected', (label, text, field) => {
+    const view = doc(`${label.slice(0, 2)}|`, label)
+
+    expect(view.state.doc.toString()).toBe(text)
+    const { from, to } = view.state.selection.main
+    expect(view.state.sliceDoc(from, to)).toBe(field)
+    view.destroy()
+  })
+
+  it('still inserts a plain word and a space', () => {
+    for (const label of ['!theme', '!include', '!pragma', '!undef']) {
+      const view = doc(`${label.slice(0, 3)}|`, label)
+
+      expect(view.state.doc.toString()).toBe(`${label} `)
+      view.destroy()
+    }
+  })
+
+  it('offers the way out of an open conditional first', () => {
+    expect(labels(complete(directives, '!if $a\n!if $b\n!endif\n!|')).slice(0, 3)).toEqual(['!else', '!elseif', '!endif'])
+    expect(complete(directives, '!if $a\n!if $b\n!endif\n!|').options.filter((o) => o.boost === 2)).toHaveLength(3)
+    expect(complete(directives, '!if $a\n!endif\n!|').options.some((o) => o.boost)).toBe(false)
+    expect(complete(directives, "/'\n!if $a\n'/\n!|").options.some((o) => o.boost)).toBe(false)
+    expect(complete(directives, '!ifdef A\n!|').options.some((o) => o.boost)).toBe(true)
   })
 })
 

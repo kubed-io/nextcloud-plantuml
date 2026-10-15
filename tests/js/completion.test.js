@@ -118,24 +118,25 @@ describe('every ! directive', () => {
     expect(labels(complete(directives, '!$|'))).toContain('!$')
   })
 
+  // The stops in the spec's field order (X3): each field selected in turn, the body last, `!$` ending on its value.
   it.each([
-    ['!if', '!if condition\n\n!endif', 'condition', '!if condition\n'.length],
-    ['!while', '!while condition\n\n!endwhile', 'condition', '!while condition\n'.length],
-    ['!foreach', '!foreach $item in list\n\n!endfor', 'item', '!foreach $item in list'.length],
-    ['!procedure', '!procedure $name()\n\n!endprocedure', 'name', '!procedure $name('.length],
-    ['!function', '!function $name()\n!return \n!endfunction', 'name', '!function $name('.length],
-    ['!startsub', '!startsub NAME\n\n!endsub', 'NAME', '!startsub NAME\n'.length],
-    ['!$', '!$name = value', 'name', '!$name = value'.length],
-  ])('inserts %s as a block with its first field selected, then its body next', (label, text, field, body) => {
+    ['!if', '!if condition\n\n!endif', ['!if condition', '!if condition\n']],
+    ['!while', '!while condition\n\n!endwhile', ['!while condition', '!while condition\n']],
+    ['!foreach', '!foreach $item in list\n\n!endfor', ['!foreach $item', '!foreach $item in list', '!foreach $item in list\n']],
+    ['!procedure', '!procedure $name()\n\n!endprocedure', ['!procedure $name', '!procedure $name(', '!procedure $name()\n']],
+    ['!function', '!function $name()\n!return \n!endfunction', ['!function $name', '!function $name(', '!function $name()\n!return ']],
+    ['!startsub', '!startsub NAME\n\n!endsub', ['!startsub NAME', '!startsub NAME\n']],
+    ['!$', '!$name = value', ['!$name', '!$name = value']],
+  ])('inserts %s as a block and visits its fields in order, ending on the body or value', (label, text, stops) => {
     const view = doc(`${label.slice(0, 2)}|`, label)
 
     expect(view.state.doc.toString()).toBe(text)
-    const { from, to } = view.state.selection.main
-    expect(view.state.sliceDoc(from, to)).toBe(field)
-    if (body !== undefined) {
+    const heads = [view.state.selection.main.head]
+    for (let i = 1; i < stops.length; i++) {
       nextSnippetField(view)
-      expect(view.state.selection.main.head).toBe(body)
+      heads.push(view.state.selection.main.head)
     }
+    expect(heads).toEqual(stops.map((stop) => stop.length))
     view.destroy()
   })
 

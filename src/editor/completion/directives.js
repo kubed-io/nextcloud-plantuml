@@ -25,7 +25,7 @@ const DIRECTIVES = [
 /** The lines that open a diagram; `lint/unnamed-start.js` reads these too. */
 export const STARTS = DIRECTIVES.filter((label) => label.startsWith('@start'))
 
-/** The blocks and the assignment, as snippets: the first field is the name or condition, the next stop the body. */
+/** The blocks and the assignment, as snippets: the fields come in order (the name or condition, then any arguments), the body last; `!$` ends on its value. */
 const SNIPPETS = {
   '!if': '!if ${condition}\n${}\n!endif',
   '!while': '!while ${condition}\n${}\n!endwhile',

@@ -1,0 +1,202 @@
+@startuml nodes
+!theme carbon-gray
+' superhero is a dark theme: give it its own page, so its light text shows
+skinparam backgroundColor #4879a8
+
+!include <k8s/Common>
+
+
+title <size:20>**UML Fun**</size>\n<&star> a tour of what PlantUML can draw
+header <&clock> 2026-10-14
+footer drawn by <&cloud> plantuml.flow.svc  <:rocket:>
+caption //every element, link and markup style in one deployment diagram//
+
+' Elements: plain, quoted with an alias, a long description, a stereotype
+node node1 [
+  **node1**
+  ----
+  * a bullet from space bro
+  * an //italic// one
+  ....
+  ""monospace"" and --struck--
+]
+node node2
+node node3 <<server>>
+node node4
+node node5
+node foo #line.dashed
+actor Bob
+cloud "Object Storage\n<&cloud> s3" as s3
+database "Postgres <:elephant:>" as db [[https://www.postgresql.org/docs/ Postgres docs]]
+component "[[https://plantuml.com{PlantUML home} PlantUML]]" as web
+
+package "Cluster" {
+  node api
+  queue jobs
+  package pack
+}
+
+json config {
+  "theme": "superhero",
+  "links": ["--", "..", "~~", "=="]
+}
+
+' Links without a head: solid, dotted, wavy, bold
+node1 -- node2 : label1
+node1 .. node3 : label3
+node1 ~~ node4 : label3
+node1 == node5 : bold link
+node1 *-- foo
+
+' Arrows: headed, placed, styled inline, and one hidden link for layout
+Bob ->> node2
+node2 --> s3 : uploads
+node3 ..> db : reads
+node4 -up-> node5 : placed up
+Bob -right-> s3 : browses
+node5 -[hidden]- foo
+api -[#HotPink,bold]-> jobs : <color:#c2cd1d>enqueue</color>
+jobs -[dotted]-> db
+web --> api : [[https://plantuml.com/link links]]
+
+note right of db
+  <b>Creole</b> in a note
+  |= You write |= You get |
+  | ~**bold~** | **bold** |
+  | ~//italic~// | //italic// |
+  | ~__underline~__ | __underline__ |
+  | ~--strike~-- | --strike-- |
+  | ~""mono~"" | ""mono"" |
+  | ~~~~wave~~~~ | ~~wave~~ |
+  <&link-intact> [[https://plantuml.com/creole creole docs]]
+end note
+
+
+legend right
+  |= Line |= Means |
+  | <plain>--</plain> | solid |
+  | <plain>..</plain> | dotted |
+  | <plain>~~</plain> | wavy |
+  | <sup>==</sup> | bold |
+endlegend
+@enduml
+@startuml sequence
+title
+  The **render** round trip
+  <size:11>//cached or fresh//</size>
+end title
+!$app = "Nextcloud"
+!procedure $ask($from, $to, $what)
+  $from -> $to : $what
+  $to --> $from : ok
+!endprocedure
+actor "Dr K" as drk
+participant $app as nc
+database Postgres as db
+drk -> nc : open UML_Fun.puml
+activate nc
+$ask(nc, db, "read the file")
+alt cached
+  nc --> drk : SVG from the cache
+else fresh
+  nc -> nc : render
+  nc --> drk : SVG
+end
+deactivate nc
+@enduml
+
+' Use cases: what an actor can do
+@startuml usecases
+title Use cases\nof the editor
+left to right direction
+actor "Dr K" as drk
+rectangle Nextcloud {
+  usecase "Edit a diagram" as edit
+  usecase "Share a diagram" as share
+}
+drk --> edit
+drk --> share
+@enduml
+
+' Classes: types and how they relate
+@startuml classes
+title
+  | Type | Kind |
+  | Diagram | class |
+  | Renderer | interface |
+end title
+class Diagram {
+  +name : String
+  +render() : Svg
+}
+interface Renderer
+abstract class Block
+!$kinds = ["UML", "SALT", "YAML", "JSON"]
+enum Kind {
+!foreach $k in $kinds
+  $k
+!endfor
+}
+Diagram *-- "many" Block
+Diagram ..|> Renderer
+Block --> Kind
+@enduml
+
+' Objects: instances with their values
+@startuml objects
+title <&document> Objects and their values
+object fun {
+  name = "UML_Fun"
+  blocks = 40
+}
+object parts {
+  name = "UML_Fun_parts"
+}
+fun --> parts : includes
+@enduml
+
+' Activity: a flow with a branch and a fork; a !function names a step
+@startuml activity
+mainframe **activity** opening a file
+!function $step($n, $what)
+  !return "Step " + $n + ": " + $what
+!endfunction
+start
+:$step(1, "Open the file");
+if (Has @start?) then (yes)
+  :Split into blocks;
+else (no)
+  :Show the welcome;
+endif
+fork
+  :Render;
+fork again
+  :Lint;
+end fork
+stop
+@enduml
+
+' Components: parts and their interfaces
+@startuml components
+package "Editor" {
+  [CodeMirror] as cm
+  [Completion] as comp
+}
+[Render route] as route
+cm --> comp
+cm ..> route : POST /render
+route - HTTP
+@enduml
+
+' States: what the editor goes through
+@startuml states
+header Editor states
+footer <&clock> autosave every 2 s
+caption Figure 1: what the editor goes through
+[*] --> Idle
+Idle --> Editing : type
+Editing --> Saving : 2 s idle
+Saving --> Idle : saved
+Saving --> Conflict : 412
+Conflict --> [*]
+@enduml

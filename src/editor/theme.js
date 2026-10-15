@@ -10,6 +10,7 @@ import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { spriteData, underline, variable } from './plantuml-mode.js'
+import { diagramName, inactive } from './lexicon/tags.js'
 
 /**
  * A status element colour pulled a quarter of the way to the text colour: the
@@ -75,6 +76,22 @@ export const highlightStyle = HighlightStyle.define([
   // otherwise inherit the keyword's bold.
   { tag: [tags.atom, tags.special(tags.variableName)], color: towardText('--color-element-success') },
   { tag: [tags.number, tags.definition(tags.variableName)], color: 'var(--color-info-text)' },
+  // The dictionary's other categories. A child tag's rule replaces its parent's
+  // whole, so each restates what it keeps. A stereotype is meta, but plain and orange.
+  { tag: tags.annotation, color: ATTRIBUTE, fontStyle: 'normal', fontWeight: 'normal' },
+  // A list or depth marker, and logical operators: an operator, the latter bold.
+  { tag: tags.list, color: towardText('--color-element-warning') },
+  { tag: tags.logicOperator, color: towardText('--color-element-warning'), fontWeight: 'bold' },
+  // Brackets of every shape, and an assignment, recede as punctuation does.
+  { tag: tags.bracket, color: 'var(--color-text-maxcontrast)', fontWeight: 'bold' },
+  { tag: tags.definitionOperator, color: 'var(--color-text-maxcontrast)' },
+  { tag: tags.escape, color: OCHRE },
+  // A diagram's name keeps the text colour of the line it is on.
+  { tag: diagramName, textDecoration: 'underline' },
+  // A path reads as a link without the underline.
+  { tag: tags.url, color: towardText('--color-primary-element') },
+  // A diagram this server cannot draw: a comment, but not italic.
+  { tag: inactive, color: 'var(--color-text-maxcontrast)', fontStyle: 'normal' },
 ])
 
 /** Text tinted over whatever is beneath, so a selection drawn behind it still shows. */

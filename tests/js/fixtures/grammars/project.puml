@@ -1,0 +1,6 @@
+@startproject plan
+Project starts 2026-10-13
+[Spec] lasts 2 days
+[Build] lasts 3 days
+[Build] starts at [Spec]'s end
+@endproject

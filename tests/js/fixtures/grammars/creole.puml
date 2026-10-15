@@ -1,0 +1,8 @@
+@startcreole notes
+= Creole
+<color:gray>Drawn by PlantUML %version()</color>
+* **bold**, //italic//, ""mono""
+* <color:red>red</color> and <back:DarkKhaki>marked</back>
+|= A |= B |
+| 1 | 2 |
+@endcreole

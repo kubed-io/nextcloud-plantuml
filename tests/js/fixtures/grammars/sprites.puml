@@ -1,0 +1,9 @@
+@startsprites icons
+sprite dot <svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>
+sprite $bar [8x4/16] {
+FFFFFFFF
+F000000F
+F000000F
+FFFFFFFF
+}
+@endsprites

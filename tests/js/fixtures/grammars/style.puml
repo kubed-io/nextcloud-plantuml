@@ -1,0 +1,18 @@
+@startuml
+<style>
+root {
+  BackgroundColor #FFF3B0
+}
+.server node {
+  FontSize 14
+  FontStyle bold
+  LineColor red
+}
+arrow {
+  LineColor red
+}
+</style>
+node a <<server>>
+node b
+a --> b : <b>x</b>
+@enduml

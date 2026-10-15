@@ -1,0 +1,8 @@
+@startgit history
+* a1b2c3 Merge feature
+|\
+| * d4e5f6 Add stdlib
+* | 7a8b9c Fix colours
+|/
+* 0d1e2f Start
+@endgit

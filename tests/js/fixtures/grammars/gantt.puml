@@ -1,0 +1,10 @@
+@startgantt rounds
+title <u>Rounds</u> of the editor
+!$start = "2026-10-13"
+Project starts $start
+[Style round] lasts 2 days
+[Includes] lasts 1 day
+[Includes] starts at [Style round]'s end
+[Tag attributes] lasts 1 day
+[Tag attributes] starts at [Includes]'s end
+@endgantt

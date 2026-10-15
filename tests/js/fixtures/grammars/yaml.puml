@@ -1,0 +1,24 @@
+@startyaml config
+#highlight "editor" / "autosave"
+<style>
+yamlDiagram {
+  highlight {
+    BackgroundColor #FFD166
+    FontColor #073B4C
+    FontStyle italic
+  }
+}
+</style>
+app: nextcloud-plantuml
+server:
+  url: http://plantuml.flow.svc
+  profile: INTERNET
+editor:
+  autosave:
+    idle: 2s
+    max: 30s
+  wrap: true
+  themes:
+    - minty
+    - superhero
+@endyaml

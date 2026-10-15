@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { highlightTree, tags } from '@lezer/highlight'
 import { highlightStyle, surfaceRules } from '../../src/editor/theme.js'
 import { plantumlLanguage, spriteData, underline, variable } from '../../src/editor/plantuml-mode.js'
+import { diagramName, date, linkOperator, quantifier, inactive } from '../../src/editor/lexicon/tags.js'
 import { scan } from '../../src/editor/blocks.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
@@ -82,7 +83,7 @@ describe('the editor highlight style', () => {
     for (const spec of highlightStyle.specs) {
       const colours = Object.entries(spec).filter(([property]) => /color|background|decoration/i.test(property))
       if (spec.color === undefined) {
-        expect([tags.strong, tags.emphasis, tags.monospace, underline]).toContain(spec.tag)
+        expect([tags.strong, tags.emphasis, tags.monospace, underline, diagramName]).toContain(spec.tag)
       } else {
         expect(spec.color).toMatch(/var\(--color-[a-z-]+\)/)
       }
@@ -90,6 +91,62 @@ describe('the editor highlight style', () => {
         expect(value, property).not.toMatch(LITERAL)
       }
     }
+  })
+})
+
+// Y1-Y38: the looks of the dictionary's new categories.
+describe('the looks of the dictionary', () => {
+  const rule = (tag) => highlightStyle.specs.find((spec) => [spec.tag].flat().includes(tag))
+  const AMBER = 'color-mix(in srgb, var(--color-element-warning) 75%, var(--color-main-text))'
+  const LINK = 'color-mix(in srgb, var(--color-primary-element) 75%, var(--color-main-text))'
+
+  it('draws a stereotype in the attribute orange, plain', () => {
+    expect(rule(tags.annotation)).toMatchObject({ color: ORANGE, fontStyle: 'normal', fontWeight: 'normal' })
+  })
+
+  it('draws a list marker in amber', () => {
+    expect(rule(tags.list).color).toBe(AMBER)
+  })
+
+  it('draws every bracket shape in grey, bold', () => {
+    expect(rule(tags.bracket)).toMatchObject({ color: 'var(--color-text-maxcontrast)', fontWeight: 'bold' })
+    for (const tag of [tags.paren, tags.squareBracket, tags.brace, tags.angleBracket]) {
+      expect(highlightStyle.style([tag])).toBe(highlightStyle.style([tags.bracket]))
+    }
+  })
+
+  it('draws an assignment grey and a logical operator amber, bold', () => {
+    expect(rule(tags.definitionOperator).color).toBe('var(--color-text-maxcontrast)')
+    expect(rule(tags.logicOperator)).toMatchObject({ color: AMBER, fontWeight: 'bold' })
+  })
+
+  it('draws an escape in the ochre', () => {
+    expect(rule(tags.escape).color).toBe(OCHRE)
+  })
+
+  it('underlines a diagram name and sets no colour', () => {
+    const spec = rule(diagramName)
+    expect(spec.textDecoration).toBe('underline')
+    expect(spec.color).toBeUndefined()
+  })
+
+  it('draws a url in the link colour, not underlined', () => {
+    const spec = rule(tags.url)
+    expect(spec.color).toBe(LINK)
+    expect(spec.textDecoration).toBeUndefined()
+  })
+
+  it('draws an inactive body grey, plain', () => {
+    expect(rule(inactive)).toMatchObject({ color: 'var(--color-text-maxcontrast)', fontStyle: 'normal' })
+  })
+
+  it.each([
+    ['date', date, tags.number], ['linkOperator', linkOperator, tags.operator], ['quantifier', quantifier, tags.operator],
+    ['arithmeticOperator', tags.arithmeticOperator, tags.operator], ['compareOperator', tags.compareOperator, tags.operator],
+    ['separator', tags.separator, tags.punctuation], ['modifier', tags.modifier, tags.keyword],
+  ])('gives %s no rule of its own, so it takes its parent\'s', (_name, tag, parent) => {
+    expect(rule(tag)).toBeUndefined()
+    expect(highlightStyle.style([tag])).toBe(highlightStyle.style([parent]))
   })
 })
 

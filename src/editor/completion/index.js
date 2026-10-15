@@ -21,8 +21,9 @@ import { creole } from './creole.js'
 import { icons } from './icons.js'
 import { emoji } from './emoji.js'
 import { colors, swatchOption } from './colors.js'
+import { builtins } from './builtins.js'
 
-export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji, colors]
+export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji, colors, builtins]
 
 // One data entry per source: an array under `autocomplete` is read as a list
 // of completions, not of sources. autocompletion() binds completionKeymap

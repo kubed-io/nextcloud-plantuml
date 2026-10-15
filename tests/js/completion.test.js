@@ -20,6 +20,7 @@ import { styleTag } from '../../src/editor/completion/style-tag.js'
 import { creole } from '../../src/editor/completion/creole.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
+import { builtins } from '../../src/editor/completion/builtins.js'
 import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
 import { scan } from '../../src/editor/blocks.js'
@@ -43,7 +44,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji, colors])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji, colors, builtins])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -605,6 +606,51 @@ describe('keywords', () => {
   it('waits for a letter on an empty line unless asked', () => {
     expect(complete(keywords, '|')).toBeNull()
     expect(labels(complete(keywords, '|', true))).toContain('participant')
+  })
+})
+
+describe('helper commands', () => {
+  it('are offered on a line of their own in a uml block', () => {
+    expect(labels(complete(keywords, '@startuml\ncol|\n@enduml'))).toContain('colors')
+    const help = complete(keywords, '@startuml\nhelp t|\n@enduml')
+    expect(labels(help)).toEqual(expect.arrayContaining(['help themes', 'help types']))
+    expect(help.from).toBe('@startuml\n'.length)
+  })
+
+  it('are not offered with anything else on the line', () => {
+    expect(labels(complete(keywords, '@startuml\ncol| x\n@enduml'))).not.toContain('colors')
+  })
+
+  it('are not offered in other block types or outside a block', () => {
+    expect(labels(complete(keywords, '@startmindmap\ncol|\n@endmindmap'))).not.toContain('colors')
+    expect(labels(complete(keywords, 'col|'))).not.toContain('colors')
+  })
+})
+
+describe('built-in functions', () => {
+  it('lists the functions after %, with the description as the detail', async () => {
+    const result = await complete(builtins, '!x = %str|')
+
+    expect(result.from).toBe(5)
+    expect(result.options).toContainEqual(expect.objectContaining({ label: '%strlen', type: 'function', detail: 'Calculate the length of a String' }))
+    expect(labels(result)).toEqual(expect.arrayContaining(['%date', '%lighten', '%get_all_stdlib', '%get_current_theme']))
+  })
+
+  it('inserts name() with the cursor between the parentheses', async () => {
+    const { state, pos } = stateAt('A: %str|')
+    const view = new EditorView({ state })
+    const result = await builtins(new CompletionContext(state, pos, false))
+    const option = result.options.find((o) => o.label === '%strlen')
+    option.apply(view, option, result.from, pos)
+
+    expect(view.state.doc.toString()).toBe('A: %strlen()')
+    expect(view.state.selection.main.head).toBe('A: %strlen('.length)
+    view.destroy()
+  })
+
+  it('stays silent without a % and inside a comment', async () => {
+    expect(await complete(builtins, 'A -> B|')).toBeNull()
+    expect(await complete(builtins, "' %str|")).toBeNull()
   })
 })
 

@@ -67,7 +67,7 @@ const states = {
     ...comments,
     ...bang,
     // An activity box `:text;`, before a colon with a space beside it starts text (H18).
-    activity.open,
+    ...activity.open,
     // `@start<type>` lines are read by `startLine` (lexicon/rules.js), see `plantumlLanguage`.
     atLineStart(/@end\w+\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
@@ -110,6 +110,7 @@ const states = {
     { regex: /\w+/, token: null },
   ],
   boxText: activity.boxText,
+  boxLast: activity.boxLast,
   // An element line's text after ` : ` is text (H14): a colour and a string keep their look.
   colonText: [...colours, { regex: /"[^"]*"/, token: 'string' }, ...creole(null)],
   stereotype: stereotypeState,
@@ -207,7 +208,7 @@ const states = {
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
 // A `!` line's states are popped, back to the state it was read in.
-const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', colonText: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody', classHead: 'classBody' }
+const nextLine = { boxLast: 'start', afterLink: 'start', arrowAttr: 'start', noteLine: 'start', colonText: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody', classHead: 'classBody' }
 const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args', 'preprocessor', 'includePath', 'theme', 'themePath'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and

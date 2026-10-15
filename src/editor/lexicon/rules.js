@@ -295,28 +295,30 @@ export const activityCloser = /[;|<>/\\\]}](?=\s*$)/
 /**
  * A box (H18): `:` opening a line, after an optional `#colour`, and `closer` at a line's end are
  * brackets; between them is Creole, over as many lines as it takes. An actor's shorthand
- * (`:Dr K: as drk`, `:Main Admin: --> (Use)`) is no box. Returns the rule for `start` and the
- * state `boxText`; `extra` rules (the core's `!` lines) are tried first in the state, and an
+ * (`:Dr K: as drk`, `:Main Admin: --> (Use)`) is no box. Returns the rules for `start` (`open`) and the
+ * states `boxText` and `boxLast` (the last line; map it to `start` in `nextLine`); `extra` rules (the core's `!` lines) are tried first in the state, and an
  * `@end` line ends an open box.
  */
 export function box(closer = activityCloser, extra = []) {
   const end = closer.source
+  const rules = [
+    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    ...extra,
+    ...comments,
+    { regex: closer, token: 'bracket', next: 'start' },
+    // A run of symbols up to the closer, which creole's own run would take along.
+    { regex: new RegExp(`[^\\w[*/"<|~&$%]+?(?=${end})`), token: null },
+    ...creole(null),
+  ]
+  // PlantUML reads the last character of the line as the closer, so a line ending in one is the
+  // box's last (`boxLast`, back to `start` with its line), whether a tag or a link owns the character.
+  const lastLine = `(?=.*${end})`
+  const open = `(?![ \\t]*:[^:]+:(?=\\s+as\\b|\\s*[-.=<>/]|\\s*$))([ \\t]*)(#${colourPart})?(:)`
+  const opener = (pattern, next) => ({ regex: new RegExp(pattern), sol: true, token: [null, 'ColorLiteral', 'bracket'], next })
   return {
-    open: {
-      regex: new RegExp(`(?![ \\t]*:[^:]+:(?=\\s+as\\b|\\s*[-.=<>]|\\s*$))([ \\t]*)(#${colourPart})?(:)`),
-      sol: true,
-      token: [null, 'ColorLiteral', 'bracket'],
-      next: 'boxText',
-    },
-    boxText: [
-      atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
-      ...extra,
-      ...comments,
-      { regex: closer, token: 'bracket', next: 'start' },
-      // A run of symbols up to the closer, which creole's own run would take along.
-      { regex: new RegExp(`[^\\w[*/"<|~&$%]+?(?=${end})`), token: null },
-      ...creole(null),
-    ],
+    open: [opener(`${open}${lastLine}`, 'boxLast'), opener(open, 'boxText')],
+    boxText: [{ regex: new RegExp(lastLine), sol: true, token: null, next: 'boxLast' }, ...rules],
+    boxLast: rules,
   }
 }
 

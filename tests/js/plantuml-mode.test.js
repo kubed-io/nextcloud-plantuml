@@ -1456,6 +1456,31 @@ describe('declarations and class bodies (H15, H17)', () => {
       expect(tokens(':a; b;')).toEqual([[':', 'bracket'], [';', 'bracket']])
     })
 
+    it('closes a box whose last character a tag or a link owns', () => {
+      expect(tokens(':**bold** <b>x</b>', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
+      expect(tokens(':see [[http://x y]]', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
+      expect(tokens(':see [[http://x y]]')).toContainEqual(['[[http://x y]]', 'link'])
+      expect(tokens(':x <b>y</b>')).toContainEqual(['</b>', 'tagName'])
+    })
+
+    it('keeps a box open over lines until one ends in a closer', () => {
+      expect(tokens(':a;', 'b', 'A -> B').map(([, t]) => t)).toEqual(['bracket', 'bracket', 'LinkOperator'])
+      expect(tokens(':a', 'b', 'c;', 'A -> B').map(([, t]) => t)).toEqual(['bracket', 'bracket', 'LinkOperator'])
+    })
+
+    it('opens a box at a colour and a colon only', () => {
+      expect(tokens('#pink')).toEqual([])
+      expect(tokens('#pink:x;')).toEqual([['#pink', 'ColorLiteral'], [':', 'bracket'], [';', 'bracket']])
+    })
+
+    it('runs an unclosed box to @end', () => {
+      expect(tokens(':open', 'A -> B', '@enduml')).toEqual([[':', 'bracket'], ['@enduml', 'keyword']])
+    })
+
+    it('leaves a business actor alone', () => {
+      expect(tokens(':A:/ as X').map(([, t]) => t)).not.toContain('bracket')
+    })
+
     it('leaves an actor\'s shorthand alone', () => {
       expect(tokens(':Dr K: as drk').map(([, token]) => token)).not.toContain('bracket')
       expect(tokens(':Main Admin: --> (Use)').map(([, token]) => token)).not.toContain('bracket')

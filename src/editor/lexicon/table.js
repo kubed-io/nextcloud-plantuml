@@ -27,6 +27,8 @@ import { simpleMode } from '@codemirror/legacy-modes/mode/simple-mode'
 export function table(states, { nextLine = {}, lineStates = [] } = {}) {
   const mode = simpleMode(states)
   const startLine = (state) => {
+    // A rule that only switched state (matching nothing) is followed by a retry at the same place.
+    if (state.held) return
     while (lineStates.includes(state.state) && state.stack?.length) state.state = state.stack.pop()
     if (Object.hasOwn(nextLine, state.state)) state.state = nextLine[state.state]
   }
@@ -38,7 +40,9 @@ export function table(states, { nextLine = {}, lineStates = [] } = {}) {
       // A rule matched at the start of a line hands back its groups one at a
       // time (`pending`), all still at the start: they belong to the state it set.
       if (!state.pending && stream.sol()) startLine(state)
-      return token(stream, state)
+      const result = token(stream, state)
+      state.held = stream.pos === stream.start
+      return result
     },
   }
 }

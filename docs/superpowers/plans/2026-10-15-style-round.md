@@ -54,11 +54,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Interfaces:** Produces: `plantumlLanguage(inner)` treats a line that is `<style>` (after indentation), up to a line that is `</style>`, as a style region: the two tag lines `tagName`, the lines between handed to `inner.style` when present, else plain (`null`); a one-line `<style>…</style>` and `<style file=…>` are one `tagName` line. Checked at line start before any inner mode (P5), so it works inside yaml blocks too. `needed()` adds `'style'` when a line starts `<style`. Folding: a `<style>` line folds to the line before `</style>`.
 
-- [ ] **Step 1:** Tests: inside `<style>` … `</style>` with no style mode, `note {`, `legend {`, `title {` and `node {` lines are plain and the line after `</style>` is uml again (H8 notes still work after it); with a stub `inner.style`, the body lines carry its tokens; a style block inside a yaml block, with yaml and style both registered, is style; `needed` of a document with `<style>` includes `style`; the fold of a style block; completion at `<` on an empty line offers `<style>` first (inserting `<style>\n\t\n</style>` with the cursor on the empty line) and `<style file=` second, and C7's tags after them; mid-line `<` still offers only C7's tags.
+- [ ] **Step 1:** Tests: X16 — every line of a `@startcreole` block uses the Creole rules (`**b**` strong, `//i//` emphasis, `<color:#F00>` tag + ColorLiteral, `[[url]]` link, `----` heading) and the line after `@endcreole` is uml again. Inside `<style>` … `</style>` with no style mode, `note {`, `legend {`, `title {` and `node {` lines are plain and the line after `</style>` is uml again (H8 notes still work after it); with a stub `inner.style`, the body lines carry its tokens; a style block inside a yaml block, with yaml and style both registered, is style; `needed` of a document with `<style>` includes `style`; the fold of a style block; completion at `<` on an empty line offers `<style>` first (inserting `<style>\n\t\n</style>` with the cursor on the empty line) and `<style file=` second, and C7's tags after them; mid-line `<` still offers only C7's tags.
 - [ ] **Step 2:** Run the focused tests — FAIL.
 - [ ] **Step 3:** Implement. `PROFILES.style` is registered in Task 3; in this task `needed` may name it, and the loader must tolerate a type with no registry entry (it already ignores unknown types — check).
 - [ ] **Step 4:** Full `npx vitest run`, `npm run lint` — PASS.
-- [ ] **Step 5:** Commit `fix(editor): a style block is its own region, never a note (X8)`.
+- [ ] **Step 5:** Commit `fix(editor): a style block is its own region, never a note; creole blocks are Creole (X8, X16)`.
 
 ### Task 3: The style profile — grammar, completion, checks
 

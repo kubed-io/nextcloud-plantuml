@@ -229,6 +229,7 @@ case-insensitive (`<c4/…>` and `<C4/…>` both work).
 | X13 | **Helper commands.** On a line of its own in a uml block, keyword completion also offers PlantUML's one-word helpers, each with what it draws: `colors` (and `colors <colour>`, the shades around one), `listsprite`, `listopeniconic`, `listfonts`, `emoji`, `stdlib`, `skinparameters`, `license`, `version`, `authors`, `donors`, `sudoku`, and `help themes`, `help types`, `help keywords`, `help font`, `help colors` (all answered by the live server on 2026-10-15). | Dr K: "the word `colors` is missing" | agreed (style round) |
 | X14 | **Named colours.** `GET /apps/plantuml/colors` → `{"colors": {"AliceBlue": "#F0F8FF", …}}`: the names from the server's `help colors` (153 on 1.2026.8, the ArchiMate layers `APPLICATION` … `TECHNOLOGY` among them) with each one's hex read from its `colors` drawing (C8's caching). After `#` where a colour goes (an element's colour, a styled link, `<color:`/`<back:`, a skinparam or style colour value), the names are offered with a swatch each. Named colours get C6's swatch too (ending that limitation); a pick still writes `#rrggbb`. | Dr K: "goodies for the editor" on plantuml.com/color | agreed (style round) |
 | X15 | **Colour forms.** Gradients `#Red/Yellow`, `#Red\|Yellow`, `#Red-Yellow`, `#Red\Yellow` (a second hex may drop its `#`: `#FF0000/FFFF00`), Gantt's `is colored in White/Red`, and the automatic text colour `#?black:white` are coloured as colours, each part a `ColorLiteral` with its own swatch. | plantuml.com/color | agreed (style round) |
+| X16 | **`@startcreole` blocks** are Creole from top to bottom: their lines use H8's Creole rules (bold, italic, monospace, underline, tags, `[[links]]`, tables, `----` rules), from core, with no profile. | Dr K: "a diagram type called `@startcreole` exists too" | agreed (style round) |
 
 ### Choosing values
 
@@ -302,7 +303,7 @@ Each checked against the code on 2026-10-14.
 
 Not agreed; each waits on Dr K.
 
-- Grammars for the 21 types without one (X2): `chen`, `chart`, `chronology`, `files`, `nwdiag`, `packetdiag`, `creole`, `math` and `latex` (CodeMirror's `stex` mode could serve both), `ditaa` (ASCII art: no grammar, plain text), `dot`, `jcckit`, `def`, `wire`, `git`, `hcl`, and the undocumented `board`, `bpm`, `flow`, `project`, `sprites`. Until then they are coloured as uml.
+- Grammars for the 20 types without one (X2; `creole` is X16): `chen`, `chart`, `chronology`, `files`, `nwdiag`, `packetdiag`, `math` and `latex` (CodeMirror's `stex` mode could serve both), `ditaa` (ASCII art: no grammar, plain text), `dot`, `jcckit`, `def`, `wire`, `git`, `hcl`, and the undocumented `board`, `bpm`, `flow`, `project`, `sprites`. Until then they are coloured as uml.
 - A hint on `skinparam` lines that `<style>` replaces it (plantuml.com calls it deprecated), maybe with a quick fix for the simple cases.
 
 - **L6** a fit / 100% toggle, maybe zoom.

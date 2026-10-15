@@ -5,6 +5,7 @@
 // The value registry (W3), the chooser on values from a list (W1) and the
 // stepper on numbers (W2), in a real view: `|` in a document marks the cursor.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { syntaxTree } from '@codemirror/language'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { acceptCompletion, completionStatus, currentCompletions, setSelectedCompletion, startCompletion } from '@codemirror/autocomplete'
@@ -15,13 +16,16 @@ import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import { plantumlCompletion } from '../../src/editor/completion/index.js'
 import { stepNumber, valueAt, valuesOn } from '../../src/editor/values/index.js'
+import { serverColors } from '../../src/editor/completion/server-list.js'
 import { valueWidgets } from '../../src/editor/values/widgets.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 
 const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
 // The theme list is asked once per page, so once for this file.
 vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-const fetch = vi.fn(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200 }))
+const COLORS = { red: '#FF0000', gold: '#FFD700', navy: '#000080', aqua: '#00FFFF', cyan: '#00FFFF', yellow: '#FFFF00', black: '#000000', white: '#FFFFFF', Odd: null }
+const answer = async (url) => new Response(JSON.stringify(String(url).endsWith('/colors') ? { colors: COLORS } : { themes: THEMES }), { status: 200 })
+const fetch = vi.fn(answer)
 vi.stubGlobal('fetch', fetch)
 
 const profile = styleProfile({ scan, t: translate })
@@ -120,7 +124,6 @@ describe('valueAt', () => {
     const state = stateAt(text)
 
     expect(valueAt(state, text.indexOf('node'))).toBeNull()
-    expect(valueAt(state, text.indexOf('red'))).toBeNull()
     expect(valueAt(state, text.indexOf('FontSize'))).toBeNull()
     expect(valueAt(stateAt('node {\n  FontSize 22\n}'), 'node {\n  FontSize 2'.length)).toBeNull()
   })
@@ -539,5 +542,163 @@ describe('the stepper', () => {
     expect(steppers()).toHaveLength(1)
     expect(steppers()[0].parentNode.textContent).toContain('Padding')
     expect(steppers()[0].parentNode.textContent).not.toContain('FontSize')
+  })
+})
+
+// W5: a colour value (a swatch's, C6) is a list over the server's names.
+describe('named colours by name (W5)', () => {
+  const colourFetch = answer
+
+  beforeEach(async () => {
+    fetch.mockImplementation(colourFetch)
+    // The pencil is drawn once the server's colours are known or pending, so know them.
+    await serverColors()
+  })
+  afterEach(() => fetch.mockImplementation(answer))
+
+  const colourState = (text) => EditorState.create({ doc: text, extensions: [profileExtension([profile])] })
+  /** The colour values of a one-line (or last-line) text, as the text they cover. */
+  const covered = (text, line = 1) => {
+    const state = colourState(text)
+    return valuesOn(state, line).filter((value) => value.colours).map((value) => state.sliceDoc(value.from, value.to))
+  }
+
+  it.each([
+    ['node a #gold', ['gold']],
+    ['skinparam backgroundColor #FFF3B0', ['FFF3B0']],
+    ['A -> B : <color:red>x', ['red']],
+    ['A -> B : <color:#336699>x', ['336699']],
+    ['A -> B : <font color=#336699>x', ['#336699']],
+    ['A -> B : <font color="navy">x', ['navy']],
+    ['node a #Red/Yellow', ['Red', 'Yellow']],
+    ['node a #?black:white', ['black', 'white']],
+  ])('finds the colour values of %j (the # outside the range unless the place writes it bare)', (text, ranges) => {
+    expect(covered(text)).toEqual(ranges)
+  })
+
+  it('finds no colour value where no swatch shows: a name the server has no colour for', () => {
+    expect(covered('archimate #Business "x" as a')).toEqual([])
+    expect(covered('node a #Odd')).toEqual([])
+    expect(covered('node a #Business #gold')).toEqual(['gold'])
+  })
+
+  it('finds a style block\'s colour with its # inside the range, as it is written bare', () => {
+    expect(covered(style('BackgroundColor gold'), 3)).toEqual(['gold'])
+    expect(covered(style('BackgroundColor #FFF3B0'), 3)).toEqual(['#FFF3B0'])
+  })
+
+  it('lists the server\'s names for a colour', async () => {
+    const [value] = valuesOn(colourState('node a #gold'), 1)
+
+    expect(value).toMatchObject({ kind: 'list', colours: true })
+    expect(await value.options()).toEqual(Object.keys(COLORS))
+  })
+
+  it('draws a pencil after a colour on the cursor\'s line', () => {
+    open('node a #gold|')
+
+    expect(choosers()).toHaveLength(1)
+  })
+
+  it('opens the names with their swatches, the current name first', async () => {
+    open('node a #go|ld')
+    click(choosers()[0])
+    const labels = await shown()
+
+    expect(labels[0]).toBe('gold')
+    expect(new Set(labels)).toEqual(new Set(Object.keys(COLORS)))
+    expect(currentCompletions(view.state).find((option) => option.label === 'navy').swatch).toBe('#000080')
+  })
+
+  it('puts the name whose hex a hex equals first', async () => {
+    open('node a #FFD700|')
+    click(choosers()[0])
+
+    expect((await shown())[0]).toBe('gold')
+  })
+
+  it.each([
+    ['node a #|FFF3B0', 'gold', 'node a #gold'],
+    ['skinparam backgroundColor #FFF3B0|', 'gold', 'skinparam backgroundColor #gold'],
+    ['A -> B : <font color=#336699|>', 'navy', 'A -> B : <font color=navy>'],
+    ['A -> B : <color:red|>x', 'gold', 'A -> B : <color:gold>x'],
+    ['node a #Re|d/Yellow', 'gold', 'node a #gold/Yellow'],
+  ])('a name picked in %j writes %j', async (marked, name, picked) => {
+    open(marked)
+    click(choosers()[0])
+    await pick(name)
+
+    expect(doc()).toBe(picked)
+  })
+
+  it('picks each part of a gradient on its own, the second written without a #', async () => {
+    open('node a #Red/Yell|ow')
+    expect(choosers()).toHaveLength(2)
+    click(choosers()[1])
+    await pick('navy')
+
+    expect(doc()).toBe('node a #Red/navy')
+  })
+
+  it('writes a name bare in a style block, replacing a hex', async () => {
+    open(style('BackgroundColor #FFF3B0|'))
+    click(choosers()[0])
+    await pick('gold')
+
+    expect(doc()).toBe(style('BackgroundColor gold'))
+  })
+
+  it('offers its list once where a typed name has a colour source of its own', async () => {
+    open('node a #go|')
+    startCompletion(view)
+    const labels = await shown()
+
+    expect(labels.filter((label) => label === 'gold')).toHaveLength(1)
+  })
+
+  /** A fresh page: the colours not yet asked for, a hex-only line under the cursor. */
+  async function fresh(answer) {
+    vi.resetModules()
+    fetch.mockImplementation(answer)
+    const widgets = (await import('../../src/editor/values/widgets.js')).valueWidgets
+    const { serverColors } = await import('../../src/editor/completion/server-list.js')
+    const { profileExtension: again } = await import('../../src/editor/profiles/index.js')
+    view = new EditorView({ state: EditorState.create({ doc: 'node a #FFF3B0', selection: { anchor: 3 }, extensions: [again([profile]), widgets] }), parent: document.body })
+    return serverColors
+  }
+
+  it('draws no pencil before or after a server that names no colours answers', async () => {
+    const serverColors = await fresh(async () => new Response('{}', { status: 503 }))
+    expect(choosers()).toHaveLength(0)
+    await serverColors()
+    await new Promise((resolve) => setTimeout(resolve))
+
+    expect(choosers()).toHaveLength(0)
+  })
+
+  it('draws the pencil of a hex-only line once the server has answered, the cursor unmoved', async () => {
+    await fresh(colourFetch)
+    expect(choosers()).toHaveLength(0)
+
+    await vi.waitFor(() => expect(choosers()).toHaveLength(1))
+  })
+
+  it('writes the second part of #Red/#Yellow with its own #, not doubled', async () => {
+    open('node a #Red/#Yell|ow')
+    click(choosers()[1])
+    await pick('gold')
+
+    expect(doc()).toBe('node a #Red/#gold')
+  })
+
+  it('yields no colour, and does not throw, on a line beyond the parsed tree', () => {
+    const state = EditorState.create({ doc: `${'node a #gold\n'.repeat(60000)}node b #gold`, extensions: [profileExtension([profile])] })
+    const last = state.doc.lines
+    let found
+    expect(() => { found = valuesOn(state, last) }).not.toThrow()
+    expect(Array.isArray(found)).toBe(true)
+    if (syntaxTree(state).length < state.doc.line(last).to) {
+      expect(found).toEqual([])
+    }
   })
 })

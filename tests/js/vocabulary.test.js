@@ -9,7 +9,9 @@ import builtins from '../../src/editor/data/builtins.json'
 import directives from '../../src/editor/data/directives.json'
 import c4 from '../../src/editor/data/stdlib/C4.json'
 import awslib from '../../src/editor/data/stdlib/awslib.json'
-import { directiveWords, enumConstants, readmeRows, signatures, stdlibEntries, stdlibIndex, stdlibReadmes } from '../../scripts/vocabulary.mjs'
+import asciimath from '../../src/editor/data/asciimath.json'
+import { readFileSync } from 'node:fs'
+import { ROLES, asciimathNames, directiveWords, enumConstants, readmeRows, signatures, stdlibEntries, stdlibIndex, stdlibReadmes } from '../../scripts/vocabulary.mjs'
 
 describe('style vocabulary', () => {
   it('records the PlantUML version it came from', () => {
@@ -155,5 +157,47 @@ describe('the stdlib index', () => {
     expect(c4.files).toContain('themes/puml-theme-C4_united')
     expect(c4.files).toEqual([...c4.files].sort())
     expect(awslib).toEqual({ 'plantuml-stdlib': '7167ca0', link: 'awslib14' })
+  })
+})
+
+describe('the AsciiMath names', () => {
+  it('reads the symbol table by section, its argument commands functions, its brackets brackets, and its TeX copies', () => {
+    const java = readFileSync(new URL('./fixtures/asciimath-symbols.java', import.meta.url), 'utf8')
+
+    // The excerpt holds some of the table, so only the roles of its entries are asked for.
+    const roles = Object.fromEntries(Object.entries(ROLES).filter(([input]) => java.includes(JSON.stringify(input).slice(1, -1).replaceAll('\\', '\\\\'))))
+    expect(asciimathNames(java, roles)).toEqual({
+      functions: ['abs', 'bar', 'color', 'dim', 'frac', 'int', 'lim', 'overline', 'sin', 'sqrt', 'sum', 'text'],
+      symbols: ['/_\\', 'AA', '\\ ', 'alpha', 'epsi', 'epsilon', 'forall', 'infty', 'oo', 'triangle'],
+      operators: ['!=', '*', '+-', '->', '/', '//', '\\\\', '_', 'and', 'backslash', 'cdot', 'ne', 'pm', 'to', '~='],
+      brackets: ['(', '(:', ':|:', 'langle', 'lceil', '|~'],
+      keywords: ['newline'],
+    })
+  })
+
+  it('fails on a role whose input the table does not have, rather than keep it stale', () => {
+    const java = readFileSync(new URL('./fixtures/asciimath-symbols.java', import.meta.url), 'utf8')
+    expect(() => asciimathNames(java, { alpha: 'symbols', quad: 'symbols' })).toThrow(/"quad"/)
+  })
+
+  it('fails on a section it does not know, rather than guess its role', () => {
+    const java = 'aAMsymbols = new ArrayList<>(Arrays.asList(new Tuple[] { //\n// odd symbols\nnew Tuple("xy", "mo", "xy", null, Ttype.CONST), //\n} //\n));'
+    expect(() => asciimathNames(java)).toThrow(/odd symbols/)
+  })
+
+  it('is committed from the pinned version, each name in one list', () => {
+    expect(asciimath.plantuml).toBe('1.2026.8')
+    const { functions, symbols, operators, brackets, keywords } = asciimath.asciimath
+    expect(functions).toEqual(expect.arrayContaining(['sin', 'log', 'sum', 'prod', 'int', 'lim', 'sqrt', 'frac', 'root', 'abs']))
+    expect(symbols).toEqual(expect.arrayContaining(['alpha', 'pi', 'oo', 'del', 'grad', 'AA', 'EE']))
+    expect(operators).toEqual(expect.arrayContaining(['*', '**', 'xx', '-:', '!=', '<=', '>=', '-<', 'in', 'sub', 'and', 'or', '=>', '->', '|->', '_', '^', '/']))
+    expect(brackets).toEqual(expect.arrayContaining(['(', ')', '(:', ':)', '{:', ':}', '<<', '>>']))
+    expect(keywords).toContain('newline')
+    // The spaces are symbols, slate, not keywords.
+    expect(symbols).toEqual(expect.arrayContaining(['\\ ', 'quad', 'qquad']))
+    expect(keywords).not.toEqual(expect.arrayContaining(['quad']))
+    const all = [functions, symbols, operators, brackets, keywords].flat()
+    expect(all.length).toBe(new Set(all).size)
+    expect(all.filter((name) => /^[A-Za-z]$/.test(name) || name === '"')).toEqual([])
   })
 })

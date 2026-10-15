@@ -9,7 +9,7 @@
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { underline, variable } from './plantuml-mode.js'
+import { spriteData, underline, variable } from './plantuml-mode.js'
 
 /**
  * A status element colour pulled a quarter of the way to the text colour: the
@@ -69,6 +69,8 @@ export const highlightStyle = HighlightStyle.define([
   { tag: tags.function(tags.variableName), color: OCHRE },
   // Table bars and the like recede behind the text they mark up.
   { tag: tags.punctuation, color: 'var(--color-text-maxcontrast)' },
+  // A sprite's pixel rows and payloads are data, receding as punctuation does.
+  { tag: spriteData, color: 'var(--color-text-maxcontrast)' },
   // A nested mode's values and names (YAML's keys are atoms). Atom would
   // otherwise inherit the keyword's bold.
   { tag: [tags.atom, tags.special(tags.variableName)], color: towardText('--color-element-success') },

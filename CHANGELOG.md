@@ -53,6 +53,8 @@ All notable changes to this project are documented here. The format follows
 - A tag's attributes complete (`<font size= color=>`, `<img src= vspace= valign=>`, `<style file=>`, `{scale= color=}` after icons, emoji and sprites), and their values too: `valign`'s three, the server's fonts and named colours, with the pencil and the stepper on them. New route `GET /apps/plantuml/fonts`.
 - `!include <` completes PlantUML's standard library: the libraries the server has (new route `GET /apps/plantuml/stdlib`), then each library's folders and files.
 - An **All diagrams** menu at the end of the tab strip when the tabs overflow: every diagram, its type beside it, a pick activating it.
+- Pick a named colour by name: a pencil after a colour's swatch opens the server's colour names, each with its swatch.
+- Grammars for board, git, gantt and project diagrams, AsciiMath and LaTeX formulas, and sprite blocks.
 
 ### Changed
 
@@ -70,3 +72,4 @@ All notable changes to this project are documented here. The format follows
 - The tabs after a block with arguments (`@startjcckit(300,200)`) no longer draw the block before them.
 - Picking a font in an unclosed `<font:` closes the tag.
 - Element names are no longer offered inside a tag.
+- A block comment inside a nested block no longer runs past its `@end`.

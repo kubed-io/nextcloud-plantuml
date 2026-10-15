@@ -43,6 +43,12 @@ describe('the yaml profile', () => {
     expect(tokens('# a comment')).toEqual([['# a comment', 'comment']])
   })
 
+  it("reads a /' … '/ comment as PlantUML's, down to its closer", () => {
+    expect(tokens("/' a", 'key: value', "'/", 'key: value')).toEqual([
+      ["/' a", 'comment'], ['key: value', 'comment'], ["'/", 'comment'], ['key', 'atom'], [': ', 'meta'],
+    ])
+  })
+
   it('carries on with yaml after a #highlight line', () => {
     expect(tokens('#highlight "a"', 'key: value')).toEqual([['#highlight "a"', 'meta'], ['key', 'atom'], [': ', 'meta']])
   })

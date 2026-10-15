@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Regenerates src/editor/data/{vocabulary,builtins,directives}.json from PlantUML's source at the tag
-// of the pinned server image (X1), and src/editor/data/stdlib/<folder>.json from plantuml-stdlib at
+// Regenerates src/editor/data/{vocabulary,builtins,directives,asciimath}.json from PlantUML's source at
+// the tag of the pinned server image (X1, T14), and src/editor/data/stdlib/<folder>.json from plantuml-stdlib at
 // the last commit before that release, its files or the folder its README links to (X5). Needs
 // network; the tests never do.
 // Run: node scripts/vocabulary.mjs
@@ -133,6 +133,75 @@ async function directives() {
   return { plantuml: VERSION, directives: [...new Set([...directiveWords(java), ...extra])].sort() }
 }
 
+// The role of each section of AsciiMath's symbol table, by its heading comment (T14).
+const SECTIONS = [
+  [/greek/, 'symbols'],
+  [/binary operation|relation|logical|arrows/, 'operators'],
+  [/brackets/, 'brackets'],
+  [/miscellaneous/, 'symbols'],
+  [/functions|commands/, 'functions'],
+  [/newline/, 'keywords'],
+]
+// A symbol that takes an argument is a function, `_ ^ /` operators, a bracket a bracket, whatever its section.
+const TYPES = {
+  UNARY: 'functions', BINARY: 'functions', UNDEROVER: 'functions', TEXT: 'functions', INFIX: 'operators',
+  LEFTBRACKET: 'brackets', RIGHTBRACKET: 'brackets', LEFTRIGHT: 'brackets',
+}
+// Where T14 parts from both: the integrals are n-ary like `sum`, ∀ ∃ ⊤ ⊥ are values, `+-` an
+// operator, the floor and ceiling halves brackets, and the spaces (`\ `, `quad`) symbols.
+export const ROLES = {
+  int: 'functions', oint: 'functions', AA: 'symbols', EE: 'symbols', TT: 'symbols', '_|_': 'symbols',
+  '+-': 'operators', '-+': 'operators', '|__': 'brackets', '__|': 'brackets', '|~': 'brackets', '~|': 'brackets',
+  lceiling: 'brackets', rceiling: 'brackets', '\\ ': 'symbols', quad: 'symbols', qquad: 'symbols',
+}
+const STRING = /"(?:[^"\\]|\\.)*"/.source
+const TUPLE = new RegExp(String.raw`new\s+Tuple\(\s*(?:new\s+String\[\]\s*\{[^}]*\}\s*,\s*)?(${STRING})\s*,\s*${STRING}\s*,\s*(?:${STRING}|null)\s*,\s*(${STRING}|null)\s*,\s*Ttype\.(\w+)((?:\s*,\s*Flag\.\w+)*)\s*\)`, 'g')
+
+/**
+ * AsciiMath's names from PlantUML's port of ASCIIMathTeXImg.js, by the role the
+ * editor gives them: `functions`, `symbols`, `operators`, `brackets`, `keywords`.
+ * A name's role is its own in `ROLES`, else its type's, else its section's; each
+ * TeX name the table copies in (`tex`, unless `NOTEXCOPY`) takes its symbol's.
+ * A single letter is a variable however the table lists it (`f`), and `"` opens
+ * a text, so neither is a name. A section heading not in `SECTIONS` throws, and so does a
+ * `roles` key that no entry of the table has: a renamed symbol must not keep a stale role.
+ */
+export function asciimathNames(java, roles = ROLES) {
+  const read = (match) => ({ input: JSON.parse(match[1]), tex: match[2] === 'null' ? null : JSON.parse(match[2]), type: match[3], flags: match[4] })
+  const constants = new Map([...java.matchAll(new RegExp(String.raw`Tuple\s+(aAM\w+)\s*=\s*(?=new\s+Tuple)`, 'g'))]
+    .map((m) => [m[1], read(new RegExp(TUPLE.source).exec(java.slice(m.index)))]))
+  const open = java.indexOf('{', java.search(/aAMsymbols\s*=/))
+  const lists = { functions: new Set(), symbols: new Set(), operators: new Set(), brackets: new Set(), keywords: new Set() }
+  const seen = new Set()
+  let section = null
+  for (const line of java.slice(open + 1).split('\n')) {
+    if (/^\s*\}/.test(line)) break
+    const heading = /^\s*\/\/\s*(\S.*)$/.exec(line)?.[1]
+    if (heading) {
+      section = SECTIONS.find(([pattern]) => pattern.test(heading))?.[1]
+      if (!section) throw new Error(`AsciiMath: no role for the section "${heading}"`)
+      continue
+    }
+    const symbols = /new\s+Tuple/.test(line)
+      ? [...line.matchAll(TUPLE)].map(read)
+      : [...line.matchAll(/\baAM\w+/g)].map((m) => constants.get(m[0])).filter(Boolean)
+    for (const { input, tex, type, flags } of symbols) {
+      if (/^[A-Za-z]$/.test(input) || input === '"') continue
+      seen.add(input)
+      const role = roles[input] ?? TYPES[type] ?? section
+      lists[role].add(input)
+      if (tex && !flags.includes('NOTEXCOPY')) lists[role].add(tex)
+    }
+  }
+  const stale = Object.keys(roles).filter((input) => !seen.has(input))
+  if (stale.length) throw new Error(`AsciiMath: no table entry for the role of ${stale.map((input) => JSON.stringify(input)).join(', ')}`)
+  return Object.fromEntries(Object.entries(lists).map(([role, names]) => [role, [...names].sort()]))
+}
+
+async function asciimath() {
+  return { plantuml: VERSION, asciimath: asciimathNames(await source('math/ASCIIMathTeXImg.java')) }
+}
+
 /**
  * The `.puml` files of each stdlib library folder, from a GitHub tree listing:
  * `folder -> paths below it`, `.puml` dropped, sorted. Nothing else is offered.
@@ -187,6 +256,7 @@ const artifacts = [
   { file: 'vocabulary.json', build: style },
   { file: 'builtins.json', build: builtins },
   { file: 'directives.json', build: directives },
+  { file: 'asciimath.json', build: asciimath },
   { folder: 'stdlib', build: stdlib },
 ]
 
@@ -205,7 +275,7 @@ async function write({ file, folder, build }) {
     return
   }
   await save(file, data)
-  const counts = Array.isArray(data) ? { entries: data } : data.style ?? { directives: data.directives }
+  const counts = Array.isArray(data) ? { entries: data } : data.style ?? data.asciimath ?? { directives: data.directives }
   console.info(`${file}: ${Object.entries(counts).map(([k, v]) => `${v.length} ${k}`).join(', ')}`)
 }
 

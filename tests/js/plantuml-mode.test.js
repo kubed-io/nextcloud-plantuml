@@ -195,9 +195,10 @@ describe('plantumlMode preprocessor', () => {
     expect(tokens("' $x and %f(1)")).toEqual([["' $x and %f(1)", 'comment']])
   })
 
-  it('leaves a sprite plain where it is declared and a tag where it is used', () => {
-    expect(tokens('sprite $foo [16x16/16] {')).toEqual([])
-    expect(tokens('  sprite foo <svg/>')).toEqual([])
+  it('names a sprite a keyword and a name where it is declared and a tag where it is used', () => {
+    expect(tokens('sprite $foo [16x16/16] {')[0]).toEqual(['sprite', 'keyword'])
+    expect(tokens('sprite $foo [16x16/16] {')[1]).toEqual(['$foo', 'VariableName'])
+    expect(tokens('  sprite foo <svg/>').slice(0, 2)).toEqual([['sprite', 'keyword'], ['foo', 'VariableName']])
     expect(tokens('rectangle <$foo> as r')).toEqual([['rectangle', 'keyword'], ['<$foo>', 'tagName'], ['as', 'keyword']])
   })
 
@@ -468,6 +469,22 @@ describe('plantumlMode Creole', () => {
     expect(tokens('footer page **1**')).toEqual([['footer', 'keyword'], ['**1**', 'strong']])
   })
 
+  it('reads an inline <math> as its tags around plain text before the math profile, and the next line as ever', () => {
+    expect(tokens('note: area <math>pi r^2</math>', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<math>', 'tagName'],
+      ['</math>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    expect(label('<math>x</math> y')).toEqual([['<math>', 'tagName'], ['</math>', 'tagName'], [' y', 'labelName']])
+  })
+
+  it('takes no <math> in capitals, without its </math> on the line, or with nothing in it', () => {
+    expect(label('<MATH>x</MATH>')).toEqual([['<MATH>x</MATH>', 'labelName']])
+    expect(label('<math>x')).toEqual([['<math>x', 'labelName']])
+    expect(label('<math></math>')).toEqual([['<math></math>', 'labelName']])
+  })
+
   it('gives underline a tag of its own', () => {
     const tree = plantumlMode.parser.parse('note left\n__u__\nend note')
     const styled = []
@@ -730,6 +747,84 @@ describe('plantumlLanguage with an inner mode', () => {
       ['b: 1', 'string'],
       ['@endyaml', 'keyword'],
     ])
+  })
+
+  it('hands the middle of an inline <math> to the math mode, never past its </math>', () => {
+    const mathy = (...lines) => tokensOf(plantumlLanguage({ math: whole('atom') }), lines)
+
+    expect(mathy('note: area <math>pi r^2</math> m', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<math>', 'tagName'],
+      ['pi r^2', 'atom'],
+      ['</math>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    expect(mathy('A -> B : <math>a</math>b</math>')).toEqual([
+      ['->', 'operator'],
+      ['<math>', 'tagName'],
+      ['a', 'atom'],
+      ['</math>', 'tagName'],
+      ['b</math>', 'labelName'],
+    ])
+  })
+
+  it('hands the middle of an inline <latex> to the latex mode, never past its </latex>', () => {
+    const texy = (...lines) => tokensOf(plantumlLanguage({ latex: whole('atom') }), lines)
+
+    expect(texy('note: area <latex>\\pi r^2</latex> m', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\pi r^2', 'atom'],
+      ['</latex>', 'tagName'],
+      ['actor', 'keyword'],
+    ])
+    expect(texy('A -> B : <latex>a</latex>b</latex>')).toEqual([
+      ['->', 'operator'],
+      ['<latex>', 'tagName'],
+      ['a', 'atom'],
+      ['</latex>', 'tagName'],
+      ['b</latex>', 'labelName'],
+    ])
+  })
+
+  it('hands the lines of a <latex> block to the latex mode, to the line </latex> or the body end', () => {
+    const texy = (...lines) => tokensOf(plantumlLanguage({ latex: whole('atom') }), lines)
+
+    expect(texy('note left', '<latex>', '\\a', '', '\\b', '</latex>', 'x', 'end note', 'actor A')).toEqual([
+      ['note', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['\\b', 'atom'],
+      ['</latex>', 'tagName'],
+      ['end note', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+    expect(texy('title', '<latex>', '\\a', 'end title', 'actor A')).toEqual([
+      ['title', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['end title', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+
+  it('ends an unclosed <latex> block at the </note> of a files note and the ] of a description', () => {
+    const texy = (...lines) => tokensOf(plantumlLanguage({ latex: whole('atom') }), lines)
+
+    expect(texy('@startfiles', '<note>', '<latex>', '\\a', '</note>', 'b', '@endfiles').slice(1, -1)).toEqual([
+      ['<note>', 'tagName'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['</note>', 'tagName'],
+    ])
+    expect(texy('node web [', '<latex>', '\\a', ']', 'node db')).toEqual([
+      ['node', 'keyword'],
+      ['<latex>', 'tagName'],
+      ['\\a', 'atom'],
+      ['node', 'keyword'],
+    ])
+    // Elsewhere neither ends it: a note's LaTeX may hold a line starting `]`.
+    expect(texy('note left', '<latex>', ']', '\\b', 'end note')).toContainEqual(['\\b', 'atom'])
   })
 
   it('reads a style block inside a yaml block as style, and yaml again after it', () => {

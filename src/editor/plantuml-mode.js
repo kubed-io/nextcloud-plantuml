@@ -20,9 +20,11 @@
  *
  * `plantumlLanguage(inner)` nests other stream modes: between `@start<type>`
  * and the next line starting `@end`, a type with a mode in `inner` is read by
- * that mode, except for `'` comment and `!` preprocessor lines. A `<style>`
+ * that mode, except for `'` and `/' … '/` comments and `!` preprocessor lines. A `<style>`
  * block is a region of its own wherever it starts a line, read by
- * `inner.style` or else left plain, and a `@startcreole` block is Creole and a `@startfiles` block
+ * `inner.style` or else left plain, the middle of an inline `<math>…</math>` in Creole is read by
+ * `inner.math` or else left plain, and likewise `<latex>…</latex>` by `inner.latex` and the lines
+ * of a Creole body between a line `<latex>` and a line `</latex>`, and a `@startcreole` block is Creole and a `@startfiles` block
  * is paths and `<note>` bodies.
  */
 import { StreamLanguage } from '@codemirror/language'
@@ -99,6 +101,9 @@ const names = [
 /** PlantUML's `__underline__`, which no tag in @lezer/highlight names. */
 export const underline = Tag.define()
 
+/** A sprite's pixel rows and payloads: data, which no other tag names. */
+export const spriteData = Tag.define()
+
 /** A preprocessor variable: its own tag, so a nested mode's `variable` (YAML's `&anchor`) keeps its colour. */
 export const variable = Tag.define(tags.variableName)
 
@@ -120,6 +125,10 @@ function creole(base) {
     { regex: /\/\/.+?\/\//, token: on('emphasis') },
     { regex: /"".+?""/, token: on('monospace') },
     { regex: /__.+?__/, token: on('underline') },
+    // An inline formula, PlantUML's `<math>(.+?)</math>` on one line: its middle is the
+    // state `math`'s, see `inlineMiddle`.
+    { regex: /<math>(?=.+?<\/math>)/, token: 'tagName', push: 'math' },
+    { regex: /<latex>(?=.+?<\/latex>)/, token: 'tagName', push: 'latex' },
     // A tag's parts (H10): its name and `>` are tags, `:`, `{`, `,` and `}` punctuation, an
     // attribute's name an attribute and its value a string, or a colour.
     { regex: new RegExp(`(<(?:color|back|u|s|w))(:)(#?${colourPart})(>)`), token: ['tagName', 'punctuation', 'ColorLiteral', 'tagName'] },
@@ -163,6 +172,8 @@ const lines = (code) => [
   atLineStart(/(?:\*{1,2}|#{1,2})(?=[ \t])/.source, 'punctuation'),
   atLineStart(/\|_/.source, 'punctuation'),
   atLineStart(/<code>(?=\s*$)/.source, 'tagName', { next: code }),
+  // A formula over several lines: exactly `<latex>`, down to a line that is exactly `</latex>`.
+  { regex: /<latex>$/, sol: true, token: 'tagName', push: 'latexBlock' },
 ]
 
 /** The lines of a `<code>` block: monospace down to `</code>`, or to the end of the body. */
@@ -220,8 +231,9 @@ const base = simpleMode({
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
-    // A sprite's name where it is declared is no variable.
-    atLineStart(/sprite\s+\$?\w+/.source, null),
+    // A sprite definition (T16): its header is read by `spriteHead`, its pixel rows by `spriteRows`.
+    { regex: /([ \t]*)(sprite)(\s+)(\$?[-.%\w]+)/, sol: true, token: [null, 'keyword', null, 'VariableName'], next: 'spriteHead' },
+    atLineStart(/listsprites?\b/.source, 'keyword'),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     { regex: styledOpen, token: 'operator', next: 'arrowAttr' },
@@ -275,8 +287,42 @@ const base = simpleMode({
     { regex: /,/, token: 'punctuation' },
     ...attributes(/(?=[\s,}>]|$)/.source),
   ],
+  // The sprite states are written out again in profiles/sprites.js (a profile imports no core
+  // module): change one, change the other.
+  // The rest of a sprite's header: its size, then a `{` that ends the line and opens
+  // the rows, or a payload, or an svg. Ends with its line, see `nextLine`.
+  spriteHead: [
+    { regex: /\s+/, token: null },
+    { regex: /(\[)(\d+)(x)(\d+)(\/)(\d+)(z)?(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'number', 'keyword', 'punctuation'] },
+    { regex: /(\[)(\d+)(x)(\d+)(\/)(color)(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'keyword', 'punctuation'] },
+    { regex: /\{(?=\s*$)/, token: 'punctuation', next: 'spriteRows' },
+    { regex: /<svg(?=[\s>])/, token: 'tagName', next: 'spriteSvg' },
+    { regex: /data:[^,\s]*,/, token: 'attributeName' },
+    { regex: /\S+/, token: 'SpriteData' },
+  ],
+  // Pixel rows are data, down to the closing `}` or `end sprite`.
+  spriteRows: [
+    atLineStart(/\}/.source, 'punctuation', { next: 'start' }),
+    atLineStart(/end[ \t]*sprite\b/.source, 'keyword', { next: 'start' }),
+    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    atLineStart(/'.*/.source, 'comment'),
+    { regex: /\s+/, token: null },
+    { regex: /\S+/, token: 'SpriteData' },
+  ],
+  // An svg sprite, down to the line that ends with `</svg>`.
+  spriteSvg: [
+    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    { regex: /\s+/, token: null },
+    { regex: /<\/svg>/, token: 'tagName', next: 'start' },
+    { regex: /<\/?[\w:-]+|\/?>/, token: 'tagName' },
+    ...attributes(/(?=\s|\/?>|$)/.source),
+  ],
   label: creole('labelName'),
   text: creole(null),
+  // Read by the language's token (`inlineMiddle`, `latexBody`); simple-mode wants the state to exist.
+  math: [],
+  latex: [],
+  latexBlock: [],
   noteHead: head,
   legendHead: head,
   ...body('noteBody', /end\s*[hr]?note\b/.source),
@@ -316,7 +362,7 @@ const base = simpleMode({
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
 const tagStates = ['tagAttrs', 'tagBraces']
-const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
+const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a
@@ -325,6 +371,12 @@ const styleOpen = /^([ \t]*)(<style>)(\s*)$/
 const styleOneLine = /^([ \t]*)(<style>)(.*)<\/style>\s*$/
 const styleImport = /^([ \t]*)(<style)(\s+)([\w-]+)(\s*)(=)(\s*)([^>]*?)(\s*)(>)(\s*)$/
 const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
+
+// A `<latex>` block's last line, and the lines that end a Creole body with it unclosed.
+const latexClose = /^<\/latex>$/
+const bodyEnd = /^[ \t]*(?:end\s*(?:[hr]?note|legend|title|header|footer)\b|@end)/
+// A files note ends with its `</note>` line, a description with the line starting `]`.
+const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>/, descBody: /^[ \t]*\]/, descBodyCode: /^[ \t]*\]/ }
 
 /**
  * Whether `pos` is in a style block's body, read by the line forms above: a
@@ -378,6 +430,8 @@ function emit(stream, state, parts) {
 export function plantumlLanguage(inner = {}) {
   const modeOf = (block) => inner[block.type]
   const style = inner.style
+  const math = inner.math
+  const latex = inner.latex
   const copyIn = (mode, state) => (mode?.copyState ? mode.copyState(state) : copyOf(state))
 
   /**
@@ -419,6 +473,59 @@ export function plantumlLanguage(inner = {}) {
     }
   }
 
+  /**
+   * The middle of an inline `<math>…</math>` or `<latex>…</latex>` (`key`), up to its first
+   * closer (`until`), read by that mode, kept from reading past it, or else plain; then the
+   * closer, back in the Creole it was in.
+   */
+  function inlineMiddle(stream, state, key, mode) {
+    const closer = `</${key}>`
+    state[key] ??= { state: mode?.startState ? mode.startState(stream.indentUnit) : {}, until: stream.string.indexOf(closer, stream.pos + 1) }
+    const { until } = state[key]
+    if (stream.pos >= until) {
+      state[key] = null
+      state.state = state.stack.pop()
+      stream.pos = until + closer.length
+      return 'tagName'
+    }
+    if (!mode) {
+      stream.pos = until
+      return null
+    }
+    const line = stream.string
+    stream.string = line.slice(0, until)
+    try {
+      return mode.token(stream, state[key].state)
+    } finally {
+      stream.string = line
+    }
+  }
+
+  /**
+   * A line of a `<latex>` block, read by the latex mode or else plain, to a line that is
+   * `</latex>`; a Creole body's own end leaves it unclosed, to be read as ever.
+   */
+  function latexBody(stream, state) {
+    if (stream.sol()) {
+      if (latexClose.test(stream.string)) {
+        state.latex = null
+        state.state = state.stack.pop()
+        return emit(stream, state, [['</latex>', 'tagName']])
+      }
+      if (bodyEnd.test(stream.string) || bodyEnds[state.stack[state.stack.length - 1]]?.test(stream.string)) {
+        state.latex = null
+        state.state = state.stack.pop()
+        return base.token(stream, state)
+      }
+    }
+    state.latex ??= { state: latex?.startState ? latex.startState(stream.indentUnit) : {}, until: null }
+    if (!latex) {
+      stream.skipToEnd()
+      return null
+    }
+    return latex.token(stream, state.latex.state)
+  }
+
   /** A line of a style block. PlantUML reads a block to its diagram's end at most. */
   function styleBody(stream, state) {
     if (state.style.until !== null) return styleMiddle(stream, state)
@@ -439,20 +546,48 @@ export function plantumlLanguage(inner = {}) {
     return null
   }
 
+  /**
+   * The block's next token, from its mode. After a comment that closed mid-line
+   * (`/' a '/ rest`) the mode reads the rest as a line of its own, as PlantUML
+   * does with the comment gone, so nothing of its last line carries over.
+   */
+  function innerToken(stream, block) {
+    const mode = modeOf(block)
+    block.from ??= stream.pos
+    const from = block.from
+    if (!from) return mode.token(stream, block.state)
+    const line = stream.string
+    stream.string = line.slice(from)
+    stream.pos -= from
+    stream.start -= from
+    try {
+      return mode.token(stream, block.state)
+    } finally {
+      stream.string = line
+      stream.pos += from
+      stream.start += from
+    }
+  }
+
   return StreamLanguage.define({
     ...base,
-    startState: () => ({ ...base.startState(), inner: null, style: null }),
+    startState: () => ({ ...base.startState(), inner: null, style: null, math: null, latex: null }),
     copyState(state) {
       const copy = base.copyState(state)
       const block = state.inner
-      copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state) }
+      copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state), from: block.from }
       copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until }
+      copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
+      copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
       return copy
     },
     token(stream, state) {
       // A rule matched at the start of a line hands back its groups one at a
       // time (`pending`), all still at the start: they belong to the state it set.
       if (state.pending) return base.token(stream, state)
+      if (state.state === 'math') return inlineMiddle(stream, state, 'math', math)
+      if (state.state === 'latex') return inlineMiddle(stream, state, 'latex', latex)
+      if (state.state === 'latexBlock') return latexBody(stream, state)
       // A `!` line is PlantUML's to its end, in a nested mode or a style block too.
       if (state.state === 'preprocessor') {
         if (!stream.sol()) return base.token(stream, state)
@@ -465,17 +600,24 @@ export function plantumlLanguage(inner = {}) {
       }
       if (state.inner) {
         if (stream.sol()) {
+          state.inner.from = null
+          // The block ends here, a `/' … '/` comment left open with it.
           const end = stream.match(/^([ \t]*)(@end\w*)/, false)
           if (end) {
             state.inner = null
+            state.state = 'start'
             return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
           }
+        }
+        // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
+        if (state.state === 'blockComment') return base.token(stream, state)
+        if (stream.sol()) {
           const tags = styleStart(stream, state)
           if (tags !== undefined) return tags
           // Comment and preprocessor lines are PlantUML's in any diagram.
-          if (stream.match(/^[ \t]*['!]/, false)) return base.token(stream, state)
+          if (stream.match(/^[ \t]*(?:['!]|\/')/, false)) return base.token(stream, state)
         }
-        return modeOf(state.inner).token(stream, state.inner.state)
+        return innerToken(stream, state.inner)
       }
       if (stream.sol() && tagStates.includes(state.state)) state.state = state.stack.pop()
       if (stream.sol() && Object.hasOwn(nextLine, state.state)) {
@@ -507,7 +649,7 @@ export function plantumlLanguage(inner = {}) {
     // StreamLanguage names a node after its token, and takes the highlight from
     // here for a name @lezer/highlight has no tag for. The legacy names an inner
     // mode emits (`atom`, `number`, `property`, `def`, `variable-2`, …) map already.
-    tokenTable: { ColorLiteral: tags.color, StyleNumber: tags.string, VariableName: variable, FunctionName: tags.function(tags.variableName), underline },
+    tokenTable: { SpriteData: spriteData, ColorLiteral: tags.color, StyleNumber: tags.string, VariableName: variable, FunctionName: tags.function(tags.variableName), underline },
   })
 }
 

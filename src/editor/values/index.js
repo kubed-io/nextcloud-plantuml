@@ -14,14 +14,18 @@
  * @property {() => string[] | Promise<string[]>} [options] a list's values
  * @property {number} [min] the least a number steps to
  * @property {string} [close] what a pick adds after the label, a tag's `>` still to come
+ * @property {boolean} [colours] the list is the server's named colours, each shown with its swatch (W5)
  *
  * @typedef {object} ValueEntry
  * @property {(lineText: string, state: import('@codemirror/state').EditorState, lineFrom: number) => Value[]} match
  *   the values on a line, at document positions
  */
-import { Facet } from '@codemirror/state'
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
+import { Facet, StateEffect } from '@codemirror/state'
 import { themeValue } from '../completion/themes.js'
-import { serverList, serverListNow } from '../completion/server-list.js'
+import { serverColors, serverColorsNow, serverList, serverListNow } from '../completion/server-list.js'
+import { colourOf } from '../swatches.js'
+import { inStyleBody } from '../plantuml-mode.js'
 
 /** The loaded profiles' entries, read beside `coreValues`. */
 export const valuesFacet = Facet.define({ combine: (values) => values.flat() })
@@ -153,8 +157,71 @@ const fontFamilyValue = {
   },
 }
 
+// A colour is the mode's `ColorLiteral` (so the swatch's, C6): a hex or a name, each part of a
+// gradient its own. The `#` stays outside the range where the place needs it (`#gold` after an
+// element); where the name is written bare (a style block, after `color=`) it is inside, so a
+// pick replaces it. None once the server is known to name no colours.
+const BARE_AFTER = /\bcolor\s*=\s*["']?$/i
+
+/** Sent when the server's colours have arrived, so the chooser's pencils are drawn (or not). */
+export const coloursKnown = StateEffect.define()
+
+/** The server's colours being asked for because a colour was found, or null. */
+let asking = null
+
+/** @return {Promise<unknown>|null} what a chooser waits on to draw a colour's pencil */
+export const coloursPending = () => asking
+
+/** `colourOf`'s names for the colours the server answered, kept for as long as the answer is. */
+const namesOf = new WeakMap()
+const lowerNames = (known) => {
+  if (!namesOf.has(known)) namesOf.set(known, new Map(Object.entries(known).map(([name, hex]) => [name.toLowerCase(), hex])))
+  return namesOf.get(known)
+}
+
+// A pencil goes where a swatch shows (W5): a name the server has no colour for (an ArchiMate
+// layer, `#Business`) has none.
+const colourValue = {
+  match(lineText, state, lineFrom) {
+    // No pencil until the server has named some colours; asking is once (cached).
+    const known = serverColorsNow()
+    if (known && Object.keys(known).length === 0) {
+      return []
+    }
+    const line = state.doc.lineAt(lineFrom)
+    // A multi-line block's answer is one for the whole line; a one-line block's depends on the column.
+    const oneLine = /<style>.*<\/style>/.test(line.text)
+    let whole
+    const inStyle = (pos) => (oneLine ? inStyleBody(state, pos) : (whole ??= inStyleBody(state, line.from)))
+    const tree = ensureSyntaxTree(state, line.to, 25) ?? syntaxTree(state)
+    const found = []
+    tree.iterate({
+      from: line.from,
+      to: line.to,
+      enter(node) {
+        if (node.name !== 'ColorLiteral' || node.from < line.from || node.to > line.to) return
+        if (!known) {
+          asking ??= serverColors().then(() => { asking = null })
+          return
+        }
+        if (!colourOf(state.sliceDoc(node.from, node.to), lowerNames(known))) return
+        const hash = state.sliceDoc(node.from, node.from + 1) === '#'
+        const bare = inStyle(node.from) || BARE_AFTER.test(state.sliceDoc(line.from, node.from))
+        found.push({
+          from: hash && !bare ? node.from + 1 : node.from,
+          to: node.to,
+          kind: 'list',
+          colours: true,
+          options: async () => Object.keys(await serverColors()),
+        })
+      },
+    })
+    return found
+  },
+}
+
 /** @type {ValueEntry[]} */
-export const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue, valignValue, tagNumberValue, spaceValue, fontFamilyValue]
+export const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue, valignValue, tagNumberValue, spaceValue, fontFamilyValue, colourValue]
 
 /**
  * The values on line `number`, in the order they sit.

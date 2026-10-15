@@ -58,6 +58,16 @@ export function serverColors() {
 }
 
 /**
+ * The colours `serverColors()` resolved to, or undefined while it is pending
+ * (or was never asked): for a caller that cannot wait, such as a widget.
+ *
+ * @return {Record<string, string|null>|undefined}
+ */
+export function serverColorsNow() {
+  return resolved.get('colors')
+}
+
+/**
  * The server's element types (`help types`) and keywords (`help keywords`),
  * strings only; both empty while it does not answer (X11).
  *

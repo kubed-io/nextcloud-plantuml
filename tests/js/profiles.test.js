@@ -27,6 +27,11 @@ afterEach(() => {
 })
 
 describe('the profiles a file needs', () => {
+  it('are sprites for a @startsprites block, and none for a sprite defined in a uml block (the core reads it)', () => {
+    expect(neededFor('@startsprites\nsprite $a [8x4/16] {\nFF\n}\n@endsprites\n')).toEqual(new Set(['sprites']))
+    expect(neededFor('@startuml\nsprite $a [8x4/16] {\nFF\n}\nA -> B\n@enduml\n')).toEqual(new Set())
+  })
+
   it('are its block types that have a profile', () => {
     const text = '@startuml flow\nA -> B\n@enduml\n@startyaml config\na: 1\n@endyaml\n'
 
@@ -94,6 +99,10 @@ describe('loadProfile', () => {
   })
   const loadProfile = (type) => profiles.loadProfile(type)
   const resetProfiles = () => profiles.resetProfiles()
+
+  it('loads the sprites profile', async () => {
+    expect(await loadProfile('sprites')).toMatchObject({ type: 'sprites', completions: [], lints: [], values: [] })
+  })
 
   it('imports a profile once for two callers', async () => {
     const yaml = vi.spyOn(profiles.PROFILES, 'yaml')

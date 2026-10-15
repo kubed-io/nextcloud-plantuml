@@ -99,6 +99,9 @@ const names = [
 /** PlantUML's `__underline__`, which no tag in @lezer/highlight names. */
 export const underline = Tag.define()
 
+/** A sprite's pixel rows and payloads: data, which no other tag names. */
+export const spriteData = Tag.define()
+
 /** A preprocessor variable: its own tag, so a nested mode's `variable` (YAML's `&anchor`) keeps its colour. */
 export const variable = Tag.define(tags.variableName)
 
@@ -220,8 +223,9 @@ const base = simpleMode({
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
-    // A sprite's name where it is declared is no variable.
-    atLineStart(/sprite\s+\$?\w+/.source, null),
+    // A sprite definition (T16): its header is read by `spriteHead`, its pixel rows by `spriteRows`.
+    { regex: /([ \t]*)(sprite)(\s+)(\$?[-.%\w]+)/, sol: true, token: [null, 'keyword', null, 'VariableName'], next: 'spriteHead' },
+    atLineStart(/listsprites?\b/.source, 'keyword'),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     { regex: styledOpen, token: 'operator', next: 'arrowAttr' },
@@ -275,6 +279,34 @@ const base = simpleMode({
     { regex: /,/, token: 'punctuation' },
     ...attributes(/(?=[\s,}>]|$)/.source),
   ],
+  // The rest of a sprite's header: its size, then a `{` that ends the line and opens
+  // the rows, or a payload, or an svg. Ends with its line, see `nextLine`.
+  spriteHead: [
+    { regex: /\s+/, token: null },
+    { regex: /(\[)(\d+)(x)(\d+)(\/)(\d+)(z)?(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'number', 'keyword', 'punctuation'] },
+    { regex: /(\[)(\d+)(x)(\d+)(\/)(color)(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'keyword', 'punctuation'] },
+    { regex: /\{(?=\s*$)/, token: 'punctuation', next: 'spriteRows' },
+    { regex: /<svg(?=[\s>])/, token: 'tagName', next: 'spriteSvg' },
+    { regex: /data:[^,\s]*,/, token: 'attributeName' },
+    { regex: /\S+/, token: 'SpriteData' },
+  ],
+  // Pixel rows are data, down to the closing `}` or `end sprite`.
+  spriteRows: [
+    atLineStart(/\}/.source, 'punctuation', { next: 'start' }),
+    atLineStart(/end[ \t]*sprite\b/.source, 'keyword', { next: 'start' }),
+    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    atLineStart(/'.*/.source, 'comment'),
+    { regex: /\s+/, token: null },
+    { regex: /\S+/, token: 'SpriteData' },
+  ],
+  // An svg sprite, down to the line that ends with `</svg>`.
+  spriteSvg: [
+    atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+    { regex: /\s+/, token: null },
+    { regex: /<\/svg>/, token: 'tagName', next: 'start' },
+    { regex: /<\/?[\w:-]+|\/?>/, token: 'tagName' },
+    ...attributes(/(?=\s|\/?>|$)/.source),
+  ],
   label: creole('labelName'),
   text: creole(null),
   noteHead: head,
@@ -316,7 +348,7 @@ const base = simpleMode({
 // Without this a label or a styled link left open would run on into it.
 // A tag's attributes end with their line too; the state they were pushed from is popped.
 const tagStates = ['tagAttrs', 'tagBraces']
-const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
+const nextLine = { afterLink: 'start', arrowAttr: 'start', noteLine: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody' }
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a
@@ -507,7 +539,7 @@ export function plantumlLanguage(inner = {}) {
     // StreamLanguage names a node after its token, and takes the highlight from
     // here for a name @lezer/highlight has no tag for. The legacy names an inner
     // mode emits (`atom`, `number`, `property`, `def`, `variable-2`, …) map already.
-    tokenTable: { ColorLiteral: tags.color, StyleNumber: tags.string, VariableName: variable, FunctionName: tags.function(tags.variableName), underline },
+    tokenTable: { SpriteData: spriteData, ColorLiteral: tags.color, StyleNumber: tags.string, VariableName: variable, FunctionName: tags.function(tags.variableName), underline },
   })
 }
 

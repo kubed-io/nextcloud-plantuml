@@ -195,9 +195,10 @@ describe('plantumlMode preprocessor', () => {
     expect(tokens("' $x and %f(1)")).toEqual([["' $x and %f(1)", 'comment']])
   })
 
-  it('leaves a sprite plain where it is declared and a tag where it is used', () => {
-    expect(tokens('sprite $foo [16x16/16] {')).toEqual([])
-    expect(tokens('  sprite foo <svg/>')).toEqual([])
+  it('names a sprite a keyword and a name where it is declared and a tag where it is used', () => {
+    expect(tokens('sprite $foo [16x16/16] {')[0]).toEqual(['sprite', 'keyword'])
+    expect(tokens('sprite $foo [16x16/16] {')[1]).toEqual(['$foo', 'VariableName'])
+    expect(tokens('  sprite foo <svg/>').slice(0, 2)).toEqual([['sprite', 'keyword'], ['foo', 'VariableName']])
     expect(tokens('rectangle <$foo> as r')).toEqual([['rectangle', 'keyword'], ['<$foo>', 'tagName'], ['as', 'keyword']])
   })
 

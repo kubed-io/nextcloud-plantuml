@@ -39,6 +39,7 @@ export const PROFILES = {
   style: () => import('./style.js'),
   board: () => import('./board.js'),
   git: () => import('./git.js'),
+  sprites: () => import('./sprites.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

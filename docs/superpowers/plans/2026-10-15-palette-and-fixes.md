@@ -20,8 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - Colours (H11, X7), each a mix of Nextcloud variables, never a literal (H1; `tests/js/theme.test.js` forbids hex, `rgb()`, `hsl()`, `white`, `black`):
   - moss = `color-mix(in srgb, color-mix(in srgb, var(--color-element-success) 55%, var(--color-element-warning)) 72%, var(--color-main-text))` (`#4b700c` light, `#aec455` dark)
   - slate = `color-mix(in srgb, var(--color-primary-element) 55%, var(--color-main-text))` (`#0f4866`, `#6abaef`)
-  - ochre = `color-mix(in srgb, var(--color-favorite) 70%, var(--color-main-text))` (`#7c5a0a`, `#f9e247`)
-- Style block: selectors moss; property names slate; `.class`/`:depth(n)` the attributes' orange (unchanged); every value, numbers included, the string green; colours keep their swatch.
+  - ochre (muted) = `color-mix(in srgb, var(--color-favorite) 55%, var(--color-text-maxcontrast))` (`#8a6f30` light, `#d1bf45` dark)
+  - attribute orange = `color-mix(in srgb, color-mix(in srgb, var(--color-element-warning) 75%, var(--color-element-error)) 75%, var(--color-main-text))` (`#9a4d08`, `#fabc4a`) for `tags.attributeName` and `tags.className` (tag attributes, link attributes, style `.class`/`:depth`); `tags.operator` (arrows) keeps `towardText('--color-element-warning')`
+- Style block: selectors moss; property names slate; `.class`/`:depth(n)` the attribute orange (the new mix above); every value, numbers included, the string green; colours keep their swatch.
 - Preprocessor: directive word bold `--color-primary-element` (as now); `$variables` slate on every line; a procedure/function name declared or called (`$ask(`) and `%builtins(` ochre; strings and numbers as elsewhere; `<…>` after an include a link.
 - Tags stay maroon (H9); HTML-like tag attributes stay orange (H10).
 - The editor entry imports no chunk statically. The maintainer is **Dr K**; SPDX `kubed-io`; no real names. One PR, branch `palette-and-fixes`; commit after every task; trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
@@ -51,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - [ ] **Step 1: Failing tests:** in a `<style>` block, `node`, `arrow`, `mindmapDiagram` take a token styled with moss (assert the computed spec colour string via `highlightStyle`, as theme.test.js does for maroon), `BackgroundColor` slate, `14` and `bold` the string green, `#FFF3B0` still `ColorLiteral` (swatch), `.server` and `:depth(1)` orange; HTML-like tags (`<style>`, `<b>`) still maroon; Review Focus 2: a YAML block's keys and values keep today's colours (snapshot their style classes before the change).
 - [ ] **Step 2:** run → FAIL.
-- [ ] **Step 3:** the style mode emits a selector token of its own (e.g. `typeName` → `tags.typeName`, or a `tokenTable` entry) instead of `tagName`, and its numbers as the string green's token; `theme.js` gains moss and slate as named mixes (next to `towardText`) — selectors moss, `tags.propertyName` slate (split it out of the blue row; keep `number` and `definition(variableName)` as they are unless the tests show they are only used by the style mode).
+- [ ] **Step 3:** the style mode emits a selector token of its own (e.g. `typeName` → `tags.typeName`, or a `tokenTable` entry) instead of `tagName`, and its numbers as the string green's token; `theme.js` gains moss, slate and the attribute orange as named mixes (next to `towardText`) — selectors moss, `tags.propertyName` slate (split it out of the blue row; keep `number` and `definition(variableName)` as they are unless the tests show they are only used by the style mode).
 - [ ] **Step 4:** PASS; `npm test`; lint. **Step 5:** commit `feat(editor): style blocks in moss and slate`.
 
 ### Task 3: Preprocessor colours (X7)

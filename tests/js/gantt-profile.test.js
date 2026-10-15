@@ -14,21 +14,31 @@ import { serverColors } from '../../src/editor/completion/server-list.js'
 vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
 vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ colors: { lavender: '#E6E6FA' } }), { status: 200 }))
 import ganttProfile, { project as projectProfile } from '../../src/editor/profiles/gantt.js'
+import styleProfile from '../../src/editor/profiles/style.js'
+import yamlProfile from '../../src/editor/profiles/yaml.js'
 
 const gantt = ganttProfile({ scan })
 const project = projectProfile({ scan })
-const language = plantumlLanguage({ gantt: gantt.mode, project: project.mode })
+const language = plantumlLanguage({
+  gantt: gantt.mode,
+  project: project.mode,
+  yaml: yamlProfile({ scan }).mode,
+  style: styleProfile({ scan, t: (app, text) => text }).mode,
+})
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */
-function tokens(type, ...lines) {
-  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
+const tokens = (type, ...lines) => readDoc([`@start${type}`, ...lines, `@end${type}`]).slice(1, -1)
+
+/** [text, token class] for every highlighted span of `lines`. */
+function readDoc(lines) {
+  const doc = Text.of(lines)
   const out = []
   language.parser.parse(doc.toString()).iterate({
     enter(node) {
       if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
     },
   })
-  return out.slice(1, -1)
+  return out
 }
 
 describe('the gantt and project profiles', () => {
@@ -54,6 +64,7 @@ describe('the gantt and project profiles', () => {
 })
 
 describe.each(['gantt', 'project'])('a @start%s block', (type) => {
+  const readAll = (...lines) => readDoc(lines)
   const read = (...lines) => tokens(type, ...lines)
 
   it('names the project start a keyword and its date a number', () => {
@@ -166,6 +177,26 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
       ["/' two", 'comment'], ['[A] lasts', 'comment'], ["'/", 'comment'],
       ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'],
     ])
+  })
+
+  it('reads the rest of a line after a comment as a line of its own', () => {
+    expect(read("title My plan", "/' x '/ [A] lasts 1 day")).toEqual([
+      ['title', 'keyword'], ["/' x '/", 'comment'], ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'],
+    ])
+    expect(read("title My plan", "/' a", "x '/ [A] lasts 1 day")).toEqual([
+      ['title', 'keyword'], ["/' a", 'comment'], ["x '/", 'comment'], ['[A]', 'typeName'], ['lasts', 'keyword'], ['1 day', 'number'],
+    ])
+  })
+
+  it('ends a comment left open at its block\'s end, and reads the next block as its own', () => {
+    expect(readAll(`@start${type}`, "/' open", '[A] lasts 1 day', `@end${type}`, '@startyaml', 'key: v', '@endyaml')).toEqual([
+      [`@start${type}`, 'keyword'], ["/' open", 'comment'], ['[A] lasts 1 day', 'comment'], [`@end${type}`, 'keyword'],
+      ['@startyaml', 'keyword'], ['key', 'atom'], [': ', 'meta'], ['@endyaml', 'keyword'],
+    ])
+    const style = readAll(`@start${type}`, "/' open", `@end${type}`, '<style>', 'node { }', '</style>')
+    expect(style.slice(0, 4)).toEqual([[`@start${type}`, 'keyword'], ["/' open", 'comment'], [`@end${type}`, 'keyword'], ['<style>', 'tagName']])
+    expect(style).toContainEqual(['node', 'typeName'])
+    expect(style.at(-1)).toEqual(['</style>', 'tagName'])
   })
 
   it('reads the preprocessor as everywhere (X7)', () => {

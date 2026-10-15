@@ -473,13 +473,36 @@ export function plantumlLanguage(inner = {}) {
     return null
   }
 
+  /**
+   * The block's next token, from its mode. After a comment that closed mid-line
+   * (`/' a '/ rest`) the mode reads the rest as a line of its own, as PlantUML
+   * does with the comment gone, so nothing of its last line carries over.
+   */
+  function innerToken(stream, block) {
+    const mode = modeOf(block)
+    block.from ??= stream.pos
+    const from = block.from
+    if (!from) return mode.token(stream, block.state)
+    const line = stream.string
+    stream.string = line.slice(from)
+    stream.pos -= from
+    stream.start -= from
+    try {
+      return mode.token(stream, block.state)
+    } finally {
+      stream.string = line
+      stream.pos += from
+      stream.start += from
+    }
+  }
+
   return StreamLanguage.define({
     ...base,
     startState: () => ({ ...base.startState(), inner: null, style: null }),
     copyState(state) {
       const copy = base.copyState(state)
       const block = state.inner
-      copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state) }
+      copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state), from: block.from }
       copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until }
       return copy
     },
@@ -498,20 +521,25 @@ export function plantumlLanguage(inner = {}) {
         if (state.style || stream.pos > stream.start) return token
       }
       if (state.inner) {
-        // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
-        if (state.state === 'blockComment') return base.token(stream, state)
         if (stream.sol()) {
+          state.inner.from = null
+          // The block ends here, a `/' … '/` comment left open with it.
           const end = stream.match(/^([ \t]*)(@end\w*)/, false)
           if (end) {
             state.inner = null
+            state.state = 'start'
             return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
           }
+        }
+        // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
+        if (state.state === 'blockComment') return base.token(stream, state)
+        if (stream.sol()) {
           const tags = styleStart(stream, state)
           if (tags !== undefined) return tags
           // Comment and preprocessor lines are PlantUML's in any diagram.
           if (stream.match(/^[ \t]*(?:['!]|\/')/, false)) return base.token(stream, state)
         }
-        return modeOf(state.inner).token(stream, state.inner.state)
+        return innerToken(stream, state.inner)
       }
       if (stream.sol() && tagStates.includes(state.state)) state.state = state.stack.pop()
       if (stream.sol() && Object.hasOwn(nextLine, state.state)) {

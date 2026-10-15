@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 **Tech Stack:** CodeMirror 6 (`StreamLanguage`, `WidgetType`, `Decoration`, `@codemirror/autocomplete`, `@codemirror/lint`), vitest + jsdom, PHP 8.1+ / PHPUnit 12 with OCP stubs, Node 24 for the generator.
 
-**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` (X1 style part, X8, X9, X10 style part, W1–W3, R1–R6) and the two render route rows of `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`.
+**Spec:** `docs/superpowers/specs/2026-10-14-editor-design.md` (X1 style part, X4's `%`, X8, X9, X10 style part, X13–X15, W1–W3, R1–R7) and the two render route rows of `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`.
 
 ## Global Constraints
 
@@ -84,17 +84,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] **Step 4:** `npx vitest run`, `npm run lint`, `npm run build` — PASS.
 - [ ] **Step 5:** Commit `feat(editor): choosers and steppers on the cursor's line (W1–W3)`.
 
+### Task 4b: Named colours and colour forms (X14, X15)
+
+**Files:** Modify `lib/Service/RenderService.php` (`colors()`: names from `help colors` rendered as text, hex from the `colors` SVG's rect-then-text pairs; cached a day as `themes()`), `lib/Controller/RenderController.php` + `appinfo/routes.php` (`GET /colors`), `src/editor/plantuml-mode.js` (X15 forms; a named colour after `#` in a colour position a `ColorLiteral`), `src/editor.js` / the colour extension wiring (swatches for named colours from the route's map; a pick writes `#rrggbb`); Create `src/editor/completion/colors.js` (core), `src/editor/completion/server-list.js` reuse for the route; Test PHP `RenderServiceTest`/`RenderControllerTest` (fixtures: a `help colors` text and a `colors` SVG under `tests/unit/fixtures/`), JS mode/completion/editor tests.
+
+- [ ] Tests first: the route returns name→hex (AliceBlue → #F0F8FF; ArchiMate `APPLICATION` → #C2F0FF); after `#` in `actor Bob #`, `node x #Al`, `<color:#`, `skinparam ArrowColor #`, `BackGroundColor #` inside a style block — names offered with swatches, not after `#` at the start of a line (`#highlight`) nor in `#line.dashed` style parts; `#Red/Yellow`, `#FF0000/FFFF00`, `#Red|Yellow`, `#?black:white`, `is colored in White/Red` tokenise as two `ColorLiteral`s each; a named colour gets a swatch.
+- [ ] Implement; all suites, psalm, cs, lint, build. Commit `feat(editor): named colours from the server, gradients and auto colours (X14, X15)`.
+
+### Task 4c: `%` built-ins and helper commands (X4's `%`, X13)
+
+**Files:** Modify `scripts/vocabulary.mjs` (also writes `src/editor/data/builtins.json`: every `TFunctionSignature("%name", n)` under `tim/builtin/` at `v1.2026.8`, with description and example from that folder's `readme.md` when it has a row), `src/editor/completion/keywords.js` (X13 helpers on a line alone in a uml block); Create `src/editor/completion/builtins.js` (core source; loads `builtins.json` with a dynamic `import()` the first time `%` is typed, so it is a chunk of its own); Test `tests/js/vocabulary.test.js`, `tests/js/completion.test.js`.
+
+- [ ] Tests first: `builtins.json` holds `%date`, `%lighten`, `%get_all_stdlib`, `%strlen` with descriptions, and functions without a readme row (e.g. `%get_current_theme`) with an empty description; after `%` anywhere (not in a `'` comment) the list is offered, each inserted as `%name()` with the cursor between the parentheses and the description as the detail; X13: on an empty line in a uml block, `col` offers `colors`, `help t` offers `help themes`/`help types`; not inside other block types.
+- [ ] Implement; suites, lint, build + guard (the builtins chunk is imported dynamically, never statically). Commit `feat(editor): built-in functions after % and PlantUML's helper commands (X4, X13)`.
+
 ### Task 5: IncludeResolver
 
 **Files:** Create `lib/Service/IncludeResolver.php`, `lib/Service/Expanded.php`; Test `tests/unit/IncludeResolverTest.php` (OCP `Folder`/`File` mocks as the other tests do).
 
 **Interfaces:** Produces `IncludeResolver::expand(string $source, Folder $base, Folder $root): Expanded` with `Expanded { string $source; list<int> $lineMap /* 0-based sent line → 0-based source line */; list<array{line:int, path:string, inner:int|null}> $origins /* sent lines that came from a file */; list<array{line:int, message:string}> $mistakes; list<string> $etags }`, and `Expanded::mapError(int $sentLine, string $message): array{line:int, message:string}`.
 
-- [ ] **Step 1:** Tests (each a fake folder tree): `!include foo.puml`, `./foo.puml`, `"foo.puml"`, `../shared/foo.puml`, `/x.puml` resolve; a file with `@startuml … @enduml` gives its inner lines; `!include f.puml!1` and `!include f.puml!ID` pick blocks; second plain `!include` of the same file is dropped; `!include_many` repeats; `!include_once` twice → mistake "f.puml is already included"; `!includesub f.puml!BASIC` collects both BASIC sections; `<style file=./a.css>` → `<style>`, lines, `</style>`; nested include resolves against its own folder; `<C4/C4_Container>` and `https://…` untouched; missing → line kept + mistake "Cannot find nope.puml"; **climb-out** (`../../../../x.puml`, `/../x.puml`) → "Cannot find …" and no read outside `$root` (assert the mock is never asked); **cycle** A↔B and self-include → stops with a mistake; depth 9 → mistake; 65 files → mistake; > 1 MB → mistake; **line map**: an error on sent line after a 10-line include maps to its source line; an error inside the include maps to the include line with "In foo.puml, line 3: <msg>"; `etags` lists each included file's ETag.
+- [ ] **Step 1:** Tests (each a fake folder tree): `!include foo.puml`, `./foo.puml`, `"foo.puml"`, `../shared/foo.puml`, `/x.puml` resolve; a file with `@startuml … @enduml` gives its inner lines; `!include f.puml!1` and `!include f.puml!ID` pick blocks; second plain `!include` of the same file is dropped; `!include_many` repeats; `!include_once` twice → mistake "f.puml is already included"; `!includesub f.puml!BASIC` collects both BASIC sections; `<style file=./a.css>` → `<style>`, lines, `</style>`; nested include resolves against its own folder; `<C4/C4_Container>` and `https://…` untouched; missing → line kept + mistake "Cannot find nope.puml"; **climb-out** (`../../../../x.puml`, `/../x.puml`) → "Cannot find …" and no read outside `$root` (assert the mock is never asked); **cycle** A↔B and self-include → stops with a mistake; depth 9 → mistake; 65 files → mistake; > 1 MB → mistake; R7: `!import lib.zip` (a real zip built in the test) then `!include inner.puml` reads from the zip before the folder, the `!import` line is not sent, an unreadable zip → "Cannot read lib.zip", a zip whose entries exceed 1 MB uncompressed stops at the limit; **line map**: an error on sent line after a 10-line include maps to its source line; an error inside the include maps to the include line with "In foo.puml, line 3: <msg>"; `etags` lists each included file's ETag.
 - [ ] **Step 2:** `composer test:unit -- --filter IncludeResolver` — FAIL.
 - [ ] **Step 3:** Implement.
 - [ ] **Step 4:** PHP unit suite, `composer psalm`, `composer cs:check`, `php -l` — PASS.
-- [ ] **Step 5:** Commit `feat(render): relative includes resolve in the user's files (R1–R3)`.
+- [ ] **Step 5:** Commit `feat(render): relative includes and imported libraries resolve in the user's files (R1–R3, R7)`.
 
 ### Task 6: Routes and the client resolve
 

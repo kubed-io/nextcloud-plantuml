@@ -20,7 +20,8 @@ final class Expanded {
 	 * @param list<int> $lineMap sent line => the diagram's own line
 	 * @param list<array{line: int, path: string, inner: int|null}> $origins sent lines that came from a file
 	 * @param list<array{line: int, message: string}> $mistakes on the diagram's own lines
-	 * @param list<string> $etags every file read in, in include order
+	 * @param list<string> $etags every file found, read in or not, in include order
+	 * @param list<string> $missing the include paths, as written, that led to no file or an unreadable one
 	 */
 	public function __construct(
 		public readonly string $source,
@@ -28,6 +29,7 @@ final class Expanded {
 		public readonly array $origins,
 		public readonly array $mistakes,
 		public readonly array $etags,
+		public readonly array $missing = [],
 	) {
 	}
 

@@ -23,6 +23,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\Files\File;
 use OCP\Files\Folder;
+use OCP\Files\InvalidPathException;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
@@ -39,12 +40,15 @@ use OCP\IUserSession;
  * text can upload it as a .puml, and it keeps the CSRF check. Both read the
  * files a diagram includes from the caller's own folder (POST only when given
  * the file's path), and pass on PlantUML's error headers, moved to the
- * diagram's own line, which the editor turns into an underlined line.
+ * diagram's own line, which the editor turns into an underlined line. The
+ * message goes percent-encoded past ASCII (and its `%`), as a header must be.
  */
 final class RenderController extends Controller {
 	public const MIMETYPE = 'text/x-plantuml';
 	/** As RenderService cuts the server's line: an included path makes ours longer. */
 	private const ERROR_MAX = 200;
+	/** A line the resolver would act on; without one the file goes as it is. */
+	private const NAMES_A_FILE = '/^\s*(?:!(?:include|import)|<style\s+[\w-]+\s*=)/mi';
 
 	public function __construct(
 		string $appName,
@@ -60,7 +64,7 @@ final class RenderController extends Controller {
 	/**
 	 * No CSRF token on an `<img src>`; the path rule is what keeps this safe.
 	 * The files the diagram includes are read before the ETag is compared, since
-	 * the ETag covers them.
+	 * the ETag covers them; a diagram that names none keeps its file's ETag.
 	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
@@ -73,13 +77,14 @@ final class RenderController extends Controller {
 			return new Response(Http::STATUS_NOT_FOUND);
 		}
 
-		$expanded = $this->resolver->expand($node->getContent(), $node->getParent(), $userFolder);
-		$etag = self::etag($node->getEtag(), $expanded);
+		$content = $node->getContent();
+		$expanded = preg_match(self::NAMES_A_FILE, $content) === 1 ? $this->resolver->expand($content, $node->getParent(), $userFolder, $node) : null;
+		$etag = $expanded === null ? $node->getEtag() : self::etag($node->getEtag(), $expanded);
 		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $etag) {
 			return $this->revalidated(new Response(Http::STATUS_NOT_MODIFIED), $etag);
 		}
 		try {
-			return $this->revalidated($this->image($this->render->render($expanded->source), $expanded), $etag);
+			return $this->revalidated($this->image($this->render->render($expanded?->source ?? $content), $expanded), $etag);
 		} catch (RenderException $e) {
 			return $this->problem($e);
 		}
@@ -106,7 +111,7 @@ final class RenderController extends Controller {
 			if ($userFolder === null || $node === null) {
 				return new Response(Http::STATUS_NOT_FOUND);
 			}
-			$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder);
+			$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node);
 		}
 		try {
 			return $this->image($this->render->render($expanded?->source ?? $source, $index), $expanded);
@@ -163,7 +168,7 @@ final class RenderController extends Controller {
 		$headers = ['Content-Type' => $rendered->contentType];
 		[$error, $line] = self::mistake($rendered, $expanded);
 		if ($error !== '') {
-			$headers['X-PlantUML-Diagram-Error'] = mb_substr($error, 0, self::ERROR_MAX);
+			$headers['X-PlantUML-Diagram-Error'] = self::encoded(mb_substr($error, 0, self::ERROR_MAX));
 			if ($line !== null) {
 				$headers['X-PlantUML-Diagram-Error-Line'] = (string)$line;
 			}
@@ -198,21 +203,20 @@ final class RenderController extends Controller {
 		return [$mapped['message'], $mapped['line']];
 	}
 
+	/** `%` and every byte past ASCII as `%XX`, so `decodeURIComponent` gives the text back. */
+	private static function encoded(string $text): string {
+		return (string)preg_replace_callback('/[%\x80-\xff]/', static fn (array $m): string => sprintf('%%%02X', ord($m[0])), $text);
+	}
+
 	/**
 	 * The file's own ETag when it names no file; else one that also changes
-	 * when an included file changes or a missing one appears.
+	 * when a file found changes or a missing one appears.
 	 */
 	private static function etag(string $fileEtag, Expanded $expanded): string {
-		$missing = [];
-		foreach ($expanded->mistakes as $mistake) {
-			if (preg_match('/Cannot find (.*)$/', $mistake['message'], $m) === 1) {
-				$missing[] = $m[1];
-			}
-		}
-		if ($expanded->etags === [] && $missing === []) {
+		if ($expanded->etags === [] && $expanded->missing === []) {
 			return $fileEtag;
 		}
-		return md5($fileEtag . ',' . implode(',', $expanded->etags) . ',' . implode(',', $missing));
+		return md5($fileEtag . ',' . implode(',', $expanded->etags) . ',' . implode(',', $expanded->missing));
 	}
 
 	private function userFolder(): ?Folder {
@@ -224,8 +228,9 @@ final class RenderController extends Controller {
 	private static function readable(Folder $userFolder, string $path): ?File {
 		try {
 			$node = $userFolder->get($path);
-		} catch (NotFoundException|NotPermittedException) {
-			// NotPermitted is how core refuses a path that climbs out with `..`.
+		} catch (NotFoundException|NotPermittedException|InvalidPathException) {
+			// NotPermitted is how core refuses a path that climbs out with `..`,
+			// InvalidPath one too long or with characters it does not allow.
 			return null;
 		}
 		return $node instanceof File ? $node : null;

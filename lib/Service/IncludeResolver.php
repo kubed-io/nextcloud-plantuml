@@ -9,12 +9,16 @@ declare(strict_types=1);
 
 namespace OCA\PlantUml\Service;
 
+use OCP\Files\ConnectionLostException;
 use OCP\Files\File;
 use OCP\Files\Folder;
+use OCP\Files\ForbiddenException;
 use OCP\Files\GenericFileException;
 use OCP\Files\InvalidPathException;
 use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
+use OCP\Files\StorageInvalidException;
+use OCP\Files\StorageNotAvailableException;
 use OCP\Lock\LockedException;
 
 /**
@@ -25,7 +29,9 @@ use OCP\Lock\LockedException;
  * asked for, so a path that climbs above the root is never asked for at all.
  * `<…>` (the stdlib) and `scheme://` paths go to the server as written. Past a
  * limit, on a cycle, or for a file that cannot be found or read, the line is
- * sent as written and becomes a mistake on the diagram's own line.
+ * sent as written and becomes a mistake on the diagram's own line. A storage
+ * that refuses (offline, forbidden, locked) makes a file unreadable, never an
+ * error of the route.
  *
  * @psalm-type Context = array{dir: list<string>|null, zip: int|null, zipDir: list<string>}
  * @psalm-type At = array{text: string, inner: int, top: int, display: string|null}
@@ -56,8 +62,10 @@ final class IncludeResolver {
 	private array $origins = [];
 	/** @var list<array{line: int, message: string}> */
 	private array $mistakes = [];
-	/** @var array<string, string> file id => ETag, in include order */
+	/** @var array<string, string> file id => ETag, of every file found, in include order */
 	private array $etags = [];
+	/** @var list<string> */
+	private array $missing = [];
 	/** @var array<string, true> file id and block => taken */
 	private array $taken = [];
 	/** @var list<string> ids of the files being read in, outermost first */
@@ -70,10 +78,18 @@ final class IncludeResolver {
 	private int $bytes = 0;
 	private int $libraryBytes = 0;
 
-	public function expand(string $source, Folder $base, Folder $root): Expanded {
+	/**
+	 * @param File|null $self the diagram's own file, so including it is a cycle from the start
+	 */
+	public function expand(string $source, Folder $base, Folder $root, ?File $self = null): Expanded {
 		$run = new self();
 		$run->root = $root;
-		$run->baseDir = self::under(rtrim($root->getPath(), '/'), $base->getPath());
+		$rootPath = rtrim($root->getPath(), '/');
+		$run->baseDir = self::under($rootPath, $base->getPath());
+		$own = $self === null ? null : self::under($rootPath, $self->getPath());
+		if ($own !== null && $own !== []) {
+			$run->stack[] = 'files:' . implode('/', $own);
+		}
 		try {
 			$run->walk(explode("\n", $source), ['dir' => $run->baseDir, 'zip' => null, 'zipDir' => []], 0, null, null);
 		} finally {
@@ -82,7 +98,7 @@ final class IncludeResolver {
 				@unlink($import['tmp']);
 			}
 		}
-		return new Expanded(implode("\n", $run->sent), $run->lineMap, $run->origins, $run->mistakes, array_values($run->etags));
+		return new Expanded(implode("\n", $run->sent), $run->lineMap, $run->origins, $run->mistakes, array_values($run->etags), $run->missing);
 	}
 
 	/**
@@ -110,6 +126,7 @@ final class IncludeResolver {
 	 */
 	private function directive(string $kind, string $argument, array $at, array $context, int $depth): void {
 		// The selector follows the closing quote, so a `!` inside the quotes is part of the name.
+		$rest = '';
 		if (preg_match('/^"([^"]*)"(.*)$/', $argument, $m) === 1) {
 			$path = $m[1];
 			$rest = trim($m[2]);
@@ -119,8 +136,13 @@ final class IncludeResolver {
 			$path = $bang === false ? $argument : substr($argument, 0, $bang);
 			$selector = $bang === false || $bang === strlen($argument) - 1 ? null : substr($argument, $bang + 1);
 		}
-		if (self::leftToServer($path)) {
+		if (self::leftToServer($path) || ($selector !== null && strpbrk($selector, '$%') !== false)) {
 			$this->keep($at, null);
+			return;
+		}
+		// No file is named `a.puml junk`, so nothing is asked for.
+		if ($rest !== '' && !str_starts_with($rest, '!')) {
+			$this->keep($at, 'Cannot find ' . self::shown("$path $rest"));
 			return;
 		}
 		$shown = self::shown($path);
@@ -133,9 +155,8 @@ final class IncludeResolver {
 			$this->keep($at, "$shown needs !NAME");
 			return;
 		}
-		$found = $this->find($path, $context, true);
+		$found = $this->located($path, $context, true, $at);
 		if ($found === null) {
-			$this->keep($at, "Cannot find $shown");
 			return;
 		}
 		$key = $found['id'] . '!' . ($selector ?? '');
@@ -177,9 +198,8 @@ final class IncludeResolver {
 			return;
 		}
 		$shown = self::shown($path);
-		$found = $this->find($path, $context, true);
+		$found = $this->located($path, $context, true, $at);
 		if ($found === null) {
-			$this->keep($at, "Cannot find $shown");
 			return;
 		}
 		$content = $this->read($found, $shown, $at, $depth);
@@ -202,9 +222,8 @@ final class IncludeResolver {
 	 */
 	private function import(string $path, array $at, array $context): void {
 		$shown = self::shown($path);
-		$found = $this->find($path, $context, false);
+		$found = $this->located($path, $context, false, $at);
 		if ($found === null || $found['file'] === null) {
-			$this->keep($at, "Cannot find $shown");
 			return;
 		}
 		foreach ($this->imports as $import) {
@@ -284,23 +303,52 @@ final class IncludeResolver {
 	/** @param Found $found */
 	private function take(array $found): void {
 		$this->files++;
-		if ($found['file'] !== null && !isset($this->etags[$found['id']])) {
-			try {
-				$this->etags[$found['id']] = $found['file']->getEtag();
-			} catch (InvalidPathException|NotFoundException) {
-				$this->etags[$found['id']] = '';
-			}
+	}
+
+	/**
+	 * What `find()` gives, its ETag noted; a path that leads nowhere is kept
+	 * as a mistake, listed as missing, and gives null.
+	 *
+	 * @param Context $context
+	 * @param At $at
+	 * @return Found|null
+	 */
+	private function located(string $path, array $context, bool $zips, array $at): ?array {
+		$found = $this->find($path, $context, $zips);
+		if (is_array($found)) {
+			$this->note($found);
+			return $found;
+		}
+		$this->missing[] = $path;
+		$this->keep($at, ($found === false ? 'Cannot read ' : 'Cannot find ') . self::shown($path));
+		return null;
+	}
+
+	/**
+	 * Every file found counts toward the ETag, read or not: one past a limit
+	 * or without the block asked for can change into one that is read.
+	 *
+	 * @param Found $found
+	 */
+	private function note(array $found): void {
+		if ($found['file'] === null || isset($this->etags[$found['id']])) {
+			return;
+		}
+		try {
+			$this->etags[$found['id']] = $found['file']->getEtag();
+		} catch (InvalidPathException|NotFoundException|StorageNotAvailableException|StorageInvalidException|ForbiddenException) {
+			$this->etags[$found['id']] = '';
 		}
 	}
 
 	/**
 	 * Where a path leads: inside the zip the line is in, then each imported
-	 * zip, then the user's files.
+	 * zip, then the user's files. False when the storage refuses to say.
 	 *
 	 * @param Context $context
-	 * @return Found|null
+	 * @return Found|null|false
 	 */
-	private function find(string $path, array $context, bool $zips): ?array {
+	private function find(string $path, array $context, bool $zips): array|null|false {
 		// Nextcloud reads `\` as `/`, so it is worked out here too, before any file is asked for.
 		$path = str_replace('\\', '/', $path);
 		if (preg_match('/[\x00-\x1f]/', $path) === 1) {
@@ -332,6 +380,8 @@ final class IncludeResolver {
 			$node = $this->root->get(implode('/', $segments));
 		} catch (NotFoundException|NotPermittedException|InvalidPathException) {
 			return null;
+		} catch (StorageNotAvailableException|StorageInvalidException|ForbiddenException|LockedException) {
+			return false;
 		}
 		if (!$node instanceof File) {
 			return null;
@@ -485,6 +535,9 @@ final class IncludeResolver {
 
 	/** @return array<int, string> */
 	private static function lines(string $content): array {
+		if (str_starts_with($content, "\u{FEFF}")) {
+			$content = substr($content, 3);
+		}
 		if ($content === '') {
 			return [];
 		}
@@ -568,19 +621,20 @@ final class IncludeResolver {
 	private static function fileSize(File $file): ?int {
 		try {
 			return (int)$file->getSize();
-		} catch (InvalidPathException|NotFoundException) {
+		} catch (InvalidPathException|NotFoundException|StorageNotAvailableException|StorageInvalidException|ForbiddenException) {
 			return null;
 		}
 	}
 
 	/**
-	 * At most `$limit` + 1 bytes, read through a stream: a stored size can be wrong.
+	 * At most `$limit` + 1 bytes, read through a stream: a stored size can be
+	 * wrong. Null when there is no stream, rather than a read of any size.
 	 */
 	private static function content(File $file, int $limit): ?string {
 		try {
 			$handle = $file->fopen('r');
 			if (!is_resource($handle)) {
-				return $file->getContent();
+				return null;
 			}
 			try {
 				$content = stream_get_contents($handle, $limit + 1);
@@ -588,7 +642,7 @@ final class IncludeResolver {
 				fclose($handle);
 			}
 			return $content === false ? null : $content;
-		} catch (NotPermittedException|GenericFileException|LockedException) {
+		} catch (NotPermittedException|GenericFileException|LockedException|NotFoundException|InvalidPathException|StorageNotAvailableException|StorageInvalidException|ForbiddenException|ConnectionLostException) {
 			return null;
 		}
 	}

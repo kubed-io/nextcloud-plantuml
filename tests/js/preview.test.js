@@ -138,6 +138,23 @@ describe('a mistake in the diagram', () => {
     expect(cb.mock.calls.map((call) => call[2])).toEqual([null, null])
   })
 
+  it.each([
+    ['past ASCII', 'Cannot find %C3%9Cbersicht.puml', 'Cannot find Übersicht.puml'],
+    ['with a %', '100%25 wrong', '100% wrong'],
+    ['not encoded at all', 'Cannot find 100% of it', 'Cannot find 100% of it'],
+  ])('is decoded from the percent-encoded header, %s', async (_what, header, message) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<svg/>', {
+      status: 200,
+      headers: { 'Content-Type': 'image/svg+xml', 'X-PlantUML-Diagram-Error': header, 'X-PlantUML-Diagram-Error-Line': '1' },
+    })))
+    const cb = vi.fn()
+
+    debouncedRender('@startuml\n!include x\n@enduml\n', 0, '', cb)
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(cb.mock.calls[0][2]).toEqual({ message, line: 2 })
+  })
+
   it('still resolves render() with the image alone', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => mistaken('2')))
 

@@ -13,8 +13,10 @@ use OCA\PlantUml\Service\Expanded;
 use OCA\PlantUml\Service\IncludeResolver;
 use OCP\Files\File;
 use OCP\Files\Folder;
+use OCP\Files\ForbiddenException;
 use OCP\Files\InvalidPathException;
 use OCP\Files\NotFoundException;
+use OCP\Files\StorageNotAvailableException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -53,6 +55,7 @@ final class IncludeResolverTest extends TestCase {
 		$file->method('fopen')->willReturnCallback(static fn () => self::stream($content));
 		$file->method('getSize')->willReturn($size ?? strlen($content));
 		$file->method('getEtag')->willReturn('etag:' . $path);
+		$file->method('getPath')->willReturn(self::USER_ROOT . '/' . $path);
 		return $file;
 	}
 
@@ -66,9 +69,9 @@ final class IncludeResolverTest extends TestCase {
 	}
 
 	/** @param array<string, string|File> $files */
-	private function expand(string $source, array $files, string $base = 'docs'): Expanded {
+	private function expand(string $source, array $files, string $base = 'docs', ?File $self = null): Expanded {
 		[$folder, $root] = $this->tree($files, $base);
-		return (new IncludeResolver())->expand($source, $folder, $root);
+		return (new IncludeResolver())->expand($source, $folder, $root, $self);
 	}
 
 	/** A Folder double that fails the test if it is asked for any file. */
@@ -447,5 +450,132 @@ final class IncludeResolverTest extends TestCase {
 
 		self::assertSame("from a!b\nsecond\n", $expanded->source);
 		self::assertSame([], $expanded->mistakes);
+	}
+
+	/** A file found but not taken still counts, so its ETag is there for the GET's. */
+	public function testEtagsCoverAFileFoundButNotTaken(): void {
+		$expanded = $this->expand("!includesub parts.puml!ACTORS\n!include big.puml\n", [
+			'docs/parts.puml' => "!startsub OTHER\nA\n!endsub\n",
+			'docs/big.puml' => $this->file('docs/big.puml', "x\n", 2 * 1048576),
+		]);
+
+		self::assertSame(['etag:docs/parts.puml', 'etag:docs/big.puml'], $expanded->etags);
+		self::assertSame([], $expanded->missing);
+	}
+
+	public function testEtagsCoverAFileTooDeepToRead(): void {
+		$files = [];
+		for ($n = 1; $n <= 9; $n++) {
+			$files["docs/f$n.puml"] = '!include f' . ($n + 1) . ".puml\n";
+		}
+		$expanded = $this->expand("!include f1.puml\n", $files);
+
+		self::assertContains('etag:docs/f9.puml', $expanded->etags);
+	}
+
+	public function testMissingListsThePathsNotFoundAsWritten(): void {
+		$expanded = $this->expand("!include nope.puml\n!includesub parts.puml!ACTORS\n<style file=../gone.css>\n!import lib.zip\n", [
+			'docs/parts.puml' => "A\n",
+		]);
+
+		self::assertSame(['nope.puml', '../gone.css', 'lib.zip'], $expanded->missing);
+	}
+
+	/** @return iterable<string, array{class-string<\Exception>}> */
+	public static function storageRefusals(): iterable {
+		yield 'storage not available' => [StorageNotAvailableException::class];
+		yield 'forbidden' => [ForbiddenException::class];
+	}
+
+	/**
+	 * Without its constructor, which asks the server for a translation.
+	 *
+	 * @param class-string<\Exception> $class
+	 */
+	private static function refusal(string $class): \Exception {
+		return (new \ReflectionClass($class))->newInstanceWithoutConstructor();
+	}
+
+	#[DataProvider('storageRefusals')]
+	/** @param class-string<\Exception> $class */
+	public function testAStorageThatRefusesTheLookupIsUnreadable(string $class): void {
+		$refusal = self::refusal($class);
+		$root = $this->createStub(Folder::class);
+		$root->method('getPath')->willReturn(self::USER_ROOT);
+		$root->method('get')->willThrowException($refusal);
+		$expanded = (new IncludeResolver())->expand("!include x.puml\n<style file=s.css>\n!import l.zip\n", $this->untouchable(self::USER_ROOT . '/docs'), $root);
+
+		self::assertSame([
+			['line' => 0, 'message' => 'Cannot read x.puml'],
+			['line' => 1, 'message' => 'Cannot read s.css'],
+			['line' => 2, 'message' => 'Cannot read l.zip'],
+		], $expanded->mistakes);
+		self::assertSame(['x.puml', 's.css', 'l.zip'], $expanded->missing);
+	}
+
+	#[DataProvider('storageRefusals')]
+	/** @param class-string<\Exception> $class */
+	public function testAStorageThatRefusesTheReadIsUnreadable(string $class): void {
+		$refusal = self::refusal($class);
+		$file = $this->createStub(File::class);
+		$file->method('getSize')->willReturn(10);
+		$file->method('getEtag')->willThrowException($refusal);
+		$file->method('fopen')->willThrowException($refusal);
+		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $file]);
+
+		self::assertSame("!include a.puml\n", $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'Cannot read a.puml']], $expanded->mistakes);
+	}
+
+	/** No unbounded read: a file that will not open as a stream is not read whole instead. */
+	public function testAFileThatWillNotOpenIsUnreadable(): void {
+		$file = $this->createMock(File::class);
+		$file->method('getSize')->willReturn(10);
+		$file->method('fopen')->willReturn(false);
+		$file->expects(self::never())->method('getContent');
+		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $file]);
+
+		self::assertSame([['line' => 0, 'message' => 'Cannot read a.puml']], $expanded->mistakes);
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function expressionSelectors(): iterable {
+		yield 'includesub' => ['!includesub f.puml!$name'];
+		yield 'include' => ['!include f.puml!$n'];
+		yield 'quoted' => ['!include "f.puml"!%n()'];
+	}
+
+	#[DataProvider('expressionSelectors')]
+	public function testAnExpressionSelectorIsLeftToTheServer(string $line): void {
+		$expanded = (new IncludeResolver())->expand("$line\n", $this->untouchable(self::USER_ROOT . '/docs'), $this->untouchable(self::USER_ROOT));
+
+		self::assertSame("$line\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	public function testTextAfterAClosingQuoteIsAMistake(): void {
+		$expanded = (new IncludeResolver())->expand("!include \"a.puml\" junk\n", $this->untouchable(self::USER_ROOT . '/docs'), $this->untouchable(self::USER_ROOT));
+
+		self::assertSame("!include \"a.puml\" junk\n", $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'Cannot find a.puml junk']], $expanded->mistakes);
+	}
+
+	public function testTheDiagramsOwnFileIsNeverIncludedInItself(): void {
+		$files = ['docs/x.puml' => "@startuml\n!include x.puml\n@enduml\n"];
+		[$folder, $root] = $this->tree($files);
+		$self = $this->file('docs/x.puml', $files['docs/x.puml']);
+		$expanded = (new IncludeResolver())->expand($files['docs/x.puml'], $folder, $root, $self);
+
+		self::assertSame($files['docs/x.puml'], $expanded->source);
+		self::assertSame([['line' => 1, 'message' => 'x.puml includes itself']], $expanded->mistakes);
+	}
+
+	public function testALeadingByteOrderMarkIsDropped(): void {
+		$expanded = $this->expand("!include a.puml\n<style file=s.css>\n", [
+			'docs/a.puml' => "\u{FEFF}@startuml\nAlice -> Bob\n@enduml\n",
+			'docs/s.css' => "\u{FEFF}node { }\n",
+		]);
+
+		self::assertSame("Alice -> Bob\n<style>\nnode { }\n</style>\n", $expanded->source);
 	}
 }

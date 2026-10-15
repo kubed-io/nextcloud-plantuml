@@ -18,6 +18,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\Files\File;
 use OCP\Files\Folder;
+use OCP\Files\InvalidPathException;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
@@ -72,8 +73,16 @@ final class RenderControllerTest extends TestCase {
 		$file->method('getMimetype')->willReturn($mimetype);
 		$file->method('getEtag')->willReturn($etag);
 		$file->method('getContent')->willReturn($content);
+		$file->method('fopen')->willReturnCallback(static function () use ($content) {
+			$handle = fopen('php://memory', 'r+');
+			self::assertIsResource($handle);
+			fwrite($handle, $content);
+			rewind($handle);
+			return $handle;
+		});
 		$file->method('getSize')->willReturn(strlen($content));
 		$file->method('getParent')->willReturn($parent);
+		$file->method('getPath')->willReturn('/drk/files/Diagrams/Order flow.puml');
 		return $file;
 	}
 
@@ -330,7 +339,11 @@ final class RenderControllerTest extends TestCase {
 
 	/** @return array<string, array{\Throwable}> */
 	public static function unreadable(): array {
-		return ['missing' => [new NotFoundException()], 'climbing out' => [new NotPermittedException('Invalid path')]];
+		return [
+			'missing' => [new NotFoundException()],
+			'climbing out' => [new NotPermittedException('Invalid path')],
+			'too long for Nextcloud' => [new InvalidPathException('File name is too long')],
+		];
 	}
 
 	/** R4: a path the caller cannot read is refused as GET refuses it. */
@@ -436,11 +449,12 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame('2', self::header($response, 'X-PlantUML-Diagram-Error-Line'));
 	}
 
-	/** @param array<string, string> $includes */
+	/** @param array<string, string|array{string, string}> $includes path => ETag, or [ETag, content] */
 	private function etagWith(array $includes, string $content = "@startuml\n!include parts.iuml\n@enduml\n", string $ifNoneMatch = ''): Response {
 		$files = ['Diagrams/Order flow.puml' => $this->diagram('text/x-plantuml', $content)];
-		foreach ($includes as $path => $etag) {
-			$files[$path] = $this->diagram('text/x-plantuml', "X -> Y\n", $etag);
+		foreach ($includes as $path => $include) {
+			[$etag, $text] = is_array($include) ? $include : [$include, "X -> Y\n"];
+			$files[$path] = $this->diagram('text/x-plantuml', $text, $etag);
 		}
 		return $this->controller($this->renderingSvg(), $files, $ifNoneMatch)->byPath('Diagrams/Order flow.puml');
 	}
@@ -471,5 +485,80 @@ final class RenderControllerTest extends TestCase {
 	/** Nothing included: the file's own ETag, so today's caching is unchanged. */
 	public function testByPathEtagIsTheFilesWhenNothingIsIncluded(): void {
 		self::assertSame('abc123', $this->etagWith([], self::SOURCE)->getETag());
+	}
+
+	/** A section added later to a file already there is a new answer. */
+	public function testByPathEtagCoversAFileWithoutTheSectionAskedFor(): void {
+		$content = "@startuml\n!includesub parts.iuml!ACTORS\n@enduml\n";
+		$before = $this->etagWith(['Diagrams/parts.iuml' => ['parts1', "!startsub OTHER\nX\n!endsub\n"]], $content)->getETag();
+		$after = $this->etagWith(['Diagrams/parts.iuml' => ['parts2', "!startsub ACTORS\nX\n!endsub\n"]], $content)->getETag();
+
+		self::assertSame(md5('abc123,parts1,'), $before);
+		self::assertSame(md5('abc123,parts2,'), $after);
+	}
+
+	public function testByPathEtagChangesWhenAMissingIncludeIsCreated(): void {
+		$before = $this->etagWith([])->getETag();
+		$after = $this->etagWith(['Diagrams/parts.iuml' => 'parts1'])->getETag();
+
+		self::assertSame(md5('abc123,,parts.iuml'), $before);
+		self::assertSame(md5('abc123,parts1,'), $after);
+	}
+
+	/** A file with no line that could name another is never handed to the resolver. */
+	public function testByPathWithNothingToIncludeNeverReadsTheFolder(): void {
+		foreach (['"abc123"' => 304, '' => 200] as $ifNoneMatch => $status) {
+			$file = $this->createMock(File::class);
+			$file->method('getMimetype')->willReturn('text/x-plantuml');
+			$file->method('getEtag')->willReturn('abc123');
+			$file->method('getContent')->willReturn("@startuml\n' include nothing\nA -> B : <style>\n@enduml\n");
+			$file->expects(self::never())->method('getParent');
+
+			$response = $this->controller($this->renderingSvg(), $file, (string)$ifNoneMatch)->byPath('Diagrams/Order flow.puml');
+
+			self::assertSame($status, $response->getStatus());
+			self::assertSame('abc123', $response->getETag());
+		}
+	}
+
+	/** R2: the diagram's own file is a cycle from its first include of itself, on either route. */
+	public function testTheDiagramsOwnFileIsNotIncludedInItself(): void {
+		$content = "@startuml\n!include \"Order flow.puml\"\n@enduml\n";
+		$files = ['Diagrams/Order flow.puml' => $this->diagram('text/x-plantuml', $content)];
+
+		$byPath = $this->controller($this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sentByPath), $files)->byPath('Diagrams/Order flow.puml');
+		$bySource = $this->controller($this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sentBySource), $files)->bySource($content, 0, 'Diagrams/Order flow.puml');
+
+		foreach ([[$byPath, $sentByPath], [$bySource, $sentBySource]] as [$response, $sent]) {
+			self::assertSame($content, $sent);
+			self::assertSame('Order flow.puml includes itself', self::header($response, 'X-PlantUML-Diagram-Error'));
+		}
+	}
+
+	public function testAPathTooLongForNextcloudIs404(): void {
+		$path = str_repeat('a', 5000) . '.puml';
+		$response = $this->controller($this->renderingNothing(), new InvalidPathException('File name is too long'))->byPath($path);
+
+		self::assertSame(404, $response->getStatus());
+	}
+
+	/** A header is ASCII: the message goes percent-encoded, `%` and anything past ASCII. */
+	public function testANonAsciiMistakeIsSentPercentEncoded(): void {
+		$files = ['Diagrams/Order flow.puml' => $this->diagram()];
+		$response = $this->controller($this->rendering(new Rendered(self::SVG, 'image/svg+xml')), $files)
+			->bySource("@startuml\n!include Übersicht.puml\n@enduml\n", 0, 'Diagrams/Order flow.puml');
+
+		self::assertSame('Cannot find %C3%9Cbersicht.puml', self::header($response, 'X-PlantUML-Diagram-Error'));
+		self::assertSame('Cannot find Übersicht.puml', rawurldecode((string)self::header($response, 'X-PlantUML-Diagram-Error')));
+	}
+
+	public function testAnEncodedMistakeKeeps200CharactersOnceDecoded(): void {
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml', '100% ' . str_repeat('é', 300), 1));
+
+		$header = (string)self::header($this->controller($render, new \LogicException('no file'))->bySource(self::SOURCE), 'X-PlantUML-Diagram-Error');
+
+		self::assertStringStartsWith('100%25 %C3%A9', $header);
+		self::assertSame('100% ' . str_repeat('é', 195), rawurldecode($header));
+		self::assertMatchesRegularExpression('/^[\x20-\x7e]*$/', $header);
 	}
 }

@@ -42,11 +42,20 @@ async function request(source, index, path) {
 /**
  * PlantUML counts the line from 0 at the top of the source it was sent, blank
  * lines and comments before `@startuml` included; the editor counts from 1.
+ * The routes percent-encode the message past ASCII, and its `%`.
  */
 function mistakeOf(headers) {
-  const message = headers.get('X-PlantUML-Diagram-Error')
+  const message = decoded(headers.get('X-PlantUML-Diagram-Error'))
   const line = headers.get('X-PlantUML-Diagram-Error-Line') ?? ''
   return message && /^\d+$/.test(line) ? { message, line: Number(line) + 1 } : null
+}
+
+function decoded(text) {
+  try {
+    return text && decodeURIComponent(text)
+  } catch {
+    return text
+  }
 }
 
 function problemOf(body) {

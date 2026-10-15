@@ -105,6 +105,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - [ ] Tests first, from plantuml.com/files-diagram's examples: `/src/example.py` gives `/` punctuation and plain segments; `/**creole_test**/""monospaced""` gives strong and monospace; `<note>` and `</note>` are `tagName`, the lines between Creole; the line after `@endfiles` is uml again; `@st` offers `@startfiles` and picking it inserts `@startfiles name` / `/` / `@endfiles`; `<` on an empty line inside a files block offers `<note>` first; outside a files block it does not.
 - [ ] Implement; suites, lint, build. Commit `feat(editor): files diagrams, highlighted and offered (X18)`.
 
+### Task 4e: Style refinements from the mindmap page
+
+**Files:** Modify `src/editor/profiles/style-grammar.js`, `src/editor/lint/style.js`, `src/editor/completion/style.js`, `src/editor/profiles/style.js` (values); Test `tests/js/style-profile.test.js`, `tests/js/lint.test.js`, `tests/js/completion.test.js`, `tests/js/values.test.js`.
+
+- [ ] Tests first, using plantuml.com/mindmap-diagram's "Word Wrap" style block verbatim: no diagnostic at all (`LineStyle 8.0;3.0` is one value, `BackgroundColor` matches `BackGroundColor`, `Shadowing 0.0`, `LineThickness 3.0`); the grammar gives `8.0;3.0` as one value (two numbers, the `;` inside it not a separator); the stepper steps each number of a dash pattern on its own; inside `@startmindmap` (and `@startwbs`) the selector list starts `node`, `rootNode`, `leafNode`, `boxless`, `arrow`, then `:depth(` (a snippet `:depth(${n})`), then `mindmapDiagram`, then the rest.
+- [ ] Implement; suites, lint, build + guard. Commit `fix(editor): style blocks read mindmap's dash patterns and selectors`.
+
 ### Task 5: IncludeResolver
 
 **Files:** Create `lib/Service/IncludeResolver.php`, `lib/Service/Expanded.php`; Test `tests/unit/IncludeResolverTest.php` (OCP `Folder`/`File` mocks as the other tests do).

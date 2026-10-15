@@ -26,18 +26,25 @@ function value(stream, property) {
 
 /**
  * Selectors, `{ }`, and inside them declarations, `Property value`, ended by
- * `;` or the line's end. A word inside braces with a `{` after it on its
+ * `;` or the line's end, except inside a `LineStyle` dash pattern, `8.0;3.0` or
+ * `8-3`, whose separator is an `operator` between two numbers. A word inside braces with a `{` after it on its
  * declaration is a nested selector; any other is a property. `property` is
  * the last property read, for its values.
  */
 export const styleMode = {
   name: 'plantuml-style',
-  startState: () => ({ depth: 0, at: 'name', property: null }),
+  startState: () => ({ depth: 0, at: 'name', property: null, dash: false }),
   blankLine(state) {
     state.at = 'name'
   },
   token(stream, state) {
     if (stream.sol() && state.at === 'value') state.at = 'name'
+    const dash = state.dash
+    state.dash = false
+    if (dash && /^[;-]\d/.test(stream.string.slice(stream.pos))) {
+      stream.next()
+      return 'operator'
+    }
     if (stream.eatSpace()) return null
     if (stream.peek() === "'" && !stream.string.slice(0, stream.pos).trim()) {
       stream.skipToEnd()
@@ -55,7 +62,11 @@ export const styleMode = {
       state.at = 'name'
       return 'punctuation'
     }
-    if (state.at === 'value') return value(stream, state.property)
+    if (state.at === 'value') {
+      const token = value(stream, state.property)
+      state.dash = token === 'number' && /^linestyle$/i.test(state.property)
+      return token
+    }
     if (stream.match(/^\.[^\s{},;.:]+/) || stream.match(/^:[\w-]+(?:\([^)]*\))?/)) return 'className'
     const word = stream.match(/^[A-Za-z_][\w-]*/)
     if (word) {

@@ -307,6 +307,22 @@ describe('the stepper', () => {
     expect(doc()).toBe(style('Padding 3 9'))
   })
 
+  it('steps each number of a dash pattern written 8.0;3.0 on its own', () => {
+    open(style('LineStyle 8.0;3.0|'))
+    expect(steppers()).toHaveLength(2)
+    press(steppers()[1].querySelector('button[aria-label="Increase"]'))
+    expect(doc()).toBe(style('LineStyle 8.0;3.1'))
+    press(steppers()[0].querySelector('button[aria-label="Decrease"]'))
+    expect(doc()).toBe(style('LineStyle 7.9;3.1'))
+  })
+
+  it('steps each number of a dash pattern written 8-3', () => {
+    open(style('LineStyle 8-3|'))
+    expect(steppers()).toHaveLength(2)
+    press(steppers()[1].querySelector('button[aria-label="Increase"]'))
+    expect(doc()).toBe(style('LineStyle 8-4'))
+  })
+
   it('steps a number in a skinparam block', () => {
     open('skinparam class {\n  FontSize 12|\n}')
 

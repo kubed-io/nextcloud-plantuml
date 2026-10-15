@@ -10,6 +10,40 @@ import { scan } from '../../src/editor/blocks.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import { translate } from '@nextcloud/l10n'
 
+const WORD_WRAP = `<style>
+node {
+    Padding 12
+    Margin 3
+    HorizontalAlignment center
+    LineColor blue
+    LineThickness 3.0
+    BackgroundColor gold
+    RoundCorner 40
+    MaximumWidth 100
+}
+
+rootNode {
+    LineStyle 8.0;3.0
+    LineColor red
+    BackgroundColor white
+    LineThickness 1.0
+    RoundCorner 0
+    Shadowing 0.0
+}
+
+leafNode {
+    LineColor gold
+    RoundCorner 0
+    Padding 3
+}
+
+arrow {
+    LineStyle 4
+    LineThickness 0.5
+    LineColor green
+}
+</style>`
+
 const profile = styleProfile({ scan, t: translate })
 
 /** [text, token class] for every highlighted span of `lines`. */
@@ -118,5 +152,21 @@ describe('the style profile', () => {
       ['Padding', 'propertyName'],
       ['Margin', 'propertyName'],
     ])
+  })
+
+  it('reads a dash pattern, 8.0;3.0 or 8-3, as one value of two numbers, not a separator', () => {
+    const named = (...lines) => tokens('<style>', 'node {', ...lines, '}', '</style>').filter(([, name]) => name !== 'tagName' && name !== 'bracket')
+    expect(named('  LineStyle 8.0;3.0', '  LineColor red')).toEqual([
+      ['LineStyle', 'propertyName'], ['8.0', 'number'], [';', 'operator'], ['3.0', 'number'],
+      ['LineColor', 'propertyName'], ['red', 'ColorLiteral'],
+    ])
+    expect(named('  LineStyle 8-3')).toEqual([['LineStyle', 'propertyName'], ['8', 'number'], ['-', 'operator'], ['3', 'number']])
+    expect(named('  LineStyle 4; LineColor red').map(([, name]) => name)).toEqual(['propertyName', 'number', 'punctuation', 'propertyName', 'ColorLiteral'])
+  })
+
+  it('reads the Word Wrap block of plantuml.com/mindmap-diagram', () => {
+    const names = tokens(...WORD_WRAP.split('\n')).map(([, name]) => name)
+    expect(names).not.toContain(null)
+    expect(tokens(...WORD_WRAP.split('\n'))).toContainEqual(['8.0', 'number'])
   })
 })

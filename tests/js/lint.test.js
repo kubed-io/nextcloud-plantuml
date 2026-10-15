@@ -276,6 +276,40 @@ describe('blocks', () => {
   })
 })
 
+const WORD_WRAP = `<style>
+node {
+    Padding 12
+    Margin 3
+    HorizontalAlignment center
+    LineColor blue
+    LineThickness 3.0
+    BackgroundColor gold
+    RoundCorner 40
+    MaximumWidth 100
+}
+
+rootNode {
+    LineStyle 8.0;3.0
+    LineColor red
+    BackgroundColor white
+    LineThickness 1.0
+    RoundCorner 0
+    Shadowing 0.0
+}
+
+leafNode {
+    LineColor gold
+    RoundCorner 0
+    Padding 3
+}
+
+arrow {
+    LineStyle 4
+    LineThickness 0.5
+    LineColor green
+}
+</style>`
+
 describe('style', () => {
   // The real translator: its sanitizing would strip a `</style>` from a message.
   const run = (doc) => styleRule({ t: translate })(stateOf(doc))
@@ -286,6 +320,10 @@ describe('style', () => {
     view.destroy()
     return result
   }
+
+  it('has nothing to say of the Word Wrap block of plantuml.com/mindmap-diagram', () => {
+    expect(run(`@startmindmap\n${WORD_WRAP}\n* a\n@endmindmap\n`)).toEqual([])
+  })
 
   it('warns on an unknown property, and changes it to the nearest known one', () => {
     const doc = '@startuml\n<style>\nnode {\n  FontSise 12\n}\n</style>\n@enduml\n'

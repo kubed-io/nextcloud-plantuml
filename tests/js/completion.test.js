@@ -794,11 +794,25 @@ describe('style', () => {
   it('offers the enclosing diagram\'s selector first, then the elements, then the other diagrams', async () => {
     const shown = await popup('@startmindmap\n<style>\n|\n</style>\n* a\n@endmindmap\n')
 
-    expect(shown[0]).toBe('mindmapDiagram')
-    expect(new Set(shown)).toEqual(new Set(selectors))
+    expect(shown.slice(0, 7)).toEqual(['node', 'rootNode', 'leafNode', 'boxless', 'arrow', ':depth(', 'mindmapDiagram'])
+    expect(new Set(shown)).toEqual(new Set([...selectors, ':depth(']))
     expect(shown.indexOf('node')).toBeLessThan(shown.indexOf('wbsDiagram'))
     expect(shown.indexOf('root')).toBeLessThan(shown.indexOf('sequenceDiagram'))
     expect(shown.slice(-3).every((label) => /Diagram$|^(?:regex|ebnf)$/.test(label))).toBe(true)
+  })
+
+  it.each(['mindmap', 'wbs'])('starts a %s diagram\'s selectors with its nodes, arrow and a depth, as plantuml.com/mindmap-diagram styles them', async (type) => {
+    const shown = await popup(`@start${type}\n<style>\n|\n</style>\n* a\n@end${type}\n`)
+
+    expect(shown.slice(0, 7)).toEqual(['node', 'rootNode', 'leafNode', 'boxless', 'arrow', ':depth(', `${type}Diagram`])
+    expect(shown.filter((label) => label === 'node')).toHaveLength(1)
+  })
+
+  it('inserts :depth(1) with the level selected', () => {
+    const view = pick('@startmindmap\n<style>\nd|\n</style>\n@endmindmap', style, ':depth(')
+    expect(view.state.doc.toString()).toContain('\n:depth(1)\n')
+    expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe('1')
+    view.destroy()
   })
 
   it.each([

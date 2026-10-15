@@ -1360,6 +1360,23 @@ describe('sections and blocks of an included file', () => {
     expect(labels(result)).toEqual(['parts', 'legend'])
   })
 
+  it('offers a block name as the resolver reads it: a dotted token, or an id with spaces', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts.v2\n@enduml\n@startuml(id = legend)\n@enduml\n', etag: 'e' })
+
+    const result = await completeAt('!include ./resolver-names.puml!|')
+
+    expect(labels(result)).toEqual(['parts.v2', 'legend'])
+  })
+
+  it('keeps offering while a dotted name is typed after the !', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts.v2\n@enduml\n', etag: 'e' })
+
+    const result = await completeAt('!include ./typed-dots.puml!parts.|')
+
+    expect(labels(result)).toEqual(['parts.v2'])
+    expect(result.validFor.test('parts.v')).toBe(true)
+  })
+
   it('offers the open document\'s own sections first after a bare !includesub', async () => {
     const result = await completeAt('!includesub |\n!startsub ACTORS\n!endsub')
 

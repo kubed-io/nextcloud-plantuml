@@ -36,7 +36,7 @@ const SNIPPETS = {
   '!$': '!$${name} = ${value}',
 }
 
-/** `!$` is a variable assignment, not in the generated list. Every other word takes an argument, so a space follows. */
+/** `!$` is a variable assignment, not in the generated list. Every other word is inserted with a space after it. */
 const PREPROCESSOR = [...preprocessor.directives, '!$'].sort().map((label) => (
   SNIPPETS[label] ? snippetCompletion(SNIPPETS[label], { label, type: 'keyword' }) : { label, type: 'keyword', apply: `${label} ` }
 ))

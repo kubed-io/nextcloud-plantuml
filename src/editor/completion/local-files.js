@@ -16,10 +16,10 @@ import { listFolder, loadFile } from '../save.js'
 import { filePath } from '../lint/state.js'
 
 const INCLUDE = /^\s*!include(?:_many|_once|sub)?[ \t]+([^\s]*)$/
-const INCLUDE_NAME = /^\s*!include(_many|_once|sub)?[ \t]+(?:"([^"!]+)"|([^\s"!]+))!([\w-]*)$/
+const INCLUDE_NAME = /^\s*!include(_many|_once|sub)?[ \t]+(?:"([^"!]+)"|([^\s"!]+))!([^\s"]*)$/
 const INCLUDESUB = /^\s*!includesub[ \t]+$/
 const SECTION = /^\s*!startsub[ \t]+(\S+)/gm
-const BLOCK = /^\s*@start\w+(?:[ \t]+([\w-]+)|\(id=([\w-]+)\))/gm
+const BLOCK = /^\s*@start\w+(?:\(\s*id\s*=\s*([^)\s]+)\s*\)|[ \t]+(\S+))/gm
 const STYLE = /<style file=([^\s>]*)$/
 const INCLUDE_FILES = /\.(?:puml|iuml|plantuml|pu|txt)$/i
 const STYLE_FILES = /\.(?:css|txt)$/i
@@ -86,7 +86,7 @@ async function namesOf(context, file, kind, name, typed) {
   return {
     from: context.pos - typed.length,
     options: found.map((label) => ({ label, type: 'constant' })),
-    validFor: /^[\w-]*$/,
+    validFor: /^[^\s"]*$/,
   }
 }
 

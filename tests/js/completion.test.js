@@ -19,6 +19,7 @@ import { connectors } from '../../src/editor/completion/connectors.js'
 import { styleTag } from '../../src/editor/completion/style-tag.js'
 import { filesNote } from '../../src/editor/completion/files-note.js'
 import { creole } from '../../src/editor/completion/creole.js'
+import { tagAttributes } from '../../src/editor/completion/tag-attributes.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
 import { builtins } from '../../src/editor/completion/builtins.js'
@@ -51,7 +52,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, icons, emoji, colors, builtins, localFiles])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, tagAttributes, icons, emoji, colors, builtins, localFiles])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -1490,5 +1491,63 @@ describe('sections and blocks of an included file', () => {
 
     expect(loadFile).toHaveBeenCalledTimes(1)
     expect(labels(again)).toEqual(['ONCE'])
+  })
+})
+
+describe('tag attributes', () => {
+  it.each([
+    ['note: <font |', ['size=', 'color=']],
+    ['<img |', ['src=', 'vspace=', 'valign=']],
+    ['<style |', ['file=']],
+    ['  <style |', ['file=']],
+    ['<&star{|', ['scale=', 'color=']],
+    ['<:sunny:{|', ['scale=', 'color=']],
+    ['<$foo{|', ['scale=', 'color=']],
+    ['<img:x.png{|', ['scale=']],
+    ['<qrcode:hi{|', ['scale=']],
+    ['<&star{scale=2,|', ['color=']],
+    ['<font size=12 |', ['color=']],
+    ['<font size=12 col|', ['color=']],
+    ['<img src="a b.png" |', ['vspace=', 'valign=']],
+    ['A -> B : <font |', ['size=', 'color=']],
+  ])('offers the attributes not yet written (%s)', (marked, expected) => {
+    const result = complete(tagAttributes, marked)
+
+    expect(labels(result)).toEqual(expected)
+    expect(result.options.every((option) => option.type === 'property')).toBe(true)
+  })
+
+  it('replaces the part of the name already typed', () => {
+    const result = complete(tagAttributes, '<font col|')
+
+    expect(result.from).toBe('<font '.length)
+  })
+
+  it.each([
+    '<img src="a |',
+    '<text |',
+    '<b |',
+    'A <|',
+    'A <- B |',
+    'A <font |',
+    'class A <<|',
+    "' <font |",
+    '!include <font |',
+    '  !define X <img |',
+    '<style>\nroot { <font |\n}\n</style>',
+    '<font size=12|',
+    '<&star{scale=2|',
+    'x <style |',
+  ])('offers nothing here (%s)', (marked) => {
+    expect(complete(tagAttributes, marked)).toBeNull()
+  })
+
+  it('inserts the name and opens its values, valign= listing top, middle and bottom', async () => {
+    const view = pick('<img |', tagAttributes, 'valign=')
+
+    expect(view.state.doc.toString()).toBe('<img valign=')
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    expect(currentCompletions(view.state).map((option) => option.label)).toEqual(['top', 'middle', 'bottom'])
+    view.destroy()
   })
 })

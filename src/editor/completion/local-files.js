@@ -24,7 +24,7 @@ const STYLE = /<style file=([^\s>]*)$/
 const INCLUDE_FILES = /\.(?:puml|iuml|plantuml|pu|txt)$/i
 const STYLE_FILES = /\.(?:css|txt)$/i
 
-function reopen(view, completion, from, to, suffix = '') {
+export function reopen(view, completion, from, to, suffix = '') {
   const insert = completion.label + suffix
   view.dispatch({
     changes: { from, to, insert },

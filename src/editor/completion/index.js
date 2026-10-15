@@ -19,13 +19,14 @@ import { connectors } from './connectors.js'
 import { styleTag } from './style-tag.js'
 import { filesNote } from './files-note.js'
 import { creole } from './creole.js'
+import { tagAttributes } from './tag-attributes.js'
 import { icons } from './icons.js'
 import { emoji } from './emoji.js'
 import { colors, swatchOption } from './colors.js'
 import { builtins } from './builtins.js'
 import { localFiles } from './local-files.js'
 
-export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, icons, emoji, colors, builtins, localFiles]
+export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, filesNote, creole, tagAttributes, icons, emoji, colors, builtins, localFiles]
 
 // One data entry per source: an array under `autocomplete` is read as a list
 // of completions, not of sources. autocompletion() binds completionKeymap

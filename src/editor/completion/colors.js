@@ -15,7 +15,7 @@
 import { PARTICIPANTS, STRUCTURES, inUml } from './keywords.js'
 import { serverColors } from './server-list.js'
 import { inStyleBody } from '../plantuml-mode.js'
-import { inSkinparamBlock } from '../values/index.js'
+import { inSkinparamBlock, valueAt } from '../values/index.js'
 
 const KINDS = [...PARTICIPANTS, ...STRUCTURES, 'agent', 'archimate', 'artifact', 'box', 'card', 'circle', 'diamond', 'file', 'hexagon', 'label', 'legend', 'map', 'note', 'person', 'stack', 'storage']
   .map((kind) => (kind === 'abstract' ? 'abstract(?:[ \\t]+class)?' : kind))
@@ -81,6 +81,10 @@ export async function colors(context) {
   const before = state.sliceDoc(line.from, pos)
   // An open quote is a string, but for a `<font color="` that is still being typed.
   if (/^\s*'/.test(before) || (before.split('"').length % 2 === 0 && !OPEN_FONT_COLOR.test(before))) {
+    return null
+  }
+  // Asked for on a colour that is written, the chooser's list (values.js) is the one.
+  if (context.explicit && valueAt(state, pos)?.colours) {
     return null
   }
   const typed = typedAt(state, pos, line, before)

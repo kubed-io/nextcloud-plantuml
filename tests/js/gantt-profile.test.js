@@ -202,7 +202,7 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
 
   it('reads the preprocessor as everywhere (X7)', () => {
     expect(read('!$start = "2026-10-13"', 'Project starts $start')).toEqual([
-      ['!', 'meta'], ['$start', 'VariableName'], ['=', 'punctuation'], ['"2026-10-13"', 'string'],
+      ['!', 'meta'], ['$start', 'VariableName'], ['=', 'definitionOperator'], ['"2026-10-13"', 'string'],
       ['Project starts', 'keyword'], ['$start', 'VariableName'],
     ])
     expect(read('[A] lasts $days($n) days')).toEqual([

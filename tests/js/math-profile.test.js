@@ -119,7 +119,7 @@ describe('an inline <math>', () => {
       ['actor', 'keyword'],
     ])
     expect(readDoc(['A -> B : x <math>sinx</math> y'])).toEqual([
-      ['->', 'operator'], ['x ', 'labelName'], ['<math>', 'tagName'], ['sin', 'FunctionName'], ['</math>', 'tagName'], [' y', 'labelName'],
+      ['->', 'LinkOperator'], ['x ', 'labelName'], ['<math>', 'tagName'], ['sin', 'FunctionName'], ['</math>', 'tagName'], [' y', 'labelName'],
     ])
   })
 

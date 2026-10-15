@@ -71,8 +71,8 @@ const states = {
     atLineStart(/listsprites?\b/.source, 'keyword'),
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
-    { regex: styledOpen, token: 'operator', next: 'arrowAttr' },
-    { regex: arrow, token: 'operator', next: 'afterLink' },
+    { regex: styledOpen, token: 'LinkOperator', next: 'arrowAttr' },
+    { regex: arrow, token: 'LinkOperator', next: 'afterLink' },
     // Gantt: `[Task] is colored in White/Red`, a fill and a line.
     { regex: new RegExp(`\\b(is)(\\s+colou?red\\s+in\\s+)(#?${colourPart})(?:(/)(#?${colourPart}))?${notStylePart}`), token: ['keyword', null, 'ColorLiteral', 'punctuation', 'ColorLiteral'] },
     ...colours,
@@ -90,7 +90,12 @@ const states = {
     { regex: /"[^"]*"|'[^']*'/, token: 'string' },
     ...names,
     { regex: /\d+(?:\.\d+)?(?!\w)/, token: 'number' },
-    { regex: /[(),]|[=!<>?]=|&&|\|\||[=<>]/, token: 'punctuation' },
+    { regex: /[+\-*/]/, token: 'arithmeticOperator' },
+    { regex: /[=!]=|[<>]=?/, token: 'compareOperator' },
+    { regex: /&&|\|\|/, token: 'logicOperator' },
+    { regex: /\?=|=/, token: 'definitionOperator' },
+    { regex: /[()]/, token: 'paren' },
+    { regex: /,/, token: 'separator' },
     { regex: /\w+/, token: null },
   ],
   blockComment: [
@@ -99,7 +104,7 @@ const states = {
   ],
   // Inside a styled link's brackets.
   arrowAttr: [
-    { regex: styledClose, token: 'operator', next: 'afterLink' },
+    { regex: styledClose, token: 'LinkOperator', next: 'afterLink' },
     { regex: hex, token: 'ColorLiteral' },
     { regex: named, token: 'ColorLiteral' },
     { regex: /[^,\]\s][^,\]]*/, token: 'attributeName' },
@@ -237,7 +242,7 @@ export function plantumlLanguage(inner = {}) {
   function styleStart(stream, state) {
     const sheet = stream.match(styleImport, false)
     if (sheet) return emit(stream, state, [
-      [sheet[1], null], [sheet[2], 'tagName'], [sheet[3], null], [sheet[4], 'attributeName'], [sheet[5], null], [sheet[6], 'punctuation'],
+      [sheet[1], null], [sheet[2], 'tagName'], [sheet[3], null], [sheet[4], 'attributeName'], [sheet[5], null], [sheet[6], 'definitionOperator'],
       [sheet[7], null], [sheet[8], 'string'], [sheet[9], null], [sheet[10], 'tagName'], [sheet[11], null],
     ])
     const one = stream.match(styleOneLine, false)

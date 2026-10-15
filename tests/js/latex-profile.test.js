@@ -113,7 +113,7 @@ describe('an inline <latex>', () => {
       ['actor', 'keyword'],
     ])
     expect(readDoc(['A -> B : x <latex>\\pi</latex> y'])).toEqual([
-      ['->', 'operator'], ['x ', 'labelName'], ['<latex>', 'tagName'], ['\\pi', 'FunctionName'], ['</latex>', 'tagName'], [' y', 'labelName'],
+      ['->', 'LinkOperator'], ['x ', 'labelName'], ['<latex>', 'tagName'], ['\\pi', 'FunctionName'], ['</latex>', 'tagName'], [' y', 'labelName'],
     ])
   })
 

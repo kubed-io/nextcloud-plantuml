@@ -30,6 +30,11 @@ const header = [
   ['sprite', 'keyword'], ['$bar', 'VariableName'], ['[', 'punctuation'], ['8', 'number'], ['x', 'punctuation'], ['4', 'number'],
   ['/', 'punctuation'], ['16', 'number'], [']', 'punctuation'], ['{', 'punctuation'],
 ]
+// The same line as the core reads it, in a uml block.
+const coreHeader = [
+  ['sprite', 'keyword'], ['$bar', 'VariableName'], ['[', 'squareBracket'], ['8', 'number'], ['x', 'separator'], ['4', 'number'],
+  ['/', 'separator'], ['16', 'number'], [']', 'squareBracket'], ['{', 'brace'],
+]
 
 describe('the sprites profile', () => {
   it('is the sprites type with no completions or lints', () => {
@@ -105,24 +110,24 @@ describe('the sprites profile', () => {
 describe('a sprite in a uml block', () => {
   it('reads the pixel rows as data and the lines after as uml', () => {
     expect(umlTokens('sprite $bar [8x4/16] {', 'FFFFFFFF', '0F0F0F0F', '}', 'A -> B')).toEqual([
-      ...header, ['FFFFFFFF', 'SpriteData'], ['0F0F0F0F', 'SpriteData'], ['}', 'punctuation'], ['->', 'operator'],
+      ...coreHeader, ['FFFFFFFF', 'SpriteData'], ['0F0F0F0F', 'SpriteData'], ['}', 'brace'], ['->', 'LinkOperator'],
     ])
   })
 
   it('reads a headerless body, indented, down to end sprite', () => {
-    expect(umlTokens('  sprite $foo {', '  FFFFF', '  end sprite', 'A -> B').slice(-3)).toEqual([['FFFFF', 'SpriteData'], ['end sprite', 'keyword'], ['->', 'operator']])
+    expect(umlTokens('  sprite $foo {', '  FFFFF', '  end sprite', 'A -> B').slice(-3)).toEqual([['FFFFF', 'SpriteData'], ['end sprite', 'keyword'], ['->', 'LinkOperator']])
   })
 
   it('reads a compressed one-line sprite, a colour sprite and an svg sprite', () => {
-    expect(umlTokens('sprite $c [15x15/8z] NOtH3W', 'A -> B').slice(-2)).toEqual([['NOtH3W', 'SpriteData'], ['->', 'operator']])
-    expect(umlTokens('sprite $s [2x1/color] GHab').slice(-3)).toEqual([['color', 'keyword'], [']', 'punctuation'], ['GHab', 'SpriteData']])
+    expect(umlTokens('sprite $c [15x15/8z] NOtH3W', 'A -> B').slice(-2)).toEqual([['NOtH3W', 'SpriteData'], ['->', 'LinkOperator']])
+    expect(umlTokens('sprite $s [2x1/color] GHab').slice(-3)).toEqual([['color', 'keyword'], [']', 'squareBracket'], ['GHab', 'SpriteData']])
     expect(umlTokens('sprite foo <svg viewBox="0 0 8 8"><circle r="3"/></svg>', 'A -> B').slice(0, 5)).toEqual([
-      ['sprite', 'keyword'], ['foo', 'VariableName'], ['<svg', 'tagName'], ['viewBox', 'attributeName'], ['=', 'punctuation'],
+      ['sprite', 'keyword'], ['foo', 'VariableName'], ['<svg', 'tagName'], ['viewBox', 'attributeName'], ['=', 'definitionOperator'],
     ])
   })
 
   it('reads a multi-line svg sprite down to </svg>, then uml again', () => {
-    expect(umlTokens('sprite foo <svg viewBox="0 0 8 8">', '<path d="M1 0l-1 1"/>', '</svg>', 'A -> B').slice(-3)).toEqual([['/>', 'tagName'], ['</svg>', 'tagName'], ['->', 'operator']])
+    expect(umlTokens('sprite foo <svg viewBox="0 0 8 8">', '<path d="M1 0l-1 1"/>', '</svg>', 'A -> B').slice(-3)).toEqual([['/>', 'tagName'], ['</svg>', 'tagName'], ['->', 'LinkOperator']])
   })
 
   it('greys the rows of an unclosed sprite to the end of the block and reads the next block as ever', () => {
@@ -130,11 +135,11 @@ describe('a sprite in a uml block', () => {
     const out = []
     plantumlLanguage({}).parser.parse(doc.toString()).iterate({ enter(n) { if (!n.type.isTop) out.push([doc.sliceString(n.from, n.to), n.type.name]) } })
     expect(out.slice(4, 6)).toEqual([['FF', 'SpriteData'], ['@enduml', 'keyword']])
-    expect(out.slice(-3)).toEqual([['@startuml', 'keyword'], ['->', 'operator'], ['@enduml', 'keyword']])
+    expect(out.slice(-3)).toEqual([['@startuml', 'keyword'], ['->', 'LinkOperator'], ['@enduml', 'keyword']])
   })
 
   it('leaves a package brace alone', () => {
-    expect(umlTokens('package X {', 'A -> B', '}')).toEqual([['package', 'keyword'], ['->', 'operator']])
+    expect(umlTokens('package X {', 'A -> B', '}')).toEqual([['package', 'keyword'], ['->', 'LinkOperator']])
   })
 
   it('names listsprites a keyword', () => {

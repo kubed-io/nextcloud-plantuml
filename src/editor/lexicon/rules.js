@@ -103,12 +103,12 @@ export function creole(base) {
     // state `math`'s, see the core's `inlineMiddle`.
     { regex: /<math>(?=.+?<\/math>)/, token: 'tagName', push: 'math' },
     { regex: /<latex>(?=.+?<\/latex>)/, token: 'tagName', push: 'latex' },
-    // A tag's parts (H10): its name and `>` are tags, `:`, `{`, `,` and `}` punctuation, an
+    // A tag's parts (H10): its name and `>` are tags, `:` and `,` separators, `{` and `}` braces, an
     // attribute's name an attribute and its value a string, or a colour.
-    { regex: new RegExp(`(<(?:color|back|u|s|w))(:)(#?${colourPart})(>)`), token: ['tagName', 'punctuation', 'ColorLiteral', 'tagName'] },
-    { regex: /(<(?:size|color|back|font|u|s|w|space|img|qrcode))(:)([^>{}]+)(>)/, token: ['tagName', 'punctuation', 'string', 'tagName'] },
-    { regex: /(<(?:img|qrcode))(:)([^>{}]+)(\{)/, token: ['tagName', 'punctuation', 'string', 'punctuation'], push: 'tagBraces' },
-    { regex: /(<&[^>\s{}]+|<:[^>\s{}]+:|<\$[^>\s{}]+)(\{)/, token: ['tagName', 'punctuation'], push: 'tagBraces' },
+    { regex: new RegExp(`(<(?:color|back|u|s|w))(:)(#?${colourPart})(>)`), token: ['tagName', 'separator', 'ColorLiteral', 'tagName'] },
+    { regex: /(<(?:size|color|back|font|u|s|w|space|img|qrcode))(:)([^>{}]+)(>)/, token: ['tagName', 'separator', 'string', 'tagName'] },
+    { regex: /(<(?:img|qrcode))(:)([^>{}]+)(\{)/, token: ['tagName', 'separator', 'string', 'brace'], push: 'tagBraces' },
+    { regex: /(<&[^>\s{}]+|<:[^>\s{}]+:|<\$[^>\s{}]+)(\{)/, token: ['tagName', 'brace'], push: 'tagBraces' },
     { regex: /<(?:font|img|text)(?=\s)/, token: 'tagName', push: 'tagAttrs' },
     // A table row or cell colour (`<#lightblue,#red>`) and a coloured emoji (`<#green:sunny:>`).
     { regex: new RegExp(`(<)(#${colourPart})(?:(,)(#${colourPart}))?(:[^>\\s]+:)?(>)`), token: ['tagName', 'ColorLiteral', 'tagName', 'ColorLiteral', 'tagName', 'tagName'] },
@@ -116,7 +116,7 @@ export function creole(base) {
     // An OpenIconic icon, an emoji, an image, a Unicode character.
     { regex: /<(?:&[^>\s]+|:[^>\s]+:|\$[^>\s]+|U\+[\dA-Fa-f]+)>|&#(?:\d+|x[\dA-Fa-f]+);/, token: 'tagName' },
     ...names,
-    { regex: /\|=?/, token: 'punctuation' },
+    { regex: /\|=?/, token: 'separator' },
     { regex: /\w+|[^\w[*/"<|~&$%]+/, token: base },
     { regex: /./, token: base },
   ]
@@ -124,11 +124,11 @@ export function creole(base) {
 
 /** The pieces of `name=value`, as they stand in a tag; `end` is what may follow a value. */
 export const attributes = (end) => [
-  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(#?${colourPart})${end}`), token: ['attributeName', null, 'punctuation', null, 'ColorLiteral'] },
+  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(#?${colourPart})${end}`), token: ['attributeName', null, 'definitionOperator', null, 'ColorLiteral'] },
   // A quoted colour keeps its swatch (C6), its quotes a string.
-  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(["'])(#?${colourPart})(\\5)`), token: ['attributeName', null, 'punctuation', null, 'string', 'ColorLiteral', 'string'] },
+  { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(["'])(#?${colourPart})(\\5)`), token: ['attributeName', null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
   { regex: /[\w-]+(?=\s*=)/, token: 'attributeName' },
-  { regex: /=/, token: 'punctuation' },
+  { regex: /=/, token: 'definitionOperator' },
   { regex: /"[^"]*"|'[^']*'/, token: 'string' },
   { regex: /[^\s>"',}]+/, token: 'string' },
   { regex: /./, token: null },
@@ -146,9 +146,9 @@ export const tagStates = {
   ],
   tagBraces: [
     { regex: /\s+/, token: null },
-    { regex: /(\})(>)/, token: ['punctuation', 'tagName'], pop: true },
-    { regex: /\}/, token: 'punctuation', pop: true },
-    { regex: /,/, token: 'punctuation' },
+    { regex: /(\})(>)/, token: ['brace', 'tagName'], pop: true },
+    { regex: /\}/, token: 'brace', pop: true },
+    { regex: /,/, token: 'separator' },
     ...attributes(/(?=[\s,}>]|$)/.source),
   ],
 }
@@ -162,8 +162,8 @@ export const lines = (code) => [
   // No group in these: a rule's groups are its tokens.
   atLineStart(/(?:\.\..+\.\.|==.+==|--.+--)\s*$/.source, 'heading'),
   atLineStart(/={1,3}[ \t].*/.source, 'heading'),
-  atLineStart(/(?:\*{1,2}|#{1,2})(?=[ \t])/.source, 'punctuation'),
-  atLineStart(/\|_/.source, 'punctuation'),
+  atLineStart(/(?:\*{1,2}|#{1,2})(?=[ \t])/.source, 'list'),
+  atLineStart(/\|_/.source, 'list'),
   atLineStart(/<code>(?=\s*$)/.source, 'tagName', { next: code }),
   // A formula over several lines: exactly `<latex>`, down to a line that is exactly `</latex>`.
   { regex: /<latex>$/, sol: true, token: 'tagName', push: 'latexBlock' },
@@ -210,16 +210,16 @@ export const spriteStates = {
   // the rows, or a payload, or an svg. Ends with its line, see the core's `nextLine`.
   spriteHead: [
     { regex: /\s+/, token: null },
-    { regex: /(\[)(\d+)(x)(\d+)(\/)(\d+)(z)?(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'number', 'keyword', 'punctuation'] },
-    { regex: /(\[)(\d+)(x)(\d+)(\/)(color)(\])/, token: ['punctuation', 'number', 'punctuation', 'number', 'punctuation', 'keyword', 'punctuation'] },
-    { regex: /\{(?=\s*$)/, token: 'punctuation', next: 'spriteRows' },
+    { regex: /(\[)(\d+)(x)(\d+)(\/)(\d+)(z)?(\])/, token: ['squareBracket', 'number', 'separator', 'number', 'separator', 'number', 'keyword', 'squareBracket'] },
+    { regex: /(\[)(\d+)(x)(\d+)(\/)(color)(\])/, token: ['squareBracket', 'number', 'separator', 'number', 'separator', 'keyword', 'squareBracket'] },
+    { regex: /\{(?=\s*$)/, token: 'brace', next: 'spriteRows' },
     { regex: /<svg(?=[\s>])/, token: 'tagName', next: 'spriteSvg' },
     { regex: /data:[^,\s]*,/, token: 'attributeName' },
     { regex: /\S+/, token: 'SpriteData' },
   ],
   // Pixel rows are data, down to the closing `}` or `end sprite`.
   spriteRows: [
-    atLineStart(/\}/.source, 'punctuation', { next: 'start' }),
+    atLineStart(/\}/.source, 'brace', { next: 'start' }),
     atLineStart(/end[ \t]*sprite\b/.source, 'keyword', { next: 'start' }),
     atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
     atLineStart(/'.*/.source, 'comment'),

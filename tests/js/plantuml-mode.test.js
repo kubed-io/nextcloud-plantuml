@@ -52,48 +52,48 @@ describe('plantumlMode', () => {
   })
 
   it('names a message arrow as an operator and its label as a label', () => {
-    expect(tokens('Customer -> Shop : place order')).toEqual([['->', 'operator'], ['place order', 'labelName']])
+    expect(tokens('Customer -> Shop : place order')).toEqual([['->', 'LinkOperator'], ['place order', 'labelName']])
   })
 
   it.each(['-->', '<-', '->>', '..>', 'o->', '==>', '~~>'])('names %s as an operator', (arrow) => {
-    expect(tokens(`A ${arrow} B`)).toEqual([[arrow, 'operator']])
+    expect(tokens(`A ${arrow} B`)).toEqual([[arrow, 'LinkOperator']])
   })
 
   it.each(['--', '..', '~~', '==', '---', '-up-', '.left.'])('names the headless link %s as an operator too', (link) => {
-    expect(tokens(`node1 ${link} node2`)).toEqual([[link, 'operator']])
+    expect(tokens(`node1 ${link} node2`)).toEqual([[link, 'LinkOperator']])
   })
 
   it('names a styled link in pieces: the strokes and brackets operators, a colour a colour, the rest attributes', () => {
-    expect(tokens('A -[#red]-> B')).toEqual([['-[', 'operator'], ['#red', 'ColorLiteral'], [']->', 'operator']])
-    expect(tokens('node1 -[hidden]- node2')).toEqual([['-[', 'operator'], ['hidden', 'attributeName'], [']-', 'operator']])
+    expect(tokens('A -[#red]-> B')).toEqual([['-[', 'LinkOperator'], ['#red', 'ColorLiteral'], [']->', 'LinkOperator']])
+    expect(tokens('node1 -[hidden]- node2')).toEqual([['-[', 'LinkOperator'], ['hidden', 'attributeName'], [']-', 'LinkOperator']])
     expect(tokens('api -[#FF6F61,bold]-> jobs : deploys')).toEqual([
-      ['-[', 'operator'],
+      ['-[', 'LinkOperator'],
       ['#FF6F61', 'ColorLiteral'],
       ['bold', 'attributeName'],
-      [']->', 'operator'],
+      [']->', 'LinkOperator'],
       ['deploys', 'labelName'],
     ])
     expect(tokens('A .[#00F, dashed, thickness=2]..> B')).toEqual([
-      ['.[', 'operator'],
+      ['.[', 'LinkOperator'],
       ['#00F', 'ColorLiteral'],
       ['dashed', 'attributeName'],
       ['thickness=2', 'attributeName'],
-      [']..>', 'operator'],
+      [']..>', 'LinkOperator'],
     ])
-    expect(tokens('A <-[#red]- B')).toEqual([['<-[', 'operator'], ['#red', 'ColorLiteral'], [']-', 'operator']])
+    expect(tokens('A <-[#red]- B')).toEqual([['<-[', 'LinkOperator'], ['#red', 'ColorLiteral'], [']-', 'LinkOperator']])
   })
 
   it('never carries a label, a styled link or a note line into the next line', () => {
-    expect(tokens('A -> B : hi', 'participant C')).toEqual([['->', 'operator'], ['hi', 'labelName'], ['participant', 'keyword']])
-    expect(tokens('A -> B', 'participant C : x')).toEqual([['->', 'operator'], ['participant', 'keyword']])
+    expect(tokens('A -> B : hi', 'participant C')).toEqual([['->', 'LinkOperator'], ['hi', 'labelName'], ['participant', 'keyword']])
+    expect(tokens('A -> B', 'participant C : x')).toEqual([['->', 'LinkOperator'], ['participant', 'keyword']])
     expect(tokens('note left of A : hi', 'actor B')).toEqual([['note', 'keyword'], ['actor', 'keyword']])
     expect(tokens('title A **b**', 'actor B')).toEqual([['title', 'keyword'], ['**b**', 'strong'], ['actor', 'keyword']])
   })
 
   it('labels a headless link, a quoted end, and a label with no spaces round the colon', () => {
-    expect(tokens('node1 -- node2 : label1')).toEqual([['--', 'operator'], ['label1', 'labelName']])
-    expect(tokens('A ~~ "Big B" : waves')).toEqual([['~~', 'operator'], ['waves', 'labelName']])
-    expect(tokens('A->B:hi')).toEqual([['->', 'operator'], ['hi', 'labelName']])
+    expect(tokens('node1 -- node2 : label1')).toEqual([['--', 'LinkOperator'], ['label1', 'labelName']])
+    expect(tokens('A ~~ "Big B" : waves')).toEqual([['~~', 'LinkOperator'], ['waves', 'labelName']])
+    expect(tokens('A->B:hi')).toEqual([['->', 'LinkOperator'], ['hi', 'labelName']])
   })
 
   it('finds no arrow inside a word or a URL, but keeps o and x heads', () => {
@@ -101,9 +101,9 @@ describe('plantumlMode', () => {
       ['database', 'keyword'],
       ['[[https://www.postgresql.org/docs/ Postgres docs]]', 'link'],
     ])
-    expect(tokens('A --o B')).toEqual([['--o', 'operator']])
-    expect(tokens('A ..x B')).toEqual([['..x', 'operator']])
-    expect(tokens('A-->B')).toEqual([['-->', 'operator']])
+    expect(tokens('A --o B')).toEqual([['--o', 'LinkOperator']])
+    expect(tokens('A ..x B')).toEqual([['..x', 'LinkOperator']])
+    expect(tokens('A-->B')).toEqual([['-->', 'LinkOperator']])
   })
 
   it('leaves a lone dash, a member type and an activity action unlabelled', () => {
@@ -138,25 +138,25 @@ describe('plantumlMode', () => {
 // X7: the directive word is meta; variables and functions are coloured as editors colour them.
 describe('plantumlMode preprocessor', () => {
   it('names the directive word meta, a variable a variable and its value a string', () => {
-    expect(tokens('!$app = "Nextcloud"')).toEqual([['!', 'meta'], ['$app', 'VariableName'], ['=', 'punctuation'], ['"Nextcloud"', 'string']])
+    expect(tokens('!$app = "Nextcloud"')).toEqual([['!', 'meta'], ['$app', 'VariableName'], ['=', 'definitionOperator'], ['"Nextcloud"', 'string']])
   })
 
   it('names a procedure where it is declared a function, and its parameters variables', () => {
     expect(tokens('!procedure $ask($from, $to, $what)')).toEqual([
       ['!procedure', 'meta'],
       ['$ask', 'FunctionName'],
-      ['(', 'punctuation'],
+      ['(', 'paren'],
       ['$from', 'VariableName'],
-      [',', 'punctuation'],
+      [',', 'separator'],
       ['$to', 'VariableName'],
-      [',', 'punctuation'],
+      [',', 'separator'],
       ['$what', 'VariableName'],
-      [')', 'punctuation'],
+      [')', 'paren'],
     ])
   })
 
   it('names variables on a body line too, a label and a note included', () => {
-    expect(tokens('  $from -> $to : $what')).toEqual([['$from', 'VariableName'], ['->', 'operator'], ['$to', 'VariableName'], ['$what', 'VariableName']])
+    expect(tokens('  $from -> $to : $what')).toEqual([['$from', 'VariableName'], ['->', 'LinkOperator'], ['$to', 'VariableName'], ['$what', 'VariableName']])
     expect(tokens('note over $to : sent by $from')).toEqual([['note', 'keyword'], ['$to', 'VariableName'], ['$from', 'VariableName']])
     expect(tokens('note left of $to', 'by $from', 'end note')).toEqual([['note', 'keyword'], ['$to', 'VariableName'], ['$from', 'VariableName'], ['end note', 'keyword']])
   })
@@ -165,10 +165,10 @@ describe('plantumlMode preprocessor', () => {
     expect(tokens('!if %strlen("stdlib") > 3', '$ask(nc, db, "x")', '!endif')).toEqual([
       ['!if', 'meta'],
       ['%strlen', 'FunctionName'],
-      ['(', 'punctuation'],
+      ['(', 'paren'],
       ['"stdlib"', 'string'],
-      [')', 'punctuation'],
-      ['>', 'punctuation'],
+      [')', 'paren'],
+      ['>', 'compareOperator'],
       ['3', 'number'],
       ['$ask', 'FunctionName'],
       ['"x"', 'string'],
@@ -183,15 +183,15 @@ describe('plantumlMode preprocessor', () => {
   })
 
   it('ends with its line', () => {
-    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'punctuation'], ['1', 'number'], ['actor', 'keyword']])
+    expect(tokens('!$x = 1', 'actor A : 2')).toEqual([['!', 'meta'], ['$x', 'VariableName'], ['=', 'definitionOperator'], ['1', 'number'], ['actor', 'keyword']])
   })
 
   it('leaves a price, a sprite, a string, a link and a comment as they were', () => {
-    expect(tokens('A -> B : costs $5 or 50%')).toEqual([['->', 'operator'], ['costs $5 or 50%', 'labelName']])
+    expect(tokens('A -> B : costs $5 or 50%')).toEqual([['->', 'LinkOperator'], ['costs $5 or 50%', 'labelName']])
     expect(tokens('note right of A : costs $5')).toEqual([['note', 'keyword']])
-    expect(tokens('A -> B : <$foo>')).toEqual([['->', 'operator'], ['<$foo>', 'tagName']])
+    expect(tokens('A -> B : <$foo>')).toEqual([['->', 'LinkOperator'], ['<$foo>', 'tagName']])
     expect(tokens('participant "a $b"')).toEqual([['participant', 'keyword'], ['"a $b"', 'string']])
-    expect(tokens('A -> B : [[http://x/$y $z]]')).toEqual([['->', 'operator'], ['[[http://x/$y $z]]', 'link']])
+    expect(tokens('A -> B : [[http://x/$y $z]]')).toEqual([['->', 'LinkOperator'], ['[[http://x/$y $z]]', 'link']])
     expect(tokens("' $x and %f(1)")).toEqual([["' $x and %f(1)", 'comment']])
   })
 
@@ -203,7 +203,7 @@ describe('plantumlMode preprocessor', () => {
   })
 
   it('names a variable before a spaced bracket a variable, not a call', () => {
-    expect(tokens('A -> $b (x)')).toEqual([['->', 'operator'], ['$b', 'VariableName']])
+    expect(tokens('A -> $b (x)')).toEqual([['->', 'LinkOperator'], ['$b', 'VariableName']])
   })
 })
 
@@ -228,8 +228,8 @@ describe('plantumlMode colours', () => {
   it('takes a named colour where a colour goes: an element style, a note, a styled link, a Creole tag', () => {
     expect(tokens('node foo #Red;line:blue;line.dashed')).toEqual([['node', 'keyword'], ['#Red', 'ColorLiteral']])
     expect(tokens('note left of A #pink', 'x', 'end note').slice(0, 2)).toEqual([['note', 'keyword'], ['#pink', 'ColorLiteral']])
-    expect(tokens('A -[#Red,bold]-> B')).toEqual([['-[', 'operator'], ['#Red', 'ColorLiteral'], ['bold', 'attributeName'], [']->', 'operator']])
-    expect(tokens('A -> B : <color:#Red>hot</color>').slice(1, 5)).toEqual([['<color', 'tagName'], [':', 'punctuation'], ['#Red', 'ColorLiteral'], ['>', 'tagName']])
+    expect(tokens('A -[#Red,bold]-> B')).toEqual([['-[', 'LinkOperator'], ['#Red', 'ColorLiteral'], ['bold', 'attributeName'], [']->', 'LinkOperator']])
+    expect(tokens('A -> B : <color:#Red>hot</color>').slice(1, 5)).toEqual([['<color', 'tagName'], [':', 'separator'], ['#Red', 'ColorLiteral'], ['>', 'tagName']])
   })
 
   it('takes no word after a # at the start of a line for a colour', () => {
@@ -296,7 +296,7 @@ describe('plantumlMode Creole', () => {
   it('names Creole tags as tags, and a colour inside one as a colour', () => {
     expect(label('<size:20>big</size> <b>x</b> <&clock> <:sunny:> <img:logo.png>')).toEqual([
       ['<size', 'tagName'],
-      [':', 'punctuation'],
+      [':', 'separator'],
       ['20', 'string'],
       ['>', 'tagName'],
       ['big', 'labelName'],
@@ -311,27 +311,27 @@ describe('plantumlMode Creole', () => {
       ['<:sunny:>', 'tagName'],
       [' ', 'labelName'],
       ['<img', 'tagName'],
-      [':', 'punctuation'],
+      [':', 'separator'],
       ['logo.png', 'string'],
       ['>', 'tagName'],
     ])
     expect(label('<color:#FF6F61>hot</color> <back:#2B3E50>x</back> <color:red>y</color>')).toEqual([
       ['<color', 'tagName'],
-      [':', 'punctuation'],
+      [':', 'separator'],
       ['#FF6F61', 'ColorLiteral'],
       ['>', 'tagName'],
       ['hot', 'labelName'],
       ['</color>', 'tagName'],
       [' ', 'labelName'],
       ['<back', 'tagName'],
-      [':', 'punctuation'],
+      [':', 'separator'],
       ['#2B3E50', 'ColorLiteral'],
       ['>', 'tagName'],
       ['x', 'labelName'],
       ['</back>', 'tagName'],
       [' ', 'labelName'],
       ['<color', 'tagName'],
-      [':', 'punctuation'],
+      [':', 'separator'],
       ['red', 'ColorLiteral'],
       ['>', 'tagName'],
       ['y', 'labelName'],
@@ -342,7 +342,7 @@ describe('plantumlMode Creole', () => {
   // H10: a tag is read in parts, as VS Code reads HTML.
   describe('a tag\'s parts', () => {
     const note = (text) => tokens(`note: ${text}`).slice(1)
-    const attr = (name, value, token = 'string') => [[name, 'attributeName'], ['=', 'punctuation'], [value, token]]
+    const attr = (name, value, token = 'string') => [[name, 'attributeName'], ['=', 'definitionOperator'], [value, token]]
 
     it('reads attributes of font, img and text', () => {
       expect(note('<font size=12 color=red>big</font>')).toEqual([
@@ -365,21 +365,21 @@ describe('plantumlMode Creole', () => {
     })
 
     it('reads the colon forms', () => {
-      expect(note('<color:#FF0000>')).toEqual([['<color', 'tagName'], [':', 'punctuation'], ['#FF0000', 'ColorLiteral'], ['>', 'tagName']])
-      expect(note('<color:red>')).toEqual([['<color', 'tagName'], [':', 'punctuation'], ['red', 'ColorLiteral'], ['>', 'tagName']])
-      expect(note('<font:Trebuchet MS>')).toEqual([['<font', 'tagName'], [':', 'punctuation'], ['Trebuchet MS', 'string'], ['>', 'tagName']])
-      expect(note('<u:red>')).toEqual([['<u', 'tagName'], [':', 'punctuation'], ['red', 'ColorLiteral'], ['>', 'tagName']])
+      expect(note('<color:#FF0000>')).toEqual([['<color', 'tagName'], [':', 'separator'], ['#FF0000', 'ColorLiteral'], ['>', 'tagName']])
+      expect(note('<color:red>')).toEqual([['<color', 'tagName'], [':', 'separator'], ['red', 'ColorLiteral'], ['>', 'tagName']])
+      expect(note('<font:Trebuchet MS>')).toEqual([['<font', 'tagName'], [':', 'separator'], ['Trebuchet MS', 'string'], ['>', 'tagName']])
+      expect(note('<u:red>')).toEqual([['<u', 'tagName'], [':', 'separator'], ['red', 'ColorLiteral'], ['>', 'tagName']])
     })
 
     it('reads the braces after an icon, an emoji and an image', () => {
       expect(note('<&star{scale=2,color=red}>')).toEqual([
-        ['<&star', 'tagName'], ['{', 'punctuation'], ...attr('scale', '2'), [',', 'punctuation'], ...attr('color', 'red', 'ColorLiteral'), ['}', 'punctuation'], ['>', 'tagName'],
+        ['<&star', 'tagName'], ['{', 'brace'], ...attr('scale', '2'), [',', 'separator'], ...attr('color', 'red', 'ColorLiteral'), ['}', 'brace'], ['>', 'tagName'],
       ])
       expect(note('<:sunny:{scale=0.5}>')).toEqual([
-        ['<:sunny:', 'tagName'], ['{', 'punctuation'], ...attr('scale', '0.5'), ['}', 'punctuation'], ['>', 'tagName'],
+        ['<:sunny:', 'tagName'], ['{', 'brace'], ...attr('scale', '0.5'), ['}', 'brace'], ['>', 'tagName'],
       ])
       expect(note('<img:x.png{scale=0.5}>')).toEqual([
-        ['<img', 'tagName'], [':', 'punctuation'], ['x.png', 'string'], ['{', 'punctuation'], ...attr('scale', '0.5'), ['}', 'punctuation'], ['>', 'tagName'],
+        ['<img', 'tagName'], [':', 'separator'], ['x.png', 'string'], ['{', 'brace'], ...attr('scale', '0.5'), ['}', 'brace'], ['>', 'tagName'],
       ])
     })
 
@@ -416,12 +416,12 @@ describe('plantumlMode Creole', () => {
       ['**b**', 'strong'],
       ['<i>', 'tagName'],
       ['</i>', 'tagName'],
-      ['|=', 'punctuation'],
-      ['|=', 'punctuation'],
-      ['|', 'punctuation'],
-      ['|', 'punctuation'],
-      ['|', 'punctuation'],
-      ['|', 'punctuation'],
+      ['|=', 'separator'],
+      ['|=', 'separator'],
+      ['|', 'separator'],
+      ['|', 'separator'],
+      ['|', 'separator'],
+      ['|', 'separator'],
       ['----', 'heading'],
       ['end note', 'keyword'],
       ['actor', 'keyword'],
@@ -500,7 +500,7 @@ describe('plantumlMode @startcreole', () => {
       ['**b**', 'strong'],
       ['//i//', 'emphasis'],
       ['<color', 'tagName'],
-      [':', 'punctuation'],
+      [':', 'separator'],
       ['#F00', 'ColorLiteral'],
       ['>', 'tagName'],
       ['</color>', 'tagName'],
@@ -597,7 +597,7 @@ describe('plantumlMode style blocks', () => {
     expect(tokens('  <style file=my.css>', 'actor A')).toEqual([
       ['<style', 'tagName'],
       ['file', 'attributeName'],
-      ['=', 'punctuation'],
+      ['=', 'definitionOperator'],
       ['my.css', 'string'],
       ['>', 'tagName'],
       ['actor', 'keyword'],
@@ -615,7 +615,7 @@ describe('plantumlMode style blocks', () => {
 
   it('takes no <style> inside a note, or after text on the line', () => {
     expect(tokens('note left', '<style>', 'end note', 'actor A')).toEqual([['note', 'keyword'], ['end note', 'keyword'], ['actor', 'keyword']])
-    expect(tokens('A -> B : <style>')).toEqual([['->', 'operator'], ['<style>', 'labelName']])
+    expect(tokens('A -> B : <style>')).toEqual([['->', 'LinkOperator'], ['<style>', 'labelName']])
   })
 })
 
@@ -715,7 +715,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ["' a note", 'comment'],
       ['!', 'meta'],
       ['$x', 'VariableName'],
-      ['=', 'punctuation'],
+      ['=', 'definitionOperator'],
       ['1', 'number'],
       ['a {', 'atom'],
       ['</style>', 'tagName'],
@@ -760,7 +760,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['actor', 'keyword'],
     ])
     expect(mathy('A -> B : <math>a</math>b</math>')).toEqual([
-      ['->', 'operator'],
+      ['->', 'LinkOperator'],
       ['<math>', 'tagName'],
       ['a', 'atom'],
       ['</math>', 'tagName'],
@@ -779,7 +779,7 @@ describe('plantumlLanguage with an inner mode', () => {
       ['actor', 'keyword'],
     ])
     expect(texy('A -> B : <latex>a</latex>b</latex>')).toEqual([
-      ['->', 'operator'],
+      ['->', 'LinkOperator'],
       ['<latex>', 'tagName'],
       ['a', 'atom'],
       ['</latex>', 'tagName'],
@@ -898,6 +898,8 @@ describe('plantumlMode Creole, complete (X19)', () => {
   const note = (...lines) => tokens('note left of A', ...lines, 'end note')
   const inner = (...lines) => note(...lines).slice(1, -1)
   const P = (text) => [text, 'punctuation']
+  const List = (text) => [text, 'list']
+  const Bar = (text) => [text, 'separator']
 
   it.each([
     ['a note body', (...lines) => inner(...lines)],
@@ -905,8 +907,8 @@ describe('plantumlMode Creole, complete (X19)', () => {
   ])('reads headings, list markers and tree lines at the start of a line in %s', (_, read) => {
     expect(read('== Large heading')).toEqual([['== Large heading', 'heading']])
     expect(read('=== Third', '= First')).toEqual([['=== Third', 'heading'], ['= First', 'heading']])
-    expect(read('** Sub item', '# one', '  ## two')).toEqual([P('**'), P('#'), P('##')])
-    expect(read('  |_ Level 2a')).toEqual([P('|_')])
+    expect(read('** Sub item', '# one', '  ## two')).toEqual([List('**'), List('#'), List('##')])
+    expect(read('  |_ Level 2a')).toEqual([List('|_')])
     expect(read('..My title..', '==Title==', '--Another title--', '____', '----')).toEqual([
       ['..My title..', 'heading'],
       ['==Title==', 'heading'],
@@ -921,8 +923,8 @@ describe('plantumlMode Creole, complete (X19)', () => {
   })
 
   it('reads no heading or list marker in a one-line label, where # is a colour', () => {
-    expect(tokens('A -> B : == x')).toEqual([['->', 'operator'], ['== x', 'labelName']])
-    expect(tokens('A -> B : * x')).toEqual([['->', 'operator'], ['* x', 'labelName']])
+    expect(tokens('A -> B : == x')).toEqual([['->', 'LinkOperator'], ['== x', 'labelName']])
+    expect(tokens('A -> B : * x')).toEqual([['->', 'LinkOperator'], ['* x', 'labelName']])
     expect(tokens('note right of A : * x')).toEqual([['note', 'keyword']])
     expect(tokens('note right of A : # x')).toEqual([['note', 'keyword']])
   })
@@ -939,7 +941,7 @@ describe('plantumlMode Creole, complete (X19)', () => {
   })
 
   it('keeps ~~wave~~ plain', () => {
-    expect(tokens('A -> B : ~~wavy~~')).toEqual([['->', 'operator'], ['~~wavy~~', 'labelName']])
+    expect(tokens('A -> B : ~~wavy~~')).toEqual([['->', 'LinkOperator'], ['~~wavy~~', 'labelName']])
   })
 
   it('reads Unicode and numeric character tags', () => {
@@ -949,15 +951,15 @@ describe('plantumlMode Creole, complete (X19)', () => {
   it('reads table row and cell colours as tags with colour literals, and a coloured emoji', () => {
     expect(inner('<#lightblue,#red>|=  Step  |', '|<#FF8080> red |', '<#green:sunny:>')).toEqual([
       ['<', 'tagName'], ['#lightblue', 'ColorLiteral'], [',', 'tagName'], ['#red', 'ColorLiteral'], ['>', 'tagName'],
-      P('|='), P('|'),
-      P('|'), ['<', 'tagName'], ['#FF8080', 'ColorLiteral'], ['>', 'tagName'], P('|'),
+      Bar('|='), Bar('|'),
+      Bar('|'), ['<', 'tagName'], ['#FF8080', 'ColorLiteral'], ['>', 'tagName'], Bar('|'),
       ['<', 'tagName'], ['#green', 'ColorLiteral'], [':sunny:>', 'tagName'],
     ])
     expect(inner('<#00FF00,#FF0000>|=')[1]).toEqual(['#00FF00', 'ColorLiteral'])
   })
 
   it('reads <r> as a tag', () => {
-    expect(inner('|<r> x |')).toEqual([P('|'), ['<r>', 'tagName'], P('|')])
+    expect(inner('|<r> x |')).toEqual([Bar('|'), ['<r>', 'tagName'], Bar('|')])
   })
 
   it('reads the lines between <code> and </code> as monospace, and keeps going after', () => {
@@ -972,5 +974,45 @@ describe('plantumlMode Creole, complete (X19)', () => {
 
   it('ends a note at its closer even inside an unclosed <code>', () => {
     expect(tokens('note left of A', '<code>', 'x', 'end note', 'actor B').map(([, t]) => t)).toEqual(['keyword', 'tagName', 'monospace', 'keyword', 'keyword'])
+  })
+})
+
+// The dictionary's categories (Y22-Y31) for the constructs the core reads.
+describe('plantumlMode, by dictionary category', () => {
+  const note = (...lines) => tokens('note left of A', ...lines, 'end note').slice(1, -1)
+
+  it('names a link LinkOperator, a styled one in pieces', () => {
+    expect(tokens('A -> B')).toEqual([['->', 'LinkOperator']])
+    expect(tokens('A -[#red,dashed]-> B')).toEqual([['-[', 'LinkOperator'], ['#red', 'ColorLiteral'], ['dashed', 'attributeName'], [']->', 'LinkOperator']])
+  })
+
+  it('names a tag by its parts: name, separator, string and brace', () => {
+    expect(tokens('A -> B : <size:12>x</size>').slice(1, 5)).toEqual([['<size', 'tagName'], [':', 'separator'], ['12', 'string'], ['>', 'tagName']])
+    expect(tokens('A -> B : <&star{scale=2}>').slice(1)).toEqual([
+      ['<&star', 'tagName'], ['{', 'brace'], ['scale', 'attributeName'], ['=', 'definitionOperator'], ['2', 'string'], ['}', 'brace'], ['>', 'tagName'],
+    ])
+    expect(tokens('A -> B : <font size=12 color=red>').slice(1).filter(([, t]) => t === 'definitionOperator')).toHaveLength(2)
+  })
+
+  it('names list and tree markers list, and table bars separators', () => {
+    expect(note('* item')[0]).toEqual(['*', 'list'])
+    expect(note('## two')[0]).toEqual(['##', 'list'])
+    expect(note('|_ leaf')[0]).toEqual(['|_', 'list'])
+    expect(note('| a | b |').filter(([text]) => text === '|').map(([, t]) => t)).toEqual(['separator', 'separator', 'separator'])
+  })
+
+  it('splits the preprocessor operators by kind', () => {
+    expect(tokens('!if $a == 1 && $b != 2').filter(([, t]) => /Operator$/.test(t))).toEqual([
+      ['==', 'compareOperator'], ['&&', 'logicOperator'], ['!=', 'compareOperator'],
+    ])
+    expect(tokens('!$x = $a + 1').slice(2)).toEqual([['=', 'definitionOperator'], ['$a', 'VariableName'], ['+', 'arithmeticOperator'], ['1', 'number']])
+    expect(tokens('!$y ?= 2')[2]).toEqual(['?=', 'definitionOperator'])
+    expect(tokens('!$z = $f(1, 2)').slice(4)).toEqual([['(', 'paren'], ['1', 'number'], [',', 'separator'], ['2', 'number'], [')', 'paren']])
+  })
+
+  it('names a sprite head by its brackets and separators', () => {
+    expect(tokens('sprite $s [16x16/16] {', '}').slice(2)).toEqual([
+      ['[', 'squareBracket'], ['16', 'number'], ['x', 'separator'], ['16', 'number'], ['/', 'separator'], ['16', 'number'], [']', 'squareBracket'], ['{', 'brace'], ['}', 'brace'],
+    ])
   })
 })

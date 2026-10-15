@@ -1432,29 +1432,32 @@ describe('sections and blocks of an included file', () => {
     expect(result.from).toBe('!includesub ./parts.puml!'.length)
   })
 
-  it('offers the named blocks after !include path!, and not the unnamed ones', async () => {
-    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts\nA -> B\n@enduml\n@startuml(id=legend)\n@enduml\n@startmindmap\n* x\n', etag: 'e' })
+  it('offers the ids, then each block\'s index, with the name or type beside it', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml(id=bar) Bar diagram\nA -> B\n@enduml\n@startuml foo\n@enduml\n@startsalt\n{\n}\n@endsalt\n', etag: 'e' })
 
     const result = await completeAt('!include ./blocks.puml!|')
 
     expect(loadFile).toHaveBeenCalledWith('/apps/blocks.puml')
-    expect(labels(result)).toEqual(['parts', 'legend'])
+    expect(result.options.map((option) => [option.label, option.detail])).toEqual([
+      ['bar', 'Bar diagram'], ['0', 'Bar diagram'], ['1', 'foo'], ['2', 'salt'],
+    ])
+    expect(labels(result)).not.toContain('foo')
   })
 
-  it('offers a block name as the resolver reads it: a dotted token, or an id with spaces', async () => {
-    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts.v2\n@enduml\n@startuml(id = legend)\n@enduml\n', etag: 'e' })
+  it('offers an id written with spaces around the =, once', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml(id = legend)\n@enduml\n@startuml(id=legend)\n@enduml\n', etag: 'e' })
 
     const result = await completeAt('!include ./resolver-names.puml!|')
 
-    expect(labels(result)).toEqual(['parts.v2', 'legend'])
+    expect(labels(result)).toEqual(['legend', '0', '1'])
   })
 
   it('keeps offering while a dotted name is typed after the !', async () => {
-    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml parts.v2\n@enduml\n', etag: 'e' })
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml(id=parts.v2)\n@enduml\n', etag: 'e' })
 
     const result = await completeAt('!include ./typed-dots.puml!parts.|')
 
-    expect(labels(result)).toEqual(['parts.v2'])
+    expect(labels(result)).toEqual(['parts.v2', '0'])
     expect(result.validFor.test('parts.v')).toBe(true)
   })
 
@@ -1498,7 +1501,7 @@ describe('sections and blocks of an included file', () => {
 
     expect(labels(await completeAt('!includesub "a b.puml"!|'))).toEqual(['PART'])
     expect(loadFile).toHaveBeenCalledWith('/apps/a b.puml')
-    expect(labels(await completeAt('!include "a b.puml"!|'))).toEqual(['spaced'])
+    expect(labels(await completeAt('!include "a b.puml"!|'))).toEqual(['0'])
   })
 
   it('still offers the diagram\'s own sections when the listing fails', async () => {

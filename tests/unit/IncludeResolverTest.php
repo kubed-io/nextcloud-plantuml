@@ -136,10 +136,30 @@ final class IncludeResolverTest extends TestCase {
 	}
 
 	public function testABlockIsPickedByIndexOrById(): void {
-		$file = "@startuml\nfirst\n@enduml\n@startuml(id=MINE)\nsecond\n@enduml\n@startuml THIRD\nthird\n@enduml\n";
+		$file = "@startuml\nfirst\n@enduml\n@startuml(id=MINE) Mine\nsecond\n@enduml\n@startuml(id=THIRD)\nthird\n@enduml\n";
 		$expanded = $this->expand("!include_many f.puml!1\n!include_many f.puml!MINE\n!include_many f.puml!THIRD\n!include_many f.puml!0\n", ['docs/f.puml' => $file]);
 
 		self::assertSame("second\nsecond\nthird\nfirst\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	public function testABareNameIsNotASelectorAndTheMistakeSaysHowToWriteOne(): void {
+		$file = "@startuml foo\nfirst\n@enduml\n@startuml My Fun Diagram\nsecond\n@enduml\n";
+		$expanded = $this->expand("!include parts.puml!foo\n!include parts.puml!My\n!include parts.puml!nothere\n", ['docs/parts.puml' => $file]);
+
+		self::assertSame("!include parts.puml!foo\n!include parts.puml!My\n!include parts.puml!nothere\n", $expanded->source);
+		self::assertSame([
+			['line' => 0, 'message' => 'parts.puml has no block with id=foo: write @startuml(id=foo) to include it by name'],
+			['line' => 1, 'message' => 'Cannot find parts.puml!My'],
+			['line' => 2, 'message' => 'Cannot find parts.puml!nothere'],
+		], $expanded->mistakes);
+	}
+
+	public function testAnIdBeatsTheNameOfAnEarlierBlock(): void {
+		$file = "@startuml bar\nfirst\n@enduml\n@startuml(id=bar) Bar diagram\nsecond\n@enduml\n";
+		$expanded = $this->expand("!include parts.puml!bar\n", ['docs/parts.puml' => $file]);
+
+		self::assertSame("second\n", $expanded->source);
 		self::assertSame([], $expanded->mistakes);
 	}
 

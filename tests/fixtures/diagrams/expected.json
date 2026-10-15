@@ -1,39 +1,46 @@
 {
   "one-uml.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
+    { "index": 0, "type": "uml", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
   ],
   "no-start.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 1, "start": null, "end": null, "render": 0 }
+    { "index": 0, "type": "uml", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 1, "start": null, "end": null, "render": 0 }
   ],
   "uml-and-salt.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 },
-    { "index": 1, "type": "salt", "name": "", "page": 1, "pages": 1, "from": 4, "to": 7, "start": 4, "end": 8, "render": 1 }
+    { "index": 0, "type": "uml", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 },
+    { "index": 1, "type": "salt", "name": "", "id": null, "page": 1, "pages": 1, "from": 4, "to": 7, "start": 4, "end": 8, "render": 1 }
   ],
   "named-forms.puml": [
-    { "index": 0, "type": "uml", "name": "nodes", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 },
-    { "index": 1, "type": "uml", "name": "nodes", "page": 1, "pages": 1, "from": 4, "to": 5, "start": 4, "end": 6, "render": 1 }
+    { "index": 0, "type": "uml", "name": "nodes", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 },
+    { "index": 1, "type": "uml", "name": "nodes", "id": "nodes", "page": 1, "pages": 1, "from": 4, "to": 5, "start": 4, "end": 6, "render": 1 },
+    { "index": 2, "type": "uml", "name": "My Fun Diagram", "id": null, "page": 1, "pages": 1, "from": 7, "to": 7, "start": 7, "end": 8, "render": 2 },
+    { "index": 3, "type": "uml", "name": "quoted name", "id": null, "page": 1, "pages": 1, "from": 9, "to": 9, "start": 9, "end": 10, "render": 3 },
+    { "index": 4, "type": "uml", "name": "fun_file.png", "id": null, "page": 1, "pages": 1, "from": 11, "to": 11, "start": 11, "end": 12, "render": 4 },
+    { "index": 5, "type": "uml", "name": "Fun name", "id": "fun", "page": 1, "pages": 1, "from": 13, "to": 13, "start": 13, "end": 14, "render": 5 },
+    { "index": 6, "type": "jcckit", "name": "", "id": null, "page": 1, "pages": 1, "from": 15, "to": 15, "start": 15, "end": 16, "render": 6 },
+    { "index": 7, "type": "uml", "name": "a, b", "id": null, "page": 1, "pages": 1, "from": 17, "to": 17, "start": 17, "end": 18, "render": 7 },
+    { "index": 8, "type": "uml", "name": "file://out/diagram", "id": null, "page": 1, "pages": 1, "from": 19, "to": 19, "start": 19, "end": 20, "render": 8 }
   ],
   "pages.puml": [
-    { "index": 0, "type": "uml", "name": "big", "page": 1, "pages": 4, "from": 1, "to": 2, "start": 1, "end": 9, "render": 0 },
-    { "index": 1, "type": "uml", "name": "big", "page": 2, "pages": 4, "from": 3, "to": 4, "start": 1, "end": 9, "render": 1 },
-    { "index": 2, "type": "uml", "name": "big", "page": 3, "pages": 4, "from": 5, "to": 6, "start": 1, "end": 9, "render": 2 },
-    { "index": 3, "type": "uml", "name": "big", "page": 4, "pages": 4, "from": 7, "to": 8, "start": 1, "end": 9, "render": 3 }
+    { "index": 0, "type": "uml", "name": "big", "id": null, "page": 1, "pages": 4, "from": 1, "to": 2, "start": 1, "end": 9, "render": 0 },
+    { "index": 1, "type": "uml", "name": "big", "id": null, "page": 2, "pages": 4, "from": 3, "to": 4, "start": 1, "end": 9, "render": 1 },
+    { "index": 2, "type": "uml", "name": "big", "id": null, "page": 3, "pages": 4, "from": 5, "to": 6, "start": 1, "end": 9, "render": 2 },
+    { "index": 3, "type": "uml", "name": "big", "id": null, "page": 4, "pages": 4, "from": 7, "to": 8, "start": 1, "end": 9, "render": 3 }
   ],
   "newpage-in-salt.puml": [
-    { "index": 0, "type": "salt", "name": "", "page": 1, "pages": 1, "from": 1, "to": 4, "start": 1, "end": 5, "render": 0 }
+    { "index": 0, "type": "salt", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 4, "start": 1, "end": 5, "render": 0 }
   ],
   "unclosed.puml": [
-    { "index": 0, "type": "yaml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 3, "start": 1, "end": null, "render": 0 }
+    { "index": 0, "type": "yaml", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 3, "start": 1, "end": null, "render": 0 }
   ],
   "mismatched.puml": [
-    { "index": 0, "type": "json", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
+    { "index": 0, "type": "json", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
   ],
   "outside-text.puml": [
-    { "index": 0, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 2, "to": 3, "start": 2, "end": 4, "render": 0 },
-    { "index": 1, "type": "mindmap", "name": "", "page": 1, "pages": 1, "from": 6, "to": 7, "start": 6, "end": 8, "render": 1 }
+    { "index": 0, "type": "uml", "name": "", "id": null, "page": 1, "pages": 1, "from": 2, "to": 3, "start": 2, "end": 4, "render": 0 },
+    { "index": 1, "type": "mindmap", "name": "", "id": null, "page": 1, "pages": 1, "from": 6, "to": 7, "start": 6, "end": 8, "render": 1 }
   ],
   "swallowed.puml": [
-    { "index": 0, "type": "yaml", "name": "", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": null, "render": 0 },
-    { "index": 1, "type": "uml", "name": "", "page": 1, "pages": 1, "from": 3, "to": 4, "start": 3, "end": 5, "render": 0 }
+    { "index": 0, "type": "yaml", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": null, "render": 0 },
+    { "index": 1, "type": "uml", "name": "", "id": null, "page": 1, "pages": 1, "from": 3, "to": 4, "start": 3, "end": 5, "render": 0 }
   ]
 }

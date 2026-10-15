@@ -244,6 +244,9 @@ export const spriteStates = {
  */
 export const startName = /^([\s{][\s"“”]*)([^"“”]*?)([\s}"“”]*)$/
 
+/** The arguments in parentheses straight after the type; group 1 is what is between them. */
+export const startCall = /^\(([^)]*)\)/
+
 const startLead = /^([ \t]*)(@start[^\s{}"“”(]+)/
 
 /** The pieces of a string made of spaces, quotes and braces, each as `[text, token]`. */
@@ -278,7 +281,7 @@ export function startLine(stream, state) {
   const lead = startLead.exec(line)
   if (!lead) return null
   let rest = line.slice(lead[0].length)
-  const call = /^\(([^)]*)\)/.exec(rest)
+  const call = startCall.exec(rest)
   const parts = [[lead[1], null], [lead[2], call ? 'FunctionName' : 'keyword']]
   if (call) {
     parts.push(...callParts(call[1]), [')', 'paren'])

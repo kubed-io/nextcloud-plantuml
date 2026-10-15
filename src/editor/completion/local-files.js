@@ -9,18 +9,19 @@
  * (stdlib.js), which is not here.
  *
  * After `path!` the names inside that file: its `!startsub` sections for
- * `!includesub`, its named blocks (`@startuml NAME`, `@startuml(id=NAME)`) for
- * the other includes. Each file is read once per page.
+ * `!includesub`, its blocks (`@startuml(id=NAME) Title`) for
+ * the other includes: the ids first, then each block's index, with its name (else its type) beside it,
+ * because PlantUML takes a block by id or index and never by a bare name. Each file is read once per page.
  */
 import { pickedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { listFolder, loadFile } from '../save.js'
 import { filePath } from '../lint/state.js'
+import { blocksOf, scan } from '../blocks.js'
 
 const INCLUDE = /^\s*!include(?:_many|_once|sub)?[ \t]+([^\s]*)$/
 const INCLUDE_NAME = /^\s*!include(_many|_once|sub)?[ \t]+(?:"([^"!]+)"|([^\s"!]+))!([^\s"]*)$/
 const INCLUDESUB = /^\s*!includesub[ \t]+$/
 const SECTION = /^\s*!startsub[ \t]+(\S+)/gm
-const BLOCK = /^\s*@start\w+(?:\(\s*id\s*=\s*([^)\s]+)\s*\)|[ \t]+(\S+))/gm
 const STYLE = /<style file=([^\s>]*)$/
 const INCLUDE_FILES = /\.(?:puml|iuml|plantuml|pu|txt)$/i
 const STYLE_FILES = /\.(?:css|txt)$/i
@@ -67,6 +68,22 @@ function namesIn(text, pattern) {
   return [...new Set([...text.matchAll(pattern)].map((m) => m[1] ?? m[2]))]
 }
 
+/** The ids of the blocks in `content`, then their indexes, each with the block's name or type beside it. */
+function blockOptions(content) {
+  const blocks = blocksOf(scan(content))
+  const detail = (block) => block.name || block.type
+  const ids = new Map()
+  for (const block of blocks) {
+    if (block.id && !ids.has(block.id)) {
+      ids.set(block.id, block)
+    }
+  }
+  return [
+    ...[...ids].map(([label, block]) => ({ label, detail: detail(block), type: 'constant' })),
+    ...blocks.map((block, index) => ({ label: String(index), detail: detail(block), type: 'constant' })),
+  ]
+}
+
 /** The names of the sections or blocks of the file `name` points at. */
 async function namesOf(context, file, kind, name, typed) {
   if (/^<|^https?:|[$%]/.test(name)) {
@@ -83,10 +100,10 @@ async function namesOf(context, file, kind, name, typed) {
   } catch {
     return null
   }
-  const found = namesIn(content, kind === 'sub' ? SECTION : BLOCK)
+  const options = kind === 'sub' ? namesIn(content, SECTION).map((label) => ({ label, type: 'constant' })) : blockOptions(content)
   return {
     from: context.pos - typed.length,
-    options: found.map((label) => ({ label, type: 'constant' })),
+    options,
     validFor: /^[^\s"]*$/,
   }
 }

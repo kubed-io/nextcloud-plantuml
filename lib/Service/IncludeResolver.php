@@ -187,9 +187,13 @@ final class IncludeResolver {
 			return;
 		}
 		$lines = self::lines($content);
-		$picked = $kind === 'includesub' ? self::sub($lines, $selector) : self::block($lines, $selector);
+		$named = false;
+		$picked = $kind === 'includesub' ? self::sub($lines, $selector) : self::block($lines, $selector, $named);
 		if ($picked === null) {
-			$this->keep($at, "Cannot find $shown!" . self::shown((string)$selector));
+			// PlantUML takes a block by index or id= only; a name it does not take is said so.
+			$this->keep($at, $named
+				? "$shown has no block with id=" . self::shown((string)$selector) . ': write @startuml(id=' . self::shown((string)$selector) . ') to include it by name'
+				: "Cannot find $shown!" . self::shown((string)$selector));
 			return;
 		}
 		$this->take($found);
@@ -585,33 +589,43 @@ final class IncludeResolver {
 
 	/**
 	 * The lines inside the first `@start…` block, or the one picked by index
-	 * (from 0) or id; every line when the file has no block.
+	 * (from 0) or by the id of `@start…(id=NAME)`; every line when the file has
+	 * no block. A name written after `@start…` is no selector, the way PlantUML
+	 * takes it: `$named` says that a block carries the selector as its name.
 	 *
 	 * @param array<int, string> $lines
 	 * @return array<int, string>|null
 	 */
-	private static function block(array $lines, ?string $selector): ?array {
-		/** @var list<array{id: string, lines: array<int, string>}> $blocks */
+	private static function block(array $lines, ?string $selector, bool &$named = false): ?array {
+		/** @var list<array{id: string, name: string, lines: array<int, string>}> $blocks */
 		$blocks = [];
 		$current = null;
 		$id = '';
+		$name = '';
 		foreach ($lines as $i => $line) {
 			if ($current === null) {
 				if (preg_match('/^\s*@start\w+(.*)$/', $line, $m) === 1) {
 					$current = [];
-					$id = preg_match('/^\(\s*id\s*=\s*([^)]*?)\s*\)/', $m[1], $named) === 1 ? $named[1] : (preg_split('/\s+/', trim($m[1]))[0] ?? '');
+					$rest = $m[1];
+					$id = '';
+					if (preg_match('/^\(([^)]*)\)/', $rest, $call) === 1) {
+						$id = preg_match('/^\s*id\s*=\s*(.*?)\s*$/', $call[1], $argument) === 1 ? $argument[1] : '';
+						$rest = substr($rest, strlen($call[0]));
+					}
+					// The name as the editor reads it: what is left of spaces, quotes and braces around it.
+					$name = preg_match('/^[\s{][\s"“”]*([^"“”]*?)[\s}"“”]*$/u', $rest, $text) === 1 && $text[1] !== '' ? $text[1] : $id;
 				}
 				continue;
 			}
 			if (preg_match('/^\s*@end\w*/', $line) === 1) {
-				$blocks[] = ['id' => $id, 'lines' => $current];
+				$blocks[] = ['id' => $id, 'name' => $name, 'lines' => $current];
 				$current = null;
 				continue;
 			}
 			$current[$i] = $line;
 		}
 		if ($current !== null) {
-			$blocks[] = ['id' => $id, 'lines' => $current];
+			$blocks[] = ['id' => $id, 'name' => $name, 'lines' => $current];
 		}
 		if ($blocks === []) {
 			return $selector === null ? $lines : null;
@@ -623,9 +637,12 @@ final class IncludeResolver {
 			return $blocks[(int)$selector]['lines'] ?? null;
 		}
 		foreach ($blocks as $block) {
-			if ($block['id'] === $selector) {
+			if ($block['id'] !== '' && $block['id'] === $selector) {
 				return $block['lines'];
 			}
+		}
+		foreach ($blocks as $block) {
+			$named = $named || $block['name'] === $selector;
 		}
 		return null;
 	}

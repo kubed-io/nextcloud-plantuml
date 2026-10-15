@@ -4,3 +4,17 @@ A -> B
 @startuml(id=nodes)
 C -> D
 @enduml
+@startuml My Fun Diagram
+@enduml
+@startuml "quoted name"
+@enduml
+@startuml{fun_file.png}
+@enduml
+@startuml(id=fun) Fun name
+@enduml
+@startjcckit(300,200)
+@endjcckit
+@startuml a, b
+@enduml
+@startuml file://out/diagram
+@enduml

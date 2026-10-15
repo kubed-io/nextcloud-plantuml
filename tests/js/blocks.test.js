@@ -19,7 +19,7 @@ describe('scan', () => {
 
   it('gives an empty document one diagram', () => {
     expect(scan('')).toEqual([
-      { index: 0, type: 'uml', name: '', page: 1, pages: 1, from: 1, to: 1, start: null, end: null, render: 0 },
+      { index: 0, type: 'uml', name: '', id: null, page: 1, pages: 1, from: 1, to: 1, start: null, end: null, render: 0 },
     ])
   })
 
@@ -105,6 +105,25 @@ describe('scan block arguments', () => {
     expect(label(b)).toBe('a')
   })
 
+  it('names a block as PlantUML reads it, and gives the id of its argument', () => {
+    const first = (line) => scan(`${line}\n@enduml`)[0]
+    expect(first('@startuml My Fun Diagram')).toMatchObject({ name: 'My Fun Diagram', id: null })
+    expect(first('@startuml "quoted name"')).toMatchObject({ name: 'quoted name' })
+    expect(first('@startuml “curly name”')).toMatchObject({ name: 'curly name' })
+    expect(first('@startuml{fun_file.png}')).toMatchObject({ name: 'fun_file.png' })
+    expect(first('@startuml(id=fun) Fun name')).toMatchObject({ name: 'Fun name', id: 'fun' })
+    expect(first('@startuml(id=fun)')).toMatchObject({ name: 'fun', id: 'fun' })
+    expect(first('@startuml(id = fun)')).toMatchObject({ id: 'fun' })
+    expect(first('@startjcckit(300,200)')).toMatchObject({ type: 'jcckit', name: '', id: null })
+    expect(first('@startuml a, b')).toMatchObject({ name: 'a, b' })
+    expect(first('@startuml file://out/diagram')).toMatchObject({ name: 'file://out/diagram' })
+  })
+
+  it('opens the same blocks as before: a type followed by anything else is no block', () => {
+    expect(scan('@startuml,x\n@enduml')[0].start).toBeNull()
+    expect(scan('@startuml(id=x\n@enduml')[0].start).toBeNull()
+  })
+
   it('names a block by its id argument', () => {
     expect(scan('@startuml(id=legend)\n@enduml')[0]).toMatchObject({ type: 'uml', name: 'legend' })
     expect(scan('@startdef(id=actors)\n@enddef')[0]).toMatchObject({ type: 'def', name: 'actors' })
@@ -122,13 +141,13 @@ describe('label', () => {
 
 describe('blocksOf', () => {
   it('merges the pages of a block', () => {
-    expect(blocksOf(scan(read('pages.puml')))).toEqual([{ type: 'uml', name: 'big', start: 1, end: 9 }])
+    expect(blocksOf(scan(read('pages.puml')))).toEqual([{ type: 'uml', name: 'big', id: null, start: 1, end: 9 }])
   })
 
   it('lists every block and leaves out a file with no @start', () => {
     expect(blocksOf(scan(read('outside-text.puml')))).toEqual([
-      { type: 'uml', name: '', start: 2, end: 4 },
-      { type: 'mindmap', name: '', start: 6, end: 8 },
+      { type: 'uml', name: '', id: null, start: 2, end: 4 },
+      { type: 'mindmap', name: '', id: null, start: 6, end: 8 },
     ])
     expect(blocksOf(scan('A -> B'))).toEqual([])
   })

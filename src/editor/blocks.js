@@ -5,15 +5,46 @@
  * Reads a document into its diagrams: one per `@start…` block, one per
  * `newpage` page of a uml block, in PlantUML's own order. Pure, no editor.
  */
-const START = /^\s*@start(\w+)(?:\((?:id=([^)]*)|[^)]*)\)|\s+(.*?))?\s*$/
+import { startCall, startName } from './lexicon/rules.js'
+
+const START = /^\s*@start(\w+)(.*)$/
 const END = /^\s*@end\w*\s*$/
 const NEWPAGE = /^\s*newpage(?:\s.*)?$/
+
+/**
+ * The `@start` line a line is, read as PlantUML reads it (the lexicon's `startName`, the same
+ * pattern the highlighting uses): its type, the id of `(id=NAME)`, and the name, which is
+ * the text after the arguments with its spaces, quotes and braces taken off, else the id. Null
+ * when the line opens no block.
+ *
+ * @param {string} line
+ * @returns {{ type: string, id: string|null, name: string }|null}
+ */
+export function startOf(line) {
+  const open = START.exec(line)
+  if (!open) {
+    return null
+  }
+  let rest = open[2]
+  let id = null
+  const call = startCall.exec(rest)
+  if (call) {
+    id = /^\s*id\s*=\s*(.*?)\s*$/.exec(call[1])?.[1] || null
+    rest = rest.slice(call[0].length)
+  }
+  const named = startName.exec(rest)
+  if (rest !== '' && !named) {
+    return null
+  }
+  return { type: open[1], id, name: named?.[2] ?? id ?? '' }
+}
 
 /**
  * @typedef {object} Diagram
  * @property {number} index 0-based across the file
  * @property {string} type the word after `@start`
- * @property {string} name `''` when unnamed
+ * @property {string} name what the `@start` line names, `''` when unnamed
+ * @property {string|null} id the `(id=NAME)` argument, what `!include file!NAME` takes
  * @property {number} page 1-based within its block
  * @property {number} pages the block's page count
  * @property {number} from first line (the `@start` or `newpage` line)
@@ -42,6 +73,7 @@ export function scan(text) {
         index: diagrams.length,
         type: block.type,
         name: block.name,
+        id: block.id,
         page: i + 1,
         pages: block.pages.length,
         from: p.from,
@@ -55,10 +87,10 @@ export function scan(text) {
 
   lines.forEach((line, i) => {
     const n = i + 1
-    const open = START.exec(line)
+    const open = startOf(line)
     if (open) {
       close(n - 1, null)
-      block = { type: open[1], name: (open[2] ?? open[3] ?? '').trim(), start: n, pages: [{ from: n }] }
+      block = { ...open, start: n, pages: [{ from: n }] }
     } else if (block && END.test(line)) {
       close(n - 1, n)
     } else if (block?.type === 'uml' && NEWPAGE.test(line)) {
@@ -68,7 +100,7 @@ export function scan(text) {
   close(lines.length, null)
 
   if (!diagrams.length) {
-    diagrams.push({ index: 0, type: 'uml', name: '', page: 1, pages: 1, from: 1, to: lines.length, start: null, end: null })
+    diagrams.push({ index: 0, type: 'uml', name: '', id: null, page: 1, pages: 1, from: 1, to: lines.length, start: null, end: null })
   }
   // A diagram PlantUML dropped shows the image of the block that closed over it.
   const drawn = images(lines)
@@ -95,9 +127,9 @@ function images(lines, wrapped = false) {
   let open = wrapped ? { type: 'uml', pages: [] } : null // pages: the last line of each but the last
   lines.forEach((line, i) => {
     const n = i + 1
-    const start = START.exec(line)
+    const start = startOf(line)
     if (start) {
-      open = { type: start[1], pages: [] }
+      open = { type: start.type, pages: [] }
     } else if (open && END.test(line)) {
       lasts.push(...open.pages, n)
       open = null
@@ -144,10 +176,10 @@ export function label(d) {
 /**
  * One block per `@start`, its pages merged. A file with no `@start` has none.
  * @param {Diagram[]} diagrams
- * @returns {{ type: string, name: string, start: number, end: number|null }[]}
+ * @returns {{ type: string, name: string, id: string|null, start: number, end: number|null }[]}
  */
 export function blocksOf(diagrams) {
   return diagrams
     .filter((d) => d.start !== null && d.page === 1)
-    .map(({ type, name, start, end }) => ({ type, name, start, end }))
+    .map(({ type, name, id, start, end }) => ({ type, name, id, start, end }))
 }

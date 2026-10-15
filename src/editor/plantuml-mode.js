@@ -18,7 +18,9 @@
  *
  * `plantumlLanguage(inner)` nests other stream modes: between `@start<type>`
  * and the next line starting `@end`, a type with a mode in `inner` is read by
- * that mode, except for `'` comment and `!` preprocessor lines.
+ * that mode, except for `'` comment and `!` preprocessor lines. A `<style>`
+ * block is a region of its own wherever it starts a line, read by
+ * `inner.style` or else left plain, and a `@startcreole` block is Creole.
  */
 import { StreamLanguage } from '@codemirror/language'
 import { simpleMode } from '@codemirror/legacy-modes/mode/simple-mode'
@@ -112,6 +114,7 @@ const base = simpleMode({
     atLineStart(/\/'.*/.source, 'comment', { next: 'blockComment' }),
     atLineStart(/'.*/.source, 'comment'),
     atLineStart(/!.*/.source, 'meta'),
+    atLineStart(/@startcreole\b/.source, 'keyword', { next: 'creoleHead' }),
     atLineStart(/@(?:end|start)uml\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
     // A note's text follows a colon on its own line, or else fills the lines
@@ -158,6 +161,9 @@ const base = simpleMode({
   headerBody: body(/end\s*header\b/.source),
   footerBody: body(/end\s*footer\b/.source),
   descBody: body(/\]/.source, null),
+  // A creole diagram is Creole on every line, from the line after its start.
+  creoleHead: [{ regex: /.+/, token: null }],
+  creoleBody: body(/@end\w*/.source),
   languageData: {
     name: 'plantuml',
     commentTokens: { line: "'", block: { open: "/'", close: "'/" } },
@@ -168,7 +174,14 @@ const base = simpleMode({
 
 // The states that end with their line, and the state the next line starts in.
 // Without this a label or a styled link left open would run on into it.
-const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody' }
+const nextLine = { afterLink: 'start', arrowAttr: 'start', label: 'start', text: 'start', noteHead: 'noteBody', legendHead: 'legendBody', creoleHead: 'creoleBody' }
+
+// PlantUML's own style lines: a block opens on a line that is `<style>` and
+// closes on one that is `</style>`; a one-line block and an imported sheet
+// (`<style file=…>`) are a line each.
+const styleOpen = /^([ \t]*)(<style>)(\s*)$/
+const styleLine = /^([ \t]*)(<style>.*<\/style>|<style\s+[\w-]+\s*=[^>]*>)(\s*)$/
+const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
 
 /** CodeMirror's own copy for a stream mode without copyState: the object, and any array in it. */
 const copyOf = (state) => (state && typeof state === 'object'
@@ -193,21 +206,57 @@ function emit(stream, state, parts) {
  */
 export function plantumlLanguage(inner = {}) {
   const modeOf = (block) => inner[block.type]
+  const style = inner.style
+  const copyIn = (mode, state) => (mode?.copyState ? mode.copyState(state) : copyOf(state))
+
+  /** A `<style>` line at the start of a line, read as tags; undefined for any other line. */
+  function styleStart(stream, state) {
+    const line = stream.match(styleLine, false)
+    if (line) return emit(stream, state, [[line[1], null], [line[2], 'tagName'], [line[3], null]])
+    const open = stream.match(styleOpen, false)
+    if (!open) return undefined
+    state.style = { state: style?.startState ? style.startState(stream.indentUnit) : {} }
+    return emit(stream, state, [[open[1], null], [open[2], 'tagName'], [open[3], null]])
+  }
+
+  /** A line of a style block. PlantUML reads a block to its diagram's end at most. */
+  function styleBody(stream, state) {
+    if (stream.sol()) {
+      const close = stream.match(styleClose, false)
+      if (close) {
+        state.style = null
+        return emit(stream, state, [[close[1], null], [close[2], 'tagName'], [close[3], null]])
+      }
+      if (stream.match(/^[ \t]*@end/, false)) {
+        state.style = null
+        return null
+      }
+      if (stream.match(/^[ \t]*['!]/, false)) return base.token(stream, state)
+    }
+    if (style) return style.token(stream, state.style.state)
+    stream.skipToEnd()
+    return null
+  }
 
   return StreamLanguage.define({
     ...base,
-    startState: () => ({ ...base.startState(), inner: null }),
+    startState: () => ({ ...base.startState(), inner: null, style: null }),
     copyState(state) {
       const copy = base.copyState(state)
       const block = state.inner
-      const mode = block && modeOf(block)
-      copy.inner = block && { type: block.type, state: mode.copyState ? mode.copyState(block.state) : copyOf(block.state) }
+      copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state) }
+      copy.style = state.style && { state: copyIn(style, state.style.state) }
       return copy
     },
     token(stream, state) {
       // A rule matched at the start of a line hands back its groups one at a
       // time (`pending`), all still at the start: they belong to the state it set.
       if (state.pending) return base.token(stream, state)
+      if (state.style) {
+        const token = styleBody(stream, state)
+        // A block left open ends at `@end`, which is then read as ever.
+        if (state.style || stream.pos > stream.start) return token
+      }
       if (state.inner) {
         if (stream.sol()) {
           const end = stream.match(/^([ \t]*)(@end\w*)/, false)
@@ -215,6 +264,8 @@ export function plantumlLanguage(inner = {}) {
             state.inner = null
             return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
           }
+          const tags = styleStart(stream, state)
+          if (tags !== undefined) return tags
           // Comment and preprocessor lines are PlantUML's in any diagram.
           if (stream.match(/^[ \t]*['!]/, false)) return base.token(stream, state)
         }
@@ -223,8 +274,13 @@ export function plantumlLanguage(inner = {}) {
       if (stream.sol() && Object.hasOwn(nextLine, state.state)) {
         state.state = nextLine[state.state]
       }
+      if (stream.sol() && state.state === 'start') {
+        const tags = styleStart(stream, state)
+        if (tags !== undefined) return tags
+      }
       const start = stream.sol() && state.state === 'start' && stream.match(/^([ \t]*)(@start(\w+))(.*)/, false)
-      if (start && Object.hasOwn(inner, start[3])) {
+      // `style` names the mode for style blocks, not a diagram type.
+      if (start && start[3] !== 'style' && Object.hasOwn(inner, start[3])) {
         const mode = inner[start[3]]
         state.inner = { type: start[3], state: mode.startState ? mode.startState(stream.indentUnit) : {} }
         // The block starts on the next line: the rest of this one is plain.
@@ -233,9 +289,11 @@ export function plantumlLanguage(inner = {}) {
       return base.token(stream, state)
     },
     blankLine(state, indentUnit) {
-      if (state.inner) modeOf(state.inner).blankLine?.(state.inner.state, indentUnit)
+      if (state.style) style?.blankLine?.(state.style.state, indentUnit)
+      else if (state.inner) modeOf(state.inner).blankLine?.(state.inner.state, indentUnit)
     },
     indent(state, textAfter, context) {
+      if (state.style) return style?.indent?.(state.style.state, textAfter, context) ?? null
       if (!state.inner) return base.indent(state, textAfter, context)
       return modeOf(state.inner).indent?.(state.inner.state, textAfter, context) ?? null
     },

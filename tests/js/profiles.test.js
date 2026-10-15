@@ -11,7 +11,7 @@ import { diagnosticCount } from '@codemirror/lint'
 import { scan } from '../../src/editor/blocks.js'
 import { plantumlLint, profileRules } from '../../src/editor/lint/index.js'
 import { fileName } from '../../src/editor/lint/state.js'
-import { PROFILES, needed, profileExtension } from '../../src/editor/profiles/index.js'
+import { PROFILES, needed, profileExtension, profileLoader } from '../../src/editor/profiles/index.js'
 
 const neededFor = (text) => needed(scan(text), text)
 
@@ -19,6 +19,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
   delete PROFILES.archimate
+  delete PROFILES.style
 })
 
 describe('the profiles a file needs', () => {
@@ -42,6 +43,26 @@ describe('the profiles a file needs', () => {
 
   it('leave out archimate while it has no profile', () => {
     expect(neededFor('@startuml\n!include <archimate/Archimate>\n@enduml\n')).toEqual(new Set())
+  })
+})
+
+describe('the style profile', () => {
+  it('is needed when a line starts with <style, in any block', () => {
+    PROFILES.style = () => Promise.resolve({ default: () => ({ type: 'style', completions: [], lints: [] }) })
+
+    expect(neededFor('@startuml\n  <style>\nnote { }\n</style>\n@enduml\n')).toEqual(new Set(['style']))
+    expect(neededFor('<style file=my.css>\nA -> B\n')).toEqual(new Set(['style']))
+    expect(neededFor('@startyaml\n<style>\n</style>\n@endyaml\n')).toEqual(new Set(['yaml', 'style']))
+    expect(neededFor('A -> B : <style>\n')).toEqual(new Set())
+  })
+
+  it('is left out while it has no profile, so the loader never asks for it', () => {
+    const apply = vi.fn()
+    const text = '<style>\nnote { }\n</style>\n'
+
+    expect(neededFor(text)).toEqual(new Set())
+    expect(() => profileLoader(apply)(scan(text), text)).not.toThrow()
+    expect(apply).not.toHaveBeenCalled()
   })
 })
 

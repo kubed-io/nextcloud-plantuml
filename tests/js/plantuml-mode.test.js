@@ -295,6 +295,69 @@ describe('plantumlMode Creole', () => {
   })
 })
 
+describe('plantumlMode @startcreole', () => {
+  it('reads every line of the block as Creole, and PlantUML again after it', () => {
+    expect(tokens('@startcreole page', '**b** //i//', '<color:#F00>red</color>', '[[https://x.org]]', '----', 'note {', '@endcreole', 'actor B')).toEqual([
+      ['@startcreole', 'keyword'],
+      ['**b**', 'strong'],
+      ['//i//', 'emphasis'],
+      ['<color:', 'tagName'],
+      ['#F00', 'ColorLiteral'],
+      ['>', 'tagName'],
+      ['</color>', 'tagName'],
+      ['[[https://x.org]]', 'link'],
+      ['----', 'heading'],
+      ['@endcreole', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+})
+
+describe('plantumlMode style blocks', () => {
+  it('leaves the lines between <style> and </style> plain without a style mode, and reads PlantUML after them', () => {
+    expect(tokens('<style>', 'note {', '  BackgroundColor #FFF', '}', 'legend {', 'title {', 'node {', '</style>', 'note left of A', '**b**', 'end note')).toEqual([
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
+      ['note', 'keyword'],
+      ['**b**', 'strong'],
+      ['end note', 'keyword'],
+    ])
+  })
+
+  it('finds indented tags inside a uml block, and keeps the indentation plain', () => {
+    expect(tokens('@startuml', '  <style>  ', '  note {', '  </style>', 'actor A', '@enduml')).toEqual([
+      ['@startuml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['</style>', 'tagName'],
+      ['actor', 'keyword'],
+      ['@enduml', 'keyword'],
+    ])
+  })
+
+  it('reads a one-line block and an imported style sheet as one tag line', () => {
+    expect(tokens('<style>note { BackgroundColor red }</style>', 'note left', 'x', 'end note')).toEqual([
+      ['<style>note { BackgroundColor red }</style>', 'tagName'],
+      ['note', 'keyword'],
+      ['end note', 'keyword'],
+    ])
+    expect(tokens('  <style file=my.css>', 'actor A')).toEqual([['<style file=my.css>', 'tagName'], ['actor', 'keyword']])
+  })
+
+  it('ends a block left open at @end, as PlantUML does', () => {
+    expect(tokens('@startuml', '<style>', 'note {', '@enduml', 'actor A')).toEqual([
+      ['@startuml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['@enduml', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+  })
+
+  it('takes no <style> inside a note, or after text on the line', () => {
+    expect(tokens('note left', '<style>', 'end note', 'actor A')).toEqual([['note', 'keyword'], ['end note', 'keyword'], ['actor', 'keyword']])
+    expect(tokens('A -> B : <style>')).toEqual([['->', 'operator'], ['<style>', 'labelName']])
+  })
+})
+
 describe('plantumlMode language data', () => {
   const state = (doc) => EditorState.create({ doc, extensions: [plantumlMode, closeBrackets()] })
 
@@ -374,6 +437,38 @@ describe('plantumlLanguage with an inner mode', () => {
     ])
   })
 
+  it("hands a style block's lines to the style mode, at top level and inside a uml block", () => {
+    const styled = (...lines) => tokensOf(plantumlLanguage({ style: whole('atom') }), lines)
+
+    expect(styled('@startuml', '<style>', 'note {', '}', '</style>', 'actor A', '@enduml')).toEqual([
+      ['@startuml', 'keyword'],
+      ['<style>', 'tagName'],
+      ['note {', 'atom'],
+      ['}', 'atom'],
+      ['</style>', 'tagName'],
+      ['actor', 'keyword'],
+      ['@enduml', 'keyword'],
+    ])
+    expect(styled('<style>', "' a note", 'a {', '</style>')).toEqual([['<style>', 'tagName'], ["' a note", 'comment'], ['a {', 'atom'], ['</style>', 'tagName']])
+    expect(styled('@startstyle', 'a {', '@endstyle')).toEqual([])
+  })
+
+  it('reads a style block inside a yaml block as style, and yaml again after it', () => {
+    const language = plantumlLanguage({ yaml: whole('atom'), style: whole('string') })
+
+    expect(tokensOf(language, ['@startyaml', 'a: 1', '  <style>', 'node {', '  </style>', 'b: 2', '@endyaml', 'actor A'])).toEqual([
+      ['@startyaml', 'keyword'],
+      ['a: 1', 'atom'],
+      ['<style>', 'tagName'],
+      ['node {', 'string'],
+      ['</style>', 'tagName'],
+      ['b: 2', 'atom'],
+      ['@endyaml', 'keyword'],
+      ['actor', 'keyword'],
+    ])
+    expect(tokensOf(language, ['@startyaml', '<style>', 'node {', '@endyaml', 'actor A']).slice(-2)).toEqual([['@endyaml', 'keyword'], ['actor', 'keyword']])
+  })
+
   /** The parser's state after reading `lines`. */
   function stateAfter(parser, lines) {
     const state = parser.startState(2)
@@ -404,6 +499,20 @@ describe('plantumlLanguage with an inner mode', () => {
     const state = stateAfter(streamParser, ['@startyaml', 'a: 1'])
 
     expect(streamParser.copyState(state).inner.state).toEqual({ depth: 1, copied: true })
+  })
+
+  it("copies the style state with the style mode's own copyState, and passes it blank lines", () => {
+    const style = {
+      startState: () => ({ blanks: 0 }),
+      copyState: (state) => ({ ...state, copied: true }),
+      blankLine: (state) => { state.blanks++ },
+      token: (stream) => { stream.skipToEnd(); return 'atom' },
+    }
+    const { streamParser } = plantumlLanguage({ style })
+    const state = stateAfter(streamParser, ['<style>', '', 'a {'])
+
+    expect(state.style.state).toEqual({ blanks: 1 })
+    expect(streamParser.copyState(state).style.state).toEqual({ blanks: 1, copied: true })
   })
 
   it('builds a new language on every call', () => {

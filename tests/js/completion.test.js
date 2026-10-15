@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { CompletionContext, completionStatus, insertCompletionText } from '@codemirror/autocomplete'
+import { CompletionContext, completionStatus, currentCompletions, insertCompletionText, startCompletion } from '@codemirror/autocomplete'
 import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
@@ -16,6 +16,7 @@ import { names } from '../../src/editor/completion/names.js'
 import { snippets } from '../../src/editor/completion/snippets.js'
 import { themes } from '../../src/editor/completion/themes.js'
 import { connectors } from '../../src/editor/completion/connectors.js'
+import { styleTag } from '../../src/editor/completion/style-tag.js'
 import { creole } from '../../src/editor/completion/creole.js'
 import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
@@ -36,7 +37,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors, creole, icons, emoji])
+    expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors, styleTag, creole, icons, emoji])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -359,6 +360,56 @@ describe('creole', () => {
   it('offers no closer when nothing is open on the line', () => {
     expect(complete(creole, '<b>bold</b>\nnext </|')).toBeNull()
     expect(complete(creole, '<img:x.png> </|')).toBeNull()
+  })
+})
+
+describe('style tags', () => {
+  const TAGS = ['<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>']
+
+  /** The labels the popup shows at the cursor, in its order. */
+  async function popup(marked) {
+    const { state, pos } = stateAt(marked)
+    const view = new EditorView({ state, parent: document.body })
+    view.dispatch({ selection: { anchor: pos } })
+    startCompletion(view)
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    const shown = currentCompletions(view.state).map((option) => option.label)
+    view.destroy()
+    return shown
+  }
+
+  it.each(['<|', '  <|', '  <sty|'])('offers <style> and <style file= first at the start of a line, then the Creole tags (%s)', async (marked) => {
+    const shown = await popup(marked)
+
+    expect(shown.slice(0, 2)).toEqual(['<style>', '<style file='])
+    if (!marked.includes('sty')) {
+      expect(shown.slice(2)).toEqual(expect.arrayContaining(TAGS))
+    }
+  })
+
+  it('offers only the Creole tags after a < mid-line', async () => {
+    const shown = await popup('title <|')
+
+    expect(shown).toEqual(expect.arrayContaining(TAGS))
+    expect(shown).not.toContain('<style>')
+    expect(complete(styleTag, 'title <|')).toBeNull()
+    expect(complete(styleTag, 'A -> B : x <|')).toBeNull()
+  })
+
+  it('inserts a style block with the cursor on its empty, indented line', () => {
+    const view = pick('<|', styleTag, '<style>')
+
+    expect(view.state.doc.toString()).toBe('<style>\n  \n</style>')
+    expect(view.state.selection.main.head).toBe('<style>\n  '.length)
+    view.destroy()
+  })
+
+  it('inserts a style sheet import with the cursor at its path', () => {
+    const view = pick('  <st|', styleTag, '<style file=')
+
+    expect(view.state.doc.toString()).toBe('  <style file=>')
+    expect(view.state.selection.main.head).toBe('  <style file='.length)
+    view.destroy()
   })
 })
 

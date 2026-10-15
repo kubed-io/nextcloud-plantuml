@@ -16,11 +16,12 @@ import { names } from './names.js'
 import { snippets } from './snippets.js'
 import { themes } from './themes.js'
 import { connectors } from './connectors.js'
+import { styleTag } from './style-tag.js'
 import { creole } from './creole.js'
 import { icons } from './icons.js'
 import { emoji } from './emoji.js'
 
-export const sources = [directives, keywords, names, snippets, themes, connectors, creole, icons, emoji]
+export const sources = [directives, keywords, names, snippets, themes, connectors, styleTag, creole, icons, emoji]
 
 // One data entry per source: an array under `autocomplete` is read as a list
 // of completions, not of sources. autocompletion() binds completionKeymap

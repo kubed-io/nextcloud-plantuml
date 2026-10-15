@@ -33,10 +33,12 @@ export const PROFILES = {
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/
+const STYLE = /^[ \t]*<style/m
 
 /**
- * The profiles a file needs: its block types, and archimate when a uml block
- * includes the library or draws an element. Only those with a profile.
+ * The profiles a file needs: its block types, archimate when a uml block
+ * includes the library or draws an element, and style when a line starts
+ * `<style`. Only those with a profile, so the loader never asks for another.
  *
  * @param {import('../blocks.js').Diagram[]} diagrams
  * @param {string} text
@@ -47,6 +49,9 @@ export function needed(diagrams, text) {
   const lines = text.split('\n')
   if (diagrams.some((d) => d.type === 'uml' && lines.slice(d.from - 1, d.to).some((line) => ARCHIMATE.test(line)))) {
     types.add('archimate')
+  }
+  if (STYLE.test(text)) {
+    types.add('style')
   }
   return new Set([...types].filter((type) => Object.hasOwn(PROFILES, type)))
 }

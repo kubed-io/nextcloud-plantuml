@@ -31,6 +31,7 @@ import { APP_ID } from '../../files-helpers.js'
 import { scan } from '../blocks.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
 import { profileRules } from '../lint/index.js'
+import { valuesFacet } from '../values/index.js'
 
 /** @type {Record<string, () => Promise<{ default: (core: Core) => Profile }>>} */
 export const PROFILES = {
@@ -97,7 +98,8 @@ export function resetProfiles() {
 
 /**
  * What the loaded profiles add to the editor, for its profiles Compartment: a
- * PlantUML language that reads their blocks, their completion and their lint.
+ * PlantUML language that reads their blocks, their completion, their lint and
+ * their values.
  *
  * @param {Profile[]} profiles
  */
@@ -107,6 +109,7 @@ export function profileExtension(profiles) {
     plantumlLanguage(inner),
     ...profiles.flatMap((p) => p.completions).map((source) => EditorState.languageData.of(() => [{ autocomplete: source }])),
     profileRules.of(profiles.flatMap((p) => p.lints)),
+    valuesFacet.of(profiles.flatMap((p) => p.values ?? [])),
   ]
 }
 

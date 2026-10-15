@@ -25,8 +25,8 @@ function tokens(...lines) {
 }
 
 describe('the style profile', () => {
-  it('is made from the core it is given, translator included: the style type with its mode, completion, lint and no values yet', () => {
-    expect(profile).toMatchObject({ type: 'style', completions: [expect.any(Function)], lints: [expect.any(Function)], values: [] })
+  it('is made from the core it is given, translator included: the style type with its mode, completion, lint and values', () => {
+    expect(profile).toMatchObject({ type: 'style', completions: [expect.any(Function)], lints: [expect.any(Function)], values: [{ match: expect.any(Function) }] })
     expect(profile.lints[0]).not.toBe(styleProfile({ scan, t: translate }).lints[0])
     expect(typeof profile.mode.token).toBe('function')
   })

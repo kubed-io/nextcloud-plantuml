@@ -31,6 +31,7 @@ import { diagramAt, scan } from './editor/blocks.js'
 import { profileExtension, profileLoader, resetProfiles } from './editor/profiles/index.js'
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
+import { valueWidgets } from './editor/values/widgets.js'
 import { plantumlLint } from './editor/lint/index.js'
 import { plantumlFolding } from './editor/folding.js'
 import { fileName, setServerError } from './editor/lint/state.js'
@@ -558,6 +559,8 @@ export function openEditor(node) {
           plantumlTheme,
           // A swatch before each ColorLiteral; picking a colour writes it back as #rrggbb.
           color,
+          // A chooser after each value with a list, a stepper after each number, on the cursor's line.
+          valueWidgets,
           // Long lines wrap, so the source pane never scrolls sideways.
           EditorView.lineWrapping,
           // Mod-s would otherwise be the browser's "Save page as". defaultKeymap

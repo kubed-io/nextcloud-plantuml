@@ -14,7 +14,7 @@ import { directives } from '../../src/editor/completion/directives.js'
 import { keywords } from '../../src/editor/completion/keywords.js'
 import { names } from '../../src/editor/completion/names.js'
 import { snippets } from '../../src/editor/completion/snippets.js'
-import { themes } from '../../src/editor/completion/themes.js'
+import { values } from '../../src/editor/completion/values.js'
 import { connectors } from '../../src/editor/completion/connectors.js'
 import { styleTag } from '../../src/editor/completion/style-tag.js'
 import { creole } from '../../src/editor/completion/creole.js'
@@ -22,6 +22,8 @@ import { icons } from '../../src/editor/completion/icons.js'
 import { emoji } from '../../src/editor/completion/emoji.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
 import { scan } from '../../src/editor/blocks.js'
+import { profileExtension } from '../../src/editor/profiles/index.js'
+import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 
 function stateAt(marked) {
@@ -40,7 +42,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, themes, connectors, styleTag, creole, icons, emoji])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, creole, icons, emoji])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {
@@ -131,6 +133,7 @@ describe('whole-block directives', () => {
   })
 })
 
+// Themes come through the value registry (W3), as every value with a list does.
 describe('themes', () => {
   const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
   let fetch
@@ -142,14 +145,14 @@ describe('themes', () => {
     vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
     fetch = vi.fn(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
     vi.stubGlobal('fetch', fetch)
-    themesSource = (await import('../../src/editor/completion/themes.js')).themes
+    themesSource = (await import('../../src/editor/completion/values.js')).values
   })
   afterEach(() => vi.unstubAllGlobals())
 
   it('offers the server\'s themes after !theme and a space', async () => {
     const result = await complete(themesSource, '!theme |')
 
-    expect(result.from).toBe('!theme '.length)
+    expect(result).toMatchObject({ from: '!theme '.length, to: '!theme '.length })
     expect(labels(result)).toEqual(THEMES)
     expect(result.options.every((option) => option.type === 'constant')).toBe(true)
     expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/themes', expect.objectContaining({ credentials: 'same-origin' }))
@@ -158,8 +161,35 @@ describe('themes', () => {
   it('keeps offering them over a half-typed name, after any indentation', async () => {
     const result = await complete(themesSource, '  !theme cerulean-o|')
 
-    expect(result.from).toBe('  !theme '.length)
+    expect(result).toMatchObject({ from: '  !theme '.length, to: '  !theme cerulean-o'.length })
     expect(result.validFor.test('cerulean-out')).toBe(true)
+  })
+
+  it('replaces the whole name from anywhere in it', async () => {
+    const result = await complete(themesSource, '!theme ceru|lean')
+
+    expect(result).toMatchObject({ from: '!theme '.length, to: '!theme cerulean'.length })
+  })
+
+  it('offers the whole list on Ctrl-Space inside a name, the current one first', async () => {
+    const result = await complete(themesSource, '!theme ceru|lean', true)
+
+    expect(result).toMatchObject({ from: '!theme '.length, to: '!theme cerulean'.length, filter: false })
+    expect(labels(result)).toEqual(['cerulean', '_none_', 'cerulean-outline', 'vibrant'])
+  })
+
+  it('filters again by what is typed after Ctrl-Space', async () => {
+    const pos = '!theme ceru'.length
+    const view = new EditorView({
+      state: EditorState.create({ doc: '!theme cerulean', selection: { anchor: pos }, extensions: [plantumlMode, EditorState.languageData.of(() => [{ autocomplete: themesSource }]), autocompletion()] }),
+      parent: document.body,
+    })
+    startCompletion(view)
+    await vi.waitFor(() => expect(currentCompletions(view.state)).toHaveLength(THEMES.length))
+
+    view.dispatch({ changes: { from: '!theme '.length, to: '!theme cerulean'.length, insert: 'v' }, selection: { anchor: '!theme v'.length }, userEvent: 'input.type' })
+    await vi.waitFor(() => expect(currentCompletions(view.state).map((option) => option.label)).toEqual(['vibrant']))
+    view.destroy()
   })
 
   it('offers nothing once the name is done, or anywhere but a !theme line', async () => {
@@ -460,6 +490,16 @@ describe('connectors', () => {
     expect(complete(connectors, marked)).toBeNull()
   })
 
+  // The chooser asks at the start of the value it selects.
+  it.each([
+    ['a style property\'s value', '<style>\nnode {\n  FontStyle |bold\n}\n</style>'],
+    ['a style property\'s empty value', '<style>\nnode {\n  FontStyle |\n}\n</style>'],
+  ])('are not offered where %s sits', (_what, marked) => {
+    const pos = marked.indexOf('|')
+    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([styleProfile({ scan, t: (app, text) => text })])] })
+    expect(connectors(new CompletionContext(state, pos, true))).toBeNull()
+  })
+
   it('insert the connector and a space, then offer the names to connect to', () => {
     const view = pick('Customer -> Shop\nnode1 -|', connectors, '-->')
 
@@ -573,6 +613,14 @@ describe('snippets', () => {
 
 describe('style', () => {
   const style = styleCompletion({ scan })
+  const profile = styleProfile({ scan, t: (app, text) => text })
+
+  /** The registry's list source over a state with the style profile's values. */
+  function styleValues(marked, explicit = false) {
+    const pos = marked.indexOf('|')
+    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([profile])] })
+    return values(new CompletionContext(state, pos, explicit))
+  }
   const { selectors, properties, fontStyles } = vocabulary.style
 
   /** The labels the popup shows at the cursor, in its order, with the style source alone. */
@@ -646,15 +694,17 @@ describe('style', () => {
     ['fontstyle', fontStyles],
     ['HorizontalAlignment', ['left', 'center', 'right']],
     ['ShowStereotype', ['true', 'false']],
-  ])('offers the values of %s after it and a space', (property, values) => {
-    const result = complete(style, `<style>\nnode {\n  ${property} |\n}\n</style>`)
-
-    expect(labels(result)).toEqual(values)
-    expect(complete(style, `<style>\nnode {\n  ${property} b|\n}\n</style>`).from).toBe(`<style>\nnode {\n  ${property} `.length)
+  ])('offers the values of %s after it and a space, through the value registry', async (property, list) => {
+    expect(complete(style, `<style>\nnode {\n  ${property} |\n}\n</style>`)).toBeNull()
+    expect(labels(await styleValues(`<style>\nnode {\n  ${property} |\n}\n</style>`))).toEqual(list)
+    const marked = `<style>\nnode {\n  ${property} b|x\n}\n</style>`
+    expect(await styleValues(marked)).toMatchObject({ from: marked.indexOf(' b') + 1, to: marked.indexOf('x') })
   })
 
-  it('offers no values for a property without a list, nor after a class or a depth', () => {
+  it('offers no values for a property without a list, nor after a class or a depth', async () => {
     expect(complete(style, '<style>\nnode {\n  FontSize |\n}\n</style>')).toBeNull()
+    expect(await styleValues('<style>\nnode {\n  FontSize |\n}\n</style>')).toBeNull()
+    expect(await styleValues('<style>\nnode {\n  FontStyle|\n}\n</style>')).toBeNull()
     expect(complete(style, '<style>\n.ser|')).toBeNull()
     expect(complete(style, '<style>\nnode:de|', true)).toBeNull()
   })

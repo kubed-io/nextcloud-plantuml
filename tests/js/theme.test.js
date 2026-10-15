@@ -77,6 +77,7 @@ describe('the editor surface', () => {
     ['the fold chevrons and the folded placeholder', ['.cm-foldGutter span', '.cm-foldGutter span:hover', '.cm-foldPlaceholder']],
     ['snippet fields and a disabled popup', ['.cm-snippetField', '.cm-snippetFieldPosition', '.cm-tooltip-autocomplete-disabled']],
     ["the colour picker's swatch and its input", ['span[data-color]', 'span[data-color] input[type="color"]']],
+    ["the value chooser and stepper, their hover included", ['.cm-plantuml-chooser', '.cm-plantuml-chooser:hover', '.cm-plantuml-stepper', '.cm-plantuml-stepper button:hover']],
     ['the diagnostics: underline, gutter mark, tooltip and panel', ['.cm-lintRange-error', '.cm-lintRange-warning', '.cm-lintRange-info', '.cm-lintPoint-warning', '.cm-lint-marker-error', '.cm-lint-marker-warning', '.cm-diagnostic-warning', '.cm-diagnosticAction', '.cm-panel-lint']],
   ])('styles %s', (_what, parts) => {
     const selectors = Object.keys(surfaceRules).join('\n')

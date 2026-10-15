@@ -4,14 +4,14 @@
  *
  * Inside a style block: selectors outside braces, the enclosing diagram's
  * first, then the elements, then the other diagrams'; properties inside them
- * (with selectors after, for a nested one); and after a property with a list
- * of values, those values. Made from the core the style profile is given, so
- * it imports no core module.
+ * (with selectors after, for a nested one). A property's values come from the
+ * value registry (W3), which the style profile adds its lists to. Made from
+ * the core the style profile is given, so it imports no core module.
  */
 import vocabulary from '../data/vocabulary.json'
 import { readStyle, styleBlocks } from '../profiles/style-grammar.js'
 
-const { selectors, properties, fontStyles } = vocabulary.style
+const { selectors, properties } = vocabulary.style
 
 /** Each diagram type's own selector; uml has many, so it puts the general ones first. */
 const DIAGRAM_SELECTORS = {
@@ -32,12 +32,6 @@ const DIAGRAM_SELECTORS = {
 }
 const GENERAL = ['root', 'element', 'document']
 const DIAGRAMS = new Set([...Object.values(DIAGRAM_SELECTORS), ...selectors.filter((name) => name.endsWith('Diagram'))])
-
-const VALUES = {
-  fontstyle: fontStyles,
-  horizontalalignment: ['left', 'center', 'right'],
-  showstereotype: ['true', 'false'],
-}
 
 const propertyOptions = properties.map((label) => ({ label, type: 'property', boost: 10 }))
 
@@ -78,11 +72,10 @@ export const styleCompletion = ({ scan }) => (context) => {
   if (!body || (column > body.at(-1).from && /[^\s{};,]/.test(line.text[column - 1]))) {
     return null
   }
-  const { depth, at, property } = readStyle(body)
+  const { depth, at } = readStyle(body)
   const result = (options) => ({ from: typed.from, options, validFor: /^[\w-]*$/ })
   if (at === 'value') {
-    const values = VALUES[property.toLowerCase()]
-    return values ? result(values.map((label) => ({ label, type: 'constant' }))) : null
+    return null
   }
   const type = scan(text).find((d) => line.number >= d.from && line.number <= d.to)?.type
   if (depth > 0) {

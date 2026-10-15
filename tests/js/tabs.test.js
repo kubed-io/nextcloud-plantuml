@@ -281,3 +281,82 @@ describe('the all diagrams menu', () => {
     expect(tabs.list.scrollLeft).toBe(0)
   })
 })
+
+describe('the all diagrams menu, as a menu button', () => {
+  beforeEach(() => {
+    size(4000, 600)
+    tabs.update(scan(MANY), 3)
+  })
+
+  it('closes on Tab and lets the focus move on', () => {
+    button().click()
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+
+    document.activeElement.dispatchEvent(event)
+
+    expect(menu().hidden).toBe(true)
+    expect(event.defaultPrevented).toBe(false)
+    expect(document.activeElement).not.toBe(button())
+  })
+
+  it('closes when the focus leaves for somewhere outside, not for the button', () => {
+    const elsewhere = document.body.appendChild(document.createElement('input'))
+    button().click()
+    items()[3].dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: items()[4] }))
+    expect(menu().hidden).toBe(false)
+    items()[3].dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: button() }))
+    expect(menu().hidden).toBe(false)
+
+    items()[3].dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: elsewhere }))
+
+    expect(menu().hidden).toBe(true)
+  })
+
+  it('opens on ArrowDown from the button, on the active item', () => {
+    button().focus()
+
+    key(button(), 'ArrowDown')
+
+    expect(menu().hidden).toBe(false)
+    expect(document.activeElement).toBe(items()[3])
+  })
+
+  it('is fixed under the button, right-aligned, its height bounded by the room below', () => {
+    button().getBoundingClientRect = () => ({ top: 10, bottom: 44, left: 900, right: 934 })
+    window.innerWidth = 1000
+    window.innerHeight = 500
+
+    button().click()
+
+    expect(menu().style.top).toBe('44px')
+    expect(menu().style.right).toBe('66px')
+    expect(menu().style.maxHeight).toBe('448px')
+  })
+
+  it('keeps a minimum height and stays inside the viewport', () => {
+    button().getBoundingClientRect = () => ({ top: 10, bottom: 480, left: 0, right: 20 })
+    window.innerWidth = 1000
+    window.innerHeight = 500
+    Object.defineProperty(menu(), 'offsetWidth', { configurable: true, value: 300 })
+
+    button().click()
+
+    expect(menu().style.maxHeight).toBe('160px')
+    expect(menu().style.right).toBe('700px')
+  })
+
+  it('follows a window resize and closes when the pane scrolls', () => {
+    button().getBoundingClientRect = () => ({ top: 10, bottom: 44, left: 900, right: 934 })
+    window.innerWidth = 1000
+    button().click()
+
+    window.innerWidth = 800
+    window.dispatchEvent(new Event('resize'))
+    expect(menu().style.right).toBe('0px')
+
+    menu().dispatchEvent(new Event('scroll'))
+    expect(menu().hidden).toBe(false)
+    document.body.dispatchEvent(new Event('scroll'))
+    expect(menu().hidden).toBe(true)
+  })
+})

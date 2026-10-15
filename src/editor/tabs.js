@@ -84,16 +84,30 @@ export function createTabs({ onActivate, controls }) {
     items.push(item)
   }
 
+  /** The menu is fixed, so the pane's overflow cannot clip it: under the button, right-aligned, inside the viewport. */
+  function place() {
+    const rect = button.getBoundingClientRect()
+    const right = Math.max(0, window.innerWidth - rect.right)
+    menu.style.top = `${rect.bottom}px`
+    menu.style.right = `${Math.min(right, Math.max(0, window.innerWidth - menu.offsetWidth))}px`
+    menu.style.maxHeight = `${Math.max(160, window.innerHeight - rect.bottom - 8)}px`
+  }
+
   function open() {
     menu.hidden = false
+    place()
     button.setAttribute('aria-expanded', 'true')
     document.addEventListener('click', outside, true)
+    document.addEventListener('scroll', scrolled, true)
+    window.addEventListener('resize', place)
     ;(items.find((item) => item.getAttribute('aria-checked') === 'true') ?? items[0])?.focus()
   }
 
   /** @param {boolean} [refocus] return the focus to the button, as a pick or Escape does */
   function close(refocus = true) {
     document.removeEventListener('click', outside, true)
+    document.removeEventListener('scroll', scrolled, true)
+    window.removeEventListener('resize', place)
     const wasOpen = !menu.hidden
     menu.hidden = true
     button.setAttribute('aria-expanded', 'false')
@@ -108,12 +122,36 @@ export function createTabs({ onActivate, controls }) {
     }
   }
 
+  /** Scrolling the pane (or the strip) would leave the menu behind. */
+  function scrolled(event) {
+    if (!menu.contains(event.target)) {
+      close(false)
+    }
+  }
+
   button.addEventListener('click', () => (menu.hidden ? open() : close()))
+  button.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' && menu.hidden) {
+      event.preventDefault()
+      open()
+    }
+  })
+
+  // Focus moving on to somewhere else closes it; a null target (a click on nothing) is left to `outside`.
+  more.addEventListener('focusout', (event) => {
+    if (event.relatedTarget && !more.contains(event.relatedTarget)) {
+      close(false)
+    }
+  })
 
   menu.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.preventDefault()
       close()
+      return
+    }
+    if (event.key === 'Tab') {
+      close(false)
       return
     }
     const i = items.indexOf(document.activeElement)

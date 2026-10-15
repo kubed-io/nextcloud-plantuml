@@ -289,6 +289,37 @@ export const body = (key, closer, token = 'keyword', extra = []) => ({
   [`${key}Code`]: codeLines(closer, key),
 })
 
+/** An activity box's closer (H18): `;`, or an SDL shape's `|`, `<`, `>`, `/`, `\`, `]`, `}`, ending the line. */
+export const activityCloser = /[;|<>/\\\]}](?=\s*$)/
+
+/**
+ * A box (H18): `:` opening a line, after an optional `#colour`, and `closer` at a line's end are
+ * brackets; between them is Creole, over as many lines as it takes. An actor's shorthand
+ * (`:Dr K: as drk`, `:Main Admin: --> (Use)`) is no box. Returns the rule for `start` and the
+ * state `boxText`; `extra` rules (the core's `!` lines) are tried first in the state, and an
+ * `@end` line ends an open box.
+ */
+export function box(closer = activityCloser, extra = []) {
+  const end = closer.source
+  return {
+    open: {
+      regex: new RegExp(`(?![ \\t]*:[^:]+:(?=\\s+as\\b|\\s*[-.=<>]|\\s*$))([ \\t]*)(#${colourPart})?(:)`),
+      sol: true,
+      token: [null, 'ColorLiteral', 'bracket'],
+      next: 'boxText',
+    },
+    boxText: [
+      atLineStart(/@end\w*/.source, 'keyword', { next: 'start' }),
+      ...extra,
+      ...comments,
+      { regex: closer, token: 'bracket', next: 'start' },
+      // A run of symbols up to the closer, which creole's own run would take along.
+      { regex: new RegExp(`[^\\w[*/"<|~&$%]+?(?=${end})`), token: null },
+      ...creole(null),
+    ],
+  }
+}
+
 /**
  * Comments: `'` to the end of the line, and `/' … '/`, which pushes the state `blockComment` when
  * it runs on past its line, so the state it started in comes back at its `'/`.

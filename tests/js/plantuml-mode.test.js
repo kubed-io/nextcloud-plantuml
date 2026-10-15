@@ -109,10 +109,9 @@ describe('plantumlMode', () => {
     expect(tokens('A-->B')).toEqual([['-->', 'LinkOperator']])
   })
 
-  it('leaves a lone dash, a member type and an activity action unlabelled', () => {
+  it('leaves a lone dash and a member type unlabelled', () => {
     expect(tokens('- item')).toEqual([])
     expect(tokens('class A', '-field : int')).toEqual([['class', 'keyword'], ['A', 'typeName']])
-    expect(tokens(':pay the bill;')).toEqual([])
   })
 
   it('names a separator or a delay as a heading, not as links', () => {
@@ -241,7 +240,7 @@ describe('plantumlMode colours', () => {
 
   it('takes no word after a # at the start of a line for a colour', () => {
     expect(tokens('#highlight "a" / "b"')).toEqual([['"a"', 'string'], ['"b"', 'string']])
-    expect(tokens('  #HotPink:action;')).toEqual([])
+    expect(tokens('  #HotPink:action;')).toEqual([['#HotPink', 'ColorLiteral'], [':', 'bracket'], [';', 'bracket']])
   })
 
   it.each(['/', '|', '-', '\\'])('takes each part of a %s gradient for a colour of its own', (stroke) => {
@@ -1432,5 +1431,40 @@ describe('declarations and class bodies (H15, H17)', () => {
     expect(tokens('!theme x from y', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
     expect(tokens('!theme x', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
     expect(tokens('!$x = 1', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
+  })
+
+  describe('activity boxes (H18)', () => {
+    it('reads the colon and the semicolon as brackets, the text between plain', () => {
+      expect(tokens(':Split into blocks;')).toEqual([[':', 'bracket'], [';', 'bracket']])
+    })
+
+    it('reads a colour before the colon and Creole inside', () => {
+      expect(tokens('#pink:**bold** step;')).toEqual([['#pink', 'ColorLiteral'], [':', 'bracket'], ['**bold**', 'strong'], [';', 'bracket']])
+    })
+
+    it('reads a box whose text holds a colon as a box', () => {
+      expect(tokens(':Step 1: open;')).toEqual([[':', 'bracket'], [';', 'bracket']])
+    })
+
+    it('runs a box over lines to the closer', () => {
+      expect(tokens(':first', 'second;', 'A -> B')).toEqual([[':', 'bracket'], [';', 'bracket'], ['->', 'LinkOperator']])
+    })
+
+    it('closes at a shape\'s closer, and after a space', () => {
+      expect(tokens(':send|')).toEqual([[':', 'bracket'], ['|', 'bracket']])
+      expect(tokens(':send ;')).toEqual([[':', 'bracket'], [';', 'bracket']])
+      expect(tokens(':a; b;')).toEqual([[':', 'bracket'], [';', 'bracket']])
+    })
+
+    it('leaves an actor\'s shorthand alone', () => {
+      expect(tokens(':Dr K: as drk').map(([, token]) => token)).not.toContain('bracket')
+      expect(tokens(':Main Admin: --> (Use)').map(([, token]) => token)).not.toContain('bracket')
+    })
+
+    it('ends an open box at @end, and reads a ! directive line in it as PlantUML\'s', () => {
+      expect(tokens(':open', '!if $x', '@enduml', 'A -> B')).toEqual([
+        [':', 'bracket'], ['!if', 'meta'], ['$x', 'VariableName'], ['@enduml', 'keyword'], ['->', 'LinkOperator'],
+      ])
+    })
   })
 })

@@ -26,7 +26,7 @@
  */
 import { StreamLanguage } from '@codemirror/language'
 import {
-  argsState, arrow, atLineStart, blockComment, body, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
+  argsState, arrow, atLineStart, blockComment, body, box, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
   declarations, directive, directiveLine, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState,
   stereotypes, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
@@ -60,10 +60,14 @@ const bang = [
   atLineStart(directive, 'meta', { push: 'preprocessor' }),
 ]
 
+const activity = box(undefined, bang)
+
 const states = {
   start: [
     ...comments,
     ...bang,
+    // An activity box `:text;`, before a colon with a space beside it starts text (H18).
+    activity.open,
     // `@start<type>` lines are read by `startLine` (lexicon/rules.js), see `plantumlLanguage`.
     atLineStart(/@end\w+\b/.source, 'keyword'),
     atLineStart(separator, 'heading'),
@@ -105,6 +109,7 @@ const states = {
     ...calls,
     { regex: /\w+/, token: null },
   ],
+  boxText: activity.boxText,
   // An element line's text after ` : ` is text (H14): a colour and a string keep their look.
   colonText: [...colours, { regex: /"[^"]*"/, token: 'string' }, ...creole(null)],
   stereotype: stereotypeState,

@@ -303,6 +303,17 @@ function cardView(view, entry, memo) {
     }
   }
 
+  // Whether focus is in the box. The tooltip's DOM is gone before `destroy`, and focus with it.
+  let focused = false
+  dom.addEventListener('focusin', () => {
+    focused = true
+  })
+  dom.addEventListener('focusout', (event) => {
+    if (dom.isConnected) {
+      focused = dom.contains(event.relatedTarget)
+    }
+  })
+
   dom.addEventListener('click', (event) => {
     if (event.target.closest('.cm-doc-close')) {
       closeDoc(view)
@@ -338,6 +349,17 @@ function cardView(view, entry, memo) {
         cards.delete(view)
       }
       card.destroy()
+      // A box that held focus and went otherwise than by closeDoc (an action's edit, a reload)
+      // leaves it on the page, where the next Escape would close the editor: it goes back to
+      // the source, after the update, unless it has gone somewhere or the view with it.
+      if (focused) {
+        queueMicrotask(() => {
+          const active = dom.ownerDocument.activeElement
+          if (view.dom.isConnected && (!active || active === dom.ownerDocument.body)) {
+            view.focus()
+          }
+        })
+      }
     },
   }
 }

@@ -535,6 +535,29 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     expect(document.activeElement).toBe(view.contentDOM)
   })
 
+  it('gives focus back to the source when an action’s edit closes the pinned box', async () => {
+    const view = viewOf()
+    const apply = (view, from, to) => view.dispatch({ changes: { from: to, insert: ' x' } })
+    view.dispatch(setDiagnostics(view.state, [alt('An alt with no else', apply)]))
+    pinDocAt(view, at('alt'))
+    const button = host(view).querySelector('button.cm-diagnosticAction')
+    button.focus()
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(hasHoverTooltips(view.state)).toBe(false)
+    await vi.waitFor(() => expect(document.activeElement).toBe(view.contentDOM))
+  })
+
+  it('leaves focus where it went when the box closes with focus outside it', async () => {
+    const view = viewOf()
+    const other = document.body.appendChild(document.createElement('input'))
+    pinDocAt(view, at('alt'))
+    other.focus()
+    view.dispatch({ changes: { from: doc.length, insert: '\n' } })
+    expect(hasHoverTooltips(view.state)).toBe(false)
+    await Promise.resolve()
+    expect(document.activeElement).toBe(other)
+  })
+
   it('closes a pinned card on Escape before a snippet’s fields (K1)', () => {
     const view = viewOf()
     view.focus()

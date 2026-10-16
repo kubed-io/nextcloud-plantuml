@@ -267,9 +267,22 @@ export function inStyleBody(state, pos) {
 // grey between its `@start` and `@end` lines; ditaa is drawn by another tool, so its lines are plain.
 const INACTIVE = new Set(['chronology', 'jcckit'])
 const PLAIN = new Set(['ditaa'])
-const grey = { inactive: true, token: (stream) => (stream.skipToEnd(), 'Inactive') }
-const plain = { token: (stream) => (stream.skipToEnd(), null) }
-const builtIn = Object.fromEntries([...INACTIVE].map((type) => [type, grey]).concat([...PLAIN].map((type) => [type, plain])))
+const grey = {
+  inactive: true,
+  token(stream) {
+    stream.skipToEnd()
+    return 'Inactive'
+  },
+}
+const plain = {
+  token(stream) {
+    stream.skipToEnd()
+    return null
+  },
+}
+const builtIn = {}
+for (const type of INACTIVE) builtIn[type] = grey
+for (const type of PLAIN) builtIn[type] = plain
 
 /** CodeMirror's own copy for a stream mode without copyState: the object, and any array in it. */
 const copyOf = (state) => (state && typeof state === 'object'
@@ -478,7 +491,15 @@ export function plantumlLanguage(profiles = {}) {
             state.stack = []
             return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
           }
+          // An open block ends at the next `@start`, which is read as ever (B1).
+          if (stream.match(/^[ \t]*@start\w+/, false)) {
+            state.inner = null
+            state.state = 'start'
+            state.stack = []
+          }
         }
+      }
+      if (state.inner) {
         // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
         if (modeOf(state.inner).inactive) return innerToken(stream, state.inner)
         if (state.state === 'blockComment') return base.token(stream, state)

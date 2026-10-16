@@ -1163,10 +1163,27 @@ describe('plantumlMode a diagram\'s name (H12)', () => {
     ])
   })
 
+  it('keeps every line of an inactive block grey: <style>, an unclosed /\', a blank line (T26)', () => {
+    expect(tokens('@startchronology', '<style>', "/' open", 'x', '', 'actor Bob', '@endchronology', 'actor Bob')).toEqual([
+      ['@startchronology', 'keyword'], ['<style>', 'Inactive'], ["/' open", 'Inactive'], ['x', 'Inactive'], ['actor Bob', 'Inactive'],
+      ['@endchronology', 'keyword'], ['actor', 'keyword'], ['Bob', 'typeName'],
+    ])
+  })
+
+  it('ends an open block at the next @start, as B1 reads it (T26)', () => {
+    const uml = [['@startuml', 'keyword'], ['actor', 'keyword'], ['Bob', 'typeName'], ['@enduml', 'keyword']]
+    expect(tokens('@startchronology x', '[A] happens', '@startuml', 'actor Bob', '@enduml').slice(-4)).toEqual(uml)
+    expect(tokens('@startyaml', 'a: 1', '@startuml', 'actor Bob', '@enduml').slice(-4)).toEqual(uml)
+    const yaml = { token: (stream) => (stream.skipToEnd(), 'string') }
+    expect(tokensOf(plantumlLanguage({ yaml }), ['@startyaml', 'a: 1', '@startuml', 'actor Bob', '@enduml']).slice(-4)).toEqual(uml)
+    expect(tokens('@startditaa', '+--+', '  @startuml', 'actor Bob', '@enduml').slice(-3)).toEqual(uml.slice(1))
+  })
+
   it('leaves a ditaa block plain, and a def block uml (T26)', () => {
     const names = tokens('@startditaa', '+--+   +--+', '|ab|-->|cd|', '@endditaa').map(([, name]) => name)
     expect(names).not.toContain('LinkOperator')
     expect(names).not.toContain('list')
+    expect(tokens('@startditaa', '+--+   +--+', '|ab|-->|cd|').slice(1)).toEqual([])
     expect(tokens('@startdef(id=a)', 'actor Bob', '@enddef').slice(-4)).toEqual([
       [')', 'paren'], ['actor', 'keyword'], ['Bob', 'typeName'], ['@enddef', 'keyword'],
     ])

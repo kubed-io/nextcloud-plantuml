@@ -326,14 +326,15 @@ function cardView(view, entry, memo) {
     }
   }
 
-  // Whether focus is in the box. The tooltip's DOM is gone before `destroy`, and focus with it.
+  // Whether focus is in the box, which `destroy` cannot ask: the DOM, and focus with it, is gone
+  // by then. Focus moved to another element leaves it; a removal, which moves it nowhere, does not.
   let focused = false
   dom.addEventListener('focusin', () => {
     focused = true
   })
   dom.addEventListener('focusout', (event) => {
-    if (dom.isConnected) {
-      focused = dom.contains(event.relatedTarget)
+    if (event.relatedTarget && !dom.contains(event.relatedTarget)) {
+      focused = false
     }
   })
 

@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * The docs index (I1): one entry per known element, keyed `<kind>:<name>`, a
- * block type's own entry `<kind>:<name>@<type>`; a property, selector, skin
- * parameter and library name lower-cased, as PlantUML reads them. PlantUML's source describes the
- * `%` functions, the themes and the libraries; our own lines describe the rest;
- * plantuml.com gives each a link. Its data is a chunk of its own, loaded once
+ * block type's own entry `<kind>:<name>@<type>`; a keyword, property, selector,
+ * skin parameter and library lower-cased, as PlantUML reads them in any case.
+ * PlantUML's source describes the `%` functions, the themes and the libraries;
+ * our own lines describe the rest; plantuml.com gives each a link. Its data is a chunk of its own, loaded once
  * the editor has opened (a dynamic import: the entry must never import a chunk
  * statically).
  */

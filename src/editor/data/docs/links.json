@@ -300,17 +300,18 @@
     },
     "function:%and": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%backslash": {
       "page": "preprocessing",
-      "anchor": "e33ec765c5ca417c",
-      "section": "Escape function"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%boolval": {
       "page": "preprocessing",
-      "anchor": "55eb000153a81c72",
-      "section": "Boolean expression"
+      "anchor": "4ba6bb1b6b9ca03c",
+      "section": "%boolval builtin function"
     },
     "function:%breakline": {
       "page": "preprocessing",
@@ -319,8 +320,8 @@
     },
     "function:%call_user_func": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "5a1670d800446678",
+      "section": "Dynamic invocation"
     },
     "function:%chr": {
       "page": "preprocessing",
@@ -349,17 +350,18 @@
     },
     "function:%dollar": {
       "page": "preprocessing",
-      "anchor": "e33ec765c5ca417c",
-      "section": "Escape function"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%eval": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%false": {
       "page": "preprocessing",
-      "anchor": "55eb000153a81c72",
-      "section": "Boolean expression"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%feature": {
       "page": "preprocessing",
@@ -373,7 +375,8 @@
     },
     "function:%filedate": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%filename": {
       "page": "preprocessing",
@@ -382,7 +385,8 @@
     },
     "function:%filename_no_extension": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%function_exists": {
       "page": "preprocessing",
@@ -391,29 +395,33 @@
     },
     "function:%get_all_stdlib": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "5c9760c73eeaf4c6",
+      "section": "%get_all_stdlib builtin function"
     },
     "function:%get_all_theme": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "51658407adfab1b3",
+      "section": "%get_all_theme builtin function"
     },
     "function:%get_current_theme": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%get_json_keys": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%get_json_type": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%get_stdlib": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%get_variable_value": {
       "page": "preprocessing",
@@ -442,8 +450,8 @@
     },
     "function:%invoke_procedure": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "5a1670d800446678",
+      "section": "Dynamic invocation"
     },
     "function:%is_dark": {
       "page": "preprocessing",
@@ -457,27 +465,33 @@
     },
     "function:%json_add": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%json_key_exists": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%json_merge": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%json_remove": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%json_set": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%left_align": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%lighten": {
       "page": "preprocessing",
@@ -506,7 +520,8 @@
     },
     "function:%nand": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%newline": {
       "page": "preprocessing",
@@ -515,12 +530,13 @@
     },
     "function:%nor": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%not": {
       "page": "preprocessing",
-      "anchor": "55eb000153a81c72",
-      "section": "Boolean expression"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%now": {
       "page": "preprocessing",
@@ -529,11 +545,13 @@
     },
     "function:%nxor": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%or": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%ord": {
       "page": "preprocessing",
@@ -542,17 +560,18 @@
     },
     "function:%percent": {
       "page": "preprocessing",
-      "anchor": "e33ec765c5ca417c",
-      "section": "Escape function"
-    },
-    "function:%random": {
-      "page": "preprocessing",
       "anchor": "291cabbe982ff775",
       "section": "Builtin functions"
     },
+    "function:%random": {
+      "page": "preprocessing",
+      "anchor": "58cb7ffdb00d47bc",
+      "section": "%random builtin function"
+    },
     "function:%retrieve_procedure": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%reverse_color": {
       "page": "preprocessing",
@@ -566,7 +585,8 @@
     },
     "function:%right_align": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%set_variable_value": {
       "page": "preprocessing",
@@ -580,18 +600,18 @@
     },
     "function:%splitstr": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "d1fd36a32c8d13b9",
+      "section": "%splitstr builtin function"
     },
     "function:%splitstr_regex": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "3f06780316c7d4b5",
+      "section": "%splitstr_regex builtin function"
     },
     "function:%str2json": {
       "page": "preprocessing",
-      "anchor": "788fa5fb2276ed17",
-      "section": "Variable definition"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%string": {
       "page": "preprocessing",
@@ -615,12 +635,13 @@
     },
     "function:%tab": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%true": {
       "page": "preprocessing",
-      "anchor": "55eb000153a81c72",
-      "section": "Boolean expression"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%upper": {
       "page": "preprocessing",
@@ -639,11 +660,13 @@
     },
     "function:%xargs": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "function:%xor": {
       "page": "preprocessing",
-      "section": "Preprocessing"
+      "anchor": "291cabbe982ff775",
+      "section": "Builtin functions"
     },
     "keyword:across": {
       "page": "sequence-diagram",

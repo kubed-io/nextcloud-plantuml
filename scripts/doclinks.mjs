@@ -119,14 +119,15 @@ function standing(word, flags) {
 
 /**
  * The section of `sections` that covers `word`: a heading naming it (`titled` also accepts a title that
- * holds it as a whole word), else the first section whose code holds it; null when none does.
+ * holds it as a whole word), else, unless `coded` is false, the first section whose code holds it; null
+ * when none does.
  */
-export function findLink(word, page, sections, { titled = false, caseless = false } = {}) {
+export function findLink(word, page, sections, { titled = false, caseless = false, coded = true } = {}) {
   const flags = caseless ? 'i' : ''
   const same = (other) => (caseless ? other.toLowerCase() === word.toLowerCase() : other === word)
   const pattern = standing(word, flags)
   const hit = sections.find((s) => headingWords(s.title).some(same) || same(s.title) || (titled && pattern.test(s.title)))
-    ?? sections.find((s) => s.codes.some((code) => pattern.test(code)))
+    ?? (coded ? sections.find((s) => s.codes.some((code) => pattern.test(code))) : undefined)
   return hit ? { page, anchor: hit.anchor, section: bare(hit.title) } : null
 }
 
@@ -175,7 +176,12 @@ export function buildLinks(pages, source) {
     const page = ['preprocessing', 'theme', 'stdlib', 'style'].find((name) => on(name, word)) ?? 'preprocessing'
     set(`directive:${word}`, whole(page, word))
   }
-  for (const { name } of source.builtins) set(`function:${name}`, whole('preprocessing', name))
+  // A function no heading names links the builtin functions, not the first code that happens to use it.
+  const builtins = pages.preprocessing?.find((s) => /^built-?in functions$/i.test(bare(s.title)))
+  const listed = builtins && { page: 'preprocessing', anchor: builtins.anchor, section: bare(builtins.title) }
+  for (const { name } of source.builtins) {
+    set(`function:${name}`, on('preprocessing', name, { titled: true, coded: false }) ?? listed ?? whole('preprocessing', name))
+  }
   for (const word of [...source.language.keywords, ...source.language.types]) {
     if (!word.startsWith('@')) everywhere('keyword', word)
   }

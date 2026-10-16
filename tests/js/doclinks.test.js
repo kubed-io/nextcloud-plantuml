@@ -18,6 +18,9 @@ describe('sectionsOf', () => {
       { anchor: 'c8d20ebb1cbc2253', title: 'First Section', level: 2 },
       { anchor: '3b6d1ebcab5b3aa9', title: 'Second Section', level: 2 },
       { anchor: '08651da588e5990f', title: 'Conditions [!if, !else]', level: 3 },
+      { anchor: '5e1f0c2d9a7b4e36', title: 'Builtin functions', level: 2 },
+      { anchor: 'a4c97e0b13d6f852', title: 'Escapes [%dollar]', level: 3 },
+      { anchor: 'c2b8e5f1d0a39476', title: '%size builtin function', level: 2 },
     ])
   })
 
@@ -86,7 +89,7 @@ describe('buildLinks', () => {
   const source = {
     language: { keywords: ['beta', 'lasts', '@startyaml', '@endyaml'], types: ['gamma'], skinparameters: ['Alpha'] },
     directives: { directives: ['!if'] },
-    builtins: [{ name: '%strlen' }],
+    builtins: [{ name: '%strlen' }, { name: '%parse' }, { name: '%dollar' }, { name: '%size' }],
     vocabulary: { style: { selectors: ['Delta'], properties: ['BackGroundColor'] } },
     source: { themes: { cerulean: {} }, libraries: { C4: {} } },
     connectors: ['-->'],
@@ -97,7 +100,7 @@ describe('buildLinks', () => {
   it('keys each kind the way the docs index does', () => {
     expect(built['directive:!if'].section).toBe('Conditions')
     expect(built['keyword:beta'].section).toBe('First Section')
-    expect(built['function:%strlen']).toEqual({ page: 'preprocessing', section: 'Sample Page' })
+    expect(built['function:%strlen']).toEqual({ page: 'preprocessing', anchor: '5e1f0c2d9a7b4e36', section: 'Builtin functions' })
     expect(built['skinparam:alpha'].page).toBe('skinparam')
     expect(built['selector:delta'].page).toBe('style')
     expect(built['property:backgroundcolor'].page).toBe('style')
@@ -106,6 +109,18 @@ describe('buildLinks', () => {
     expect(built['tag:back'].section).toBe('Second Section')
     expect(built['connector:-->'].section).toBe('First Section')
     expect(built['diagram:yaml']).toEqual({ page: 'yaml', section: 'Sample Page' })
+  })
+
+  // %str2json linked the first section whose code used it, which was not about the function.
+  it('links a function no heading names to the builtin functions, before any section whose code shows it', () => {
+    expect(built['function:%parse']).toEqual({ page: 'preprocessing', anchor: '5e1f0c2d9a7b4e36', section: 'Builtin functions' })
+    expect(built['function:%dollar']).toEqual({ page: 'preprocessing', anchor: 'a4c97e0b13d6f852', section: 'Escapes' })
+    expect(built['function:%size']).toEqual({ page: 'preprocessing', anchor: 'c2b8e5f1d0a39476', section: '%size builtin function' })
+  })
+
+  it('links a function to the preprocessing page alone when it has no builtin functions section', () => {
+    const bare = buildLinks({ ...pages, preprocessing: sections.filter((s) => s.title !== 'Builtin functions') }, source)
+    expect(bare['function:%strlen']).toEqual({ page: 'preprocessing', section: 'Sample Page' })
   })
 
   it('keys a word on a page of another diagram type with the type', () => {
@@ -125,5 +140,6 @@ describe('links.json', () => {
     expect(links.links['tag:back']).toBeDefined()
     expect(links.links['connector:-->']).toBeDefined()
     expect(links.links['function:%strlen']).toBeDefined()
+    expect(links.links['function:%str2json'].section).toBe('Builtin functions')
   })
 })

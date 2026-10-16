@@ -5,6 +5,7 @@
 // CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
 import { Text } from '@codemirror/state'
+import { StringStream } from '@codemirror/language'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import jsonProfile from '../../src/editor/profiles/json.js'
@@ -75,5 +76,42 @@ describe('the json profile', () => {
 
   it('leaves what is not json plain', () => {
     expect(jsonTokens('{', '"s": "string \'single\'"', 'nope', '}').filter(([text]) => text === 'nope')).toEqual([])
+  })
+
+  it('reads title after one data line as a keyword', () => {
+    expect(jsonTokens('{', 'title x', '}')).toContainEqual(['title', 'keyword'])
+  })
+
+  describe('copyState', () => {
+    /** [text, token] for each token of `line`, advancing `state`. */
+    function feed(state, line) {
+      const out = []
+      const stream = new StringStream(line, 4, 2)
+      while (!stream.eol()) {
+        stream.start = stream.pos
+        const token = json.mode.token(stream, state)
+        if (token) out.push([stream.current(), token])
+      }
+      return out
+    }
+
+    it('copies a state mid-object so the two go on independently', () => {
+      const state = json.mode.startState(2)
+      feed(state, '{"a":')
+      const copy = json.mode.copyState(state)
+      expect(feed(state, ' 1}')).toEqual([['1', 'number'], ['}', 'brace']])
+      expect(feed(copy, ' "x"}')).toEqual([['"x"', 'string'], ['}', 'brace']])
+    })
+
+    it('copies a state inside a common body and a highlight line', () => {
+      const body = json.mode.startState(2)
+      feed(body, 'title')
+      const bodyCopy = json.mode.copyState(body)
+      expect(feed(bodyCopy, 'text')).toEqual(feed(body, 'text'))
+      const hl = json.mode.startState(2)
+      feed(hl, '#highlight "a" <<')
+      const hlCopy = json.mode.copyState(hl)
+      expect(feed(hlCopy, 'x>>')).toEqual(feed(hl, 'x>>'))
+    })
   })
 })

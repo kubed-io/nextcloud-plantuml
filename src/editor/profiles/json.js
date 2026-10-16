@@ -19,6 +19,9 @@ const PART_END = '(?=\\s*(?:/|<<|$))'
 const RENAME = { 'string property': 'propertyName', string: 'string', number: 'number', atom: 'atom', comment: 'comment' }
 const PUNCTUATION = { '{': 'brace', '}': 'brace', '[': 'squareBracket', ']': 'squareBracket', ',': 'separator', ':': 'separator' }
 
+// CodeMirror's own copy for a stream mode without copyState (the json mode has none).
+const copyOf = (state) => Object.fromEntries(Object.entries(state).map(([key, value]) => [key, Array.isArray(value) ? value.slice() : value]))
+
 /** @param {import('./index.js').Core} core */
 export default (core) => {
   const { common, stereotypes, stereotypeState, table } = core.lex
@@ -50,8 +53,8 @@ export default (core) => {
 
   const mode = {
     name: 'json',
-    startState: () => ({ json: json.startState(), common: common_.startState(), highlight: highlight.startState(), kind: 'json', data: 0, counted: false }),
-    copyState: (s) => ({ ...s, json: json.copyState(s.json), common: common_.copyState(s.common), highlight: highlight.copyState(s.highlight) }),
+    startState: (indentUnit) => ({ json: json.startState(indentUnit), common: common_.startState(), highlight: highlight.startState(), kind: 'json', data: 0, counted: false }),
+    copyState: (s) => ({ ...s, json: json.copyState ? json.copyState(s.json) : copyOf(s.json), common: common_.copyState(s.common), highlight: highlight.copyState(s.highlight) }),
     token(stream, state) {
       if (stream.sol()) {
         state.counted = false

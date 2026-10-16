@@ -18,12 +18,14 @@ import spritesProfile from '../../src/editor/profiles/sprites.js'
 import ganttProfile, { project } from '../../src/editor/profiles/gantt.js'
 import mathProfile from '../../src/editor/profiles/math.js'
 import latexProfile from '../../src/editor/profiles/latex.js'
+import mindmapProfile, { wbs } from '../../src/editor/profiles/tree.js'
 
 const DIR = new URL('./fixtures/grammars/', import.meta.url)
 
 const modes = Object.fromEntries([
   ['yaml', yamlProfile], ['style', styleProfile], ['board', boardProfile], ['git', gitProfile],
   ['sprites', spritesProfile], ['gantt', ganttProfile], ['project', project], ['math', mathProfile], ['latex', latexProfile],
+  ['mindmap', mindmapProfile], ['wbs', wbs],
 ].map(([type, factory]) => [type, factory(core).mode]))
 
 /** The YAML legacy mode's own tokens, which the dictionary does not hold it to. */
@@ -79,7 +81,7 @@ describe('the styling dictionary', () => {
 
   it('has a fixture for every type with a grammar', () => {
     expect(fixtures.map((name) => name.replace('.puml', '')).sort()).toEqual(
-      ['board', 'creole', 'files', 'gantt', 'git', 'latex', 'math', 'project', 'sprites', 'style', 'uml', 'yaml'])
+      ['board', 'creole', 'files', 'gantt', 'git', 'latex', 'math', 'mindmap', 'project', 'sprites', 'style', 'uml', 'wbs', 'yaml'])
   })
 
   it.each(fixtures)('%s: every token is a dictionary token', (name) => {

@@ -40,6 +40,12 @@ describe('the profiles a file needs', () => {
     expect(neededFor('A -> B\n')).toEqual(new Set())
   })
 
+  it('are mindmap and wbs only when a block of that type is in the file', () => {
+    expect(neededFor('@startmindmap\n* a\n@endmindmap\n')).toEqual(new Set(['mindmap']))
+    expect(neededFor('@startwbs\n* a\n@endwbs\n@startmindmap\n* b\n@endmindmap\n')).toEqual(new Set(['wbs', 'mindmap']))
+    expect(neededFor('@startuml\n* a\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

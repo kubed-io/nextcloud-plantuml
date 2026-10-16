@@ -1,0 +1,32 @@
+@startwbs
+* Business Process Modelling WBS
+** Launch the project
+*** Complete Stakeholder Research
+*** Initial Implementation Plan
+** Design phase
+*** Model of AsIs Processes Completed
+**** Model of AsIs Processes Completed1
+**** Model of AsIs Processes Completed2
+@endwbs
+
+@startwbs
++ New Job
+++ Decide on Job Requirements
++++ Identity gaps
+++ Prepare for Job Interview
+--[#pink] Update CV <<red>>
+-- Inform Network
+**_< Left boxless
+**<[#FFBBBB] Left (a) id
+@endwbs
+
+@startwbs
+* Root
+**:multi
+line;
+**[#lightblue](A) Task A
+**(B) Task B
+** "Task C" as C
+A -> B
+A .> C : link label
+@endwbs

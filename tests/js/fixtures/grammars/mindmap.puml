@@ -1,0 +1,36 @@
+@startmindmap
+* Debian
+** Ubuntu
+*** Linux Mint
+*** Kubuntu
+** LMDE
+@endmindmap
+
+@startmindmap
++ OS
+++ Ubuntu
++++ Linux Mint
++++ Kubuntu
+++ LMDE
+-- Windows 95
+--[#lightgreen] Windows 98
+--_ boxless
+-- Windows NT
+*** Windows 8
+@endmindmap
+
+@startmindmap
+<style>
+mindmapDiagram {
+  .green { BackgroundColor lightgreen }
+}
+</style>
+top to bottom direction
+*[#Orange] root
+**:multi-line
+node with **creole**;
+**_ no box <<green>>
+*** child <<green>>
+left side
+** left one
+@endmindmap

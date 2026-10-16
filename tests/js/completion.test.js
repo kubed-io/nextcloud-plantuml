@@ -1902,12 +1902,12 @@ describe('the docs beside the completion list', () => {
 
   it('keeps a connector detail through its entry', async () => {
     const arrow = option(await docd(connectors, 'A |'), '-->')
-    expect(arrow.detail).toBe('dashed arrow')
+    expect(arrow.detail).toBe('Dashed arrow')
   })
 
   it('keeps a helper, a tag and a directive described', async () => {
-    expect(option(await docd(keywords, '@startuml\ncolo|', true), 'colors').detail).toBe('the named colours')
-    expect(option(await docd(creole, '<|'), '<b>').detail).toBe('bold')
+    expect(option(await docd(keywords, '@startuml\ncolo|', true), 'colors').detail).toBe('Draws a chart of every named colour')
+    expect(option(await docd(creole, '<|'), '<b>').detail).toBe('Bold text')
     expect(option(await docd(directives, '@|'), '@startuml').info).toBeTypeOf('function')
   })
 

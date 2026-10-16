@@ -243,6 +243,11 @@ describe('our own lines for diagram types, directives and functions', () => {
     expect(long).toEqual([])
   })
 
+  it('starts every summary with a capital, as a line of its own', () => {
+    const lower = Object.entries(ownLines).filter(([, { summary }]) => summary && !/^[A-Z]/.test(summary)).map(([key]) => key)
+    expect(lower).toEqual([])
+  })
+
   it('keeps every example to 6 lines', () => {
     const tall = Object.entries(ownLines).filter(([, { example }]) => example && example.split('\n').length > 6).map(([key]) => key)
     expect(tall).toEqual([])

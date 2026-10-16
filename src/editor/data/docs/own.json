@@ -892,107 +892,107 @@
     "example": "{ \"a\": null }"
   },
   "helper:colors": {
-    "summary": "the named colours",
+    "summary": "Draws a chart of every named colour",
     "example": "colors"
   },
   "helper:listsprite": {
-    "summary": "the standard sprites",
+    "summary": "Draws the built-in sprites",
     "example": "listsprite"
   },
   "helper:listopeniconic": {
-    "summary": "the Open Iconic icons",
+    "summary": "Draws every Open Iconic icon",
     "example": "listopeniconic"
   },
   "helper:listfonts": {
-    "summary": "the fonts on the server",
+    "summary": "Draws a sample of each font on the server",
     "example": "listfonts"
   },
   "helper:emoji": {
-    "summary": "the emoji",
+    "summary": "Draws the emoji the server knows",
     "example": "emoji"
   },
   "helper:stdlib": {
-    "summary": "the standard library",
+    "summary": "Lists the libraries in the standard library",
     "example": "stdlib"
   },
   "helper:skinparameters": {
-    "summary": "the skin parameters",
+    "summary": "Lists every skin parameter",
     "example": "skinparameters"
   },
   "helper:license": {
-    "summary": "the license",
+    "summary": "Shows PlantUML’s licence",
     "example": "license"
   },
   "helper:version": {
-    "summary": "the PlantUML version",
+    "summary": "Shows the server’s PlantUML version",
     "example": "version"
   },
   "helper:authors": {
-    "summary": "the authors",
+    "summary": "Lists PlantUML’s authors",
     "example": "authors"
   },
   "helper:donors": {
-    "summary": "the donors",
+    "summary": "Lists PlantUML’s donors",
     "example": "donors"
   },
   "helper:sudoku": {
-    "summary": "a sudoku",
+    "summary": "Draws a random sudoku",
     "example": "sudoku"
   },
   "helper:help themes": {
-    "summary": "the themes",
+    "summary": "Lists the themes",
     "example": "help themes"
   },
   "helper:help types": {
-    "summary": "the element types",
+    "summary": "Lists the element types",
     "example": "help types"
   },
   "helper:help keywords": {
-    "summary": "the keywords",
+    "summary": "Lists the keywords",
     "example": "help keywords"
   },
   "helper:help font": {
-    "summary": "the font help",
+    "summary": "Shows help on fonts",
     "example": "help font"
   },
   "helper:help colors": {
-    "summary": "the colour help",
+    "summary": "Shows help on colours",
     "example": "help colors"
   },
   "connector:-->": {
-    "summary": "dashed arrow",
+    "summary": "Dashed arrow",
     "example": "A --> B"
   },
   "connector:->": {
-    "summary": "arrow",
+    "summary": "Solid arrow",
     "example": "A -> B"
   },
   "connector:--": {
-    "summary": "solid line",
+    "summary": "Solid line, no arrowhead",
     "example": "A -- B"
   },
   "connector:..": {
-    "summary": "dotted",
+    "summary": "Dotted line",
     "example": "A .. B"
   },
   "connector:~~": {
-    "summary": "wavy",
+    "summary": "Wavy line",
     "example": "A ~~ B"
   },
   "connector:==": {
-    "summary": "bold",
+    "summary": "Bold line",
     "example": "A == B"
   },
   "connector:<-": {
-    "summary": "arrow, backwards",
+    "summary": "Solid arrow, pointing back",
     "example": "A <- B"
   },
   "connector:<--": {
-    "summary": "dashed arrow, backwards",
+    "summary": "Dashed arrow, pointing back",
     "example": "A <-- B"
   },
   "connector:<->": {
-    "summary": "arrow both ways",
+    "summary": "Arrow with a head at each end",
     "example": "A <-> B"
   },
   "connector:->>": {
@@ -1000,99 +1000,99 @@
     "example": "A ->> B : hi"
   },
   "connector:--|>": {
-    "summary": "extends",
+    "summary": "Extends, a hollow triangle at the parent",
     "example": "class Dog\nclass Animal\nDog --|> Animal"
   },
   "connector:..|>": {
-    "summary": "implements",
+    "summary": "Implements, dotted with a hollow triangle",
     "example": "interface Shape\nclass Box\nBox ..|> Shape"
   },
   "connector:*--": {
-    "summary": "composition",
+    "summary": "Composition, a filled diamond at the whole",
     "example": "class Car\nclass Wheel\nCar *-- Wheel"
   },
   "connector:o--": {
-    "summary": "aggregation",
+    "summary": "Aggregation, a hollow diamond at the whole",
     "example": "class Car\nclass Engine\nCar o-- Engine"
   },
   "connector:-up->": {
-    "summary": "arrow, placed up",
+    "summary": "Arrow laid out upwards",
     "example": "node A\nnode B\nA -up-> B"
   },
   "connector:-down->": {
-    "summary": "arrow, placed down",
+    "summary": "Arrow laid out downwards",
     "example": "node A\nnode B\nA -down-> B"
   },
   "connector:-left->": {
-    "summary": "arrow, placed left",
+    "summary": "Arrow laid out to the left",
     "example": "node A\nnode B\nA -left-> B"
   },
   "connector:-right->": {
-    "summary": "arrow, placed right",
+    "summary": "Arrow laid out to the right",
     "example": "node A\nnode B\nA -right-> B"
   },
   "connector:-[hidden]-": {
-    "summary": "invisible, for layout",
+    "summary": "Invisible link that only steers the layout",
     "example": "node A\nnode B\nA -[hidden]- B"
   },
   "tag:b": {
-    "summary": "bold",
+    "summary": "Bold text",
     "example": "<b>paid</b>"
   },
   "tag:i": {
-    "summary": "italic",
+    "summary": "Italic text",
     "example": "<i>paid</i>"
   },
   "tag:u": {
-    "summary": "underline",
+    "summary": "Underlined text",
     "example": "<u>paid</u>"
   },
   "tag:s": {
-    "summary": "strike-through",
+    "summary": "Struck-through text",
     "example": "<s>old</s>"
   },
   "tag:w": {
-    "summary": "wavy underline",
+    "summary": "Text with a wavy underline",
     "example": "<w>odd</w>"
   },
   "tag:size": {
-    "summary": "size",
+    "summary": "Font size of the text",
     "example": "<size:20>big</size>"
   },
   "tag:color": {
-    "summary": "colour",
+    "summary": "Colour of the text",
     "example": "<color:red>late</color>"
   },
   "tag:back": {
-    "summary": "background",
+    "summary": "Background colour of the text",
     "example": "<back:LightBlue>paid</back>"
   },
   "tag:font": {
-    "summary": "font",
+    "summary": "Font family of the text",
     "example": "<font:Courier>id 7</font>"
   },
   "tag:plain": {
-    "summary": "no formatting",
+    "summary": "Plain text inside formatted text",
     "example": "<b>bold <plain>plain</plain></b>"
   },
   "tag:sub": {
-    "summary": "subscript",
+    "summary": "Subscript text",
     "example": "H<sub>2</sub>O"
   },
   "tag:sup": {
-    "summary": "superscript",
+    "summary": "Superscript text",
     "example": "x<sup>2</sup>"
   },
   "tag:img": {
-    "summary": "image",
+    "summary": "Image from a URL or a file",
     "example": "<img:https://example.com/logo.png>"
   },
   "tag:code": {
-    "summary": "monospace block",
+    "summary": "Monospace block of code",
     "example": "A -> B\nnote right\n<code>\nx = 1\n</code>\nend note"
   },
   "tag:r": {
-    "summary": "right-aligned cell",
+    "summary": "Right-aligned table cell",
     "example": "A -> B\nnote right\n| 11111111 | b |\n|<r> 3 | 4 |\nend note"
   },
   "diagram:uml": {

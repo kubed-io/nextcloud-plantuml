@@ -16,7 +16,7 @@ import { valueAt } from '../values/index.js'
 import { inStyleBody } from '../plantuml-mode.js'
 
 /** [connector, detail], the commonest first. */
-const CONNECTORS = [
+export const CONNECTORS = [
   ['-->', 'dashed arrow'],
   ['->', 'arrow'],
   ['--', 'solid line'],

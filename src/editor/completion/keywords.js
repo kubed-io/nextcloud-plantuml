@@ -33,7 +33,7 @@ const labels = [...new Set([...PARTICIPANTS, ...STRUCTURES, ...SEQUENCE, ...ACTI
 export const KEYWORDS = labels.filter((label) => !label.includes(' '))
 
 /** PlantUML's one-line commands that draw a reference page; offered on a line of their own in a uml block (X13). */
-const HELPERS = {
+export const HELPERS = {
   colors: 'the named colours',
   listsprite: 'the standard sprites',
   listopeniconic: 'the Open Iconic icons',

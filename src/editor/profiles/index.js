@@ -59,6 +59,7 @@ export const PROFILES = {
   flow: () => import('./flow.js'),
   bpm: () => import('./bpm.js'),
   dot: () => import('./dot.js'),
+  hcl: () => import('./hcl.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

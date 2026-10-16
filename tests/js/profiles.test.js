@@ -61,6 +61,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\nbar [1,2]\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are hcl only when an hcl block is in the file', () => {
+    expect(neededFor('@starthcl\na {\n}\n@endhcl\n')).toEqual(new Set(['hcl']))
+    expect(neededFor('@startuml\na {\n}\n@enduml\n')).toEqual(new Set())
+  })
+
   it('are chen only when a chen block is in the file', () => {
     expect(neededFor('@startchen\nentity A {\n}\n@endchen\n')).toEqual(new Set(['chen']))
     expect(neededFor('@startuml\nentity A {\n}\n@enduml\n')).toEqual(new Set())

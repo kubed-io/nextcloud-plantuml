@@ -1,0 +1,18 @@
+@starthcl
+# A comment line (only a line starting with # is one)
+service "http" "web_proxy" {
+  listen_addr = "127.0.0.1:8080"
+  command = ["/usr/local/bin/awesome-app", "server"]
+}
+@endhcl
+
+@starthcl
+resource "aws_instance" "web" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "HelloWorld"
+  }
+  user_data = file("init.sh")
+}
+@endhcl

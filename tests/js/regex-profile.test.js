@@ -46,10 +46,14 @@ describe('the regex profile', () => {
 
   it('reads the escapes: property, hex, unicode and octal', () => {
     // Four escapes; side by side, the tree joins neighbours of one class into a single span.
-    expect(tokens('\\p{Lu}a\\x{1F600}b\uFFFFc\\0377')).toEqual([
-      ['\\p{Lu}', 'escape'], ['\\x{1F600}', 'escape'], ['\uFFFF', 'escape'], ['\\0377', 'escape'],
+    expect(tokens('\\p{Lu}a\\x{1F600}b\\uFFFFc\\0377')).toEqual([
+      ['\\p{Lu}', 'escape'], ['\\x{1F600}', 'escape'], ['\\uFFFF', 'escape'], ['\\0377', 'escape'],
     ])
-    expect(tokens('\\p{Lu}\\x{1F600}\uFFFF\\0377')).toEqual([['\\p{Lu}\\x{1F600}\uFFFF\\0377', 'escape']])
+    expect(tokens('\\p{Lu}\\x{1F600}\\uFFFF\\0377')).toEqual([['\\p{Lu}\\x{1F600}\\uFFFF\\0377', 'escape']])
+  })
+
+  it('reads a raw non-ASCII character, U+FFFF included, as plain', () => {
+    expect(tokens('\u00E9\uFFFF')).toEqual([])
   })
 
   it('reads a dot as an escape', () => {

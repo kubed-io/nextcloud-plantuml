@@ -22,9 +22,9 @@ export default (core) => {
       { regex: /\[/, token: 'squareBracket', push: 'classFirst' },
       { regex: /\|/, token: 'logicOperator' },
       { regex: /\^|\$|\\[AZzGbB]/, token: 'keyword' },
-      // A braced quantifier takes no lazy `?`; the others do.
+      // The braced forms take no lazy `?`; the others do.
       { regex: /\{(?:\d+(?:,\d*)?|,\d+)\}|[*+?]\??/, token: 'Quantifier' },
-      { regex: /\.|￿|\\(?:0\d{3}|u.{4}|[px]\{[^}]*\}|.)/, token: 'escape' },
+      { regex: /\.|\\(?:0\d{3}|u.{4}|[px]\{[^}]*\}|.)/, token: 'escape' },
     ],
     groupName: [{ regex: /[A-Za-z]+/, token: 'typeName' }, { regex: />/, token: 'paren', next: 'start' }],
     // A leading caret negates the class; anything else is the class itself.
@@ -36,7 +36,7 @@ export default (core) => {
       { regex: /\]/, token: 'squareBracket', pop: true },
       { regex: /\[:\w*:\]/, token: 'escape' },
       { regex: /-/, token: 'separator' },
-      { regex: /￿|\\(?:0\d{3}|u.{4}|[px]\{[^}]*\}|.)/, token: 'escape' },
+      { regex: /\\(?:0\d{3}|u.{4}|[px]\{[^}]*\}|.)/, token: 'escape' },
     ],
     ...lines.states,
   }, { lineStates: ['classFirst', 'class', 'groupName'] })

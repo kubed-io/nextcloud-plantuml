@@ -52,7 +52,7 @@ Tests:
 
 ### Task 2: regex (T7)
 
-Tests (one line each): `^(?<user>[\w.+-]+)@x$` → `^` `keyword`, `(?<` `paren`, `user` `typeName`, `>` `paren`, `[` `squareBracket`, `\w` `escape`, `-` `separator`, `]` `squareBracket`, `+` `Quantifier`, `)` `paren`, `$` `keyword`; `(?:a|b){2,5}` → `(?:` `paren`, `|` `logicOperator`, `{2,5}` `Quantifier`; `a*?` → `*?` `Quantifier`; `\p{Lu}\x{1F600}￿\0377` → four `escape`s; `.` → `escape`; `[^a-z]` → `^` `logicOperator`; `[[:alpha:]]` → `[:alpha:]` `escape` inside the brackets; `(?#note)` → `comment`; `\Qx\E` → `\Q` and `\E` `escape`, `x` plain; Review Focus 3: `#fff` → no `ColorLiteral`; `"q"` → no `string`; `title My regex` → `title` `keyword`, the text plain.
+Tests (one line each): `^(?<user>[\w.+-]+)@x$` → `^` `keyword`, `(?<` `paren`, `user` `typeName`, `>` `paren`, `[` `squareBracket`, `\w` `escape`, `-` `separator`, `]` `squareBracket`, `+` `Quantifier`, `)` `paren`, `$` `keyword`; `(?:a|b){2,5}` → `(?:` `paren`, `|` `logicOperator`, `{2,5}` `Quantifier`; `a*?` → `*?` `Quantifier`; `\p{Lu}\x{1F600}\uFFFF\0377` → four `escape`s; `.` → `escape`; `[^a-z]` → `^` `logicOperator`; `[[:alpha:]]` → `[:alpha:]` `escape` inside the brackets; `(?#note)` → `comment`; `\Qx\E` → `\Q` and `\E` `escape`, `x` plain; Review Focus 3: `#fff` → no `ColorLiteral`; `"q"` → no `string`; `title My regex` → `title` `keyword`, the text plain.
 
 ### Task 3: ebnf (T8)
 

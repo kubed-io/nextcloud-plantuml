@@ -9,7 +9,7 @@
  * `end branch` are keywords. The common lines are syntax errors here (G4), so `title` stays plain.
  */
 export default (core) => {
-  const { box, table, tagStates } = core.lex
+  const { box, creoleStates, table } = core.lex
   const closer = /;(?=\s*$)/
   const boxes = box(closer)
   const id = '[\\p{L}\\p{N}_.@]+'
@@ -22,11 +22,9 @@ export default (core) => {
       { regex: /([ \t]*)(new[ \t]+branch|else|end[ \t]+branch)(?=[ \t]*$)/, sol: true, token: [null, 'keyword'] },
     ],
     boxLast: boxes.boxLast,
-    ...tagStates,
+    ...creoleStates.states,
     // Comments are the editor's, but a box's rules name the state that a comment pushes.
     blockComment: [],
-    math: [],
-    latex: [],
-  }, { nextLine: { boxLast: 'start' }, lineStates: ['tagAttrs', 'tagBraces', 'math', 'latex'] })
+  }, { nextLine: { boxLast: 'start' }, lineStates: creoleStates.lineStates })
   return { type: 'bpm', mode, completions: [], lints: [], values: [] }
 }

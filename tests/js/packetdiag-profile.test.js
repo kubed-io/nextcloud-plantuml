@@ -44,6 +44,7 @@ describe('the packetdiag profile', () => {
   it('reads a field: a range, a colon, a Creole description', () => {
     expect(tokens('  0-15: Source Port')).toEqual([['0', 'number'], ['-', 'separator'], ['15', 'number'], [':', 'separator']])
     expect(tokens('  7: x **bold**').map(([, token]) => token)).toEqual(['number', 'separator', 'strong'])
+    expect(tokens('7: a <math>x</math> **b**', '8: c').map(([, token]) => token)).toEqual(['number', 'separator', 'tagName', 'tagName', 'strong', 'number', 'separator'])
   })
 
   it('reads a field with no colon, and an auto field', () => {

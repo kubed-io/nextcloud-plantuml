@@ -72,6 +72,12 @@ describe('the wire profile', () => {
     expect(tokens('  a -> b')).toEqual([])
   })
 
+  it('colours the text after an inline formula in a label', () => {
+    expect(tokens('a -> b : <math>x</math> **b**', '* c')).toEqual([
+      ['->', 'LinkOperator'], ['<math>', 'tagName'], ['</math>', 'tagName'], [' ', 'labelName'], ['**b**', 'strong_labelName'], ['*', 'list'], ['c', 'typeName'],
+    ])
+  })
+
   it('reads a link with its colour before the label', () => {
     expect(tokens('DDR3 <=> SLC_NAND #red : abcd')).toEqual([['<=>', 'LinkOperator'], ['#red', 'ColorLiteral'], ['abcd', 'labelName']])
     expect(tokens('DDR3L(100%,50%-10) => Big_Chip.EEPROM : 32 bit').slice(0, 7)).toEqual([

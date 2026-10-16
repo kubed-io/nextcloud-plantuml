@@ -69,6 +69,10 @@ describe('the bpm profile', () => {
   it('reads an event as a box with Creole text', () => {
     expect(bpmTokens(':show new message;')).toEqual([[':', 'bracket'], [';', 'bracket']])
     expect(bpmTokens(':**bold**;')).toEqual([[':', 'bracket'], ['**bold**', 'strong'], [';', 'bracket']])
+    // An inline formula's closer comes back to the event's Creole.
+    expect(bpmTokens(':a <math>x</math> **b**;', 'else')).toEqual([
+      [':', 'bracket'], ['<math>', 'tagName'], ['</math>', 'tagName'], ['**b**', 'strong'], [';', 'bracket'], ['else', 'keyword'],
+    ])
   })
 
   it('reads a merge: the id a classifier, the colon a separator, <+> a connector', () => {

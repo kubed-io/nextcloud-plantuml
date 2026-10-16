@@ -68,10 +68,10 @@ export default (core) => {
       { regex: /[^\s,}]+/, token: null },
     ],
     stereotype: stereotypeState,
+    // A stereotype's `{` pushes `tagBraces`; chen reads no Creole of its own (the common lines'
+    // is theirs), so nothing pushes an inline formula.
     ...tagStates,
-    math: [],
-    latex: [],
     ...lines.states,
-  }, { lineStates: ['header', 'cardinality', 'subclass', 'subclasses', 'stereotype', 'tagAttrs', 'tagBraces', 'math', 'latex'] })
+  }, { lineStates: ['header', 'cardinality', 'subclass', 'subclasses', 'stereotype', 'tagAttrs', 'tagBraces'] })
   return { type: 'chen', mode, completions: [], lints: [], values: [] }
 }

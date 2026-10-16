@@ -14,16 +14,17 @@
  * ends them all. An unfinished string ends with its line.
  */
 export default (core) => {
-  const { patterns, table } = core.lex
+  const { escapedString, patterns, quotedColour, table } = core.lex
   const { hexDigits, colourName } = patterns
-  const quoted = `#${hexDigits}|${colourName}`
+  const quoted = quotedColour(`#${hexDigits}|${colourName}`)
+  const strings = escapedString()
   // Strings, HTML labels and block comments are taken where they start, so a `#` in one is theirs.
   const hash = { regex: /#.*/, token: 'comment' }
 
   // A key ending `color` and its colour value, then any other key, as `token` names a key here.
   const key = (token) => [
     { regex: new RegExp(`(\\w*color)(\\s*)(=)(\\s*)(${colourName})(?=[\\s,;\\]}]|$)`, 'i'), token: [token, null, 'definitionOperator', null, 'ColorLiteral'] },
-    { regex: new RegExp(`(\\w*color)(\\s*)(=)(\\s*)(")(${quoted})(")`, 'i'), token: [token, null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
+    { regex: new RegExp(`(\\w*color)(\\s*)(=)(\\s*)${quoted.source}`, 'i'), token: [token, null, 'definitionOperator', null, ...quoted.token] },
     { regex: /\w+(?=\s*=(?!=))/, token },
   ]
   // What both the statements and the attribute lists read.
@@ -31,8 +32,7 @@ export default (core) => {
     { regex: /\/\/.*/, token: 'comment' },
     { regex: /\/\*.*?\*\//, token: 'comment' },
     { regex: /\/\*.*/, token: 'comment', push: 'blockComment' },
-    { regex: /"[^"\\]*"/, token: 'string' },
-    { regex: /"/, token: 'string', push: 'string' },
+    ...strings.rules,
     { regex: /</, token: 'angleBracket', push: 'html' },
     { regex: /->|--/, token: 'LinkOperator' },
     { regex: /=/, token: 'definitionOperator' },
@@ -62,11 +62,7 @@ export default (core) => {
       { regex: /.*?\*\//, token: 'comment', pop: true },
       { regex: /.+/, token: 'comment' },
     ],
-    string: [
-      { regex: /\\./, token: 'escape' },
-      { regex: /[^"\\]+/, token: 'string' },
-      { regex: /"/, token: 'string', pop: true },
-    ],
+    ...strings.states,
     // An HTML string: its tags H10's, its entities escapes, the closing `>` its bracket.
     html: [
       { regex: /<\/?[A-Za-z][^<>]*>|<!--.*?-->/, token: 'tagName' },
@@ -74,6 +70,6 @@ export default (core) => {
       { regex: />/, token: 'angleBracket', pop: true },
       { regex: /[^<>&]+|./, token: null },
     ],
-  }, { lineStates: ['string'] })
+  }, { lineStates: Object.keys(strings.states) })
   return { type: 'dot', mode, completions: [], lints: [], values: [] }
 }

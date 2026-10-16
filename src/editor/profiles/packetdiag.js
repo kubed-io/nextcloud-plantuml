@@ -11,7 +11,7 @@
  * in it text) and an optional trailing `[len = 8, rotate = 270]` attribute list.
  */
 export default (core) => {
-  const { atNextLine, attributeList, common, creole, number, table, tagStates } = core.lex
+  const { atNextLine, attributeList, common, creole, creoleStates, number, table } = core.lex
   const lines = common()
   const bit = /\d+/.source
   // A field's start: the range, its tokens, then the colon or a space.
@@ -47,11 +47,9 @@ export default (core) => {
       ...creole(null),
     ],
     attributes: attributeList([number]),
-    // What a description's Creole pushes ends with its line; an inline formula is plain.
-    ...tagStates,
-    math: [],
-    latex: [],
+    // What a description's Creole pushes.
+    ...creoleStates.states,
     ...lines.states,
-  }, { lineStates: ['attributes', 'tagAttrs', 'tagBraces', 'math', 'latex'] })
+  }, { lineStates: ['attributes', ...creoleStates.lineStates] })
   return { type: 'packetdiag', mode, completions: [], lints: [], values: [] }
 }

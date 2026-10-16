@@ -189,6 +189,23 @@ export const tagStates = {
   ],
 }
 
+// An inline formula's middle, plain up to its closer, which pops back to the text it was in.
+const inline = (tag) => [
+  { regex: new RegExp(`.+?(?=</${tag}>)`), token: null },
+  { regex: new RegExp(`</${tag}>`), token: 'tagName', pop: true },
+]
+
+/**
+ * The states `creole()` pushes, for a profile that reads Creole: `tagStates`, and an inline
+ * `<math>` or `<latex>` read plain up to its `</math>` or `</latex>`, then back to the text, so what
+ * follows it keeps its colours. Spread `states` into the table and add `lineStates` to its own:
+ * a tag left open ends with its line.
+ */
+export const creoleStates = {
+  states: { ...tagStates, math: inline('math'), latex: inline('latex') },
+  lineStates: ['tagAttrs', 'tagBraces', 'math', 'latex'],
+}
+
 /**
  * A stereotype (H13): `<<` opens the state `stereotype` when `>>` closes it on the line and no
  * `-`, `.`, `=`, `~` or `<` follows (those start a link). It ends with its line, a table lists
@@ -564,20 +581,16 @@ export function common({ legend = 'block', title = true, all = true } = {}) {
   const ownState = (rule) => (Object.hasOwn(COMMON_STATES, rule.push ?? '') ? { ...rule, push: COMMON_STATES[rule.push] } : rule)
   // A pushed state that ends with its line pops back to the one it was pushed from.
   const ending = (rules) => [atNextLine({ pop: true }), ...rules]
-  const inline = (tag) => [
-    { regex: new RegExp(`.+?(?=</${tag}>)`), token: null },
-    { regex: new RegExp(`</${tag}>`), token: 'tagName', pop: true },
-  ]
   const states = {
     commonText: [atNextLine({ next: 'start' }), ...creole(null)],
     commonArgs,
     // The rest of a legend's line (`legend top left`), then its body.
     commonLegendHead: [atNextLine({ next: bodyOf('legend') }), ...commonArgs.slice(1)],
     ...Object.assign({}, ...bodies),
-    tagAttrs: ending(tagStates.tagAttrs),
-    tagBraces: ending(tagStates.tagBraces),
-    math: inline('math'),
-    latex: inline('latex'),
+    tagAttrs: ending(creoleStates.states.tagAttrs),
+    tagBraces: ending(creoleStates.states.tagBraces),
+    math: creoleStates.states.math,
+    latex: creoleStates.states.latex,
     latexBlock: [
       { regex: /<\/latex>$/, sol: true, token: 'tagName', pop: true },
       { regex: new RegExp(`(?=[ \\t]*${commonEnd.source})`, 'i'), sol: true, token: null, pop: true },
@@ -715,3 +728,39 @@ export const attributeList = (extra = []) => [
   { regex: /[^\s,\]="]+/, token: null },
   { regex: /./, token: null },
 ]
+
+/**
+ * A string whose `escape` (a backslash and the next character by default) is an `escape`, as DOT
+ * and HCL have it: `rules` for where a string starts, a closed one whole and an open one pushing
+ * the state `escapedString`, which pops at its closing quote. Spread `states` into the table and
+ * list `escapedString` in its `lineStates`: an unfinished string ends with its line.
+ *
+ * @param {RegExp} [escape]
+ * @return {{ rules: object[], states: { escapedString: object[] } }}
+ */
+export const escapedString = (escape = /\\./) => ({
+  rules: [
+    { regex: /"[^"\\]*"/, token: 'string' },
+    { regex: /"/, token: 'string', push: 'escapedString' },
+  ],
+  states: {
+    escapedString: [
+      { regex: escape, token: 'escape' },
+      { regex: /[^"\\]+/, token: 'string' },
+      { regex: /"/, token: 'string', pop: true },
+    ],
+  },
+})
+
+/**
+ * A quoted colour (C6): `source`, three groups, the quotes and between them `colour` (a regex
+ * source; by default a hex or a name, its `#` optional), and their `token`s, the quotes strings
+ * and the colour a `ColorLiteral`. A rule puts its own groups before it (a key, its `=`).
+ *
+ * @param {string} [colour]
+ * @return {{ source: string, token: string[] }}
+ */
+export const quotedColour = (colour = `#?${colourPart}`) => ({
+  source: `(")(${colour})(")`,
+  token: ['string', 'ColorLiteral', 'string'],
+})

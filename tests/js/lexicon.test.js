@@ -170,6 +170,56 @@ describe('lex.common', () => {
   })
 })
 
+describe('lex.creoleStates', () => {
+  const { states, lineStates } = lex.creoleStates
+  const mode = lex.table({ start: lex.creole(null), ...states }, { lineStates })
+
+  it('brings an inline formula back to the text at its closer', () => {
+    expect(spans(mode, ['<math>x</math> **b**', '<latex>y</latex> //i//'])).toEqual([
+      ['<math>', 'tagName'], ['</math>', 'tagName'], ['**b**', 'strong'], ['<latex>', 'tagName'], ['</latex>', 'tagName'], ['//i//', 'emphasis'],
+    ])
+  })
+
+  it('ends a tag left open with its line', () => {
+    expect(spans(mode, ['<font size=1', '**b**']).slice(-1)).toEqual([['**b**', 'strong']])
+    expect(spans(mode, ['<&star{scale=2', '**b**']).slice(-1)).toEqual([['**b**', 'strong']])
+  })
+
+  it('is what textMode reads with', () => {
+    expect(spans(lex.textMode(null), ['<math>x</math> **b**']).slice(-1)).toEqual([['**b**', 'strong']])
+  })
+})
+
+describe('lex.escapedString', () => {
+  const { rules, states } = lex.escapedString()
+  const mode = lex.table({ start: [...rules, { regex: /\w+/, token: null }], ...states }, { lineStates: Object.keys(states) })
+
+  it('reads a string whole, or its escapes apart', () => {
+    expect(spans(mode, ['"a b"'])).toEqual([['"a b"', 'string']])
+    expect(spans(mode, ['"a\\nb"'])).toEqual([['"a', 'string'], ['\\n', 'escape'], ['b"', 'string']])
+  })
+
+  it('ends an unfinished string with its line', () => {
+    expect(spans(mode, ['"open', 'x "y"'])).toEqual([['"open', 'string'], ['"y"', 'string']])
+  })
+})
+
+describe('lex.quotedColour', () => {
+  it('is a quoted colour: the quotes strings, the colour a ColorLiteral', () => {
+    const { source, token } = lex.quotedColour()
+    const mode = lex.table({ start: [{ regex: new RegExp(source), token }, { regex: /./, token: null }] })
+
+    expect(token).toEqual(['string', 'ColorLiteral', 'string'])
+    expect(spans(mode, ['"#ff0000" "red" "x y"'])).toEqual([['"', 'string'], ['#ff0000', 'ColorLiteral'], ['"', 'string'], ['"', 'string'], ['red', 'ColorLiteral'], ['"', 'string']])
+  })
+
+  it('takes the colour it holds', () => {
+    const mode = lex.table({ start: [{ regex: new RegExp(lex.quotedColour('#[0-9a-f]{3}').source), token: lex.quotedColour().token }, { regex: /./, token: null }] })
+
+    expect(spans(mode, ['"red" "#abc"'])).toEqual([['"', 'string'], ['#abc', 'ColorLiteral'], ['"', 'string']])
+  })
+})
+
 describe('lex.setting', () => {
   it("reads a setting line's keyword, then its value, then the rest plain", () => {
     const stream = new StringStream('scale 2 3', 4, 2)

@@ -12,11 +12,11 @@
  * colour), a bare `name;` too; a link is `a -- b`; `//` at a line's start is a comment.
  */
 export default (core) => {
-  const { atNextLine, attributeList, common, number, patterns, table } = core.lex
+  const { atNextLine, attributeList, common, number, patterns, quotedColour, table } = core.lex
   const lines = common()
   const name = /[-.\w]+/.source
   const colour = `#?${patterns.colourPart}`
-  const quotedColour = new RegExp(`(color)(\\s*)(=)(\\s*)(")(${colour})(")`)
+  const quoted = quotedColour(colour)
   const bareColour = new RegExp(`(color)(\\s*)(=)(\\s*)(${colour})(?=[\\s,\\];]|$)`)
   const mode = table({
     start: [
@@ -37,7 +37,7 @@ export default (core) => {
     ],
     colour: [
       atNextLine({ next: 'start' }),
-      { regex: new RegExp(`(")(${colour})(")`), token: ['string', 'ColorLiteral', 'string'] },
+      { regex: new RegExp(quoted.source), token: quoted.token },
       { regex: /"[^"]*"/, token: 'string' },
       { regex: new RegExp(`${colour}(?![\\w.])`), token: 'ColorLiteral' },
       { regex: /;/, token: 'separator' },
@@ -52,7 +52,7 @@ export default (core) => {
       { regex: /./, token: null },
     ],
     attributes: attributeList([
-      { regex: quotedColour, token: ['attributeName', null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
+      { regex: new RegExp(`(color)(\\s*)(=)(\\s*)${quoted.source}`), token: ['attributeName', null, 'definitionOperator', null, ...quoted.token] },
       { regex: bareColour, token: ['attributeName', null, 'definitionOperator', null, 'ColorLiteral'] },
       { regex: /(shape)(\s*)(=)(\s*)([^\s,"\]]+)/, token: ['attributeName', null, 'definitionOperator', null, 'atom'] },
     ]),

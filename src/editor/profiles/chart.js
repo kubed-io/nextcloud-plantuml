@@ -40,10 +40,10 @@ export default (core) => {
       { regex: /[^\]\s,:"()]+/, token: null },
     ],
     stereotype: stereotypeState,
+    // A stereotype's `{` pushes `tagBraces`; chart reads no Creole of its own (the common lines'
+    // is theirs), so nothing pushes an inline formula.
     ...tagStates,
-    math: [],
-    latex: [],
     ...lines.states,
-  }, { lineStates: ['data', 'stereotype', 'tagAttrs', 'tagBraces', 'math', 'latex'] })
+  }, { lineStates: ['data', 'stereotype', 'tagAttrs', 'tagBraces'] })
   return { type: 'chart', mode, completions: [], lints: [], values: [] }
 }

@@ -64,6 +64,13 @@ describe('the mindmap profile', () => {
     ])
   })
 
+  it('colours the text after an inline formula, and the next line', () => {
+    expect(mm('* a <math>x</math> **b**', '** c')).toEqual([
+      ['*', 'list'], ['<math>', 'tagName'], ['</math>', 'tagName'], ['**b**', 'strong'], ['**', 'list'],
+    ])
+    expect(mm('* <latex>y</latex> //i//').slice(-1)).toEqual([['//i//', 'emphasis']])
+  })
+
   it('reads the side and direction lines as keywords', () => {
     expect(mm('left side')).toEqual([['left side', 'keyword']])
     expect(mm('top to bottom direction')).toEqual([['top to bottom direction', 'keyword']])
@@ -127,5 +134,12 @@ describe('the wbs profile', () => {
 
   it('reads the common commands', () => {
     expect(wb('title Work')).toEqual([['title', 'keyword']])
+  })
+
+  it('colours the text after an inline formula', () => {
+    expect(wb('* a <math>x</math> **b**', '** c')).toEqual([
+      ['*', 'list'], ['<math>', 'tagName'], ['</math>', 'tagName'], ['**b**', 'strong'], ['**', 'list'],
+    ])
+    expect(wb('A -> B : <math>x</math> **b**').slice(-1)).toEqual([['**b**', 'strong_labelName']])
   })
 })

@@ -58,6 +58,8 @@ describe('the board profile', () => {
     expect(boardTokens('++ <b>x</b>', 'Editor')).toEqual([['++', 'list'], ['<b>', 'tagName'], ['</b>', 'tagName'], ['Editor', 'heading']])
     // A tag left open ends with its card's line.
     expect(boardTokens('+ <font size=1', 'Editor').slice(-1)).toEqual([['Editor', 'heading']])
+    // An inline formula's closer comes back to the card's Creole.
+    expect(boardTokens('+ a <math>x</math> **b**', 'Editor')).toEqual([['+', 'list'], ['<math>', 'tagName'], ['</math>', 'tagName'], ['**b**', 'strong'], ['Editor', 'heading']])
     expect(boardTokens('+ <math>x</math>', 'Editor').slice(-1)).toEqual([['Editor', 'heading']])
   })
 

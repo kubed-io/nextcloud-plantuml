@@ -15,14 +15,14 @@
  * server refuses it.
  */
 export default (core) => {
-  const { common, table } = core.lex
+  const { common, escapedString, table } = core.lex
+  const strings = escapedString()
   const lines = common({ all: false, title: true })
   const word = /[^\s{}[\]()=,:"]+/
   const comment = { regex: /([ \t]*)(#.*)/, sol: true, token: [null, 'comment'] }
   // What a value is, in an object, an array or a call's arguments.
   const values = [
-    { regex: /"[^"\\]*"/, token: 'string' },
-    { regex: /"/, token: 'string', push: 'string' },
+    ...strings.rules,
     { regex: /[=:]/, token: 'definitionOperator' },
     { regex: /,/, token: 'separator' },
     { regex: /\{/, token: 'brace', push: 'object' },
@@ -38,8 +38,7 @@ export default (core) => {
     start: [
       comment,
       ...lines.rules,
-      { regex: /"[^"\\]*"/, token: 'string' },
-      { regex: /"/, token: 'string', push: 'string' },
+      ...strings.rules,
       { regex: /\{/, token: 'brace', push: 'object' },
       { regex: word, token: 'typeName' },
       { regex: /./, token: null },
@@ -53,12 +52,8 @@ export default (core) => {
     ],
     array: [comment, { regex: /\]/, token: 'squareBracket', pop: true }, ...values],
     args: [comment, { regex: /\)/, token: 'paren', pop: true }, ...values],
-    string: [
-      { regex: /\\./, token: 'escape' },
-      { regex: /[^"\\]+/, token: 'string' },
-      { regex: /"/, token: 'string', pop: true },
-    ],
+    ...strings.states,
     ...lines.states,
-  }, { lineStates: ['string'] })
+  }, { lineStates: Object.keys(strings.states) })
   return { type: 'hcl', mode, completions: [], lints: [], values: [] }
 }

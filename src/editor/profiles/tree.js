@@ -29,7 +29,7 @@ const MARKS = ['squareBracket', 'ColorLiteral', 'squareBracket']
 const IDS = ['paren', 'typeName', 'paren']
 
 function profile(core, type) {
-  const { atNextLine, box, colours, common, creole, stereotypes, stereotypeState, table, tagStates } = core.lex
+  const { atNextLine, box, colours, common, creole, creoleStates, stereotypes, stereotypeState, table } = core.lex
   const lines = common()
   const wbs = type === 'wbs'
   const boxes = box(CLOSER)
@@ -86,13 +86,11 @@ function profile(core, type) {
     boxText: boxes.boxText,
     boxLast: boxes.boxLast,
     stereotype: stereotypeState,
-    ...tagStates,
+    ...creoleStates.states,
     // Comments are the editor's, but a box's rules name the state that a comment pushes.
     blockComment: [],
-    math: [],
-    latex: [],
     ...lines.states,
-  }, { nextLine: { boxLast: 'start' }, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'math', 'latex'] })
+  }, { nextLine: { boxLast: 'start' }, lineStates: ['stereotype', ...creoleStates.lineStates] })
   return { type, mode, completions: [], lints: [], values: [] }
 }
 

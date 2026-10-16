@@ -243,6 +243,12 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     expect(read('title <font size=1', 'caption **c**').slice(-2)).toEqual([['caption', 'keyword'], ['**c**', 'strong']])
   })
 
+  it('colours the text after an inline formula in a note', () => {
+    expect(read('note bottom', 'a <math>x</math> **b**', 'end note')).toEqual([
+      ['note bottom', 'keyword'], ['<math>', 'tagName'], ['</math>', 'tagName'], ['**b**', 'strong'], ['end note', 'keyword'],
+    ])
+  })
+
   it('reads a group around its tasks', () => {
     expect(read('group [Phase]', '[A] lasts 1 day', 'end group')).toEqual([
       ['group', 'keyword'], ['[', 'squareBracket'], ['Phase', 'typeName'], [']', 'squareBracket'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'], ['end group', 'keyword'],

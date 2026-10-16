@@ -259,12 +259,14 @@ const subClosers = { classBody: /^([ \t]*)\}[ \t]*$/, descBody: /^([ \t]*)\]/ }
 // The brackets a sub-diagram's lines are counted by, in the body it opened in.
 const subBrackets = { classBody: ['{', '}'], descBody: ['[', ']'] }
 
-/** The `open` brackets of `line` less its `close` ones, outside `"…"` strings. */
+/** The `open` brackets of `line` less its `close` ones, outside `"…"` strings (`\\"` stays in one). */
 function netBrackets(line, [open, close]) {
   let net = 0
   let quoted = false
-  for (const char of line) {
-    if (char === '"') quoted = !quoted
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (quoted && char === '\\') i++
+    else if (char === '"') quoted = !quoted
     else if (!quoted && char === open) net++
     else if (!quoted && char === close) net--
   }

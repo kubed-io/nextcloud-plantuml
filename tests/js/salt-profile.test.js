@@ -189,6 +189,8 @@ describe('the salt profile', () => {
     expect(salted('{T{', '}', '+ a', '++ b', '+ c | d', '}')).toEqual([
       ['{', 'brace'], ['T', 'modifier'], ['+', 'list'], ['++', 'list'], ['+', 'list'], ['|', 'separator'], ['}', 'brace'],
     ])
+    // The server reads a first `}` line with text after it as a row too.
+    expect(salted('{T{', '} x', '+ a', '}')).toEqual([['{', 'brace'], ['T', 'modifier'], ['+', 'list'], ['}', 'brace']])
     // Then the block it is in reads on.
     expect(top('{', '{T{', '}', '+ a', '}', '[OK]', '}').slice(-3)).toEqual([['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace']])
   })

@@ -285,6 +285,7 @@ describe('the grammar', () => {
     ['a json in a class body', 'class Config {', ['  {{json', '{', '  "port": 8080', '}', '  }}'], '  +port : int', '}'],
     ['a salt in a class body', 'class Config {', ['  {{salt', '{', '[OK]', '}', '  }}'], '  +port : int', '}'],
     ['a json in a description', 'rectangle R [', ['  {{json', '  ["a",', '"b"', ']', '  }}'], '  **text**', ']'],
+    ['a json with an escaped quote before a brace', 'class C {', ['  {{json', '{', '"p": "a\\"}"', '}', '  }}'], '  +port : int', '}'],
   ])('ends %s at its }}, its content\'s column-0 closer its own (Final review 1)', (_, head, sub, member, closer) => {
     const rest = [member, closer, 'class D {', '}', 'A -> B']
     const found = tokens(head, ...sub, ...rest)

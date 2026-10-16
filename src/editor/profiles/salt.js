@@ -75,7 +75,7 @@ export default (core) => {
     // Only a row's first cell has a depth.
     tree: (next) => [{ regex: /([ \t]*)(\++)/, sol: true, token: [null, 'list'], next }],
     // Its first `}` line is a row, and the tree reads on as any other.
-    treeFirst: (next) => [{ regex: /\}(?=[ \t]*$)/, token: null, next: 'tree' }, ...own.tree(next)],
+    treeFirst: (next) => [{ regex: /\}/, token: null, next: 'tree' }, ...own.tree(next)],
     menu: (next) => [{ regex: whole('-'), token: 'heading', next }],
     other: () => [],
   }

@@ -5,13 +5,13 @@
  * The known element under a position (I6), as a docs key: the syntax tree's
  * token there, with its text, names it, so the grammars decide and nothing
  * parses twice. The few words no grammar marks, a theme, a skin parameter and
- * a helper command, are read from their line's form, in a uml block outside a
- * note's or legend's text. Every other token, a string, a label, a name or a
+ * a helper command, are read from their line's form, on a line at a uml
+ * diagram's top level. Every other token, a string, a label, a name or a
  * value, is none.
  */
 import { ensureSyntaxTree } from '@codemirror/language'
 import { diagramAt, scan } from '../blocks.js'
-import { inStyleBody, inTextBody } from '../plantuml-mode.js'
+import { atTopLevel, inStyleBody } from '../plantuml-mode.js'
 import { CONNECTORS } from '../completion/connectors.js'
 import { HELPERS } from '../completion/keywords.js'
 
@@ -99,8 +99,9 @@ export function elementAt(state, pos, side) {
   if (!node) {
     return null
   }
-  const type = diagramAt(scan(state.doc.toString()), state.doc.lineAt(pos).number)?.type ?? 'uml'
-  const lineForm = type === 'uml' && !inTextBody(state, pos)
+  const diagram = diagramAt(scan(state.doc.toString()), state.doc.lineAt(pos).number)
+  const type = diagram?.type ?? 'uml'
+  const lineForm = type === 'uml' && atTopLevel(state, pos, diagram?.start ?? 1)
   const found = node.type.isTop ? lineForm && lineKey(state, pos, side) : keyOf(state, node, pos, side)
   if (!found) {
     return null

@@ -41,6 +41,9 @@ const KINDS = {
 /** The kinds whose words are a block type's own: outside uml only a `@<type>` entry describes one. */
 const TYPED = new Set(['keyword', 'connector'])
 
+/** PlantUML's alias of a type, whose words are the type's (`profiles/index.js` loads gantt's for it). */
+const ALIASES = { project: 'gantt' }
+
 /** `[key, text]` for each word whose key is lower-cased but whose name is written otherwise. */
 const written = (kind, words) => words.map((word) => [`${kind}:${word.toLowerCase()}`, word])
 
@@ -90,7 +93,8 @@ const defined = (entry) => Object.fromEntries(Object.entries(entry).filter(([, v
  *
  * @param {{ own: object, links: { links: object }, source: object, builtins: object[], language: object, vocabulary: object }} data
  * `get` tries the block type's entry, then the plain one, which is uml's: a
- * keyword or connector in another type's block has only its type's entry.
+ * keyword or connector in another type's block has only its type's entry. A
+ * `project` block reads as `gantt`.
  *
  * @return {{ get: (key: string, type?: string) => Entry|undefined }}
  */
@@ -125,8 +129,10 @@ export function buildDocs(data) {
     }))
   }
   return {
-    get: (key, type = 'uml') => entries.get(`${key}@${type}`)
-      ?? (type === 'uml' || !TYPED.has(key.split(':')[0]) ? entries.get(key) : undefined),
+    get(key, type = 'uml') {
+      const own = ALIASES[type] ?? type
+      return entries.get(`${key}@${own}`) ?? (own === 'uml' || !TYPED.has(key.split(':')[0]) ? entries.get(key) : undefined)
+    },
   }
 }
 

@@ -25,7 +25,7 @@
  * is paths and `<note>` bodies. In a uml note, legend, description or class body, a sub-diagram
  * (`{{type` … `}}`, sub-diagrams.js) is read by `inner[type]`, a base grammar of its own for uml.
  */
-import { StreamLanguage } from '@codemirror/language'
+import { StreamLanguage, StringStream, getIndentUnit, language } from '@codemirror/language'
 import {
   argsState, arrow, atLineStart, blockComment, body, box, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
   declarations, directive, directiveLine, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteLines, spriteStates, startLine, stereotypeState,
@@ -310,30 +310,6 @@ export function inStyleBody(state, pos) {
   for (let number = 1; number < line.number; number++) {
     const text = state.doc.line(number).text
     open = open ? !(styleClose.test(text) || /^[ \t]*@end/.test(text)) : styleOpen.test(text)
-  }
-  return open
-}
-
-// A line that opens a text body down to its `bodyEnd`, as the grammar reads one: a note with no
-// colon or quote (`noteHead`), a legend (`legendHead`), a `title`, `header` or `footer` alone.
-const bodyOpen = /^[ \t]*(?:[hr]?note(?:\s[^:"]*)?|legend\b.*|(?:title|header|footer)\s*)$/
-
-/**
- * Whether `pos` is in the body of a multi-line note, legend, title, header or footer, read by
- * the line forms that open and end one: its lines are text, a command's word in them none.
- *
- * @param {import('@codemirror/state').EditorState} state
- * @param {number} pos
- */
-export function inTextBody(state, pos) {
-  const line = state.doc.lineAt(pos)
-  if (bodyEnd.test(line.text)) {
-    return false
-  }
-  let open = false
-  for (let number = 1; number < line.number; number++) {
-    const text = state.doc.line(number).text
-    open = open ? !bodyEnd.test(text) : bodyOpen.test(text)
   }
   return open
 }
@@ -735,7 +711,7 @@ export function plantumlLanguage(profiles = {}) {
     return modeOf(state.inner).indent?.(state.inner.state, textAfter, context) ?? null
   }
 
-  return StreamLanguage.define({
+  const spec = {
     ...base,
     startState,
     copyState,
@@ -744,7 +720,54 @@ export function plantumlLanguage(profiles = {}) {
     indent,
     // The highlight of a token @lezer/highlight has no tag for (lexicon/tags.js).
     tokenTable,
-  })
+  }
+  const plantuml = StreamLanguage.define(spec)
+  parsers.set(plantuml, spec)
+  return plantuml
+}
+
+/** Each language `plantumlLanguage` made → its stream parser, for `atTopLevel`. */
+const parsers = new WeakMap()
+
+/** One token, as CodeMirror reads it: a rule that only switched state is tried again in place. */
+function readToken(parser, stream, state) {
+  stream.start = stream.pos
+  for (let i = 0; i < 10; i++) {
+    parser.token(stream, state)
+    if (stream.pos > stream.start) return
+  }
+  throw new Error('Stream parser failed to advance stream.')
+}
+
+/**
+ * Whether the line at `pos` starts at a diagram's top level, outside any body the grammar
+ * reads: a note, legend or title's text, a class's `{ … }`, an activity box's `:` … `;`, a
+ * `/' … '/` comment, a nested block. The grammar's own state at the line's start says so,
+ * read from `fromLine` (the block's `@start` line, where PlantUML begins afresh).
+ *
+ * @param {import('@codemirror/state').EditorState} state
+ * @param {number} pos
+ * @param {number} [fromLine] 1-based
+ */
+export function atTopLevel(state, pos, fromLine = 1) {
+  const parser = parsers.get(state.facet(language))
+  if (!parser) {
+    return false
+  }
+  const unit = getIndentUnit(state)
+  const read = parser.startState(unit)
+  for (let number = fromLine; number < state.doc.lineAt(pos).number; number++) {
+    const text = state.doc.line(number).text
+    if (!text) {
+      parser.blankLine(read, unit)
+      continue
+    }
+    const stream = new StringStream(text, state.tabSize, unit)
+    while (!stream.eol()) readToken(parser, stream, read)
+  }
+  // A line starts in the state its last line hands on, once that line's own states are done.
+  base.startLine(read)
+  return read.state === 'start' && !read.stack?.length && !read.pending && !read.inner && !read.style && !read.sub && !read.math && !read.latex
 }
 
 export const plantumlMode = plantumlLanguage({})

@@ -80,6 +80,10 @@ describe('buildDocs', () => {
     expect(docs.get('connector:-->', 'uml')).toMatchObject({ name: '-->' })
   })
 
+  it('reads a project block as gantt, PlantUML’s alias', () => {
+    expect(docs.get('keyword:start', 'project').summary).toBe('When a task starts')
+  })
+
   it('reads every other kind whatever the block type', () => {
     expect(docs.get('function:%strlen', 'gantt').name).toBe('%strlen')
     expect(docs.get('theme:cerulean', 'yaml').kind).toBe('theme')

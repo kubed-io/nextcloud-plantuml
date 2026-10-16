@@ -10,11 +10,11 @@ import { buildDocs } from '../../src/editor/docs/index.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import { core } from './helpers/core.js'
 import styleProfile from '../../src/editor/profiles/style.js'
-import ganttProfile from '../../src/editor/profiles/gantt.js'
+import ganttProfile, { project as projectProfile } from '../../src/editor/profiles/gantt.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 import dotProfile from '../../src/editor/profiles/dot.js'
 
-const extensions = [profileExtension([styleProfile(core), ganttProfile(core), yamlProfile(core), dotProfile(core)])]
+const extensions = [profileExtension([styleProfile(core), ganttProfile(core), projectProfile(core), yamlProfile(core), dotProfile(core)])]
 
 /**
  * The element inside the `nth` (0-based) `word` of the lines, one character in,
@@ -92,6 +92,8 @@ describe('elementAt: known elements', () => {
   it('reads a helper command alone on its line', () => {
     expect(on(['listfonts'], 'listfonts')).toEqual({ key: 'helper:listfonts', type: 'uml', from: 0, to: 9 })
     expect(key(['  help themes'], 'themes')).toBe('helper:help themes')
+    expect(key(['class C {', '}', 'listfonts'], 'listfonts')).toBe('helper:listfonts')
+    expect(key(['note over A', 'text', 'end note', 'skinparam BackgroundColor red'], 'BackgroundColor')).toBe('skinparam:backgroundcolor')
   })
 
   it('takes the side: the end of a word belongs to it before, not after', () => {
@@ -124,6 +126,10 @@ describe('elementAt: everything else is nothing (I6)', () => {
     ['a helper word in a title’s body', ['title', 'version', 'end title'], 'version'],
     ['a skin parameter in a note’s body', ['note as N', 'skinparam BackgroundColor red', 'end note'], 'BackgroundColor'],
     ['a helper word outside uml', ['@startyaml', 'colors', '@endyaml'], 'colors'],
+    ['a helper word in a class body', ['class C {', 'colors', '}'], 'colors'],
+    ['a skin parameter in a class body', ['class C {', 'skinparam BackgroundColor red', '}'], 'BackgroundColor'],
+    ['a helper word in a multi-line activity box', [':first', 'colors', 'last;'], 'colors'],
+    ['a theme in a multi-line activity box', [':first', '!theme cerulean', 'last;'], 'cerulean'],
     ['a skin parameter outside uml', ['@startyaml', 'skinparam BackgroundColor red', '@endyaml'], 'BackgroundColor'],
   ])('%s', (_name, lines, word, options) => {
     expect(on(lines, word, options)).toBeNull()
@@ -160,6 +166,8 @@ describe('elementAt with the index: a block’s own words', () => {
 
   it('gives a gantt keyword its gantt entry, and uml words their own', () => {
     expect(entry(['@startgantt', '[T] lasts 5 days', '@endgantt'], 'lasts').summary).toBe('How long a task takes')
+    expect(on(['@startproject', '[T] lasts 5 days', '@endproject'], 'lasts')).toMatchObject({ key: 'keyword:lasts', type: 'project' })
+    expect(entry(['@startproject', '[T] lasts 5 days', '@endproject'], 'lasts').summary).toBe('How long a task takes')
     expect(entry(['node n', 'A -> B'], 'node').summary).toBe('A deployment node')
     expect(entry(['A -> B'], '->').summary).toBe('Arrow')
     expect(entry(['@startuml', 'alt x', 'end', '@enduml'], 'alt').summary).toBe('Alternatives')

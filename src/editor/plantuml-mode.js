@@ -221,6 +221,9 @@ const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
 // The states of a `!` line: PlantUML's to its end, in a nested mode too.
 const bangStates = new Set(['preprocessor', 'includePath', 'theme', 'themePath'])
 
+// A line that starts or ends a diagram.
+const diagramEdge = /^[ \t]*@(?:start|end)\w+/
+
 // A `<latex>` block's last line, and the lines that end a Creole body with it unclosed.
 const latexClose = /^<\/latex>$/
 const bodyEnd = /^[ \t]*(?:end\s*(?:[hr]?note|legend|title|header|footer)\b|@end)/
@@ -464,6 +467,13 @@ export function plantumlLanguage(profiles = {}) {
       // A rule matched at the start of a line hands back its groups one at a
       // time (`pending`), all still at the start: they belong to the state it set.
       if (state.pending) return base.token(stream, state)
+      // A diagram's `@start` or `@end` line ends what is left open at the top level, a body, a
+      // `<code>` or `<latex>` block, a `/' … '/` comment, as it does an inner block's (P5).
+      if (stream.sol() && !state.inner && !state.style && state.state !== 'start' && stream.match(diagramEdge, false)) {
+        state.state = 'start'
+        state.stack = []
+        state.latex = null
+      }
       if (state.state === 'math') return inlineMiddle(stream, state, 'math', math)
       if (state.state === 'latex') return inlineMiddle(stream, state, 'latex', latex)
       if (state.state === 'latexBlock') return latexBody(stream, state)

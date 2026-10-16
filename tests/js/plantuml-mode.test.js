@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { EditorState, Text } from '@codemirror/state'
 import { toggleComment } from '@codemirror/commands'
 import { closeBrackets, insertBracket } from '@codemirror/autocomplete'
-import { StringStream } from '@codemirror/language'
+import { StringStream, ensureSyntaxTree } from '@codemirror/language'
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight'
 import { plantumlLanguage, plantumlMode, underline } from '../../src/editor/plantuml-mode.js'
 
@@ -1168,6 +1168,35 @@ describe('plantumlMode a diagram\'s name (H12)', () => {
       ['@startchronology', 'keyword'], ['<style>', 'Inactive'], ["/' open", 'Inactive'], ['x', 'Inactive'], ['actor Bob', 'Inactive'],
       ['@endchronology', 'keyword'], ['actor', 'keyword'], ['Bob', 'typeName'],
     ])
+  })
+
+  // A top-level body left open ends at the diagram's `@end` or the next `@start` (P5).
+  describe('a top-level body left open', () => {
+    const nextDiagram = [['@enduml', 'keyword'], ['@startuml', 'keyword'], ['->', 'LinkOperator'], ['@enduml', 'keyword']]
+    it.each([
+      ['a note with no end note', 'note left of A'],
+      ['a bare title', 'title'],
+      ['a bare header', 'header'],
+      ['a bare footer', 'footer'],
+      ['a legend', 'legend'],
+      ['a description with no ]', 'node x ['],
+      ['a <code> in a note', 'note left of A', '<code>'],
+      ['a <code> in a description', 'node x [', '<code>'],
+      ['a <latex> block in a note', 'note left of A', '<latex>'],
+      ["an open /'", "/' open"],
+    ])('ends %s at @enduml, and reads the next diagram as ever', (_, ...open) => {
+      expect(tokens('@startuml', ...open, 'text', '@enduml', '@startuml', 'A -> B', '@enduml').slice(-4)).toEqual(nextDiagram)
+      // With no `@end`, the next `@start` ends it.
+      expect(tokens('@startuml', ...open, 'text', '@startuml', 'A -> B', '@enduml').slice(-3)).toEqual(nextDiagram.slice(1))
+    })
+
+    it('ends an open note at @enduml while it is typed', () => {
+      let state = EditorState.create({ doc: '@startuml\nnote left of A', extensions: [plantumlMode] })
+      ensureSyntaxTree(state, state.doc.length, 5000)
+      state = state.update({ changes: { from: state.doc.length, insert: '\n@enduml' } }).state
+      const at = state.doc.toString().indexOf('@enduml')
+      expect(ensureSyntaxTree(state, state.doc.length, 5000).resolveInner(at, 1).name).toBe('keyword')
+    })
   })
 
   it('ends an open block at the next @start, as B1 reads it (T26)', () => {

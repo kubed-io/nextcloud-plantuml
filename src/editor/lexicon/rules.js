@@ -269,19 +269,24 @@ export const lines = (code) => [
   { regex: /<latex>$/, sol: true, token: 'tagName', push: 'latexBlock' },
 ]
 
-/** The lines of a `<code>` block: monospace down to `</code>`, or to the end of the body. */
+// A diagram's end ends a body left open, and anything open in it.
+const diagramEnd = atLineStart(/@end\w*/.source, 'keyword', { next: 'start' })
+
+/** The lines of a `<code>` block: monospace down to `</code>`, or to the end of the body or the diagram. */
 export const codeLines = (closer, back) => [
+  diagramEnd,
   atLineStart(/<\/code>(?=\s*$)/.source, 'tagName', { next: back }),
   ...(closer ? [atLineStart(closer, 'keyword', { next: 'start' })] : []),
   { regex: /.+/, token: 'monospace' },
 ]
 
 /**
- * Creole on the lines down to `closer`, and the state `key`Code for its `<code>` blocks; `extra`
- * rules are tried straight after the closer (the core's `!` lines).
+ * Creole on the lines down to `closer` or the diagram's `@end`, and the state `key`Code for its
+ * `<code>` blocks; `extra` rules are tried straight after the closer (the core's `!` lines).
  */
 export const body = (key, closer, token = 'keyword', extra = []) => ({
   [key]: [
+    diagramEnd,
     atLineStart(closer, token, { next: 'start' }),
     ...extra,
     ...lines(`${key}Code`),

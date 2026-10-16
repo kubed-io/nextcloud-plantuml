@@ -142,6 +142,13 @@ describe('lex.common', () => {
     ])
   })
 
+  it("ends a body and a <code> block in it at a diagram's @end", () => {
+    expect(common('legend', '**l**', '@endgantt', 'scale 2')).toEqual([['legend', 'keyword'], ['**l**', 'strong'], ['@endgantt', 'keyword'], ['scale', 'keyword'], ['2', 'number']])
+    expect(common('title', '<code>', 'x', '@endgantt', 'scale 2')).toEqual([
+      ['title', 'keyword'], ['<code>', 'tagName'], ['x', 'monospace'], ['@endgantt', 'keyword'], ['scale', 'keyword'], ['2', 'number'],
+    ])
+  })
+
   it("keeps its Creole states its own, beside a grammar's tag states", () => {
     const { rules, states } = lex.common()
     const mode = lex.table({ start: [...rules, { regex: /\w+/, token: null }], ...states, ...lex.tagStates })

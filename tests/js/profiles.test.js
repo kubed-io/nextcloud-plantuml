@@ -66,6 +66,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\nentity A {\n}\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are wire only when a wire block is in the file', () => {
+    expect(neededFor('@startwire\n* a\n@endwire\n')).toEqual(new Set(['wire']))
+    expect(neededFor('@startuml\n* a\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

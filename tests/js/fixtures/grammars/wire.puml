@@ -1,0 +1,54 @@
+@startwire
+* first
+* second_box [100x50]
+* third
+--
+* big_container
+	* foo1
+	* foo2
+	* foo3
+@endwire
+@startwire
+* first [70x70] #EEE
+move(10,20)
+* second_box [70x70]
+* third [70x70]
+goto(100,10)
+* last [70x70]
+goto(300,5)
+* big_container
+	* foo1 #lightBlue
+	* foo2
+spot first
+spot big_container #blue
+spot second_box(100%, 100%)
+spot second_box(10, 30) #FF00FF
+spot third(100%+10, 50%) #cyan
+@endwire
+@startwire
+* DDR3 [100x200]
+--
+move(100,0)
+* SLC_NAND [100x200]
+DDR3 -> SLC_NAND : abcd
+DDR3 <-> SLC_NAND : abcd
+DDR3 <=> SLC_NAND #red : abcd
+DDR3 = SLC_NAND : abcd
+@endwire
+@startwire
+title Wire
+* DDR3L #salmon
+	print("This is inside")
+print("This text is printed between")
+* SLC_NAND [150x200]
+--
+* Big_Chip #AAA
+	move(10, 30)
+	print("Foo 10")
+	* PF3000 [150x300]
+		print("Foo 20")
+	* EEPROM #lightBlue
+DDR3L(100%,50%-10) => Big_Chip.EEPROM : 32 bit
+Big_Chip.PF3000 -> SLC_NAND #red
+' a comment
+@endwire

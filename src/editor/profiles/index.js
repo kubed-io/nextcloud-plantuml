@@ -61,6 +61,7 @@ export const PROFILES = {
   dot: () => import('./dot.js'),
   hcl: () => import('./hcl.js'),
   json: () => import('./json.js'),
+  salt: () => import('./salt.js'),
   packetdiag: () => import('./packetdiag.js'),
   nwdiag: () => import('./nwdiag.js'),
 }

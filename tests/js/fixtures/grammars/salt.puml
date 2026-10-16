@@ -1,0 +1,60 @@
+@startsalt
+{+
+  Login    | "admin     "
+  Password | "****      "
+  [X] Remember me | () Other | (X) Chosen
+  ^Choose one^ | [ ] unchecked
+  ..Section..
+  ==Double==
+  ~~Wavy~~
+  --Plain--
+  [  OK  ] | [Cancel]
+}
+@endsalt
+
+@startsalt
+{
+  {* File | Edit | View
+    File | Open | Save
+  }
+  {/ General | **Fonts** | Colors }
+  {T
+    + World
+    ++ America
+    +++ Canada | "x"
+    ++ Europe
+  }
+  {S
+    Scrolled text | ""
+    . | .
+    a | b
+  }
+  {^"Group box"
+    [Yes] | [No]
+  }
+  {# a | b | * 
+    c | d | e }
+}
+@endsalt
+
+@startsalt
+{
+  {SI long | row
+  . | .
+  . | . }
+  {S- a | b }
+  {- a | b
+    c | d }
+  {! a | b
+    c | d }
+  <<smile
+  ..XX.....
+  .X..X....
+  >>
+  <<smile>>
+  <&person> Icon | <color:red>red</color> **bold** //it// <b>bold</b>
+  [[http://x.example link]]
+  {+ Name | * | "n" }
+  a \{ escaped \| pipe \}
+}
+@endsalt

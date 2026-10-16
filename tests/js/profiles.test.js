@@ -61,6 +61,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\nbar [1,2]\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are json only when a json block is in the file', () => {
+    expect(neededFor('@startjson\n{}\n@endjson\n')).toEqual(new Set(['json']))
+    expect(neededFor('@startuml\n{}\n@enduml\n')).toEqual(new Set())
+  })
+
   it('are hcl only when an hcl block is in the file', () => {
     expect(neededFor('@starthcl\na {\n}\n@endhcl\n')).toEqual(new Set(['hcl']))
     expect(neededFor('@startuml\na {\n}\n@enduml\n')).toEqual(new Set())

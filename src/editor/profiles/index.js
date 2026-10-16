@@ -60,6 +60,7 @@ export const PROFILES = {
   bpm: () => import('./bpm.js'),
   dot: () => import('./dot.js'),
   hcl: () => import('./hcl.js'),
+  json: () => import('./json.js'),
   packetdiag: () => import('./packetdiag.js'),
   nwdiag: () => import('./nwdiag.js'),
 }

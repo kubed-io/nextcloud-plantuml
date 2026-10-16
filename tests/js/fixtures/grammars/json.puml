@@ -1,0 +1,41 @@
+@startjson
+title A <b>titled</b> json
+#highlight "address" / "city"
+#highlight "phones" / "1" <<important>>
+#highlight "**" / "zip"
+#highlight "tags" / "*"
+<style>
+jsonDiagram {
+  node {
+    BackGroundColor Khaki
+  }
+  highlight {
+    BackGroundColor red
+    FontColor white
+  }
+  .important {
+    BackGroundColor lightgreen
+  }
+}
+</style>
+{
+  "name": "Ada",
+  "age": 42.5e0,
+  "ok": true,
+  "none": null,
+  "phones": ["555-1", "555-2"],
+  "tags": ["a", "b"],
+  "address": { "city": "Oslo", "zip": "0150" }
+}
+@endjson
+@startjson
+{
+  // a line comment before a key
+  "a": 1, // and one after the comma
+  "b": [1, 2, {"c": "d"}]
+  // before the closing brace
+}
+@endjson
+@startjson
+[ "scalar", 1, false, null, {"k": []}, {} ]
+@endjson

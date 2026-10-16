@@ -98,6 +98,9 @@ function diagnosticsIn(state, from, to, keep = () => true) {
   return found
 }
 
+/** Each drawn action button's message and action name, which a redraw finds it again by. */
+const actionOf = new WeakMap()
+
 /** The element `tag` with `className` and, if given, `text`. */
 function el(tag, className, text) {
   const node = document.createElement(tag)
@@ -120,6 +123,7 @@ function lintSection(view, found) {
       const button = el('button', `cm-diagnosticAction${action.markClass ? ` ${action.markClass}` : ''}`, action.name)
       button.type = 'button'
       button.setAttribute('aria-label', ` Action: ${action.name}.`)
+      actionOf.set(button, { message: diagnostic.message, name: action.name })
       let fired = false
       const run = (event) => {
         event.preventDefault()
@@ -288,9 +292,11 @@ function cardView(view, entry, memo) {
     const found = diagnosticsIn(state, from, to)
     const next = found.length ? lintSection(view, found) : null
     // A focused action button goes with the old section, and focus with it to the page, where
-    // the next Escape would close the editor: it moves to the button in its place, else the card.
+    // the next Escape would close the editor: it moves to the same message's same action, else
+    // the button in its place, else the card.
     const active = dom.ownerDocument.activeElement
     const at = lint?.contains(active) ? [...lint.querySelectorAll('button')].indexOf(active) : null
+    const was = at !== null && actionOf.get(active)
     if (lint) {
       lint.replaceWith(...(next ? [next] : []))
     } else if (next) {
@@ -298,7 +304,9 @@ function cardView(view, entry, memo) {
     }
     lint = next
     if (at !== null) {
-      const target = next?.querySelectorAll('button')[at] ?? card.dom
+      const buttons = next ? [...next.querySelectorAll('button')] : []
+      const same = was && buttons.find((button) => ['message', 'name'].every((field) => actionOf.get(button)?.[field] === was[field]))
+      const target = same ?? buttons[at] ?? card.dom
       target.focus({ preventScroll: true })
       if (!dom.contains(dom.ownerDocument.activeElement)) {
         view.focus()

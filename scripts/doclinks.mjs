@@ -183,12 +183,12 @@ export function buildLinks(pages, source) {
     set(`directive:${word}`, whole(page, word))
   }
   // A function no heading names links a section about a function whose code shows it, else the builtin
-  // functions: never the first code that happens to use it.
+  // functions, else the page alone: never the first code that happens to use it.
   const builtins = pages.preprocessing?.find((s) => /^built-?in functions$/i.test(bare(s.title)))
   const listed = builtins && { page: 'preprocessing', anchor: builtins.anchor, section: bare(builtins.title) }
   const about = (s) => /function/i.test(s.title)
   for (const { name } of source.builtins) {
-    set(`function:${name}`, on('preprocessing', name, { titled: true, coded: about }) ?? listed ?? whole('preprocessing', name))
+    set(`function:${name}`, on('preprocessing', name, { titled: true, coded: about }) ?? listed ?? whole('preprocessing', name, { coded: () => false }))
   }
   for (const word of [...source.language.keywords, ...source.language.types]) {
     if (!word.startsWith('@')) everywhere('keyword', word)

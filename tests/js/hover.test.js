@@ -532,6 +532,14 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     expect(docSource(view, text.indexOf('baz') + 1, 1)).toMatchObject({ pos: fn.to, end: line.to })
   })
 
+  it('spans a message shown alone up to a carded word that ends the line', () => {
+    const text = ['  foo bar %strlen()', 'end'].join('\n')
+    const view = viewOf([], text)
+    const line = { from: 0, to: text.indexOf('\n'), severity: 'error', message: 'Syntax error' }
+    view.dispatch(setDiagnostics(view.state, [line]))
+    expect(docSource(view, text.indexOf('bar') + 1, 1)).toMatchObject({ pos: 0, end: text.indexOf('%strlen'), above: true })
+  })
+
   it('stops a message shown alone at the nearest carded word on each side', () => {
     const text = ['  foo %strlen("a") bar %strlen("b") qux', 'end'].join('\n')
     const view = viewOf([], text)
@@ -619,6 +627,29 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     expect(document.activeElement).toBe(card(view))
     view.dispatch(setDiagnostics(view.state, []))
     expect(document.activeElement).toBe(card(view))
+  })
+
+  // By index, a message added before the focused one moved focus to another fix, which Enter then applied.
+  it('keeps focus on the same message’s action when a redraw adds a message before it', () => {
+    const view = viewOf()
+    const b = { from: 0, to: 3, severity: 'warning', message: 'B', actions: [{ name: 'Fix B', apply: () => {} }] }
+    const a = { from: 0, to: 3, severity: 'warning', message: 'A', actions: [{ name: 'Fix A', apply: () => {} }] }
+    view.dispatch(setDiagnostics(view.state, [b]))
+    pinDocAt(view, at('alt'))
+    host(view).querySelector('button.cm-diagnosticAction').focus()
+    view.dispatch(setDiagnostics(view.state, [a, b]))
+    expect([...host(view).querySelectorAll('button.cm-diagnosticAction')].map((one) => one.textContent)).toEqual(['Fix A', 'Fix B'])
+    expect(document.activeElement.textContent).toBe('Fix B')
+  })
+
+  it('gives focus to the source when an unpinned hover’s redraw takes the focused action away', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    activateHover(view, at('alt'), 1)
+    expect(view.state.field(docPinned)).toBeNull()
+    host(view).querySelector('button.cm-diagnosticAction').focus()
+    view.dispatch(setDiagnostics(view.state, [{ ...alt(), actions: [] }]))
+    expect(document.activeElement).toBe(view.contentDOM)
   })
 
   it('gives focus back to the source when an action’s edit closes the pinned box', async () => {

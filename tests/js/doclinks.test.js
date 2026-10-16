@@ -135,6 +135,8 @@ describe('buildLinks', () => {
   it('links a function to the preprocessing page alone when it has no builtin functions section', () => {
     const bare = buildLinks({ ...pages, preprocessing: sections.filter((s) => s.title !== 'Builtin functions') }, source)
     expect(bare['function:%strlen']).toEqual({ page: 'preprocessing', section: 'Sample Page' })
+    // Never a section that merely uses it.
+    expect(bare['function:%parse']).toEqual({ page: 'preprocessing', section: 'Sample Page' })
   })
 
   it('keys a word on a page of another diagram type with the type', () => {

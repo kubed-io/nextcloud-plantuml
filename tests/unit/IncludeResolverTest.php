@@ -143,6 +143,14 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame([], $expanded->mistakes);
 	}
 
+	public function testAStartInsideAnUnclosedBlockEndsItAndStartsTheNext(): void {
+		$file = "@startuml(id=A)\nfirst\n@startuml(id=B)\nsecond\n@enduml\n";
+		$expanded = $this->expand("!include_many f.puml!1\n!include_many f.puml!B\n!include_many f.puml!0\n!include_many f.puml!A\n", ['docs/f.puml' => $file]);
+
+		self::assertSame("second\nsecond\nfirst\nfirst\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
 	public function testABareNameIsNotASelectorAndTheMistakeSaysHowToWriteOne(): void {
 		$file = "@startuml foo\nfirst\n@enduml\n@startuml My Fun Diagram\nsecond\n@enduml\n";
 		$expanded = $this->expand("!include parts.puml!foo\n!include parts.puml!My\n!include parts.puml!nothere\n", ['docs/parts.puml' => $file]);

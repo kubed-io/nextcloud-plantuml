@@ -590,8 +590,10 @@ final class IncludeResolver {
 	/**
 	 * The lines inside the first `@start…` block, or the one picked by index
 	 * (from 0) or by the id of `@start…(id=NAME)`; every line when the file has
-	 * no block. A name written after `@start…` is no selector, the way PlantUML
-	 * takes it: `$named` says that a block carries the selector as its name.
+	 * no block. A `@start…` inside a block left open ends it and starts the next,
+	 * as the editor's tabs count them. A name written after `@start…` is no
+	 * selector, the way PlantUML takes it: `$named` says that a block carries the
+	 * selector as its name.
 	 *
 	 * @param array<int, string> $lines
 	 * @return array<int, string>|null
@@ -603,18 +605,22 @@ final class IncludeResolver {
 		$id = '';
 		$name = '';
 		foreach ($lines as $i => $line) {
-			if ($current === null) {
-				if (preg_match('/^\s*@start\w+(.*)$/', $line, $m) === 1) {
-					$current = [];
-					$rest = $m[1];
-					$id = '';
-					if (preg_match('/^\(([^)]*)\)/', $rest, $call) === 1) {
-						$id = preg_match('/^\s*id\s*=\s*(.*?)\s*$/', $call[1], $argument) === 1 ? $argument[1] : '';
-						$rest = substr($rest, strlen($call[0]));
-					}
-					// The name as the editor reads it: what is left of spaces, quotes and braces around it.
-					$name = preg_match('/^[\s{][\s"“”]*([^"“”]*?)[\s}"“”]*$/u', $rest, $text) === 1 && $text[1] !== '' ? $text[1] : $id;
+			if (preg_match('/^\s*@start\w+(.*)$/', $line, $m) === 1) {
+				if ($current !== null) {
+					$blocks[] = ['id' => $id, 'name' => $name, 'lines' => $current];
 				}
+				$current = [];
+				$rest = $m[1];
+				$id = '';
+				if (preg_match('/^\(([^)]*)\)/', $rest, $call) === 1) {
+					$id = preg_match('/^\s*id\s*=\s*(.*?)\s*$/', $call[1], $argument) === 1 ? $argument[1] : '';
+					$rest = substr($rest, strlen($call[0]));
+				}
+				// The name as the editor reads it: what is left of spaces, quotes and braces around it.
+				$name = preg_match('/^[\s{][\s"“”]*([^"“”]*?)[\s}"“”]*$/u', $rest, $text) === 1 && $text[1] !== '' ? $text[1] : $id;
+				continue;
+			}
+			if ($current === null) {
 				continue;
 			}
 			if (preg_match('/^\s*@end\w*/', $line) === 1) {

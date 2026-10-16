@@ -7,20 +7,23 @@
  * line applies (G4). `strict`, `graph`, `digraph`, `subgraph`, `node` and `edge` are keywords in
  * any case, a graph's or subgraph's id a classifier. In `[ … ]` a key is an attribute; on a
  * statement of its own (`rankdir=LR`) a property. The value of a key ending `color` is a
- * `ColorLiteral` when it is a hex or a name, quoted or not (the swatch looks a name up itself).
- * A `#` at column 0 is a comment, never a swatch. A block comment and an HTML label run across
- * lines, an attribute list too; the editor's `@end` ends them all. An unfinished string ends
- * with its line.
+ * `ColorLiteral` when it is a name, quoted or not (the swatch looks a name up itself), or a hex
+ * quoted. A `#` outside a string, an HTML label or a block comment is a comment to the line's end,
+ * as Graphviz's scanner reads it: an unquoted `#hex` is one (and a server error), never a swatch.
+ * A block comment and an HTML label run across lines, an attribute list too; the editor's `@end`
+ * ends them all. An unfinished string ends with its line.
  */
 export default (core) => {
   const { patterns, table } = core.lex
   const { hexDigits, colourName } = patterns
-  const colour = `#${hexDigits}|${colourName}`
+  const quoted = `#${hexDigits}|${colourName}`
+  // Strings, HTML labels and block comments are taken where they start, so a `#` in one is theirs.
+  const hash = { regex: /#.*/, token: 'comment' }
 
   // A key ending `color` and its colour value, then any other key, as `token` names a key here.
   const key = (token) => [
-    { regex: new RegExp(`(\\w*color)(\\s*)(=)(\\s*)(${colour})(?=[\\s,;\\]}]|$)`, 'i'), token: [token, null, 'definitionOperator', null, 'ColorLiteral'] },
-    { regex: new RegExp(`(\\w*color)(\\s*)(=)(\\s*)(")(${colour})(")`, 'i'), token: [token, null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
+    { regex: new RegExp(`(\\w*color)(\\s*)(=)(\\s*)(${colourName})(?=[\\s,;\\]}]|$)`, 'i'), token: [token, null, 'definitionOperator', null, 'ColorLiteral'] },
+    { regex: new RegExp(`(\\w*color)(\\s*)(=)(\\s*)(")(${quoted})(")`, 'i'), token: [token, null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
     { regex: /\w+(?=\s*=(?!=))/, token },
   ]
   // What both the statements and the attribute lists read.
@@ -41,7 +44,7 @@ export default (core) => {
   ]
   const mode = table({
     start: [
-      { regex: /#.*/, sol: true, token: 'comment' },
+      hash,
       { regex: /(graph|digraph|subgraph)(\s+)(\w+|"[^"\\]*")/i, token: ['keyword', null, 'typeName'] },
       { regex: /(?:strict|graph|digraph|subgraph|node|edge)\b/i, token: 'keyword' },
       ...key('propertyName'),
@@ -50,7 +53,7 @@ export default (core) => {
       ...shared,
     ],
     attrs: [
-      { regex: /#.*/, sol: true, token: 'comment' },
+      hash,
       { regex: /\]/, token: 'squareBracket', pop: true },
       ...key('attributeName'),
       ...shared,

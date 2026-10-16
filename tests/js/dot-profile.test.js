@@ -58,7 +58,9 @@ describe('the dot profile', () => {
     expect(dotTokens('color=red')).toEqual([['color', 'propertyName'], ['=', 'definitionOperator'], ['red', 'ColorLiteral']])
     expect(dotTokens('c [fillcolor=yellow, fontcolor="navy"]')).toContainEqual(['yellow', 'ColorLiteral'])
     expect(dotTokens('c [fillcolor=yellow, fontcolor="navy"]')).toContainEqual(['navy', 'ColorLiteral'])
-    expect(dotTokens('c [fillcolor=#abc]')).toContainEqual(['#abc', 'ColorLiteral'])
+    // A hex is a quoted colour: unquoted, Graphviz reads its `#` as a comment (and the server refuses it).
+    expect(dotTokens('c [fillcolor="#abc"]')).toContainEqual(['#abc', 'ColorLiteral'])
+    expect(dotTokens('c [fillcolor=#abc]')).not.toContainEqual(['#abc', 'ColorLiteral'])
     expect(dotTokens('c [style=filled]')).not.toContainEqual(['filled', 'ColorLiteral'])
   })
 
@@ -101,8 +103,31 @@ describe('the dot profile', () => {
     expect(dotTokens('#fff red')).toEqual([['#fff red', 'comment']])
   })
 
-  it('leaves the # of an indented line to the value rules', () => {
-    expect(dotTokens('  # x')).not.toContainEqual(['# x', 'comment'])
+  it('reads a # outside a string, an HTML label or a comment as a comment to the line end, as Graphviz does', () => {
+    expect(dotTokens('  # x')).toEqual([['# x', 'comment']])
+    expect(dotTokens('  # x /* y', 'a -> b')).toEqual([['# x /* y', 'comment'], ['->', 'LinkOperator']])
+    expect(dotTokens('a -> b # [x', 'c -> d')).toEqual([['->', 'LinkOperator'], ['# [x', 'comment'], ['->', 'LinkOperator']])
+    expect(dotTokens('# a <- b')).toEqual([['# a <- b', 'comment']])
+    expect(dotTokens('label="#fff"')).toEqual([['label', 'propertyName'], ['=', 'definitionOperator'], ['"#fff"', 'string']])
+    expect(dotTokens('label=<<b>#1</b>>')).not.toContainEqual(['#1</b>>', 'comment'])
+    expect(dotTokens('/* a # b */ x -> y')).toEqual([['/* a # b */', 'comment'], ['->', 'LinkOperator']])
+  })
+
+  it('leaves the list of an unquoted hex open to its ] (Graphviz reads the rest as a comment)', () => {
+    expect(dotTokens('c [fillcolor=#abc]', ' shape=box]', 'a -> b')).toEqual([
+      ['[', 'squareBracket'], ['fillcolor', 'attributeName'], ['=', 'definitionOperator'], ['#abc]', 'comment'],
+      ['shape', 'attributeName'], ['=', 'definitionOperator'], [']', 'squareBracket'], ['->', 'LinkOperator'],
+    ])
+    // Unclosed, the list ends at the block's end and the next diagram reads as ever.
+    const doc = '@startdot\nc [fillcolor=#abc]\n@enddot\n@startuml\nA -> B\n@enduml'
+    const out = []
+    language.parser.parse(doc).iterate({
+      enter(node) {
+        if (!node.type.isTop) out.push([doc.slice(node.from, node.to), node.type.name])
+      },
+    })
+    expect(out).toContainEqual(['@enddot', 'keyword'])
+    expect(out).toContainEqual(['->', 'LinkOperator'])
   })
 
   it('ends a block comment at the next @end (Review Focus 4)', () => {

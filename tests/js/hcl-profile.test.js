@@ -83,11 +83,20 @@ describe('the hcl profile', () => {
     expect(found).toContainEqual(['after', 'propertyName'])
   })
 
-  it('ends an unclosed brace at the block end', () => {
-    const doc = ['@starthcl', 'a {', '  x = {', '@endhcl', 'B -> C'].join('\n')
-    const names = []
-    language.parser.parse(doc).iterate({ enter(node) { names.push(node.type.name) } })
-    expect(hclTokens('a {', '  x = {')).toContainEqual(['x', 'propertyName'])
+  it.each(['{', '[', '(', '"'])('ends an unclosed %s at the block end', (open) => {
+    const doc = ['@starthcl', 'a {', `  x = ${open}`, '@endhcl', '@startuml', 'A -> B', '@enduml'].join('\n')
+    const found = []
+    language.parser.parse(doc).iterate({
+      enter(node) { if (!node.type.isTop) found.push([doc.slice(node.from, node.to), node.type.name]) },
+    })
+    expect(found).toContainEqual(['@endhcl', 'keyword'])
+    expect(found).toContainEqual(['@startuml', 'keyword'])
+    expect(found).toContainEqual(['->', 'LinkOperator'])
+  })
+
+  it('reads a line-start comment inside an array and a call', () => {
+    expect(hclTokens('a {', '  list = [', '    # c', '    "a"', '  ]')).toContainEqual(['# c', 'comment'])
+    expect(hclTokens('a {', '  f = g(', '    # c', '  )')).toContainEqual(['# c', 'comment'])
   })
 
   it('reads a uml keyword as a key, never a keyword', () => {

@@ -4,13 +4,15 @@
  *
  * `@starthcl` blocks (T23), a table of the lexicon's (`core.lex`), read as `HclParser` of
  * 1.2026.8 does: a narrow subset. Only `title` is a common line (G4). A `#` at a line's start
- * (after spaces) is a comment and nowhere else; `//` and C-style block comments are plain (the server refuses
- * them). Outside braces a block's header words are classifiers and its `"labels"` strings; in a
+ * (after spaces) is a comment, in an array or a call too, and nowhere else; `//` and C-style
+ * block comments are plain (the server refuses them), and so are heredocs (`<<EOF`: the subset
+ * has none). Outside braces a block's header words are classifiers and its `"labels"` strings; in a
  * `{ }` (which spans lines, nested objects too) a key, bare or quoted, is a property, so a word
  * UML would call a keyword (`map`, `file`) is never one. `=` and `:` are both assignment. A value
  * is a string (a `\` escapes the next character), a number, `true`/`false`, or a bare word
  * (plain); `name(` is a function. An unfinished string ends with its line, an unclosed brace
- * with the block's `@end`.
+ * with the block's `@end`. A nested labelled block (`process "main" {`) is not classified: the
+ * server refuses it.
  */
 export default (core) => {
   const { common, table } = core.lex
@@ -49,8 +51,8 @@ export default (core) => {
       { regex: new RegExp(`${word.source}(?=\\s*[=:])`), token: 'propertyName' },
       ...values,
     ],
-    array: [{ regex: /\]/, token: 'squareBracket', pop: true }, ...values],
-    args: [{ regex: /\)/, token: 'paren', pop: true }, ...values],
+    array: [comment, { regex: /\]/, token: 'squareBracket', pop: true }, ...values],
+    args: [comment, { regex: /\)/, token: 'paren', pop: true }, ...values],
     string: [
       { regex: /\\./, token: 'escape' },
       { regex: /[^"\\]+/, token: 'string' },

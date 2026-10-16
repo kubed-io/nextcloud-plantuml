@@ -25,6 +25,18 @@ function tokens(type, ...lines) {
 }
 const read = (...lines) => tokens('ebnf', ...lines)
 
+/** [text, token class] for every highlighted span of a whole document. */
+function all(...lines) {
+  const doc = Text.of(lines)
+  const out = []
+  language.parser.parse(doc.toString()).iterate({
+    enter(node) {
+      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
+    },
+  })
+  return out
+}
+
 describe('the ebnf profile', () => {
   it('is the ebnf type with no completions or lints', () => {
     expect(ebnf).toMatchObject({ type: 'ebnf', completions: [], lints: [], values: [] })
@@ -78,15 +90,27 @@ describe('the ebnf profile', () => {
     ])
   })
 
-  it('does not let an open comment run into the next block', () => {
-    const doc = Text.of(['@startebnf', '(* open', '@endebnf', '@startuml', 'A -> B', '@enduml'])
-    const out = []
-    language.parser.parse(doc.toString()).iterate({
-      enter(node) {
-        if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-      },
-    })
-    expect(out).toContainEqual(['@endebnf', 'keyword'])
-    expect(out).toContainEqual(['->', 'LinkOperator'])
+  it('does not let an open comment or rule run into the next block', () => {
+    for (const open of ['(* open', 'a = b']) {
+      const out = all('@startebnf', open, '@endebnf', '@startuml', 'A -> B', '@enduml')
+      expect(out).toContainEqual(['@endebnf', 'keyword'])
+      expect(out).toContainEqual(['->', 'LinkOperator'])
+    }
+  })
+
+  it('ends a rule at its semicolon, mid-line too', () => {
+    expect(read('x = a ; (* n *)', 'y = b ;')).toContainEqual(['(* n *)', 'comment'])
+    expect(read('x = a ; (* n *)', 'y = b ;')).toContainEqual(['y', 'typeName'])
+    const names = read('x = a ; y = b ;', 'z = c ;').filter(([, token]) => token === 'typeName')
+    expect(names).toEqual([['x', 'typeName'], ['z', 'typeName']])
+    expect(read('x = ";" , a', '  , b ;', 'y = c ;').filter(([, token]) => token === 'typeName')).toEqual([['x', 'typeName'], ['y', 'typeName']])
+    expect(read('x = ? ; ? ,', 'w ;', 'y = c ;').filter(([, token]) => token === 'typeName').length).toBe(2)
+  })
+
+  it('reads a string with no escapes, and leaks an unclosed one nowhere', () => {
+    expect(read('a = "a\\" , b ;')).toEqual([
+      ['a', 'typeName'], ['=', 'definitionOperator'], ['"a\\"', 'string'], [',', 'separator'], [';', 'separator'],
+    ])
+    expect(read('a = "abc ;', 'b = c ;').filter(([, token]) => token === 'typeName')).toEqual([['a', 'typeName'], ['b', 'typeName']])
   })
 })

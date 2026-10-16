@@ -4,7 +4,7 @@
  *
  * `@startebnf` blocks (T8), a table of the lexicon's (`core.lex`), hand-written: CodeMirror's EBNF
  * mode reads a yacc flavour, not PlantUML's ISO one (`EbnfExpression`, 1.2026.8). A rule is
- * `name = body ;` and runs on to a line ending `;`, so the body state carries across lines, as
+ * `name = body ;` and runs on to its `;`, so the body state carries across lines, as
  * `(* … *)` and `(** … **)` do; the outer grammar drops both at the block's `@end`. A name is a
  * classifier only at a line's start before `=` (or a comment); in a body it is plain. `-` with
  * space after it is the exception, `}-` closes a one-or-more, `N *` repeats; strings have no
@@ -27,9 +27,9 @@ export default (core) => {
     { regex: /-(?=[ \t]|$)/, token: 'arithmeticOperator' },
     { regex: /\d+(?=[ \t]*\*)/, token: 'number' },
     { regex: /\*/, token: 'Quantifier' },
-    // A rule ends at a line ending `;`, not at one in its middle.
-    { regex: /;(?=[ \t]*$)/, token: 'separator', ...end },
-    { regex: /[,;]/, token: 'separator' },
+    // A rule ends at its `;` (strings are taken above), what follows on the line is not a rule.
+    { regex: /;/, token: 'separator', ...end },
+    { regex: /,/, token: 'separator' },
     { regex: /[-\p{L}\p{N}_]+/u, token: null },
   ]
   const mode = table({

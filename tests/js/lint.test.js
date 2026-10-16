@@ -406,7 +406,7 @@ describe('creole-colour (W6)', () => {
     expect(creoleColour(stateOf(`A -> B : ${tag}`))).toHaveLength(1)
   })
 
-  it.each(['<back:#ff0000>x</back>', '<back:#FFF>x</back>', '<color:#Red>x</color>', '<back:Red>x</back>', "' <back:#Red>x</back>"])('leaves %s', (text) => {
+  it.each(['<back:#ff0000>x</back>', '<back:#FFF>x</back>', '<back:#Face>x</back>', '<u:#ABCDEF80>x</u>', '<color:#Red>x</color>', '<back:Red>x</back>', "' <back:#Red>x</back>"])('leaves %s', (text) => {
     expect(creoleColour(stateOf(text))).toHaveLength(0)
   })
 })

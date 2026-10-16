@@ -113,13 +113,16 @@ describe('scan block arguments', () => {
     expect(first('@startuml{fun_file.png}')).toMatchObject({ name: 'fun_file.png' })
     expect(first('@startuml(id=fun) Fun name')).toMatchObject({ name: 'Fun name', id: 'fun' })
     expect(first('@startuml(id=fun)')).toMatchObject({ name: 'fun', id: 'fun' })
+    // An empty name falls back to the id, as the include resolver reads it.
+    expect(first('@startuml(id=fun) ""')).toMatchObject({ name: 'fun', id: 'fun' })
+    expect(first('@startuml ""')).toMatchObject({ name: '', id: null })
     expect(first('@startuml(id = fun)')).toMatchObject({ id: 'fun' })
     expect(first('@startjcckit(300,200)')).toMatchObject({ type: 'jcckit', name: '', id: null })
     expect(first('@startuml a, b')).toMatchObject({ name: 'a, b' })
     expect(first('@startuml file://out/diagram')).toMatchObject({ name: 'file://out/diagram' })
   })
 
-  it('opens the same blocks as before: a type followed by anything else is no block', () => {
+  it('still opens no block for a half-typed start: a type followed by anything but a name or its arguments', () => {
     expect(scan('@startuml,x\n@enduml')[0].start).toBeNull()
     expect(scan('@startuml(id=x\n@enduml')[0].start).toBeNull()
   })

@@ -36,7 +36,7 @@ export function startOf(line) {
   if (rest !== '' && !named) {
     return null
   }
-  return { type: open[1], id, name: named?.[2] ?? id ?? '' }
+  return { type: open[1], id, name: named?.[2] || id || '' }
 }
 
 /**

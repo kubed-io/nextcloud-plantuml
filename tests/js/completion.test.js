@@ -566,7 +566,7 @@ describe('named colours', () => {
 })
 
 describe('creole', () => {
-  it.each([['<color:#>', 'A -> B : <color:>'], ['<back:#>', 'A -> B : <back:>']])('inserts %s with no # (W6)', (label, written) => {
+  it.each([['<color:>', 'A -> B : <color:>'], ['<back:>', 'A -> B : <back:>']])('inserts %s with no # (W6)', (label, written) => {
     const view = pick('A -> B : <|', creole, label)
 
     expect(view.state.doc.toString()).toBe(written)
@@ -579,7 +579,7 @@ describe('creole', () => {
 
     expect(result.from).toBe(marked.indexOf('<'))
     expect(labels(result)).toEqual(expect.arrayContaining([
-      '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>', '<r>',
+      '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:>', '<back:>', '<font:name>', '<sub>', '<sup>', '<img:url>', '<r>',
     ]))
     expect(result.options.every((option) => option.type === 'text' && option.detail)).toBe(true)
     expect(result.validFor.test('<si')).toBe(true)
@@ -660,7 +660,7 @@ describe('creole', () => {
 })
 
 describe('style tags', () => {
-  const TAGS = ['<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:#>', '<back:#>', '<font:name>', '<sub>', '<sup>', '<img:url>']
+  const TAGS = ['<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:>', '<back:>', '<font:name>', '<sub>', '<sup>', '<img:url>']
 
   /** The labels the popup shows at the cursor, in its order. */
   async function popup(marked) {
@@ -1819,7 +1819,15 @@ describe('protocols', () => {
     expect(labels(at('@startuml(id=fun) |'))).toEqual(['file://'])
   })
 
-  it.each(['@startuml x|', '@startuml x |', '@startuml file:|', '@startuml{|', "' @startuml |", '@startuml|'])('offers none in `%s`', (marked) => {
+  it.each(['f', 'fi', 'file:', 'file:/'])('keeps offering file:// while its prefix `%s` is typed', (typed) => {
+    const result = at(`@startuml ${typed}|`)
+    expect(labels(result)).toEqual(['file://'])
+    expect(result.from).toBe('@startuml '.length)
+    expect(result.validFor('file:/')).toBe(true)
+    expect(result.validFor('x')).toBe(false)
+  })
+
+  it.each(['@startuml x|', '@startuml x |', '@startuml fx|', '@startuml file://|', '@startuml{|', "' @startuml |", '@startuml|'])('offers none in `%s`', (marked) => {
     expect(at(marked)).toBeNull()
   })
 

@@ -5,15 +5,16 @@
  * The scheme alone, where a path goes (C10): `file://` after `@start<type> `, which names the
  * file the command line writes the image to, and `https://` and `http://` after `[[`, `<img:`
  * and `<img src=`. What follows a scheme cannot be guessed, so a pick inserts nothing more. The
- * includes' schemes come with their local files (local-files.js). Not once a name is typed after
- * `@startuml`, nor in a comment.
+ * includes' schemes come with their local files (local-files.js). Not once a name that is no
+ * start of `file://` is typed after `@startuml`, nor in a comment.
  */
 import { ensureSyntaxTree } from '@codemirror/language'
 
-const START = /^[ \t]*@start[^\s{}"“”(]+(?:\([^)]*\))?[ \t]+$/
+const START = /^[ \t]*@start[^\s{}"“”(]+(?:\([^)]*\))?[ \t]+([a-z:/]*)$/
+const FILE = 'file://'
 const WEB = /(?:\[\[|<img:|<img\s(?:[^>]*\s)?src=)([a-z+.-]*)$/i
 
-const file = [{ label: 'file://', detail: 'file path', type: 'text' }]
+const file = [{ label: FILE, detail: 'file path', type: 'text' }]
 const web = [
   { label: 'https://', detail: 'web address', type: 'text', boost: 2 },
   { label: 'http://', detail: 'web address', type: 'text', boost: 2 },
@@ -26,8 +27,11 @@ export function protocols(context) {
   if (/^\s*'/.test(before) || ensureSyntaxTree(context.state, context.pos, 50)?.resolveInner(context.pos, -1).name === 'comment') {
     return null
   }
-  if (START.test(before)) {
-    return { from: context.pos, options: file }
+  const start = START.exec(before)
+  // While the scheme's start is typed, `file://` stays on offer; a name is no scheme.
+  const scheme = (text) => text.length < FILE.length && FILE.startsWith(text)
+  if (start && scheme(start[1])) {
+    return { from: context.pos - start[1].length, options: file, validFor: scheme }
   }
   const typed = WEB.exec(before)
   if (!typed) {

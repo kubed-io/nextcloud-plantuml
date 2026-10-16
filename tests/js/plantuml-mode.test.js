@@ -328,7 +328,7 @@ describe('plantumlMode paths and protocols', () => {
     expect(tokens(line).map(([, token]) => token)).not.toContain('arithmeticOperator')
   })
 
-  it('leaves a computed or quoted include to the preprocessor', () => {
+  it('leaves a computed include, and one with no path, to the preprocessor', () => {
     expect(tokens('!include %get_json_attribute($a, "b")')).toEqual(include([['%get_json_attribute', 'FunctionName'], ['(', 'paren'], ['$a', 'VariableName'], [',', 'separator'], ['"b"', 'string'], [')', 'paren']]))
     expect(tokens('!include', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword'], ['A', 'typeName']])
     expect(tokens('!include   ', 'actor A')).toEqual([['!include', 'meta'], ['actor', 'keyword'], ['A', 'typeName']])

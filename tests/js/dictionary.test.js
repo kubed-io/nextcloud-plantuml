@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { DICTIONARY, DICTIONARY_TOKENS } from '../../src/editor/lexicon/dictionary.js'
+import { Tag, tags } from '@lezer/highlight'
+import { tokenTable } from '../../src/editor/lexicon/tags.js'
 import { core } from './helpers/core.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 import styleProfile from '../../src/editor/profiles/style.js'
@@ -62,6 +64,15 @@ describe('the styling dictionary', () => {
       expect(DICTIONARY_TOKENS.has(pair), pair).toBe(true)
     }
     expect(DICTIONARY_TOKENS.has('labelName strong')).toBe(false)
+  })
+
+  // StreamLanguage takes each space-joined part as a tag of its own, from the language's table or
+  // @lezer/highlight's tags; an unknown name, or a modifier alone, is only a console warning.
+  const unresolved = (names) => [...names].filter((name) => name.split(' ').some((part) => !((tokenTable[part] || tags[part]) instanceof Tag)))
+
+  it('resolves every token to a highlight tag', () => {
+    expect(unresolved(['labelNmae', 'strong labelNmae', 'function'])).toEqual(['labelNmae', 'strong labelNmae', 'function'])
+    expect(unresolved(DICTIONARY_TOKENS)).toEqual([])
   })
 
   const fixtures = readdirSync(DIR).filter((name) => name.endsWith('.puml'))

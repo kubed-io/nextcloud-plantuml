@@ -8,9 +8,11 @@
  */
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
+import { patterns } from '../lexicon/rules.js'
 
 const TAG = /<(?:back|u|s|w):(#)(\w+)/g
-const HEX = /^(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+// A hex as the highlighter reads one: 3, 4, 6 or 8 digits.
+const HEX = new RegExp(`^${patterns.hexDigits}$`)
 
 /** @param {import('@codemirror/state').EditorState} state */
 export function creoleColour(state) {

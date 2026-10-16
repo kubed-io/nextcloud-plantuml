@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { buildDocs, loadDocs } from '../../src/editor/docs/index.js'
+import { KEYWORDS } from '../../src/editor/completion/keywords.js'
 
 // The first import of own.json fails, as a chunk does offline; every later one answers.
 const own = vi.hoisted(() => ({ failures: 1 }))
@@ -22,6 +23,8 @@ const inputs = {
     'keyword:start': { summary: 'Starts an activity' },
     'keyword:start@gantt': { summary: 'When a task starts' },
     'keyword:note': { summary: 'A note', home: 'any' },
+    'keyword:skinparam': { summary: 'Sets a skin parameter', home: 'any', anywhere: true },
+    'keyword:node': { summary: 'A node', home: 'deployment' },
     'function:%strlen': { summary: 'ours', example: 'ours', signature: '%strlen(text)' },
     'function:%now': { summary: 'The time' },
     'theme:cerulean': { summary: 'ours' },
@@ -79,6 +82,12 @@ describe('buildDocs', () => {
     expect(docs.get('keyword:alt', 'yaml')).toBeUndefined()
     expect(docs.get('connector:-->', 'dot')).toBeUndefined()
     expect(docs.get('connector:-->', 'uml')).toMatchObject({ name: '-->' })
+  })
+
+  it('reads an anywhere keyword in every block type, and any other only from its own entry', () => {
+    expect(docs.get('keyword:skinparam', 'mindmap')).toMatchObject({ name: 'skinparam', summary: 'Sets a skin parameter' })
+    expect(docs.get('keyword:skinparam', 'dot')).toMatchObject({ name: 'skinparam' })
+    expect(docs.get('keyword:node', 'dot')).toBeUndefined()
   })
 
   it('reads a project block as gantt, PlantUML’s alias', () => {
@@ -206,5 +215,40 @@ describe('our own lines for diagram types, directives and functions', () => {
   it('keeps every example to 6 lines', () => {
     const tall = Object.entries(ownLines).filter(([, { example }]) => example && example.split('\n').length > 6).map(([key]) => key)
     expect(tall).toEqual([])
+  })
+
+  const HOMES = ['sequence', 'activity', 'class', 'component', 'state', 'usecase', 'timing', 'object', 'deployment', 'any']
+  const words = [...new Set([...KEYWORDS, ...language.keywords.filter((word) => !word.startsWith('@'))])]
+
+  it('gives every keyword a summary and an example, plain or for a block type', () => {
+    expect(words.length).toBeGreaterThan(150)
+    const lacking = words.filter((word) => {
+      const bare = `keyword:${word.toLowerCase()}`
+      const keys = [bare, ...Object.keys(ownLines).filter((key) => key.startsWith(`${bare}@`))]
+      return !keys.some((key) => {
+        const [plain, type] = key.split('@')
+        const entry = real.get(plain, type ?? 'uml')
+        return entry?.summary && entry.example
+      })
+    })
+    expect(lacking).toEqual([])
+  })
+
+  it('gives every plain keyword a home, and a typed one none', () => {
+    const wrong = Object.entries(ownLines).filter(([key, line]) => key.startsWith('keyword:') && (key.includes('@') ? line.home : !HOMES.includes(line.home))).map(([key]) => key)
+    expect(wrong).toEqual([])
+  })
+
+  it('flags anywhere only on a plain keyword', () => {
+    const wrong = Object.entries(ownLines).filter(([key, line]) => line.anywhere && !/^keyword:[^@]+$/.test(key)).map(([key]) => key)
+    expect(wrong).toEqual([])
+  })
+
+  it('writes alt as the brief says', () => {
+    expect(ownLines['keyword:alt']).toEqual({
+      summary: 'Alternatives, one drawn per else',
+      home: 'sequence',
+      example: 'alt paid\n  Shop -> Customer : receipt\nelse declined\n  Shop -> Customer : retry\nend',
+    })
   })
 })

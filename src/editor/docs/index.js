@@ -93,7 +93,8 @@ const defined = (entry) => Object.fromEntries(Object.entries(entry).filter(([, v
  *
  * @param {{ own: object, links: { links: object }, source: object, builtins: object[], language: object, vocabulary: object }} data
  * `get` tries the block type's entry, then the plain one, which is uml's: a
- * keyword or connector in another type's block has only its type's entry. A
+ * keyword or connector in another type's block has only its type's entry, unless
+ * the plain entry is `anywhere` (it means the same in every type). A
  * `project` block reads as `gantt`.
  *
  * @return {{ get: (key: string, type?: string) => Entry|undefined }}
@@ -109,6 +110,7 @@ export function buildDocs(data) {
   ])
   const keys = new Set([...source.keys(), ...ours.keys(), ...Object.keys(own), ...Object.keys(links)])
   const entries = new Map()
+  const anywhere = new Set(Object.entries(own).filter(([, line]) => line.anywhere).map(([key]) => key))
   for (const key of keys) {
     const [, look, word] = /^(\w+):(.*?)(?:@\w+)?$/.exec(key) ?? []
     if (!KINDS[look]) {
@@ -131,7 +133,7 @@ export function buildDocs(data) {
   return {
     get(key, type = 'uml') {
       const own = ALIASES[type] ?? type
-      return entries.get(`${key}@${own}`) ?? (own === 'uml' || !TYPED.has(key.split(':')[0]) ? entries.get(key) : undefined)
+      return entries.get(`${key}@${own}`) ?? (own === 'uml' || !TYPED.has(key.split(':')[0]) || anywhere.has(key) ? entries.get(key) : undefined)
     },
   }
 }

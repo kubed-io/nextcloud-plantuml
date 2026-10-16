@@ -1,21 +1,913 @@
 {
+  "keyword:activate": {
+    "summary": "Starts a lifeline’s activation bar",
+    "example": "Alice -> Bob : hi\nactivate Bob\nBob --> Alice : ok\ndeactivate Bob",
+    "home": "sequence"
+  },
+  "keyword:deactivate": {
+    "summary": "Ends a lifeline’s activation bar",
+    "example": "Alice -> Bob : hi\nactivate Bob\nBob --> Alice : ok\ndeactivate Bob",
+    "home": "sequence"
+  },
+  "keyword:destroy": {
+    "summary": "Ends a lifeline with a cross",
+    "example": "Alice -> Bob : bye\ndestroy Bob",
+    "home": "sequence"
+  },
+  "keyword:create": {
+    "summary": "Draws a participant at its first message",
+    "example": "create Bob\nAlice -> Bob : new",
+    "home": "sequence"
+  },
+  "keyword:return": {
+    "summary": "Answers the message that activated it",
+    "example": "Alice -> Bob : ask\nactivate Bob\nreturn answer",
+    "home": "sequence"
+  },
   "keyword:alt": {
-    "summary": "alternatives"
+    "summary": "Alternatives, one drawn per else",
+    "example": "alt paid\n  Shop -> Customer : receipt\nelse declined\n  Shop -> Customer : retry\nend",
+    "home": "sequence"
   },
   "keyword:opt": {
-    "summary": "optional"
+    "summary": "Block drawn only when its condition holds",
+    "example": "opt cached\n  Alice -> Bob : hit\nend",
+    "home": "sequence"
+  },
+  "keyword:else": {
+    "summary": "Next branch of an alt, par or if",
+    "example": "alt paid\n  Shop -> Customer : receipt\nelse declined\n  Shop -> Customer : retry\nend",
+    "home": "sequence"
+  },
+  "keyword:loop": {
+    "summary": "Block repeated while its condition holds",
+    "example": "loop 3 times\n  Alice -> Bob : ping\nend",
+    "home": "sequence"
   },
   "keyword:par": {
-    "summary": "parallel"
+    "summary": "Blocks drawn as happening in parallel",
+    "example": "par\n  Alice -> Bob : a\nelse\n  Alice -> Carol : b\nend",
+    "home": "sequence"
+  },
+  "keyword:break": {
+    "summary": "Block that leaves the enclosing loop",
+    "example": "loop 3 times\n  Alice -> Bob : try\n  break failed\n    Bob -> Alice : stop\n  end\nend",
+    "home": "sequence"
+  },
+  "keyword:critical": {
+    "summary": "Block that must not be interrupted",
+    "example": "critical lock\n  Alice -> Bob : write\nend",
+    "home": "sequence"
+  },
+  "keyword:group": {
+    "summary": "Frame with a label of your own",
+    "example": "group retry\n  Alice -> Bob : again\nend",
+    "home": "sequence"
+  },
+  "keyword:end": {
+    "summary": "Closes a group, alt, loop or other block",
+    "example": "opt cached\n  Alice -> Bob : hit\nend",
+    "home": "sequence"
   },
   "keyword:ref": {
-    "summary": "reference"
+    "summary": "Box that refers to another diagram",
+    "example": "ref over Alice, Bob : login",
+    "home": "sequence"
+  },
+  "keyword:box": {
+    "summary": "Frames participants under a title",
+    "example": "box \"Internal\" #LightBlue\n  participant Bob\n  participant Carol\nend box\nAlice -> Bob : hi",
+    "home": "sequence"
+  },
+  "keyword:order": {
+    "summary": "Sets a participant’s position",
+    "example": "participant Bob order 20\nparticipant Alice order 10",
+    "home": "sequence"
+  },
+  "keyword:as": {
+    "summary": "Gives an element a short alias",
+    "example": "participant \"Long name\" as L\nAlice -> L : hi",
+    "home": "any"
   },
   "keyword:autonumber": {
-    "summary": "number messages"
+    "summary": "Numbers the messages",
+    "example": "autonumber\nAlice -> Bob : first\nBob -> Alice : second",
+    "home": "sequence"
+  },
+  "keyword:footbox": {
+    "summary": "The participant boxes at the foot",
+    "example": "hide footbox\nAlice -> Bob : hi",
+    "home": "sequence"
+  },
+  "keyword:participant": {
+    "summary": "Declares a participant",
+    "example": "participant Bob\nAlice -> Bob : hi",
+    "home": "sequence"
+  },
+  "keyword:boundary": {
+    "summary": "Declares a boundary participant",
+    "example": "boundary Gate\nAlice -> Gate : hi",
+    "home": "sequence"
+  },
+  "keyword:control": {
+    "summary": "Declares a control participant",
+    "example": "control Logic\nAlice -> Logic : hi",
+    "home": "sequence"
+  },
+  "keyword:entity": {
+    "summary": "Declares an entity participant",
+    "example": "entity Order\nAlice -> Order : hi",
+    "home": "sequence"
+  },
+  "keyword:collections": {
+    "summary": "Declares a collection participant",
+    "example": "collections Items\nAlice -> Items : hi",
+    "home": "sequence"
+  },
+  "keyword:note": {
+    "summary": "Attaches a note to an element",
+    "example": "Alice -> Bob : hi\nnote right : seen",
+    "home": "any"
+  },
+  "keyword:hnote": {
+    "summary": "Note drawn as a hexagon",
+    "example": "Alice -> Bob : hi\nhnote over Alice : thinking",
+    "home": "sequence"
+  },
+  "keyword:rnote": {
+    "summary": "Note drawn as a rectangle",
+    "example": "Alice -> Bob : hi\nrnote over Alice : plain box",
+    "home": "sequence"
+  },
+  "keyword:floating note": {
+    "summary": "Note tied to no element",
+    "example": "start\nfloating note left : free\n:step;\nstop",
+    "home": "activity"
+  },
+  "keyword:over": {
+    "summary": "Puts a note over one or more participants",
+    "example": "Alice -> Bob : hi\nnote over Alice, Bob : both",
+    "home": "sequence"
+  },
+  "keyword:of": {
+    "summary": "Names the element a note sits beside",
+    "example": "Alice -> Bob : hi\nnote left of Alice : hi",
+    "home": "any"
+  },
+  "keyword:across": {
+    "summary": "Spans a note over every participant",
+    "example": "Alice -> Bob : hi\nnote across : all",
+    "home": "sequence"
+  },
+  "keyword:left": {
+    "summary": "Puts a note or text on the left",
+    "example": "Alice -> Bob : hi\nnote left : here",
+    "home": "any"
+  },
+  "keyword:right": {
+    "summary": "Puts a note or text on the right",
+    "example": "Alice -> Bob : hi\nnote right : here",
+    "home": "any"
+  },
+  "keyword:top": {
+    "summary": "Puts a note or text above",
+    "example": "class A\nnote top of A : here",
+    "home": "any"
+  },
+  "keyword:bottom": {
+    "summary": "Puts a note or text below",
+    "example": "class A\nnote bottom of A : here",
+    "home": "any"
+  },
+  "keyword:center": {
+    "summary": "Centres a header, footer or legend",
+    "example": "center footer Page 1\nAlice -> Bob : hi",
+    "home": "any"
+  },
+  "keyword:together": {
+    "summary": "Keeps elements side by side in layout",
+    "example": "together {\n  class A\n  class B\n}",
+    "home": "class"
+  },
+  "keyword:title": {
+    "summary": "Title above the diagram",
+    "example": "title Greeting\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:endtitle": {
+    "summary": "Closes a multi-line title",
+    "example": "title\n  Greeting\nendtitle\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:header": {
+    "summary": "Text in the page header",
+    "example": "header Draft\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:endheader": {
+    "summary": "Closes a multi-line header",
+    "example": "header\n  Draft\nendheader\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:footer": {
+    "summary": "Text in the page footer",
+    "example": "footer Page 1\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:endfooter": {
+    "summary": "Closes a multi-line footer",
+    "example": "footer\n  Page 1\nendfooter\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:legend": {
+    "summary": "Legend box on the diagram",
+    "example": "legend right\n  Key\nendlegend\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:endlegend": {
+    "summary": "Closes a legend",
+    "example": "legend\n  Key\nendlegend\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:caption": {
+    "summary": "Caption under the diagram",
+    "example": "caption Figure 1\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:endcaption": {
+    "summary": "Closes a multi-line caption",
+    "example": "caption\n  Figure 1\nendcaption\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:mainframe": {
+    "summary": "Frame around the whole diagram",
+    "example": "mainframe Overview\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:newpage": {
+    "summary": "Starts a new page",
+    "example": "Alice -> Bob : one\nnewpage\nBob -> Alice : two",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:page": {
+    "summary": "Splits the diagram into pages",
+    "example": "page 2x1\nAlice -> Bob : one\nnewpage\nBob -> Alice : two",
+    "home": "any",
+    "anywhere": true
   },
   "keyword:skinparam": {
-    "summary": "style"
+    "summary": "Sets a skin parameter",
+    "example": "skinparam backgroundColor LightYellow\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:skin": {
+    "summary": "Loads a named skin",
+    "example": "skin rose\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:hide": {
+    "summary": "Hides a part of the diagram",
+    "example": "hide footbox\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:show": {
+    "summary": "Shows a part of the diagram again",
+    "example": "hide footbox\nshow footbox\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:style": {
+    "summary": "Picks a skin style",
+    "example": "skinparam style strictuml\nAlice -> Bob : hi",
+    "home": "any"
+  },
+  "keyword:scale": {
+    "summary": "Scales the whole diagram",
+    "example": "scale 2\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:rotate": {
+    "summary": "Turns the diagram a quarter",
+    "example": "rotate\nAlice -> Bob : hi",
+    "home": "any",
+    "anywhere": true
+  },
+  "keyword:allowmixing": {
+    "summary": "Mixes element kinds in one diagram",
+    "example": "allowmixing\nclass A\nactor B\nA --> B",
+    "home": "any"
+  },
+  "keyword:allow_mixing": {
+    "summary": "Mixes element kinds in one diagram",
+    "example": "allow_mixing\nclass A\nactor B\nA --> B",
+    "home": "any"
+  },
+  "keyword:left to right direction": {
+    "summary": "Lays the diagram out left to right",
+    "example": "left to right direction\nactor A\nA --> (use)",
+    "home": "any"
+  },
+  "keyword:top to bottom direction": {
+    "summary": "Lays the diagram out top to bottom",
+    "example": "top to bottom direction\nclass A\nclass B\nA --> B",
+    "home": "any"
+  },
+  "keyword:up": {
+    "summary": "Points an arrow upward",
+    "example": "class A\nclass B\nA -up-> B",
+    "home": "any"
+  },
+  "keyword:down": {
+    "summary": "Points an arrow downward",
+    "example": "class A\nclass B\nA -down-> B",
+    "home": "any"
+  },
+  "keyword:bold": {
+    "summary": "Draws a bracketed arrow thick",
+    "example": "class A\nclass B\nA -[bold]-> B",
+    "home": "any"
+  },
+  "keyword:dashed": {
+    "summary": "Draws a bracketed arrow dashed",
+    "example": "class A\nclass B\nA -[dashed]-> B",
+    "home": "any"
+  },
+  "keyword:dotted": {
+    "summary": "Draws a bracketed arrow dotted",
+    "example": "class A\nclass B\nA -[dotted]-> B",
+    "home": "any"
+  },
+  "keyword:plain": {
+    "summary": "Draws a bracketed arrow solid",
+    "example": "class A\nclass B\nA -[plain]-> B",
+    "home": "any"
+  },
+  "keyword:italic": {
+    "summary": "Font style value",
+    "example": "skinparam classFontStyle italic\nclass A",
+    "home": "any"
+  },
+  "keyword:normal": {
+    "summary": "Font style value",
+    "example": "skinparam classFontStyle normal\nclass A",
+    "home": "any"
+  },
+  "keyword:true": {
+    "summary": "Boolean true in a condition",
+    "example": "!$on = true\n!if $on\nAlice -> Bob : on\n!endif",
+    "home": "any"
+  },
+  "keyword:false": {
+    "summary": "Boolean false in a condition",
+    "example": "!$on = false\n!if $on\nAlice -> Bob : on\n!endif\nAlice -> Bob : always",
+    "home": "any"
+  },
+  "keyword:not": {
+    "summary": "Negates a condition",
+    "example": "!$on = false\n!if not $on\nAlice -> Bob : off\n!endif",
+    "home": "any"
+  },
+  "keyword:start": {
+    "summary": "Begins the flow",
+    "example": "start\n:step;\nstop",
+    "home": "activity"
+  },
+  "keyword:stop": {
+    "summary": "Ends the flow",
+    "example": "start\n:step;\nstop",
+    "home": "activity"
+  },
+  "keyword:if": {
+    "summary": "Branches on a condition",
+    "example": "start\nif (ok?) then (yes)\n  :go;\nendif\nstop",
+    "home": "activity"
+  },
+  "keyword:then": {
+    "summary": "Names the branch taken when true",
+    "example": "start\nif (ok?) then (yes)\n  :go;\nendif\nstop",
+    "home": "activity"
+  },
+  "keyword:elseif": {
+    "summary": "Another condition after an if",
+    "example": "if (a?) then (yes)\n  :a;\nelseif (b?) then (yes)\n  :b;\nendif",
+    "home": "activity"
+  },
+  "keyword:endif": {
+    "summary": "Closes an if",
+    "example": "start\nif (ok?) then (yes)\n  :go;\nendif\nstop",
+    "home": "activity"
+  },
+  "keyword:is": {
+    "summary": "Names a branch value in a condition",
+    "example": "start\nif (colour?) is (red) then\n  :stop;\nendif\nstop",
+    "home": "activity"
+  },
+  "keyword:while": {
+    "summary": "Repeats while a condition holds",
+    "example": "start\nwhile (more?)\n  :work;\nendwhile\nstop",
+    "home": "activity"
+  },
+  "keyword:endwhile": {
+    "summary": "Closes a while",
+    "example": "start\nwhile (more?)\n  :work;\nendwhile\nstop",
+    "home": "activity"
+  },
+  "keyword:repeat": {
+    "summary": "Starts a loop that runs at least once",
+    "example": "start\nrepeat\n  :work;\nrepeat while (more?)\nstop",
+    "home": "activity"
+  },
+  "keyword:repeatwhile": {
+    "summary": "Ends a repeat loop on a condition",
+    "example": "start\nrepeat\n  :work;\nrepeat while (more?)\nstop",
+    "home": "activity"
+  },
+  "keyword:backward": {
+    "summary": "Action run before each repeat",
+    "example": "start\nrepeat\n  :work;\nbackward :rewind;\nrepeat while (more?)\nstop",
+    "home": "activity"
+  },
+  "keyword:fork": {
+    "summary": "Splits the flow into parallel branches",
+    "example": "start\nfork\n  :a;\nfork again\n  :b;\nend fork",
+    "home": "activity"
+  },
+  "keyword:again": {
+    "summary": "Next branch of a fork",
+    "example": "start\nfork\n  :a;\nfork again\n  :b;\nend fork",
+    "home": "activity"
+  },
+  "keyword:endfork": {
+    "summary": "Closes a fork, written end fork",
+    "example": "start\nfork\n  :a;\nfork again\n  :b;\nend fork",
+    "home": "activity"
+  },
+  "keyword:merge": {
+    "summary": "Closes parallel branches as a merge",
+    "example": "start\nfork\n  :a;\nfork again\n  :b;\nend merge",
+    "home": "activity"
+  },
+  "keyword:endmerge": {
+    "summary": "Closes parallel branches as a merge",
+    "example": "start\nfork\n  :a;\nfork again\n  :b;\nendmerge",
+    "home": "activity"
+  },
+  "keyword:split": {
+    "summary": "Splits the flow into columns",
+    "example": "start\nsplit\n  :a;\nsplit again\n  :b;\nend split",
+    "home": "activity"
+  },
+  "keyword:switch": {
+    "summary": "Branches on a value",
+    "example": "start\nswitch (kind?)\ncase (a)\n  :A;\nendswitch\nstop",
+    "home": "activity"
+  },
+  "keyword:case": {
+    "summary": "One branch of a switch",
+    "example": "start\nswitch (kind?)\ncase (a)\n  :A;\nendswitch\nstop",
+    "home": "activity"
+  },
+  "keyword:endswitch": {
+    "summary": "Closes a switch",
+    "example": "start\nswitch (kind?)\ncase (a)\n  :A;\nendswitch\nstop",
+    "home": "activity"
+  },
+  "keyword:detach": {
+    "summary": "Ends a branch with no successor",
+    "example": "start\n:step;\ndetach",
+    "home": "activity"
+  },
+  "keyword:kill": {
+    "summary": "Ends a branch with a cross",
+    "example": "start\n:step;\nkill",
+    "home": "activity"
+  },
+  "keyword:goto": {
+    "summary": "Jumps to a label",
+    "example": "start\ngoto done\n:skipped;\nlabel done\nstop",
+    "home": "activity"
+  },
+  "keyword:label": {
+    "summary": "Names a point to jump to",
+    "example": "start\ngoto done\n:skipped;\nlabel done\nstop",
+    "home": "activity"
+  },
+  "keyword:partition": {
+    "summary": "Groups steps under a title",
+    "example": "start\npartition Prep {\n  :a;\n}\nstop",
+    "home": "activity"
+  },
+  "keyword:class": {
+    "summary": "Declares a class",
+    "example": "class Order",
+    "home": "class"
+  },
+  "keyword:abstract": {
+    "summary": "Declares an abstract class",
+    "example": "abstract Shape",
+    "home": "class"
+  },
+  "keyword:interface": {
+    "summary": "Declares an interface",
+    "example": "interface Drawable",
+    "home": "class"
+  },
+  "keyword:enum": {
+    "summary": "Declares an enumeration",
+    "example": "enum Colour {\n  RED\n  BLUE\n}",
+    "home": "class"
+  },
+  "keyword:annotation": {
+    "summary": "Declares an annotation type",
+    "example": "annotation Marker",
+    "home": "class"
+  },
+  "keyword:namespace": {
+    "summary": "Groups classes under a namespace",
+    "example": "namespace shop {\n  class Cart\n}",
+    "home": "class"
+  },
+  "keyword:package": {
+    "summary": "Groups elements in a package",
+    "example": "package shop {\n  class Cart\n}",
+    "home": "any"
+  },
+  "keyword:stereotype": {
+    "summary": "Hides or declares stereotypes",
+    "example": "class A <<entity>>\nhide stereotype",
+    "home": "class"
+  },
+  "keyword:field": {
+    "summary": "Marks a member as a field",
+    "example": "class A {\n  {field} count()\n}",
+    "home": "class"
+  },
+  "keyword:fields": {
+    "summary": "Fields of a class, for hide and show",
+    "example": "class A {\n  count : int\n}\nhide fields",
+    "home": "class"
+  },
+  "keyword:attributes": {
+    "summary": "Attributes of a class, for hide and show",
+    "example": "class A {\n  count : int\n}\nhide attributes",
+    "home": "class"
+  },
+  "keyword:method": {
+    "summary": "Marks a member as a method",
+    "example": "class A {\n  {method} count : int\n}",
+    "home": "class"
+  },
+  "keyword:methods": {
+    "summary": "Methods of a class, for hide and show",
+    "example": "class A {\n  run()\n}\nhide methods",
+    "home": "class"
+  },
+  "keyword:members": {
+    "summary": "Fields and methods, for hide and show",
+    "example": "class A {\n  run()\n}\nhide members",
+    "home": "class"
+  },
+  "keyword:empty": {
+    "summary": "Empty compartments, for hide and show",
+    "example": "class A\nhide empty members",
+    "home": "class"
+  },
+  "keyword:circle": {
+    "summary": "The class’s circled letter, for hide and show",
+    "example": "class A\nhide circle",
+    "home": "class"
+  },
+  "keyword:circles": {
+    "summary": "The classes’ circled letters, for hide and show",
+    "example": "class A\nhide circles",
+    "home": "class"
+  },
+  "keyword:circled": {
+    "summary": "The circled letter, for hide and show",
+    "example": "class A\nhide circled",
+    "home": "class"
+  },
+  "keyword:private": {
+    "summary": "Private visibility",
+    "example": "class A {\n  - secret\n}",
+    "home": "class"
+  },
+  "keyword:protected": {
+    "summary": "Protected visibility",
+    "example": "class A {\n  # kept\n}",
+    "home": "class"
+  },
+  "keyword:public": {
+    "summary": "Public visibility",
+    "example": "class A {\n  + open\n}",
+    "home": "class"
+  },
+  "keyword:on": {
+    "summary": "Ties a note to a link",
+    "example": "class A\nclass B\nA --> B\nnote on link : uses",
+    "home": "class"
+  },
+  "keyword:link": {
+    "summary": "The link a note is tied to",
+    "example": "class A\nclass B\nA --> B\nnote on link : uses",
+    "home": "class"
+  },
+  "keyword:component": {
+    "summary": "Declares a component",
+    "example": "component Web",
+    "home": "component"
+  },
+  "keyword:node": {
+    "summary": "Declares a node",
+    "example": "node Server",
+    "home": "deployment"
+  },
+  "keyword:cloud": {
+    "summary": "Declares a cloud",
+    "example": "cloud Internet",
+    "home": "deployment"
+  },
+  "keyword:frame": {
+    "summary": "Declares a frame",
+    "example": "frame Layer {\n  node Server\n}",
+    "home": "deployment"
+  },
+  "keyword:folder": {
+    "summary": "Declares a folder",
+    "example": "folder Source",
+    "home": "deployment"
+  },
+  "keyword:rectangle": {
+    "summary": "Declares a rectangle",
+    "example": "rectangle Box",
+    "home": "deployment"
+  },
+  "keyword:database": {
+    "summary": "Declares a database",
+    "example": "database Store",
+    "home": "any"
+  },
+  "keyword:queue": {
+    "summary": "Declares a queue",
+    "example": "queue Jobs",
+    "home": "any"
+  },
+  "keyword:actor": {
+    "summary": "Declares an actor",
+    "example": "actor User",
+    "home": "any"
+  },
+  "keyword:also": {
+    "summary": "Next branch of a par",
+    "example": "par\n  Alice -> Bob : a\nalso\n  Alice -> Carol : b\nend",
+    "home": "sequence"
+  },
+  "keyword:attribute": {
+    "summary": "Attribute compartment, for hide and show",
+    "example": "class A {\n  count : int\n}\nhide attribute",
+    "home": "class"
+  },
+  "keyword:member": {
+    "summary": "Member compartment, for hide and show",
+    "example": "class A {\n  run()\n}\nhide member",
+    "home": "class"
+  },
+  "keyword:stereotypes": {
+    "summary": "Stereotypes, for hide and show",
+    "example": "class A <<entity>>\nhide stereotypes",
+    "home": "class"
+  },
+  "keyword:usecase": {
+    "summary": "Declares a use case",
+    "example": "usecase Login",
+    "home": "usecase"
+  },
+  "keyword:state": {
+    "summary": "Declares a state",
+    "example": "state Idle",
+    "home": "state"
+  },
+  "keyword:description": {
+    "summary": "Adds a description line to a state",
+    "example": "state Idle : waiting",
+    "home": "state"
+  },
+  "keyword:object": {
+    "summary": "Declares an object",
+    "example": "object Order",
+    "home": "object"
+  },
+  "keyword:as@gantt": {
+    "summary": "Gives a task a short name",
+    "example": "[Build] as [B] lasts 3 days\n[Test] starts at [B]'s end\n[Test] lasts 2 days"
+  },
+  "keyword:at@gantt": {
+    "summary": "Places a task relative to another",
+    "example": "[Build] lasts 3 days\n[Test] starts at [Build]'s end\n[Test] lasts 2 days"
+  },
+  "keyword:start@gantt": {
+    "summary": "When a task or the project starts",
+    "example": "Project starts 2026-10-05\n[Build] starts 2026-10-06\n[Build] lasts 3 days"
+  },
+  "keyword:end@gantt": {
+    "summary": "When a task ends",
+    "example": "Project starts 2026-10-05\n[Build] starts 2026-10-06\n[Build] ends 2026-10-09"
+  },
+  "keyword:then@gantt": {
+    "summary": "Starts a task after the previous one",
+    "example": "[Build] lasts 3 days\nthen [Test] lasts 2 days"
+  },
+  "keyword:color@gantt": {
+    "summary": "Colours a link between tasks",
+    "example": "[Build] lasts 3 days\n[Test] starts at [Build]'s end with blue dotted link\n[Test] lasts 2 days"
+  },
+  "keyword:link@gantt": {
+    "summary": "Draws the link between tasks",
+    "example": "[Build] lasts 3 days\n[Test] starts at [Build]'s end with blue dotted link\n[Test] lasts 2 days"
+  },
+  "keyword:style@gantt": {
+    "summary": "Style of a link between tasks",
+    "example": "[Build] lasts 3 days\n[Test] starts at [Build]'s end with blue dotted link\n[Test] lasts 2 days"
+  },
+  "keyword:is@gantt": {
+    "summary": "Colours or sets a task",
+    "example": "[Build] lasts 3 days\n[Build] is colored in Lavender/LightBlue"
+  },
+  "keyword:on@gantt": {
+    "summary": "Assigns resources to a task",
+    "example": "[Build] on {Ann} lasts 3 days"
+  },
+  "keyword:label@gantt": {
+    "summary": "Where task labels sit",
+    "example": "[Build] lasts 3 days\nLabel on first column and Left aligned"
+  },
+  "keyword:footbox@gantt": {
+    "summary": "The footer showing the time scale",
+    "example": "[Build] lasts 3 days\nhide footbox"
+  },
+  "keyword:hide@gantt": {
+    "summary": "Hides the footer or resources",
+    "example": "[Build] lasts 3 days\nhide footbox"
+  },
+  "keyword:as@wbs": {
+    "summary": "Names a box so arrows can reach it",
+    "example": "* root\n**(A) a\n**(B) b\nA -> B"
+  },
+  "keyword:left@mindmap": {
+    "summary": "Draws the branches after it on the left",
+    "example": "* root\n** a\nleft side\n** b"
+  },
+  "keyword:right@mindmap": {
+    "summary": "Draws the branches after it on the right",
+    "example": "* root\n** a\nright side\n** b"
+  },
+  "keyword:top@mindmap": {
+    "summary": "Lays the map out top to bottom",
+    "example": "top to bottom direction\n* root\n** a"
+  },
+  "keyword:bottom@mindmap": {
+    "summary": "Lays the map out bottom to top",
+    "example": "top to bottom direction\n* root\n** a"
+  },
+  "keyword:left to right direction@mindmap": {
+    "summary": "Lays the map out left to right",
+    "example": "left to right direction\n* root\n** a"
+  },
+  "keyword:top to bottom direction@mindmap": {
+    "summary": "Lays the map out top to bottom",
+    "example": "top to bottom direction\n* root\n** a"
+  },
+  "keyword:h-axis@chart": {
+    "summary": "Horizontal axis with its labels",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]"
+  },
+  "keyword:v-axis@chart": {
+    "summary": "Vertical axis with its range",
+    "example": "h-axis \"Q\" [Q1, Q2]\nv-axis \"Sales\" 0 --> 10\nbar \"Sales\" [3, 5]"
+  },
+  "keyword:v2-axis@chart": {
+    "summary": "Second vertical axis",
+    "example": "h-axis \"Q\" [Q1, Q2]\nv2-axis \"Rate\" 0 --> 100\nline \"Rate\" [20, 40]"
+  },
+  "keyword:bar@chart": {
+    "summary": "Series drawn as bars",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]"
+  },
+  "keyword:line@chart": {
+    "summary": "Series drawn as a line",
+    "example": "h-axis \"Q\" [Q1, Q2]\nline \"Sales\" [3, 5]"
+  },
+  "keyword:area@chart": {
+    "summary": "Series drawn as a filled area",
+    "example": "h-axis \"Q\" [Q1, Q2]\narea \"Sales\" [3, 5]"
+  },
+  "keyword:scatter@chart": {
+    "summary": "Series drawn as points",
+    "example": "h-axis \"x\" 0 --> 10\nscatter \"P\" [(1,12),(6,34)]"
+  },
+  "keyword:circle@chart": {
+    "summary": "Marker drawn as a circle",
+    "example": "h-axis \"x\" 0 --> 10\nscatter \"P\" [(1,12),(6,34)] <<circle>>"
+  },
+  "keyword:grid@chart": {
+    "summary": "Draws grid lines on an axis",
+    "example": "h-axis \"Q\" [Q1, Q2] grid\nbar \"Sales\" [3, 5]"
+  },
+  "keyword:label@chart": {
+    "summary": "Axis label placement, as label-right",
+    "example": "h-axis \"Q\" [Q1, Q2] label-right\nbar \"Sales\" [3, 5]"
+  },
+  "keyword:left@chart": {
+    "summary": "Puts an axis or legend on the left",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\nlegend left"
+  },
+  "keyword:right@chart": {
+    "summary": "Puts an axis or legend on the right",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\nlegend right"
+  },
+  "keyword:top@chart": {
+    "summary": "Puts an axis or legend at the top",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\nlegend top"
+  },
+  "keyword:bottom@chart": {
+    "summary": "Puts an axis or legend at the bottom",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\nlegend bottom"
+  },
+  "keyword:annotation@chart": {
+    "summary": "Marks a point with a note",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\nannotation \"Peak\" at (Q2, 5)"
+  },
+  "keyword:at@chart": {
+    "summary": "Where an annotation points",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\nannotation \"Peak\" at (Q2, 5)"
+  },
+  "keyword:ticks@chart": {
+    "summary": "Named marks along an axis",
+    "example": "h-axis \"Q\" [Q1, Q2]\nv-axis \"Sales\" 0 --> 10 ticks [0:\"Low\", 10:\"High\"]\nbar \"Sales\" [3, 5]"
+  },
+  "keyword:spacing@chart": {
+    "summary": "Spacing option of an axis",
+    "example": "h-axis \"Q\" [Q1, Q2] spacing 20\nbar \"Sales\" [3, 5]"
+  },
+  "keyword:stackmode@chart": {
+    "summary": "How series share the bars",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"A\" [3, 5]\nbar \"B\" [1, 2]\nstackMode stacked"
+  },
+  "keyword:orientation@chart": {
+    "summary": "Draws the chart horizontal or vertical",
+    "example": "h-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\norientation horizontal"
+  },
+  "keyword:note@files": {
+    "summary": "Annotates a file or folder",
+    "example": "/src/main.js\nnote: entry point"
+  },
+  "keyword:skinparam@salt": {
+    "summary": "Sets the zoom or look of a salt form",
+    "example": "skinparam dpi 150\n{\n  [OK]\n}"
+  },
+  "keyword:sprite@nwdiag": {
+    "summary": "Sets the icon of a node",
+    "example": "network n {\n  a [sprite = \"archimate/application\"];\n}"
+  },
+  "keyword:nwdiag@nwdiag": {
+    "summary": "Block of networks",
+    "example": "network n {\n  a;\n}"
+  },
+  "keyword:address@nwdiag": {
+    "summary": "IP address of a node",
+    "example": "network n {\n  a [address = \"10.0.0.1\"];\n}"
+  },
+  "keyword:shape@nwdiag": {
+    "summary": "Shape of a node",
+    "example": "network n {\n  a [shape = database];\n}"
+  },
+  "keyword:highlight@json": {
+    "summary": "Highlights a key in the tree",
+    "example": "{ \"a\": 1, \"b\": 2 }\n#highlight \"a\""
+  },
+  "keyword:highlight@yaml": {
+    "summary": "Highlights a key in the tree",
+    "example": "a: 1\nb: 2\n#highlight \"a\""
+  },
+  "keyword:null@json": {
+    "summary": "The JSON null value",
+    "example": "{ \"a\": null }"
   },
   "helper:colors": {
     "summary": "the named colours"

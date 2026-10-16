@@ -1869,7 +1869,7 @@ describe('the docs beside the completion list', () => {
 
   it('gives a keyword its summary as detail and a card as info', async () => {
     const alt = option(await docd(keywords, '@startuml\n|', true), 'alt')
-    expect(alt.detail).toBe('alternatives')
+    expect(alt.detail).toBe('Alternatives, one drawn per else')
     const { dom } = alt.info()
     expect(dom.className).toBe('cm-doc')
   })

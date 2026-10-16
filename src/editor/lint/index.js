@@ -28,7 +28,7 @@ function needsRefresh(update) {
     || update.startState.facet(profileRules) !== update.state.facet(profileRules)
 }
 
-/** Set while lint's F8 and Shift-F8 run: they open the message they move to, not the pointer's. */
+/** Set while lint's keys (F8, Mod-Shift-m) run: F8 opens the message it moves to, not the pointer's. */
 let unfiltered = false
 
 /**
@@ -45,7 +45,7 @@ export function tooltipFilter(diagnostics, state) {
   return left.length ? left : null
 }
 
-/** lintKeymap, its F8 and Shift-F8 showing a carded word's message too. */
+/** lintKeymap, its F8 showing a carded word's message too. */
 export const plantumlLintKeymap = lintKeymap.map((binding) => ({
   ...binding,
   run(view) {

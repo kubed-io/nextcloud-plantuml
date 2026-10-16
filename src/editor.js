@@ -580,8 +580,8 @@ export function openEditor(node) {
           EditorView.lineWrapping,
           // Mod-s would otherwise be the browser's "Save page as". defaultKeymap
           // carries Mod-/ for comments; Ctrl-M (Shift-Alt-M on macOS) makes Tab
-          // move focus again instead of indenting. lintKeymap opens the
-          // diagnostics panel on Mod-Shift-m and steps through them on F8.
+          // move focus again instead of indenting. plantumlLintKeymap (lint's own)
+          // opens the diagnostics panel on Mod-Shift-m and steps through them on F8.
           keymap.of([
             { key: 'Mod-s', run: () => { save(); return true } },
             ...closeBracketsKeymap,

@@ -51,17 +51,25 @@ const ALIASES = { project: 'gantt' }
 /** `[key, text]` for each word whose key is lower-cased but whose name is written otherwise. */
 const written = (kind, words) => words.map((word) => [`${kind}:${word.toLowerCase()}`, word])
 
+/**
+ * The source's Markdown, as a card shows it: a `code` span's text as it is,
+ * an `_emphasis_` and a `[link](url)` as their words. An underscore inside a
+ * word (`%hsl_color`) is no emphasis.
+ */
+const MARKDOWN = /`([^`]*)`|\[([^\]]*)\]\([^)]*\)|(^|[\s(])_(\S(?:[^_]*\S)?)_(?=$|[\s).,;:!?])/g
+const plain = (text) => text?.replace(MARKDOWN, (_all, code, link, before, emphasis) => code ?? link ?? before + emphasis)
+
 /** What the source says of a word: a function's description and example, a theme's or a library's summary. */
 function sourceText({ source, builtins }) {
   const text = new Map()
   for (const { name, description, example } of builtins) {
-    text.set(`function:${name}`, { summary: description, example })
+    text.set(`function:${name}`, { summary: plain(description), example })
   }
   for (const [name, { summary }] of Object.entries(source.themes)) {
-    text.set(`theme:${name}`, { summary })
+    text.set(`theme:${name}`, { summary: plain(summary) })
   }
   for (const [key, name] of written('library', Object.keys(source.libraries))) {
-    text.set(key, { summary: source.libraries[name].summary })
+    text.set(key, { summary: plain(source.libraries[name].summary) })
   }
   return text
 }

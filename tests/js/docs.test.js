@@ -66,6 +66,22 @@ describe('buildDocs', () => {
     expect(docs.get('library:c4')).toMatchObject({ name: 'C4', kind: 'library', look: 'library', summary: 'The C4 library' })
   })
 
+  it('drops the source’s Markdown and keeps its words', () => {
+    const marked = buildDocs({
+      ...inputs,
+      source: { ...inputs.source, themes: { _none_: { summary: 'A no theme named `_none_`; a `no theme`, based off [solarized](https://x.example)' } } },
+      builtins: [
+        { name: '%n', description: 'Return a newline. _See more documentation on the newline page_', example: '' },
+        { name: '%boolval', description: 'Convert a value _(String, Integer)_ to boolean', example: '' },
+        { name: '%hsl_color', description: 'Return %hsl_color(h, s, l) or %hsl_color(h, s, l, a)', example: '' },
+      ],
+    })
+    expect(marked.get('function:%n').summary).toBe('Return a newline. See more documentation on the newline page')
+    expect(marked.get('function:%boolval').summary).toBe('Convert a value (String, Integer) to boolean')
+    expect(marked.get('function:%hsl_color').summary).toBe('Return %hsl_color(h, s, l) or %hsl_color(h, s, l, a)')
+    expect(marked.get('theme:_none_').summary).toBe('A no theme named _none_; a no theme, based off solarized')
+  })
+
   it('leaves out what nothing gives, and a function with no signature shows its bare name', () => {
     expect(docs.get('function:%now')).not.toHaveProperty('signature')
     expect(docs.get('function:%now')).not.toHaveProperty('example')
@@ -282,6 +298,18 @@ describe('our own lines for diagram types, directives and functions', () => {
     expect(named).toEqual(expect.arrayContaining(['c4', 'domainstory']))
     expect(named.filter((name) => !real.get(`library:${name}`)?.link)).toEqual([])
     expect(real.get('library:c4')).toMatchObject({ name: 'C4', kind: 'library' })
+  })
+
+  it('shows no Markdown from the source on any card', () => {
+    const source = data('docs/source')
+    const keys = [
+      ...builtins.map(({ name }) => `function:${name}`),
+      ...Object.keys(source.themes).map((name) => `theme:${name}`),
+      ...Object.keys(source.libraries).map((name) => `library:${name.toLowerCase()}`),
+    ]
+    const marked = keys.filter((key) => /`|(?:^|\s)_\S|\S_(?:$|[\s.,;])|\]\(/.test(real.get(key)?.summary ?? '') && key !== 'theme:_none_')
+    expect(marked).toEqual([])
+    expect(real.get('theme:_none_').summary).not.toContain('`')
   })
 
   it('writes alt as the brief says', () => {

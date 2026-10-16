@@ -192,7 +192,7 @@
   },
   "diagram:chronology": {
     "summary": "Timeline of dated events",
-    "example": "@startchronology\n[Kickoff] happens on 2024-01-01\n@endchronology"
+    "example": "@startchronology\n[Kickoff] happens on 2024-01-15 09:00:00\n@endchronology"
   },
   "diagram:creole": {
     "summary": "Creole text, drawn formatted",
@@ -236,7 +236,7 @@
   },
   "diagram:jcckit": {
     "summary": "JCCKit chart",
-    "example": "@startjcckit\ndata/curves/0/y = 1 2 3\n@endjcckit"
+    "example": "@startjcckit(600,300)\ndata/curves = c1\ndata/c1/x = 1 2 3\ndata/c1/y = 1 3 2\n@endjcckit"
   },
   "diagram:json": {
     "summary": "JSON data, drawn as a tree",

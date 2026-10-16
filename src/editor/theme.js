@@ -32,6 +32,22 @@ const ATTRIBUTE = 'color-mix(in srgb, color-mix(in srgb, var(--color-element-war
 /** A preprocessor function's name, a muted ochre, as VS Code draws functions brown. */
 const OCHRE = 'color-mix(in srgb, var(--color-favorite) 55%, var(--color-text-maxcontrast))'
 
+/** A doc card's name, in the colour the highlight gives that kind of element. */
+const DOC_NAME_COLOURS = {
+  diagram: 'var(--color-info-text)',
+  keyword: 'var(--color-info-text)',
+  helper: 'var(--color-info-text)',
+  skinparam: 'var(--color-info-text)',
+  directive: 'var(--color-primary-element)',
+  function: OCHRE,
+  selector: MOSS,
+  property: SLATE,
+  tag: towardText('--color-element-error'),
+  connector: towardText('--color-element-warning'),
+  theme: towardText('--color-element-success'),
+  library: towardText('--color-element-success'),
+}
+
 /** Nextcloud names no monospace face, so the system's own. */
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
 
@@ -292,6 +308,44 @@ export const surfaceRules = {
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--border-radius-large)',
   },
+  // The doc card (docs/card.js), in a hover tooltip or a completion's info box:
+  // the box draws the border, the card only its contents.
+  '.cm-doc': { padding: '8px 12px', maxWidth: '400px', maxHeight: '20em', overflow: 'auto' },
+  '.cm-doc-head': { display: 'flex', alignItems: 'center', gap: '8px' },
+  '.cm-doc-icon': { display: 'inline-flex', width: '16px', height: '16px' },
+  '.cm-doc-icon svg': { width: '16px', height: '16px' },
+  '.cm-doc-name': { fontFamily: MONO, fontWeight: 'bold' },
+  '.cm-doc-kind': { color: 'var(--color-text-maxcontrast)' },
+  '.cm-doc-close': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '20px',
+    height: '20px',
+    marginLeft: 'auto',
+    padding: '0',
+    visibility: 'hidden',
+    color: 'var(--color-text-maxcontrast)',
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  '.cm-doc-close svg': { width: '14px', height: '14px' },
+  '.cm-doc-summary': { marginTop: '4px' },
+  '.cm-doc-example': {
+    margin: '8px 0 0',
+    padding: '6px 8px',
+    overflow: 'auto',
+    fontFamily: MONO,
+    backgroundColor: 'var(--color-background-dark)',
+    borderRadius: 'var(--border-radius)',
+  },
+  '.cm-doc-link': { display: 'inline-block', marginTop: '8px', color: 'var(--color-primary-element)', textDecoration: 'none' },
+  '.cm-doc-link:hover': { textDecoration: 'underline' },
+  // An outline, so a pinned box keeps its size.
+  '.cm-tooltip-hover.cm-doc-pinned': { outline: '2px solid var(--color-primary-element)' },
+  '.cm-doc-pinned .cm-doc-close': { visibility: 'visible' },
+  ...Object.fromEntries(Object.entries(DOC_NAME_COLOURS).map(([look, color]) => [`.cm-doc-name.cm-doc-${look}`, { color }])),
   '.cm-completionIcon-constant': { color: towardText('--color-element-success') },
   '.cm-completionIcon-constant:after': { content: '"c"' },
   '.cm-completionIcon-operator': { color: towardText('--color-element-warning') },

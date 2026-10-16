@@ -253,3 +253,35 @@ describe('the colours of the preprocessor', () => {
     expect(yaml['*x']).toBeUndefined()
   })
 })
+
+// I5: the doc card shares the tooltip's popover look and takes its name colours from the highlight.
+describe('the doc card', () => {
+  const rule = (selector) => surfaceRules[selector]
+
+  it('is a bounded, scrolling box that draws no border of its own', () => {
+    expect(rule('.cm-doc')).toMatchObject({ padding: '8px 12px', maxWidth: '400px', maxHeight: '20em', overflow: 'auto' })
+    expect(rule('.cm-doc').border).toBeUndefined()
+  })
+
+  it.each([
+    ['diagram', 'var(--color-info-text)'], ['keyword', 'var(--color-info-text)'], ['helper', 'var(--color-info-text)'], ['skinparam', 'var(--color-info-text)'],
+    ['directive', 'var(--color-primary-element)'], ['function', OCHRE], ['selector', MOSS], ['property', SLATE],
+    ['tag', MAROON], ['connector', 'color-mix(in srgb, var(--color-element-warning) 75%, var(--color-main-text))'], ['theme', GREEN], ['library', GREEN],
+  ])('colours a %s name', (look, colour) => {
+    expect(rule(`.cm-doc-name.cm-doc-${look}`).color).toBe(colour)
+  })
+
+  it('outlines a pinned hover and shows its close button only then', () => {
+    expect(rule('.cm-tooltip-hover.cm-doc-pinned').outline).toBe('2px solid var(--color-primary-element)')
+    expect(rule('.cm-doc-close').visibility).toBe('hidden')
+    expect(rule('.cm-doc-pinned .cm-doc-close').visibility).toBe('visible')
+  })
+
+  it('uses no colour literal', () => {
+    for (const [selector, declarations] of Object.entries(surfaceRules).filter(([selector]) => selector.includes('.cm-doc'))) {
+      for (const [property, value] of Object.entries(declarations)) {
+        expect(value, `${selector} ${property}`).not.toMatch(LITERAL)
+      }
+    }
+  })
+})

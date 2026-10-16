@@ -1,0 +1,16 @@
+@startregex
+^(?<user>[\w.+-]+)@(?<host>[a-z0-9-]+(?:\.[a-z]{2,})+)$
+@endregex
+@startregex
+!option handwritten true
+!option useDescriptiveNames true
+\b(?:\d{1,3}\.){3}\d{1,3}\b|[[:alpha:]]+?\p{Lu}\x{1F600}é\0377
+@endregex
+@startregex
+(?<!\$)\b(?=\w)[^\s,;]{2,5}(?#a comment)(foo|bar)*?(?!x)
+@endregex
+@startregex
+!option useDescriptiveNames true
+title docs: escapes, octal, unicode
+\t\r\n\a\e\f\0377\337\uFFFF\x{FFFF}\p{L}\p{Latin}\p{InGeometric_Shapes}
+@endregex

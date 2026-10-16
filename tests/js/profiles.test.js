@@ -46,6 +46,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\n* a\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are regex only when a regex block is in the file', () => {
+    expect(neededFor('@startregex\n^a$\n@endregex\n')).toEqual(new Set(['regex']))
+    expect(neededFor('@startuml\n^a$\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

@@ -48,6 +48,7 @@ export const PROFILES = {
   latex: () => import('./latex.js'),
   // PlantUML's alias of gantt: the same chunk, its profile under the type `project`.
   project: () => import('./gantt.js').then((module) => ({ default: module.project })),
+  regex: () => import('./regex.js'),
   mindmap: () => import('./tree.js'),
   // The same chunk: wbs reads what mindmap does differently.
   wbs: () => import('./tree.js').then((module) => ({ default: module.wbs })),

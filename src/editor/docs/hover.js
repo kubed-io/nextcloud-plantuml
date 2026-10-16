@@ -129,18 +129,41 @@ function lintSection(view, found) {
   return list
 }
 
+/** The run of word characters, or of other non-space ones, on `side` of `pos`; empty on a space. */
+function runAt(state, pos, side) {
+  const line = state.doc.lineAt(pos)
+  const at = pos - line.from - (side < 0 ? 1 : 0)
+  const char = line.text[at]
+  if (!char || /\s/.test(char)) {
+    return { from: pos, to: pos }
+  }
+  const same = /\w/.test(char) ? /\w/ : /[^\s\w]/
+  let from = at
+  let to = at + 1
+  while (from > 0 && same.test(line.text[from - 1])) {
+    from--
+  }
+  while (to < line.text.length && same.test(line.text[to])) {
+    to++
+  }
+  return { from: line.from + from, to: line.from + to }
+}
+
 /**
  * Lint's messages at `pos` that lint's own hover leaves to this one, alone:
- * a message on a carded word, where the pointer is off the word.
+ * a message on a carded word, where the pointer is off the word. The tooltip
+ * spans the pointer's own word, not the message's range, so the pointer
+ * moving onto the carded word leaves it and that word's card comes up.
  */
 function lintAlone(view, pos, side) {
   const found = diagnosticsIn(view.state, pos, pos, (from, to) => (from === to || (side < 0 ? pos > from : pos < to)) && onCard(view.state, from, to))
   if (!found.length) {
     return null
   }
+  const run = runAt(view.state, pos, side)
   return {
-    pos: Math.min(...found.map(({ from }) => from)),
-    end: Math.max(...found.map(({ to }) => to)),
+    pos: Math.max(run.from, Math.min(...found.map(({ from }) => from))),
+    end: Math.min(run.to, Math.max(...found.map(({ to }) => to))),
     above: true,
     create: (view) => ({ dom: lintSection(view, found) }),
   }

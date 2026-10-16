@@ -501,11 +501,28 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     view.dispatch(setDiagnostics(view.state, [line]))
     expect(tooltipFilter([line], view.state) ?? []).toEqual([])
     const tooltip = docSource(view, at('paid'), 1)
-    expect(tooltip).toMatchObject({ pos: 0, end: line.to, above: true })
+    expect(tooltip).toMatchObject({ above: true })
     const { dom } = tooltip.create(view)
     expect(dom.matches('ul.cm-tooltip-lint')).toBe(true)
     expect(dom.textContent).toContain('Syntax error')
     expect(pinDocAt(view, at('paid'))).toBe(false)
+  })
+
+  it('spans a message shown alone over the pointer’s word only, so the carded word beside it still gets its card', () => {
+    const view = viewOf()
+    const line = { from: 0, to: 'alt paid'.length, severity: 'error', message: 'Syntax error' }
+    view.dispatch(setDiagnostics(view.state, [line]))
+    expect(docSource(view, at('paid'), 1)).toMatchObject({ pos: 4, end: 8, above: true })
+    expect(docSource(view, at('paid', 3), -1)).toMatchObject({ pos: 4, end: 8 })
+    expect(docSource(view, 3, 1)).toMatchObject({ pos: 3, end: 3 })
+    expect(docSource(view, at('alt'), 1)).toMatchObject({ pos: 0, end: 3, above: false })
+  })
+
+  it('keeps a message shown alone inside its own range', () => {
+    const view = viewOf()
+    const part = { from: 0, to: 'alt pa'.length, severity: 'error', message: 'Syntax error' }
+    view.dispatch(setDiagnostics(view.state, [part]))
+    expect(docSource(view, at('paid'), 1)).toMatchObject({ pos: 4, end: 6 })
   })
 
   it('applies an action from the card’s box', () => {

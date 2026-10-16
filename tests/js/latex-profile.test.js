@@ -49,12 +49,20 @@ describe('the latex profile', () => {
 })
 
 describe('a @startlatex block', () => {
-  it('reads a sum: commands, scripts, braces, numbers and relations', () => {
+  it('reads a sum: commands, scripts, braces, numbers, arithmetic and relations', () => {
     expect(read('\\sum_{i=0}^{n-1} i = \\frac{n(n-1)}{2}')).toEqual([
-      ['\\sum', 'FunctionName'], ['_', 'operator'], ['{', 'brace'], ['=', 'operator'], ['0', 'number'], ['}', 'brace'],
-      ['^', 'operator'], ['{', 'brace'], ['-', 'operator'], ['1', 'number'], ['}', 'brace'], ['=', 'operator'],
-      ['\\frac', 'FunctionName'], ['{', 'brace'], ['(', 'paren'], ['-', 'operator'], ['1', 'number'], [')', 'paren'], ['}{', 'brace'], ['2', 'number'], ['}', 'brace'],
+      ['\\sum', 'FunctionName'], ['_', 'operator'], ['{', 'brace'], ['=', 'compareOperator'], ['0', 'number'], ['}', 'brace'],
+      ['^', 'operator'], ['{', 'brace'], ['-', 'arithmeticOperator'], ['1', 'number'], ['}', 'brace'], ['=', 'compareOperator'],
+      ['\\frac', 'FunctionName'], ['{', 'brace'], ['(', 'paren'], ['-', 'arithmeticOperator'], ['1', 'number'], [')', 'paren'], ['}{', 'brace'], ['2', 'number'], ['}', 'brace'],
     ])
+  })
+
+  it('reads its operators by kind (Y23): arithmetic, comparison, the rest operators', () => {
+    expect(read('a + b - c * d / e = f < g > h').filter(([, token]) => token)).toEqual([
+      ['+', 'arithmeticOperator'], ['-', 'arithmeticOperator'], ['*', 'arithmeticOperator'], ['/', 'arithmeticOperator'],
+      ['=', 'compareOperator'], ['<', 'compareOperator'], ['>', 'compareOperator'],
+    ])
+    expect(read('x^2_1 & y | z').map(([, token]) => token)).toEqual(['operator', 'number', 'operator', 'number', 'operator', 'operator'])
   })
 
   it('reads an environment: its name moss, & and \\\\ operators', () => {

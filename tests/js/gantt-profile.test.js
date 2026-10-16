@@ -68,10 +68,10 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
   const readAll = (...lines) => readDoc(lines)
   const read = (...lines) => tokens(type, ...lines)
 
-  it('names the project start a keyword and its date a number', () => {
-    expect(read('Project starts 2026-10-13')).toEqual([['Project starts', 'keyword'], ['2026-10-13', 'number']])
-    expect(read('project starts the 5th of October 2026')).toEqual([['project starts the', 'keyword'], ['5th of October 2026', 'number']])
-    expect(read('Project starts October 5, 2026')).toEqual([['Project starts', 'keyword'], ['October 5, 2026', 'number']])
+  it('names the project start a keyword and its date a Date (Y17)', () => {
+    expect(read('Project starts 2026-10-13')).toEqual([['Project starts', 'keyword'], ['2026-10-13', 'Date']])
+    expect(read('project starts the 5th of October 2026')).toEqual([['project starts the', 'keyword'], ['5th of October 2026', 'Date']])
+    expect(read('Project starts October 5, 2026')).toEqual([['Project starts', 'keyword'], ['October 5, 2026', 'Date']])
   })
 
   it('names a task moss, its verb a keyword and its duration a number', () => {
@@ -98,7 +98,7 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
 
   it('names a resource slate, a percentage with it', () => {
     expect(read('{Alice:50%} is off on 2026-10-20')).toEqual([
-      ['{', 'brace'], ['Alice:50%', 'propertyName'], ['}', 'brace'], ['is off on', 'keyword'], ['2026-10-20', 'number'],
+      ['{', 'brace'], ['Alice:50%', 'propertyName'], ['}', 'brace'], ['is off on', 'keyword'], ['2026-10-20', 'Date'],
     ])
     expect(read('[Design] on {Alice} {Bob:50%} lasts 5 days and is 40% complete')).toEqual([
       ['[', 'squareBracket'], ['Design', 'typeName'], [']', 'squareBracket'], ['on', 'keyword'], ['{', 'brace'], ['Alice', 'propertyName'], ['}', 'brace'], ['{', 'brace'], ['Bob:50%', 'propertyName'], ['}', 'brace'],
@@ -115,7 +115,7 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
       ['#red', 'ColorLiteral'], ['to', 'keyword'], ['blue', 'ColorLiteral'],
     ])
     expect(read('2026-10-14 to 2026-10-16 are colored in salmon and')).toEqual([
-      ['2026-10-14', 'number'], ['to', 'keyword'], ['2026-10-16', 'number'], ['are colored in', 'keyword'], ['salmon', 'ColorLiteral'], ['and', 'keyword'],
+      ['2026-10-14', 'Date'], ['to', 'keyword'], ['2026-10-16', 'Date'], ['are colored in', 'keyword'], ['salmon', 'ColorLiteral'], ['and', 'keyword'],
     ])
   })
 
@@ -153,11 +153,12 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     expect(read('saturday are closed')).toEqual([['saturday are closed', 'keyword']])
   })
 
-  it('names relative dates and times numbers', () => {
-    expect(read('[A] starts D+5')).toEqual([['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['starts', 'keyword'], ['D+5', 'number']])
+  it('names relative dates and times Dates, a duration and a percentage numbers (Y17)', () => {
+    expect(read('[A] starts D+5')).toEqual([['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['starts', 'keyword'], ['D+5', 'Date']])
     expect(read('from 08:00 to 12:00 are working hours')).toEqual([
-      ['from', 'keyword'], ['08:00', 'number'], ['to', 'keyword'], ['12:00', 'number'], ['are working hours', 'keyword'],
+      ['from', 'keyword'], ['08:00', 'Date'], ['to', 'keyword'], ['12:00', 'Date'], ['are working hours', 'keyword'],
     ])
+    expect(read('[A] lasts 2 days and is 40% complete').slice(-4)).toEqual([['2 days', 'number'], ['and is', 'keyword'], ['40%', 'number'], ['complete', 'keyword']])
   })
 
   it('names a link, a display name and a stereotype', () => {

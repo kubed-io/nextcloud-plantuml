@@ -32,13 +32,18 @@ const KEYWORDS = new RegExp(`${WORD}(?:[ \\t]+${WORD})*`, 'i')
 
 const MONTH = '(?:january|february|march|april|may|june|july|august|september|october|november|december)'
 const DAY = '\\d{1,2}(?:st|nd|rd|th)?'
-const NUMBERS = [
+// A calendar date or a time (Y17): a date written out, `2026-10-13`, `D+5` and `12:30`.
+const DATES = [
   new RegExp(`${DAY}(?:[ \\t]+of)?[ \\t]+${MONTH}[ \\t]+\\d{4}(?!\\w)`, 'i'),
   new RegExp(`${MONTH}[ \\t]+${DAY},?[ \\t]+\\d{4}(?!\\w)`, 'i'),
   /\d{4}[-/.]\d{1,2}[-/.]\d{1,2}(?!\w)/,
   // D+5 from the start, T+1 from today, E-2 from the end.
   /[dte][+-]\d+(?!\w)/i,
   /\d{1,2}:\d{2}(?!\w)/,
+]
+
+// A duration, an ordinal and a percentage: numbers.
+const NUMBERS = [
   /\d+[ \t]+(?:working[ \t]+)?(?:day|week|month|hour|minute|second)s?(?!\w)/i,
   /\d+(?:st|nd|rd|th|%)?(?!\w)/i,
 ]
@@ -219,6 +224,9 @@ function build(lex) {
       if (stream.match(colour.hash)) {
         state.colour = 'after'
         return 'ColorLiteral'
+      }
+      if (DATES.some((pattern) => stream.match(pattern))) {
+        return 'Date'
       }
       if (NUMBERS.some((pattern) => stream.match(pattern))) {
         return 'number'

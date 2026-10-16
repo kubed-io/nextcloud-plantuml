@@ -42,6 +42,9 @@ const { colourPart, notStylePart } = patterns
 // `== Section ==`, and a delay: `...` alone or `... 5 minutes later ...`.
 const separator = /={2,}[^=].*?={2,}\s*$|\.{3,}(?:.*?\.{3,})?\s*$/.source
 
+// The words whose condition follows in parentheses (`if (x)`, `else (no)`).
+const conditionWords = /(?:if|elseif|else|while|endwhile|switch|case)/.source
+
 const lineKeywords = /abstract\s+class|end\s+(?:box|fork|group|merge|note|ref|split|title)|(?:fork|split)(?:\s+again)?|activate|actor|agent|alt|annotation|artifact|autoactivate|autonumber|backward|binary|boundary|box|break|caption|card|case|circle|class|clock|cloud|collections|component|concise|control|create|critical|database|deactivate|destroy|detach|diamond|else|elseif|end|end[hr]note|endif|endswitch|endwhile|entity|enum|file|folder|footer|frame|group|[hr]?note|header|hexagon|hide|if|interface|label|legend|loop|map|namespace|network|newpage|node|nwdiag|object|opt|package|page|par|participant|person|queue|rectangle|ref|remove|repeat|restore|return|robust|scale|set|show|skinparam|stack|start|state|stop|storage|switch|title|together|usecase|usecase\/|while/.source
 
 /** The rules of a path slot, each ending in the state that reads the rest of the `!` line. */
@@ -78,6 +81,8 @@ const states = {
     atLineStart(/legend\b/.source, 'keyword', { next: 'legendHead' }),
     ...['title', 'header', 'footer'].map((word) => atLineStart(`${word}(?=\\s*$)`, 'keyword', { next: `${word}Body` })),
     atLineStart(/(?:title|header|footer|caption|mainframe)(?=\s)/.source, 'keyword', { next: 'text' }),
+    // A condition's parentheses are brackets (H20), what they hold read as `condition`.
+    { regex: new RegExp(`([ \\t]*)(${conditionWords}|repeat[ \\t]+while)([ \\t]*)(\\()`), sol: true, token: [null, 'keyword', null, 'paren'], push: 'condition' },
     // What a line declares is a type (H15); a class's `{` opens its members (H17).
     ...declarations,
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
@@ -99,6 +104,7 @@ const states = {
     ...colours,
     // `node web [` opens a description that runs to a line starting with `]`.
     { regex: /\[(?=\s*$)/, token: null, next: 'descBody' },
+    { regex: new RegExp(`\\b(${conditionWords}|then|is|not|equals)(\\s*)(\\()`), token: ['keyword', null, 'paren'], push: 'condition' },
     { regex: /\b(?:elseif|equals|not|while)(?=\s*\()/, token: 'keyword' },
     { regex: /\b(?:as|is|then)\b/, token: 'keyword' },
     // A sprite used as an element's icon (`rectangle <$foo> as r`).
@@ -114,6 +120,18 @@ const states = {
   colonText: [...colours, { regex: /"[^"]*"/, token: 'string' }, ...creole(null)],
   stereotype: stereotypeState,
   args: argsState,
+  // A condition, to its `)`; it ends with its line, see `lineStates`.
+  condition: [
+    { regex: /\)/, token: 'paren', pop: true },
+    { regex: /\(/, token: 'paren', push: 'condition' },
+    { regex: /"[^"]*"/, token: 'string' },
+    paths.url,
+    ...colours,
+    ...callNames,
+    ...numbers,
+    ...calls,
+    { regex: /\w+/, token: null },
+  ],
   // A class's members, a `!` line among them pushed from here (H17).
   classHead: classStates.classHead,
   classBody: [...bang, ...classStates.classBody],
@@ -208,7 +226,7 @@ const states = {
 // A tag's attributes end with their line too; the state they were pushed from is popped.
 // A `!` line's states are popped, back to the state it was read in.
 const nextLine = { boxLast: 'start', afterLink: 'start', arrowAttr: 'start', noteLine: 'start', colonText: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody', classHead: 'classBody' }
-const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args', 'preprocessor', 'includePath', 'theme', 'themePath'] })
+const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args', 'condition', 'preprocessor', 'includePath', 'theme', 'themePath'] })
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`; a one-line block (its middle read as a

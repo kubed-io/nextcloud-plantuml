@@ -1001,6 +1001,13 @@ describe('plantumlMode Creole, complete (X19)', () => {
   const List = (text) => [text, 'list']
   const Bar = (text) => [text, 'separator']
 
+  it('reads \\n, \\t and \\\\ in Creole text as escapes (Y20)', () => {
+    expect(tokens('A -> B : a\\nb')).toEqual([['->', 'LinkOperator'], ['a', 'labelName'], ['\\n', 'escape'], ['b', 'labelName']])
+    expect(inner('x\\ty \\\\ z')).toEqual([['\\t', 'escape'], ['\\\\', 'escape']])
+    expect(tokens('note left : one\\ntwo')).toEqual([['note', 'keyword'], ['\\n', 'escape']])
+    expect(tokens('A -> B : a\\b')).toEqual([['->', 'LinkOperator'], ['a\\b', 'labelName']])
+  })
+
   it.each([
     ['a note body', (...lines) => inner(...lines)],
     ['a @startcreole block', (...lines) => tokens('@startcreole', ...lines, '@endcreole').slice(1, -1)],
@@ -1170,35 +1177,6 @@ describe('plantumlMode a diagram\'s name (H12)', () => {
     ])
   })
 
-  // A top-level body left open ends at the diagram's `@end` or the next `@start` (P5).
-  describe('a top-level body left open', () => {
-    const nextDiagram = [['@enduml', 'keyword'], ['@startuml', 'keyword'], ['->', 'LinkOperator'], ['@enduml', 'keyword']]
-    it.each([
-      ['a note with no end note', 'note left of A'],
-      ['a bare title', 'title'],
-      ['a bare header', 'header'],
-      ['a bare footer', 'footer'],
-      ['a legend', 'legend'],
-      ['a description with no ]', 'node x ['],
-      ['a <code> in a note', 'note left of A', '<code>'],
-      ['a <code> in a description', 'node x [', '<code>'],
-      ['a <latex> block in a note', 'note left of A', '<latex>'],
-      ["an open /'", "/' open"],
-    ])('ends %s at @enduml, and reads the next diagram as ever', (_, ...open) => {
-      expect(tokens('@startuml', ...open, 'text', '@enduml', '@startuml', 'A -> B', '@enduml').slice(-4)).toEqual(nextDiagram)
-      // With no `@end`, the next `@start` ends it.
-      expect(tokens('@startuml', ...open, 'text', '@startuml', 'A -> B', '@enduml').slice(-3)).toEqual(nextDiagram.slice(1))
-    })
-
-    it('ends an open note at @enduml while it is typed', () => {
-      let state = EditorState.create({ doc: '@startuml\nnote left of A', extensions: [plantumlMode] })
-      ensureSyntaxTree(state, state.doc.length, 5000)
-      state = state.update({ changes: { from: state.doc.length, insert: '\n@enduml' } }).state
-      const at = state.doc.toString().indexOf('@enduml')
-      expect(ensureSyntaxTree(state, state.doc.length, 5000).resolveInner(at, 1).name).toBe('keyword')
-    })
-  })
-
   it('ends an open block at the next @start, as B1 reads it (T26)', () => {
     const uml = [['@startuml', 'keyword'], ['actor', 'keyword'], ['Bob', 'typeName'], ['@enduml', 'keyword']]
     expect(tokens('@startchronology x', '[A] happens', '@startuml', 'actor Bob', '@enduml').slice(-4)).toEqual(uml)
@@ -1289,6 +1267,28 @@ describe('stereotypes (H13)', () => {
 describe('numbers and calls (H14, H16)', () => {
   const numbers = (...lines) => tokens(...lines).filter(([, t]) => t === 'number')
 
+  it.each([
+    ['if (x) then (yes)', ['keyword', 'paren', 'paren', 'keyword', 'paren', 'paren']],
+    ['while (x) is (more)', ['keyword', 'paren', 'paren', 'keyword', 'paren', 'paren']],
+    ['else (no)', ['keyword', 'paren', 'paren']],
+    ['elseif (x) then', ['keyword', 'paren', 'paren', 'keyword']],
+    ['switch (x)', ['keyword', 'paren', 'paren']],
+    ['case (x)', ['keyword', 'paren', 'paren']],
+    ['repeat while (x) is (yes) not (no)', ['keyword', 'paren', 'paren', 'keyword', 'paren', 'paren', 'keyword', 'paren', 'paren']],
+    ['endwhile (done)', ['keyword', 'paren', 'paren']],
+  ])("reads a condition's parentheses in `%s` as brackets (H20)", (line, names) => {
+    expect(tokens(line).map(([, t]) => t)).toEqual(names)
+  })
+
+  it("keeps a condition's text as it reads, a call in it a call", () => {
+    expect(tokens('if ($x > 2 and "y") then (f(1))')).toEqual([
+      ['if', 'keyword'], ['(', 'paren'], ['$x', 'VariableName'], ['2', 'number'], ['"y"', 'string'], [')', 'paren'],
+      ['then', 'keyword'], ['(', 'paren'], ['f', 'FunctionName'], ['(', 'paren'], ['1', 'number'], ['))', 'paren'],
+    ])
+    // An unclosed one ends with its line.
+    expect(tokens('if (x', 'A -> B').slice(-1)).toEqual([['->', 'LinkOperator']])
+  })
+
   it('reads a standing number', () => {
     expect(tokens('scale 1.5')).toContainEqual(['1.5', 'number'])
     expect(numbers('autonumber 10 5')).toEqual([['10', 'number'], ['5', 'number']])
@@ -1366,6 +1366,10 @@ describe('declarations and class bodies (H15, H17)', () => {
     expect(tokens('participant Alice')).toEqual([['participant', 'keyword'], ['Alice', 'typeName']])
     expect(tokens('abstract class Block')).toEqual([['abstract class', 'keyword'], ['Block', 'typeName']])
     expect(tokens('  component api.v1')).toEqual([['component', 'keyword'], ['api.v1', 'typeName']])
+  })
+
+  it('reads a declared $name as the variable it is, the alias after as a type', () => {
+    expect(tokens('participant $app as nc')).toEqual([['participant', 'keyword'], ['$app', 'VariableName'], ['as', 'keyword'], ['nc', 'typeName']])
   })
 
   it('reads the alias after as, the quoted name a string', () => {
@@ -1551,10 +1555,50 @@ describe('declarations and class bodies (H15, H17)', () => {
       expect(tokens(':Main Admin: --> (Use)').map(([, token]) => token)).not.toContain('bracket')
     })
 
+    it('keeps a box open through a ! directive line or a comment line that ends in a closer', () => {
+      const open = (line) => tokens(':open', line, 'A -> B', 'c;').map(([, t]) => t)
+      expect(open('!include <foo/bar>')).not.toContain('LinkOperator')
+      expect(open('!include <foo/bar>').slice(-1)).toEqual(['bracket'])
+      expect(open("' a;")).toEqual(['bracket', 'comment', 'bracket'])
+    })
+
+    it('reads a URL in a box as a URL, the closer a bracket', () => {
+      expect(tokens(':see https://x.org;')).toEqual([[':', 'bracket'], ['https://x.org', 'url'], [';', 'bracket']])
+    })
+
     it('ends an open box at @end, and reads a ! directive line in it as PlantUML\'s', () => {
       expect(tokens(':open', '!if $x', '@enduml', 'A -> B')).toEqual([
         [':', 'bracket'], ['!if', 'meta'], ['$x', 'VariableName'], ['@enduml', 'keyword'], ['->', 'LinkOperator'],
       ])
     })
+  })
+})
+
+// A top-level body left open ends at the diagram's `@end` or the next `@start` (P5).
+describe('plantumlMode, a top-level body left open (P5)', () => {
+  const nextDiagram = [['@enduml', 'keyword'], ['@startuml', 'keyword'], ['->', 'LinkOperator'], ['@enduml', 'keyword']]
+  it.each([
+    ['a note with no end note', 'note left of A'],
+    ['a bare title', 'title'],
+    ['a bare header', 'header'],
+    ['a bare footer', 'footer'],
+    ['a legend', 'legend'],
+    ['a description with no ]', 'node x ['],
+    ['a <code> in a note', 'note left of A', '<code>'],
+    ['a <code> in a description', 'node x [', '<code>'],
+    ['a <latex> block in a note', 'note left of A', '<latex>'],
+    ["an open /'", "/' open"],
+  ])('ends %s at @enduml, and reads the next diagram as ever', (_, ...open) => {
+    expect(tokens('@startuml', ...open, 'text', '@enduml', '@startuml', 'A -> B', '@enduml').slice(-4)).toEqual(nextDiagram)
+    // With no `@end`, the next `@start` ends it.
+    expect(tokens('@startuml', ...open, 'text', '@startuml', 'A -> B', '@enduml').slice(-3)).toEqual(nextDiagram.slice(1))
+  })
+
+  it('ends an open note at @enduml while it is typed', () => {
+    let state = EditorState.create({ doc: '@startuml\nnote left of A', extensions: [plantumlMode] })
+    ensureSyntaxTree(state, state.doc.length, 5000)
+    state = state.update({ changes: { from: state.doc.length, insert: '\n@enduml' } }).state
+    const at = state.doc.toString().indexOf('@enduml')
+    expect(ensureSyntaxTree(state, state.doc.length, 5000).resolveInner(at, 1).name).toBe('keyword')
   })
 })

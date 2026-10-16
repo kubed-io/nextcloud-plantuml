@@ -64,7 +64,14 @@ const modeWith = ({ setting, settingLine }) => ({
     if (ch === '$') {
       return 'punctuation'
     }
-    return '^_&=+-*/<>|'.includes(ch) ? 'operator' : null
+    // Operators by kind (Y23): arithmetic, comparison, and the rest (scripts, `&`, `|`).
+    if ('+-*/'.includes(ch)) {
+      return 'arithmeticOperator'
+    }
+    if ('=<>'.includes(ch)) {
+      return 'compareOperator'
+    }
+    return '^_&|'.includes(ch) ? 'operator' : null
   },
 })
 

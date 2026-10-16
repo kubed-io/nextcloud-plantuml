@@ -121,6 +121,8 @@ export function creole(base) {
     // `~~` is a wave, left as text; `~` before any other character escapes it.
     { regex: /~~/, token: base },
     { regex: /(~)([^~])/, token: ['punctuation', base] },
+    // A line break or a tab in the text, and a backslash itself (Y20).
+    { regex: /\\[ntlr\\]/, token: 'escape' },
     // A URL's `//` starts no italics.
     paths.url,
     { regex: /\*\*.+?\*\*/, token: on('strong') },
@@ -147,7 +149,7 @@ export function creole(base) {
     { regex: /<(?:&[^>\s]+|:[^>\s]+:|\$[^>\s]+|U\+[\dA-Fa-f]+)>|&#(?:\d+|x[\dA-Fa-f]+);/, token: 'tagName' },
     ...names,
     { regex: /\|=?/, token: 'separator' },
-    { regex: /\w+|[^\w[*/"<|~&$%]+/, token: base },
+    { regex: /\w+|[^\w[*/"<|~&$%\\]+/, token: base },
     { regex: /./, token: base },
   ]
 }
@@ -312,18 +314,22 @@ export function box(closer = activityCloser, extra = []) {
     ...extra,
     ...comments,
     { regex: closer, token: 'bracket', next: 'start' },
-    // A run of symbols up to the closer, which creole's own run would take along.
+    // A run of symbols up to the closer, which creole's own run would take along, and a URL.
     { regex: new RegExp(`[^\\w[*/"<|~&$%]+?(?=${end})`), token: null },
+    { regex: new RegExp(`${paths.url.regex.source.replace(/\*$/, '*?')}(?=${end})`, 'i'), token: 'url' },
     ...creole(null),
   ]
   // PlantUML reads the last character of the line as the closer, so a line ending in one is the
-  // box's last (`boxLast`, back to `start` with its line), whether a tag or a link owns the character.
+  // box's last (`boxLast`, back to `start` with its line), whether a tag or a link owns the
+  // character; a `!` directive line or a comment line is no line of the box.
   const lastLine = `(?=.*${end})`
-  const open = `(?![ \\t]*:[^:]+:(?=\\s+as\\b|\\s*[-.=<>/]|\\s*$))([ \\t]*)(#${colourPart})?(:)`
+  const boxLine = `(?![ \\t]*(?:${directive}|'|\\/'))`
+  // An actor's shorthand ends at its second colon, a URL's `://` aside.
+  const open = `(?![ \\t]*:[^:]+:(?!\\/\\/)(?=\\s+as\\b|\\s*[-.=<>/]|\\s*$))([ \\t]*)(#${colourPart})?(:)`
   const opener = (pattern, next) => ({ regex: new RegExp(pattern), sol: true, token: [null, 'ColorLiteral', 'bracket'], next })
   return {
     open: [opener(`${open}${lastLine}`, 'boxLast'), opener(open, 'boxText')],
-    boxText: [{ regex: new RegExp(lastLine), sol: true, token: null, next: 'boxLast' }, ...rules],
+    boxText: [{ regex: new RegExp(`${boxLine}${lastLine}`), sol: true, token: null, next: 'boxLast' }, ...rules],
     boxLast: rules,
   }
 }
@@ -359,8 +365,10 @@ export const DECLARING = alternation(elements)
 
 // The kinds whose `{` opens members (H17).
 const BODIED = alternation(['class', 'interface', 'enum', 'abstract class', 'abstract', 'annotation', 'entity', 'struct', 'protocol', 'object', 'map'])
-// A URL is a path, never a name (`component https://x.org/a`).
-const declared = /(?![A-Za-z][\w+.-]*:\/\/)([A-Za-z_][\w.:]*)/.source
+// A URL is a path, never a name (`component https://x.org/a`); a `$name` is the preprocessor's
+// variable. Two groups, `declaredTokens`.
+const declared = /(?:(\$[A-Za-z_]\w*)|(?![A-Za-z][\w+.-]*:\/\/)([A-Za-z_][\w.:]*))/.source
+const declaredTokens = ['VariableName', 'typeName']
 const endsInBrace = /(?=.*\{\s*$)/.source
 
 /** The alias after `as`, a name made there too (H15), on a declaring line only. */
@@ -377,12 +385,12 @@ const aliased = `(?:${alias.regex.source.replace('\\b', '(\\s+)')})?`
  * next one (a table's `nextLine`); a quoted name opens it too, its alias read there.
  */
 export const declarations = [
-  { regex: new RegExp(`([ \\t]*)(${BODIED})(\\s+)${declared}${endsInBrace}`), sol: true, token: [null, 'keyword', null, 'typeName'], push: 'classHead' },
+  { regex: new RegExp(`([ \\t]*)(${BODIED})(\\s+)${declared}${endsInBrace}`), sol: true, token: [null, 'keyword', null, ...declaredTokens], push: 'classHead' },
   { regex: new RegExp(`([ \\t]*)(${BODIED})(?=\\s.*\\{\\s*$)`), sol: true, token: [null, 'keyword'], push: 'classHead' },
   {
     regex: new RegExp(`([ \\t]*)(${DECLARING})(\\s+)(?:${declared}|${shown})${aliased}`),
     sol: true,
-    token: [null, 'keyword', null, 'typeName', 'string', 'tagName', null, null, 'keyword', null, 'typeName'],
+    token: [null, 'keyword', null, ...declaredTokens, 'string', 'tagName', null, null, 'keyword', null, 'typeName'],
   },
 ]
 

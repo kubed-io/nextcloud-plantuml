@@ -5,12 +5,13 @@
  * The known element under a position (I6), as a docs key: the syntax tree's
  * token there, with its text, names it, so the grammars decide and nothing
  * parses twice. The few words no grammar marks, a theme, a skin parameter and
- * a helper command, are read from their line's form. Every other token, a
- * string, a label, a name or a value, is none.
+ * a helper command, are read from their line's form, in a uml block outside a
+ * note's or legend's text. Every other token, a string, a label, a name or a
+ * value, is none.
  */
 import { ensureSyntaxTree } from '@codemirror/language'
 import { diagramAt, scan } from '../blocks.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody, inTextBody } from '../plantuml-mode.js'
 import { CONNECTORS } from '../completion/connectors.js'
 import { HELPERS } from '../completion/keywords.js'
 
@@ -34,7 +35,8 @@ function keyOf(state, node, pos, side) {
   }
   switch (node.name) {
     case 'keyword':
-      return { key: `keyword:${text.trim().split(/\s+/).pop()}` }
+      // PlantUML reads its commands in any case.
+      return { key: `keyword:${text.trim().split(/\s+/).pop().toLowerCase()}` }
     case 'meta': {
       // `!end function` is `!endfunction`'s; a bare `!` (`!$x = 1`) names none, nor does a
       // profile's own line (yaml's `#highlight`).
@@ -97,10 +99,11 @@ export function elementAt(state, pos, side) {
   if (!node) {
     return null
   }
-  const found = node.type.isTop ? lineKey(state, pos, side) : keyOf(state, node, pos, side)
+  const type = diagramAt(scan(state.doc.toString()), state.doc.lineAt(pos).number)?.type ?? 'uml'
+  const lineForm = type === 'uml' && !inTextBody(state, pos)
+  const found = node.type.isTop ? lineForm && lineKey(state, pos, side) : keyOf(state, node, pos, side)
   if (!found) {
     return null
   }
-  const type = diagramAt(scan(state.doc.toString()), state.doc.lineAt(pos).number)?.type ?? 'uml'
   return { key: found.key, type, from: found.from ?? node.from, to: found.to ?? node.to }
 }

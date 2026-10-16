@@ -314,6 +314,30 @@ export function inStyleBody(state, pos) {
   return open
 }
 
+// A line that opens a text body down to its `bodyEnd`, as the grammar reads one: a note with no
+// colon or quote (`noteHead`), a legend (`legendHead`), a `title`, `header` or `footer` alone.
+const bodyOpen = /^[ \t]*(?:[hr]?note(?:\s[^:"]*)?|legend\b.*|(?:title|header|footer)\s*)$/
+
+/**
+ * Whether `pos` is in the body of a multi-line note, legend, title, header or footer, read by
+ * the line forms that open and end one: its lines are text, a command's word in them none.
+ *
+ * @param {import('@codemirror/state').EditorState} state
+ * @param {number} pos
+ */
+export function inTextBody(state, pos) {
+  const line = state.doc.lineAt(pos)
+  if (bodyEnd.test(line.text)) {
+    return false
+  }
+  let open = false
+  for (let number = 1; number < line.number; number++) {
+    const text = state.doc.line(number).text
+    open = open ? !bodyEnd.test(text) : bodyOpen.test(text)
+  }
+  return open
+}
+
 // What the server cannot draw (1.2026.8 answers "Diagram not supported by this release") is
 // grey between its `@start` and `@end` lines; ditaa is drawn by another tool, so its lines are plain.
 const INACTIVE = new Set(['chronology', 'jcckit'])

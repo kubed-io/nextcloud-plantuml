@@ -27,6 +27,7 @@ const inputs = {
     'selector:node': { example: 'node, ours' },
     'tag:back': { summary: 'Background colour', kind: 'Creole tag, paired' },
     'property:backgroundcolor': { summary: 'Fills the background' },
+    'connector:-->': { summary: 'Dashed arrow' },
   },
   links: {
     read: '2026-10-16',
@@ -70,6 +71,20 @@ describe('buildDocs', () => {
     expect(docs.get('keyword:start', 'gantt').summary).toBe('When a task starts')
     expect(docs.get('keyword:start', 'uml').summary).toBe('Starts an activity')
     expect(docs.get('keyword:start').summary).toBe('Starts an activity')
+  })
+
+  it('reads a keyword or a connector outside uml only from its block type’s entry', () => {
+    expect(docs.get('keyword:start', 'dot')).toBeUndefined()
+    expect(docs.get('keyword:alt', 'yaml')).toBeUndefined()
+    expect(docs.get('connector:-->', 'dot')).toBeUndefined()
+    expect(docs.get('connector:-->', 'uml')).toMatchObject({ name: '-->' })
+  })
+
+  it('reads every other kind whatever the block type', () => {
+    expect(docs.get('function:%strlen', 'gantt').name).toBe('%strlen')
+    expect(docs.get('theme:cerulean', 'yaml').kind).toBe('theme')
+    expect(docs.get('library:C4', 'dot').kind).toBe('library')
+    expect(docs.get('diagram:yaml', 'yaml').kind).toBe('diagram')
   })
 
   it('labels each kind, a keyword with its home', () => {

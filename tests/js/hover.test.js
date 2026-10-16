@@ -6,13 +6,15 @@
 import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { elementAt } from '../../src/editor/docs/element.js'
+import { buildDocs } from '../../src/editor/docs/index.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import { core } from './helpers/core.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import ganttProfile from '../../src/editor/profiles/gantt.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
+import dotProfile from '../../src/editor/profiles/dot.js'
 
-const extensions = [profileExtension([styleProfile(core), ganttProfile(core), yamlProfile(core)])]
+const extensions = [profileExtension([styleProfile(core), ganttProfile(core), yamlProfile(core), dotProfile(core)])]
 
 /**
  * The element inside the `nth` (0-based) `word` of the lines, one character in,
@@ -41,6 +43,11 @@ describe('elementAt: known elements', () => {
   it('reads a keyword, a two-word one as its last word', () => {
     expect(on(['alt paid', 'end'], 'alt')).toEqual({ key: 'keyword:alt', type: 'uml', from: 0, to: 3 })
     expect(key(['note over A', 'text', 'end note'], 'end note')).toBe('keyword:note')
+  })
+
+  it('reads a keyword lower-cased, as PlantUML reads its commands', () => {
+    expect(on(['@startgantt', '[T] LASTS 5 days', '@endgantt'], 'LASTS')).toMatchObject({ key: 'keyword:lasts', type: 'gantt' })
+    expect(on(['@startdot', 'DIGRAPH g {', '}', '@enddot'], 'DIGRAPH')).toMatchObject({ key: 'keyword:digraph', type: 'dot' })
   })
 
   it('takes the block’s type for a keyword', () => {
@@ -112,7 +119,49 @@ describe('elementAt: everything else is nothing (I6)', () => {
     ['a library’s file', ['!include <C4/C4_Container>'], 'C4_'],
     ['a word on a helper’s line with more', ['listfonts now'], 'listfonts'],
     ['a selector-like name outside a style block', ['class node'], 'node'],
+    ['a helper word in a note’s body', ['note over A', 'colors', 'end note'], 'colors'],
+    ['a helper word in a legend’s body', ['legend', 'license', 'endlegend'], 'license'],
+    ['a helper word in a title’s body', ['title', 'version', 'end title'], 'version'],
+    ['a skin parameter in a note’s body', ['note as N', 'skinparam BackgroundColor red', 'end note'], 'BackgroundColor'],
+    ['a helper word outside uml', ['@startyaml', 'colors', '@endyaml'], 'colors'],
+    ['a skin parameter outside uml', ['@startyaml', 'skinparam BackgroundColor red', '@endyaml'], 'BackgroundColor'],
   ])('%s', (_name, lines, word, options) => {
     expect(on(lines, word, options)).toBeNull()
+  })
+})
+
+describe('elementAt with the index: a block’s own words', () => {
+  const docs = buildDocs({
+    own: {
+      'keyword:node': { summary: 'A deployment node' },
+      'keyword:lasts@gantt': { summary: 'How long a task takes' },
+      'keyword:alt': { summary: 'Alternatives' },
+      'connector:->': { summary: 'Arrow' },
+      'directive:!include': { summary: 'Includes a file' },
+    },
+    links: { links: {} },
+    source: { themes: {}, libraries: {} },
+    builtins: [],
+    language: { skinparameters: [] },
+    vocabulary: { style: { selectors: [], properties: [] } },
+  })
+  const entry = (lines, word) => {
+    const element = on(lines, word)
+    return element && docs.get(element.key, element.type)
+  }
+  const dot = ['@startdot', 'digraph g {', 'node [shape=box]', 'a -> b', '}', '@enddot']
+
+  it('gives a dot block’s `node` and `->` no uml card', () => {
+    expect(on(dot, 'node')).toMatchObject({ key: 'keyword:node', type: 'dot' })
+    expect(entry(dot, 'node')).toBeUndefined()
+    expect(on(dot, '->')).toMatchObject({ key: 'connector:->', type: 'dot' })
+    expect(entry(dot, '->')).toBeUndefined()
+  })
+
+  it('gives a gantt keyword its gantt entry, and uml words their own', () => {
+    expect(entry(['@startgantt', '[T] lasts 5 days', '@endgantt'], 'lasts').summary).toBe('How long a task takes')
+    expect(entry(['node n', 'A -> B'], 'node').summary).toBe('A deployment node')
+    expect(entry(['A -> B'], '->').summary).toBe('Arrow')
+    expect(entry(['@startuml', 'alt x', 'end', '@enduml'], 'alt').summary).toBe('Alternatives')
   })
 })

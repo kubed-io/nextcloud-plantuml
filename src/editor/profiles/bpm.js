@@ -12,7 +12,7 @@ export default (core) => {
   const { box, table, tagStates } = core.lex
   const closer = /;(?=\s*$)/
   const boxes = box(closer)
-  const id = '[\\p{L}\\p{N}_.@%]+'
+  const id = '[\\p{L}\\p{N}_.@]+'
   const mode = table({
     start: [
       // An event is one line: a `:` with no closer to its end is no event.

@@ -13,7 +13,7 @@ export default (core) => {
   const direction = '(?:([nsew])([ \\t]+))?'
   const mode = table({
     start: [
-      { regex: new RegExp(`([ \\t]*)${direction}(\\w+)([ \\t]+)(".*")`, 'i'), sol: true, token: [null, 'modifier', null, 'typeName', null, 'string'] },
+      { regex: new RegExp(`([ \\t]*)${direction}(\\w+)([ \\t]+)(".*")(?=[ \\t]*$)`, 'i'), sol: true, token: [null, 'modifier', null, 'typeName', null, 'string'] },
       { regex: new RegExp(`([ \\t]*)([nsew])([ \\t]+)(\\w+)(?=[ \\t]*$)`, 'i'), sol: true, token: [null, 'modifier', null, null] },
     ],
   })

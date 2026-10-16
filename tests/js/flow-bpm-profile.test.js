@@ -46,6 +46,16 @@ describe('the flow profile', () => {
     expect(flowTokens('w a')).toEqual([['w', 'modifier']])
   })
 
+  it('reads the direction only as one letter and a space', () => {
+    expect(flowTokens('ew "x"')).toEqual([['ew', 'typeName'], ['"x"', 'string']])
+    expect(flowTokens('e "x"')).toEqual([['e', 'typeName'], ['"x"', 'string']])
+    expect(flowTokens('e')).toEqual([])
+  })
+
+  it('ends a box at its label, which closes the line', () => {
+    expect(flowTokens('a "x" tail')).toEqual([])
+  })
+
   it('has no common lines (G4)', () => {
     expect(flowTokens('title X')).toEqual([])
   })
@@ -64,6 +74,26 @@ describe('the bpm profile', () => {
   it('reads a merge: the id a classifier, the colon a separator, <+> a connector', () => {
     expect(bpmTokens('20:<+>')).toEqual([['20', 'typeName'], [':', 'separator'], ['<+>', 'LinkOperator']])
     expect(bpmTokens('a<+>')).toEqual([['a', 'typeName'], ['<+>', 'LinkOperator']])
+  })
+
+  it('reads no merge with a space, a macro sign or a missing glue', () => {
+    expect(bpmTokens('a <+>')).toEqual([])
+    expect(bpmTokens('%1<+>')).toEqual([])
+    expect(bpmTokens('end<+>')).toEqual([['end', 'typeName'], ['<+>', 'LinkOperator']])
+  })
+
+  it('leaves an unclosed event plain and reads the next line', () => {
+    const after = [[':', 'bracket'], ['after ', null], ['**s**', 'strong'], [';', 'bracket']].filter(([t]) => t !== 'after ')
+    expect(bpmTokens(':foo', ':after **s**;')).toEqual(after)
+    expect(bpmTokens(':**x', ':after **s**;')).toEqual(after)
+  })
+
+  it('does not leak an open tag or link out of an event', () => {
+    const after = [[':', 'bracket'], ['**s**', 'strong'], [';', 'bracket']]
+    for (const first of [':a <b x;', ':a [[ x;', ':a <b x', ':a [[ x']) {
+      expect(bpmTokens(first, ':after **s**;').slice(-3), first).toEqual(after)
+      expect(bpmTokens(first, 'else')).toEqual(expect.arrayContaining([['else', 'keyword']]))
+    }
   })
 
   it('reads resume and goto as keywords with a plain reference', () => {

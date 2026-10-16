@@ -6,12 +6,12 @@
  * PlantUML 1.2026.8's `salt/` parser reads them: a line is a row, cells split at `|` and `}`,
  * and an opener (`{`, its kind a modifier) or `}` may stand anywhere on a line. Each opener pushes
  * its kind's cell-start state: a table (`{`, `{+`, `{#`, `{!`, `{-`), a group box (`{^`, a table
- * with no border cells), a tree (`{T…`), a menu (`{*`), or the rest (`{S`, `{SI`, `{S-`, `{/`);
- * `}` pops it. A widget is a whole cell (the
- * server tests the trimmed cell's start and end), so its rules sit in the cell-start state and
- * look for the cell's end; any other cell is Creole in the kind's mid-cell state, where `|` and
- * an opener go back to cell start, as does each line (`nextLine`). The top state has the common
- * lines (G4), sprites (T16), and a `salt` line plain (the server refuses it).
+ * with no border cells), a tree (`{T…`; one with a row after it on its line reads its first `}`
+ * line as a row), a menu (`{*`), or the rest (`{S`, `{SI`, `{S-`, `{/`); `}` pops it. A widget
+ * is a whole cell (the server tests the trimmed cell's start and end), so its rules sit in the
+ * cell-start state and look for the cell's end; any other cell is Creole in the kind's mid-cell
+ * state, where `|` and an opener go back to cell start, as does each line (`nextLine`). The top
+ * state has the common lines (G4), sprites (T16), and a `salt` line plain (the server refuses it).
  *
  * A cell's Creole is read on the line cut at the cell's end, so no Creole rule runs past a `|`,
  * `{`, `}` or escape, and a tag left open ends there.
@@ -24,13 +24,18 @@ export default (core) => {
   // A character of a cell: an escape is one.
   const CELL = '(?:[^|{}\\\\]|\\\\.)'
   const whole = (source) => new RegExp(`${source}${END}`)
-  const KINDS = ['table', 'group', 'tree', 'menu', 'other']
+  // `treeFirst` is a tree opened with a row on its line, up to its first `}` line (see `openers`).
+  const KINDS = ['table', 'group', 'tree', 'treeFirst', 'menu', 'other']
+  const TREES = new Set(['tree', 'treeFirst'])
   const mid = (kind) => `${kind}Mid`
   const escape = { regex: /\\[|{}]/, token: 'escape' }
 
   const openers = [
+    // The server (1.2026.8) draws a `{` after `{T` (`{T{`, `{T{+ a`) as the tree's first row, and
+    // the tree's first `}` line as a row too, so this tree reads that line as text (`treeFirst`).
+    // `{T{+ a }` and `{T{a}` crash the server (IllegalStateException: }).
+    { regex: /(\{)([ \t]*)(T[-+!#^]?)([ \t]*)(\{[^\s|{}]*)/, token: ['brace', null, 'modifier', null, null], push: 'treeFirst' },
     // The server splits `{` off, so the tree's `T…` may follow a space; `{ Text` is a table.
-    // A block may open right after it (`{T{+ a }`), and nothing cuts the line at an opener.
     { regex: /(\{)([ \t]*)(T[-+!#^]?)(?=[ \t]*(?:[|{}]|$))/, token: ['brace', null, 'modifier'], push: 'tree' },
     // `{S+` is `{S` and a cell `+`.
     { regex: /(\{)(S[I-]?|\/)/, token: ['brace', 'modifier'], push: 'other' },
@@ -69,6 +74,8 @@ export default (core) => {
     group: (next) => [{ regex: whole('\\*'), token: 'punctuation', next }],
     // Only a row's first cell has a depth.
     tree: (next) => [{ regex: /([ \t]*)(\++)/, sol: true, token: [null, 'list'], next }],
+    // Its first `}` line is a row, and the tree reads on as any other.
+    treeFirst: (next) => [{ regex: /\}(?=[ \t]*$)/, token: null, next: 'tree' }, ...own.tree(next)],
     menu: (next) => [{ regex: whole('-'), token: 'heading', next }],
     other: () => [],
   }
@@ -79,14 +86,14 @@ export default (core) => {
     const ownRules = own[kind](next)
     states[kind] = [
       // The tree's depth is matched with its indentation.
-      ...(kind === 'tree' ? ownRules : []),
+      ...(TREES.has(kind) ? ownRules : []),
       { regex: /[ \t]+/, token: null },
       { ...escape, next },
       { regex: /\|/, token: 'separator' },
       { regex: /\}/, token: 'brace', pop: true },
       ...openers,
       ...widgets(next),
-      ...(kind === 'tree' ? [] : ownRules),
+      ...(TREES.has(kind) ? [] : ownRules),
       { regex: /(?=)/, token: null, next },
     ]
     states[next] = [

@@ -11,14 +11,15 @@ import { checkJson, jsonLines } from '../profiles/json-check.js'
 /**
  * The first error of the lines `first`.. `last` of `doc`, as a mark. A sub-diagram's lines lose
  * their indentation on the server, so `indented` reads them so and adds it back to the column.
+ * The server cuts spaces and tabs only: a no-break space stays, as data.
  */
 const check = (doc, first, last, indented, fallback) => {
   const raw = []
   for (let n = first; n <= last; n++) {
     raw.push(doc.line(n).text)
   }
-  const cut = indented ? raw.map((line) => line.length - line.trimStart().length) : raw.map(() => 0)
-  const kept = jsonLines(indented ? raw.map((line) => line.trimStart()) : raw)
+  const cut = raw.map((line) => (indented ? /^[ \t]*/.exec(line)[0].length : 0))
+  const kept = jsonLines(raw.map((line, row) => line.slice(cut[row])))
   const text = kept.join('\n') + '\n'
   const error = checkJson(text)
   if (!error) {

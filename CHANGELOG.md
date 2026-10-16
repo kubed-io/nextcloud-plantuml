@@ -90,5 +90,5 @@ All notable changes to this project are documented here. The format follows
 - A note, legend, title or description left open no longer hides the diagrams after it.
 - A class member's visibility with a space after it (`+ render()`) is coloured as PlantUML reads it.
 - A quoted multiplicity or role after a link (`A *-- "many" B`) is coloured as a string.
-- A sub-diagram's indented lines read as the server reads them: `#highlight` works indented, a `<style>` inside is a style block, and one left open in a class body ends at the class's `}`.
-- A salt button holding a `]` and a tree opened right before a block read as PlantUML draws them.
+- A sub-diagram's indented lines read as the server reads them: an indented `#highlight` is highlighted, a `<style>` inside is a style block, and one left open in a class or description body ends at the body's own closer, never at a `}` or `]` of its own content.
+- A salt button holding a `]` reads as PlantUML draws it, and so does a tree with text after its `{T` (`{T{`): that text and the tree's first `}` line are rows.

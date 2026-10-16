@@ -53,6 +53,17 @@ describe('subDiagramsOf', () => {
   it('leaves one left open with no end', () => {
     expect(subDiagramsOf('{{salt')).toEqual([{ start: 1, end: null, type: 'salt' }])
   })
+
+  it('skips the lines of a /\' … \'/ comment, which the server drops (Final review 2)', () => {
+    expect(subDiagramsOf("/'\nnote right\n  {{json\n  {}\n  }}\nend note\n'/")).toEqual([])
+    expect(subDiagramsOf("note right\n{{salt\n{\n/' a\n}}\nb '/\n}\n}}\nend note")).toEqual([{ start: 2, end: 8, type: 'salt' }])
+    // A comment closed on its own line, or a `'` line, opens none.
+    expect(subDiagramsOf("/' x '/\nnote right\n{{json\n}}\nend note")).toEqual([{ start: 3, end: 4, type: 'json' }])
+    expect(subDiagramsOf("' /'\nnote right\n{{json\n}}\nend note")).toEqual([{ start: 3, end: 4, type: 'json' }])
+    // One closed and another opened on a line is open after it; the diagram's edge ends one.
+    expect(subDiagramsOf("/'\na '/ b /'\n{{json\n}}\n'/")).toEqual([])
+    expect(subDiagramsOf("@startuml\n/'\n@enduml\n@startuml\nnote right\n{{json\n}}\nend note")).toEqual([{ start: 6, end: 7, type: 'json' }])
+  })
 })
 
 describe('the grammar', () => {
@@ -269,6 +280,56 @@ describe('the grammar', () => {
     expect(today.at(-1)).toEqual(['->', 'LinkOperator'])
   })
 
+  // The server (1.2026.8) draws each: the content's own `}` or `]` at column 0 is the content's.
+  it.each([
+    ['a json in a class body', 'class Config {', ['  {{json', '{', '  "port": 8080', '}', '  }}'], '  +port : int', '}'],
+    ['a salt in a class body', 'class Config {', ['  {{salt', '{', '[OK]', '}', '  }}'], '  +port : int', '}'],
+    ['a json in a description', 'rectangle R [', ['  {{json', '  ["a",', '"b"', ']', '  }}'], '  **text**', ']'],
+  ])('ends %s at its }}, its content\'s column-0 closer its own (Final review 1)', (_, head, sub, member, closer) => {
+    const rest = [member, closer, 'class D {', '}', 'A -> B']
+    const found = tokens(head, ...sub, ...rest)
+    const today = tokens(head, ...rest)
+    const heads = tokens(head).length
+    const tail = today.length - heads
+    expect(found.slice(0, heads)).toEqual(today.slice(0, heads))
+    expect(found.slice(heads, heads + 2)).toEqual([['{{', 'brace'], [sub[0].trim().slice(2), 'keyword']])
+    expect(found.at(-tail - 1)).toEqual(['}}', 'brace'])
+    // The member after it, the body's closer and what follows are read as ever.
+    expect(found.slice(-tail)).toEqual(today.slice(heads))
+    expect(today.slice(heads, -5).length, 'the member has tokens of its own').toBeGreaterThan(0)
+  })
+
+  it('copies a sub-diagram\'s bracket count, as an edit below it reads on from (Final review 1)', () => {
+    const { streamParser } = plantumlLanguage({ salt })
+    const feed = (state, line) => {
+      const stream = new StringStream(line, 4, 2)
+      const out = []
+      while (!stream.eol()) {
+        stream.start = stream.pos
+        const token = streamParser.token(stream, state)
+        if (token) out.push([line.slice(stream.start, stream.pos), token])
+      }
+      return out
+    }
+    const state = streamParser.startState(2)
+    for (const line of ['@startuml', 'class C {', '  {{salt', '{']) feed(state, line)
+    // Its `{` is open: a `}` at column 0 is the salt's.
+    const open = streamParser.copyState(state)
+    feed(open, '}')
+    expect(open.sub).not.toBeNull()
+    // All closed: the class's `}` ends it, and the next line is the diagram's.
+    const closed = streamParser.copyState(open)
+    feed(closed, '}')
+    expect(closed.sub).toBeNull()
+    expect(feed(closed, 'A -> B')).toContainEqual(['->', 'LinkOperator'])
+  })
+
+  it('reads a {{ or }} in a /\' … \'/ comment as the comment, as the server drops it (Final review 2)', () => {
+    const found = tokens('note right', '{{salt', '{', "/'", '}}', '{{json', "'/", '[OK]', '}', '}}', 'end note', 'A -> B')
+    expect(found.filter(([, token]) => token === 'brace')).toEqual([['{{', 'brace'], ['{', 'brace'], ['}', 'brace'], ['}}', 'brace']])
+    expect(found.slice(-6)).toEqual([['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'], ['}}', 'brace'], ['end note', 'keyword'], ['->', 'LinkOperator']])
+  })
+
   it('opens none at the top level of a uml block', () => {
     expect(tokens('{{salt', 'A -> B', '}}')).not.toContainEqual(['{{', 'brace'])
   })
@@ -303,6 +364,13 @@ describe('folding', () => {
   it('folds a sub-diagram from its {{ line to the line before }}', () => {
     const state = stateOf('note right\n{{salt\n{\n}\n}}\nend note')
     expect(at(state, 2)).toEqual({ from: state.doc.line(2).to, to: state.doc.line(4).to })
+  })
+
+  it('folds a sub-diagram past a }} in a /\' … \'/ comment, and none in a comment (Final review 2)', () => {
+    const state = stateOf("@startuml\nnote right\n{{salt\n{\n/'\n}}\n'/\n}\n}}\nend note\n@enduml")
+    expect(at(state, 3)).toEqual({ from: state.doc.line(3).to, to: state.doc.line(8).to })
+    const commented = stateOf("@startuml\n/'\nnote right\n{{json\n{}\n}}\nend note\n'/\n@enduml")
+    expect(at(commented, 4)).toBeNull()
   })
 
   it('folds only what the grammar reads as one', () => {

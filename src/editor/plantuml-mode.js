@@ -250,10 +250,27 @@ const bodyEnd = /^[ \t]*(?:end\s*(?:[hr]?note|legend|title|header|footer)\b|@end
 // A files note ends with its `</note>` line, a description with the line starting `]`.
 const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>/, descBody: /^[ \t]*\]/, descBodyCode: /^[ \t]*\]/ }
 
-// The bodies a sub-diagram opens in, each with the line that ends one left open there.
+// The bodies a sub-diagram opens in, each with the end line that ends one left open there: a
+// note's or legend's; a class's or description's closer is in `subClosers`.
 const subBodies = { noteBody: /^[ \t]*end\s*[hr]?note\b/, legendBody: /^[ \t]*end\s*legend\b/, descBody: null, classBody: null }
-// A class's or description's own closer, which ends one left open when indented less than its `{{`.
+// A class's or description's own closer, which ends one left open when indented less than its `{{`
+// and the sub-diagram's lines have closed every bracket of that kind they opened (`nest`).
 const subClosers = { classBody: /^([ \t]*)\}[ \t]*$/, descBody: /^([ \t]*)\]/ }
+// The brackets a sub-diagram's lines are counted by, in the body it opened in.
+const subBrackets = { classBody: ['{', '}'], descBody: ['[', ']'] }
+
+/** The `open` brackets of `line` less its `close` ones, outside `"…"` strings. */
+function netBrackets(line, [open, close]) {
+  let net = 0
+  let quoted = false
+  for (const char of line) {
+    if (char === '"') quoted = !quoted
+    else if (!quoted && char === open) net++
+    else if (!quoted && char === close) net--
+  }
+  return net
+}
+
 // A uml sub-diagram's own note or legend, whose end line is its own.
 const ownBodies = {
   noteBody: new Set(['noteHead', 'noteBody', 'noteBodyCode']),
@@ -503,17 +520,19 @@ export function plantumlLanguage(profiles = {}) {
     copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
     copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
     const sub = state.sub
-    copy.sub = sub && { type: sub.type, depth: sub.depth, indent: sub.indent, from: sub.from, begun: sub.begun, state: copyIn(subMode(sub.type), sub.state), plant: base.copyState(sub.plant) }
+    copy.sub = sub && { type: sub.type, depth: sub.depth, nest: sub.nest, indent: sub.indent, from: sub.from, begun: sub.begun, state: copyIn(subMode(sub.type), sub.state), plant: base.copyState(sub.plant) }
     if (sub?.plant.style) copy.sub.plant.style = { state: copyIn(style, sub.plant.style.state), until: sub.plant.style.until }
     copy.nested = state.nested
     return copy
   }
 
   /**
-   * A line of a sub-diagram, its `{{` and `}}` lines counting the depth. A comment or `!` line
-   * is PlantUML's (`plant`, a state of its own so the body underneath stays as it was), and so is
-   * a `<style>` block in a type's own grammar, read as in a block of that type. The mode gets each
-   * line with its indentation cut, as the server hands it over.
+   * A line of a sub-diagram, its `{{` and `}}` lines counting the depth and its other lines the
+   * body's brackets (`nest`, see `subEnds`); a line in a `/' … '/` comment counts neither, as the
+   * server drops it first. A comment or `!` line is PlantUML's (`plant`, a state of its own so the
+   * body underneath stays as it was), and so is a `<style>` block in a type's own grammar, read as
+   * in a block of that type. The mode gets each line with its indentation cut, as the server hands
+   * it over.
    */
   function subToken(stream, state) {
     const sub = state.sub
@@ -522,12 +541,15 @@ export function plantumlLanguage(profiles = {}) {
       sub.begun = true
       sub.from = null
       base.startLine(sub.plant)
-      if (stream.match(SUB_OPEN, false)) sub.depth++
-      const close = stream.match(SUB_CLOSE, false)
+      const commented = sub.plant.state === 'blockComment'
+      const opened = !commented && stream.match(SUB_OPEN, false)
+      const close = !commented && stream.match(SUB_CLOSE, false)
+      if (opened) sub.depth++
       if (close && !--sub.depth) {
         state.sub = null
         return emit(stream, state, [[close[1], null], [close[2], 'brace'], [stream.string.slice(close[1].length + 2), null]])
       }
+      if (!commented && !opened && !close && subBrackets[state.state]) sub.nest += netBrackets(stream.string, subBrackets[state.state])
     }
     const mode = subMode(sub.type)
     const own = mode !== umlSub && !mode.inactive
@@ -559,14 +581,17 @@ export function plantumlLanguage(profiles = {}) {
   }
 
   /**
-   * Whether the line ends a sub-diagram left open: the diagram's edge, or its note's or legend's
-   * end line, unless a uml sub-diagram is in a note or legend of its own. The server never ends
-   * one there (a syntax error); this is recovery, so it must not misread valid input.
+   * Whether the line ends a sub-diagram left open: the diagram's edge; its note's or legend's end
+   * line, unless a uml sub-diagram is in a note or legend of its own; or its class's `}` or its
+   * description's `]`, when indented less than the `{{` line and the sub-diagram's own lines have
+   * closed every `{` or `[` they opened (a json or salt sub-diagram's `}` at column 0 is its own).
+   * The server never ends one there (a syntax error); this is recovery, so it must not misread
+   * valid input.
    */
   function subEnds(stream, state) {
     if (stream.match(diagramEdge, false)) return true
     const closer = subClosers[state.state]?.exec(stream.string)
-    if (closer) return closer[1].length < state.sub.indent
+    if (closer && state.sub.nest <= 0 && closer[1].length < state.sub.indent) return true
     if (!subBodies[state.state]?.test(stream.string)) return false
     const own = state.sub.type === 'uml' && state.sub.state
     return !own || ![own.state, ...(own.stack ?? [])].some((key) => ownBodies[state.state]?.has(key))
@@ -576,7 +601,7 @@ export function plantumlLanguage(profiles = {}) {
   function subStart(stream, state, open) {
     const type = open[3] || 'uml'
     const mode = subMode(type)
-    state.sub = { type, depth: 1, indent: open[1].length, from: null, begun: false, state: mode.startState ? mode.startState(stream.indentUnit) : {}, plant: base.startState() }
+    state.sub = { type, depth: 1, nest: 0, indent: open[1].length, from: null, begun: false, state: mode.startState ? mode.startState(stream.indentUnit) : {}, plant: base.startState() }
     return emit(stream, state, [[open[1], null], [open[2], 'brace'], [open[3], 'keyword'], [stream.string.slice(open[1].length + 2 + open[3].length), null]])
   }
 
@@ -584,8 +609,8 @@ export function plantumlLanguage(profiles = {}) {
     // A rule matched at the start of a line hands back its groups one at a
     // time (`pending`), all still at the start: they belong to the state it set.
     if (state.pending) return base.token(stream, state)
-    // A sub-diagram left open ends at the diagram's edge, or its note's or legend's end line,
-    // which is then read as ever.
+    // A sub-diagram left open ends at the diagram's edge, its note's or legend's end line, or its
+    // class's or description's closer (see `subEnds`), which is then read as ever.
     if (state.sub && stream.sol() && subEnds(stream, state)) state.sub = null
     // A diagram's `@start` or `@end` line ends what is left open at the top level, a body, a
     // `<code>` or `<latex>` block, a `/' … '/` comment, as it does an inner block's (P5).

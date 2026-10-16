@@ -174,8 +174,23 @@ describe('the salt profile', () => {
     expect(found.at(-1)).toEqual([']', 'squareBracket'])
   })
 
-  it('lets a tree open with a block right after it (T2)', () => {
-    expect(top('{T{+ a }')).toEqual([['{', 'brace'], ['T', 'modifier'], ['{', 'brace'], ['+', 'modifier'], ['}', 'brace']])
+  // The server (1.2026.8) draws a `{` after `{T` as the tree's first row and the tree's first `}`
+  // line as a row too; `{T{+ a }` and `{T{a}` crash it (IllegalStateException: }).
+  it('reads what follows a tree\'s opener on its line as its first row, no brace or modifier (T2)', () => {
+    const tree = [['{', 'brace'], ['T', 'modifier'], ['+', 'list'], ['}', 'brace']]
+    for (const head of ['{T{', '{T{+', '{T {', '{T{#']) {
+      expect(salted(head, '}', '+ a', '}'), head).toEqual(tree)
+    }
+    expect(salted('{T{+ a', '}', '+ b', '}')).toEqual(tree)
+  })
+
+  it('keeps the rows after it in the tree, to the } after its first } line (T2)', () => {
+    expect(salted('{T{', '+ a', '++ b', '}', '}')).toEqual([['{', 'brace'], ['T', 'modifier'], ['+', 'list'], ['++', 'list'], ['}', 'brace']])
+    expect(salted('{T{', '}', '+ a', '++ b', '+ c | d', '}')).toEqual([
+      ['{', 'brace'], ['T', 'modifier'], ['+', 'list'], ['++', 'list'], ['+', 'list'], ['|', 'separator'], ['}', 'brace'],
+    ])
+    // Then the block it is in reads on.
+    expect(top('{', '{T{', '}', '+ a', '}', '[OK]', '}').slice(-3)).toEqual([['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace']])
   })
 
   it('ends what is left open at the block\'s end (P5)', () => {

@@ -147,6 +147,46 @@ describe('the lint of a {{json sub-diagram', () => {
     expect(found(note('  #highlight "a"\n  {"a": 1}'))).toEqual([])
   })
 
+  // The server (1.2026.8) cuts a line's spaces and tabs only, and draws each of these as checked here.
+  it('cuts tabs and mixed indentation as the server does, the cut counted in the column', () => {
+    for (const indent of ['\t', ' \t ']) {
+      expect(found(note(`${indent}{"a": 1}`)), JSON.stringify(indent)).toEqual([])
+      const doc = note(`${indent}{"a" 1}`)
+      const at = doc.indexOf('1}')
+      expect(found(doc), JSON.stringify(indent)).toEqual([{ from: at, to: at + 2, severity: 'error', message: "Expected ':'" }])
+    }
+  })
+
+  it('keeps a no-break space, which the server reads as data and refuses (Final review 4)', () => {
+    const doc = note(' {"a": 1}')
+    const at = doc.indexOf(' ')
+    const result = found(doc)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ from: at, to: doc.indexOf('\n', at), severity: 'error' })
+  })
+
+  it('marks Unexpected end of input on its last line with data, from its last character', () => {
+    const doc = note('  {\n  "a": 1')
+    const end = doc.indexOf('\n  }}')
+
+    expect(found(doc)).toEqual([{ from: end - 1, to: end, severity: 'error', message: 'Unexpected end of input' }])
+  })
+
+  it('marks a raw newline in a string on the last character of its line', () => {
+    const doc = note('  {"a":"x\n  y"}')
+    const end = doc.indexOf('\n  y')
+
+    expect(found(doc)).toEqual([{ from: end - 1, to: end, severity: 'error', message: 'Expected valid string character' }])
+  })
+
+  it('does not check one in a /\' … \'/ comment, which the server drops (Final review 2)', () => {
+    expect(found("@startuml\n/'\nnote right\n  {{json\n  {\"a\" 1}\n  }}\nend note\n'/\nA -> B\n@enduml\n")).toEqual([])
+    // A one-line comment closes on its line: the sub-diagram after it is checked.
+    const doc = "@startuml\n/' x '/\nnote right\n  {{json\n  {\"a\" 1}\n  }}\nend note\n@enduml\n"
+    expect(found(doc)).toHaveLength(1)
+  })
+
   it('does not check a {{json left open', () => {
     expect(found('@startuml\nnote right\n  {{json\n  {"a" 1}\nend note\n@enduml\n')).toEqual([])
   })

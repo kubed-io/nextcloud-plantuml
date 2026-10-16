@@ -139,6 +139,35 @@ describe('the salt profile', () => {
     expect(top('sprite $s [4x4/16] {', 'FFFF', '}', '{', '}')).toContainEqual(['FFFF', 'SpriteData'])
   })
 
+  it('leaves nothing open for the next line or cell', () => {
+    const string = ['"y"', 'string']
+    // An extra `}` at the top closes nothing; the next block reads as ever.
+    expect(top('{', 'a', '}', '}', '{', '"y"', '}')).toContainEqual(string)
+    // `}}` closes two blocks, back in the third (two braces side by side make one node).
+    expect(top('{', '{', '{', 'a }}', '"y"', '}', 'skinparam x y')).toEqual([
+      ['{', 'brace'], ['{', 'brace'], ['{', 'brace'], ['}}', 'brace'], string, ['}', 'brace'], ['skinparam', 'keyword'],
+    ])
+    // A button or droplist without its closer is text.
+    expect(salted('[abc', '"y"')).toEqual([string])
+    expect(salted('^abc', '"y"')).toEqual([string])
+    // Bold or a tag left open mid-row ends with its cell.
+    for (const open of ['**x', '<b>x']) {
+      expect(salted(`${open} | [OK]`).slice(-3), open).toEqual([['|', 'separator'], ['[', 'squareBracket'], [']', 'squareBracket']])
+    }
+  })
+
+  it('reads an image\'s cells as rows, split at `|`', () => {
+    expect(salted('<<x | a', '>>')).toEqual([
+      ['<<', 'angleBracket'], ['x', 'typeName'], ['|', 'separator'], ['a', 'SpriteData'], ['>>', 'angleBracket'],
+    ])
+  })
+
+  it('gives a group box no border cells', () => {
+    expect(salted('{^', 'N= [North]', '}').map(([, token]) => token)).not.toContain('attributeName')
+    // It is a table still: `*` merges.
+    expect(salted('{^', 'a | *', '}')).toContainEqual(['*', 'punctuation'])
+  })
+
   it('ends what is left open at the block\'s end (P5)', () => {
     const next = ['@startuml', 'A -> B', '@enduml']
     for (const open of [['{', 'a'], ['{', '<<x', 'XX'], ['{', '{+ a | b', 'c']]) {

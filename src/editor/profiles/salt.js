@@ -5,8 +5,9 @@
  * `@startsalt` blocks (T2), a table of the lexicon's (`core.lex`), read a cell at a time as
  * PlantUML 1.2026.8's `salt/` parser reads them: a line is a row, cells split at `|` and `}`,
  * and an opener (`{`, its kind a modifier) or `}` may stand anywhere on a line. Each opener pushes
- * its kind's cell-start state: a table (`{`, `{+`, `{#`, `{!`, `{-`, `{^`), a tree (`{T…`), a menu
- * (`{*`), or the rest (`{S`, `{SI`, `{S-`, `{/`); `}` pops it. A widget is a whole cell (the
+ * its kind's cell-start state: a table (`{`, `{+`, `{#`, `{!`, `{-`), a group box (`{^`, a table
+ * with no border cells), a tree (`{T…`), a menu (`{*`), or the rest (`{S`, `{SI`, `{S-`, `{/`);
+ * `}` pops it. A widget is a whole cell (the
  * server tests the trimmed cell's start and end), so its rules sit in the cell-start state and
  * look for the cell's end; any other cell is Creole in the kind's mid-cell state, where `|` and
  * an opener go back to cell start, as does each line (`nextLine`). The top state has the common
@@ -23,7 +24,7 @@ export default (core) => {
   // A character of a cell: an escape is one.
   const CELL = '(?:[^|{}\\\\]|\\\\.)'
   const whole = (source) => new RegExp(`${source}${END}`)
-  const KINDS = ['table', 'tree', 'menu', 'other']
+  const KINDS = ['table', 'group', 'tree', 'menu', 'other']
   const mid = (kind) => `${kind}Mid`
   const escape = { regex: /\\[|{}]/, token: 'escape' }
 
@@ -33,7 +34,9 @@ export default (core) => {
     // `{S+` is `{S` and a cell `+`.
     { regex: /(\{)(S[I-]?|\/)/, token: ['brace', 'modifier'], push: 'other' },
     { regex: /(\{)(\*)/, token: ['brace', 'modifier'], push: 'menu' },
-    { regex: /(\{)([-+^#!])/, token: ['brace', 'modifier'], push: 'table' },
+    // A group box is a table without a border layout.
+    { regex: /(\{)(\^)/, token: ['brace', 'modifier'], push: 'group' },
+    { regex: /(\{)([-+#!])/, token: ['brace', 'modifier'], push: 'table' },
     { regex: /\{/, token: 'brace', push: 'table' },
   ]
 
@@ -62,6 +65,7 @@ export default (core) => {
       { regex: whole('\\*'), token: 'punctuation', next },
       { regex: new RegExp(`([NSEWC])(=)(?=[ \\t]|${END})`), token: ['attributeName', 'definitionOperator'] },
     ],
+    group: (next) => [{ regex: whole('\\*'), token: 'punctuation', next }],
     // Only a row's first cell has a depth.
     tree: (next) => [{ regex: /([ \t]*)(\++)/, sol: true, token: [null, 'list'], next }],
     menu: (next) => [{ regex: whole('-'), token: 'heading', next }],
@@ -106,11 +110,12 @@ export default (core) => {
     ],
     ...states,
     label: [{ regex: new RegExp(`\\]${END}`), token: 'squareBracket', pop: true }, escape, ...creole(null)],
-    // Pixel rows down to a cell `>>`; one left open ends at `@end` (P5).
+    // Pixel rows, a cell each, down to a cell `>>`; one left open ends at `@end` (P5).
     image: [
       { regex: /[ \t]+/, token: null },
+      { regex: /\|/, token: 'separator' },
       { regex: whole('>>'), token: 'angleBracket', pop: true },
-      { regex: /\S+/, token: 'SpriteData' },
+      { regex: /[^\s|]+/, token: 'SpriteData' },
     ],
     ...creoleStates.states,
     ...spriteStates,

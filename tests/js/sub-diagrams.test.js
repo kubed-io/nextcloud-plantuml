@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { CompletionContext } from '@codemirror/autocomplete'
-import { ensureSyntaxTree, foldable } from '@codemirror/language'
+import { StringStream, ensureSyntaxTree, foldable } from '@codemirror/language'
 import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { SUB_TYPES, subDiagramsOf } from '../../src/editor/sub-diagrams.js'
 import { subDiagrams } from '../../src/editor/completion/sub-diagrams.js'
@@ -20,6 +20,7 @@ import { scan } from '../../src/editor/blocks.js'
 import { core } from './helpers/core.js'
 import saltProfile from '../../src/editor/profiles/salt.js'
 import jsonProfile from '../../src/editor/profiles/json.js'
+import styleProfile from '../../src/editor/profiles/style.js'
 
 const salt = saltProfile(core).mode
 const json = jsonProfile(core).mode
@@ -202,6 +203,70 @@ describe('the grammar', () => {
     expect(spans).toContainEqual([line(3) + 2, line(3) + 4])
     expect(spans).toContainEqual([line(6) + 2, line(6) + 4])
     expect(tokens('note right', '  {{salt  ', '{', '}', '  }}  ', 'end note', 'A -> B').slice(-2)).toEqual([['end note', 'keyword'], ['->', 'LinkOperator']])
+  })
+
+  it('hands a sub-diagram its lines with their indentation cut, as the server does', () => {
+    const found = tokens('class C {', '  {{json', '  #highlight "a"', '  {"a": 1}', '  }}', '}')
+    const at = found.findIndex(([text]) => text === '#highlight')
+    expect(found.slice(at, at + 2)).toEqual([['#highlight', 'keyword'], ['"a"', 'string']])
+    expect(found.slice(-2)).toEqual([['}}', 'brace'], ['}', 'brace']])
+    const tree = tokens('note right', '    {{salt', '    {T', '    ++ a', '    }', '    }}', 'end note', 'A -> B')
+    expect(tree).toContainEqual(['++', 'list'])
+    expect(tree.slice(-3)).toEqual([['}}', 'brace'], ['end note', 'keyword'], ['->', 'LinkOperator']])
+  })
+
+  it('reads a <style> block in a salt sub-diagram as in a salt block', () => {
+    const styled = plantumlLanguage({ salt, json, style: styleProfile(core).mode })
+    const sheet = ['<style>', 'saltDiagram { BackGroundColor red }', '</style>']
+    const block = read(styled, '@enduml', '@startsalt', ...sheet, '{', '[OK]', '}', '@endsalt', '@startuml')
+    const found = read(styled, 'note right', '{{salt', ...sheet, '{', '[OK]', '}', '}}', 'end note', 'A -> B')
+    const between = (spans, after) => spans.slice(spans.findIndex(([text]) => text === after) + 1, spans.findIndex(([text]) => text === '</style>') + 1)
+    expect(between(block, '@startsalt')).toContainEqual(['BackGroundColor', 'propertyName'])
+    expect(between(found, 'salt')).toEqual(between(block, '@startsalt'))
+    expect(found.slice(-7)).toEqual([
+      ['{', 'brace'], ['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'], ['}}', 'brace'], ['end note', 'keyword'], ['->', 'LinkOperator'],
+    ])
+  })
+
+  it('ends a style block left open in a sub-diagram with it', () => {
+    const styled = plantumlLanguage({ salt, style: styleProfile(core).mode })
+    expect(read(styled, 'note right', '{{salt', '<style>', '}}', 'end note', 'A -> B').slice(-3)).toEqual([['}}', 'brace'], ['end note', 'keyword'], ['->', 'LinkOperator']])
+    expect(read(styled, 'note right', '{{salt', '<style>', 'end note', 'A -> B').slice(-2)).toEqual([['end note', 'keyword'], ['->', 'LinkOperator']])
+  })
+
+  it('copies a style block open in a sub-diagram, as an edit inside it reads on from', () => {
+    const { streamParser } = plantumlLanguage({ salt, style: styleProfile(core).mode })
+    const feed = (state, line) => {
+      const stream = new StringStream(line, 4, 2)
+      const out = []
+      while (!stream.eol()) {
+        stream.start = stream.pos
+        const token = streamParser.token(stream, state)
+        if (token) out.push([line.slice(stream.start, stream.pos), token])
+      }
+      return out
+    }
+    const state = streamParser.startState(2)
+    for (const line of ['@startuml', 'note right', '{{salt', '<style>', 'saltDiagram {']) feed(state, line)
+    const copy = streamParser.copyState(state)
+    expect(feed(copy, '  BackGroundColor red')).toContainEqual(['BackGroundColor', 'propertyName'])
+    expect(feed(state, '  BackGroundColor red')).toContainEqual(['BackGroundColor', 'propertyName'])
+  })
+
+  it.each([
+    ['a class body', 'class C {', '}'],
+    ['a description', 'rectangle R [', ']'],
+  ])('ends one left open in %s at its closer indented less than {{ (Review Focus 2)', (_, head, closer) => {
+    const found = tokens(head, '  {{salt', '  {', '    [OK]', '  }', closer, 'class D {', '}', 'A -> B')
+    const today = tokens(head, closer, 'class D {', '}', 'A -> B')
+    const heads = tokens(head).length
+    expect(found).toEqual([
+      ...today.slice(0, heads),
+      ['{{', 'brace'], ['salt', 'keyword'], ['{', 'brace'], ['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'],
+      ...today.slice(heads),
+    ])
+    expect(today).toContainEqual(['class', 'keyword'])
+    expect(today.at(-1)).toEqual(['->', 'LinkOperator'])
   })
 
   it('opens none at the top level of a uml block', () => {

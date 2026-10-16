@@ -252,6 +252,8 @@ const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>
 
 // The bodies a sub-diagram opens in, each with the line that ends one left open there.
 const subBodies = { noteBody: /^[ \t]*end\s*[hr]?note\b/, legendBody: /^[ \t]*end\s*legend\b/, descBody: null, classBody: null }
+// A class's or description's own closer, which ends one left open when indented less than its `{{`.
+const subClosers = { classBody: /^([ \t]*)\}[ \t]*$/, descBody: /^([ \t]*)\]/ }
 // A uml sub-diagram's own note or legend, whose end line is its own.
 const ownBodies = {
   noteBody: new Set(['noteHead', 'noteBody', 'noteBodyCode']),
@@ -501,14 +503,17 @@ export function plantumlLanguage(profiles = {}) {
     copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
     copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
     const sub = state.sub
-    copy.sub = sub && { type: sub.type, depth: sub.depth, from: sub.from, begun: sub.begun, state: copyIn(subMode(sub.type), sub.state), plant: base.copyState(sub.plant) }
+    copy.sub = sub && { type: sub.type, depth: sub.depth, indent: sub.indent, from: sub.from, begun: sub.begun, state: copyIn(subMode(sub.type), sub.state), plant: base.copyState(sub.plant) }
+    if (sub?.plant.style) copy.sub.plant.style = { state: copyIn(style, sub.plant.style.state), until: sub.plant.style.until }
     copy.nested = state.nested
     return copy
   }
 
   /**
    * A line of a sub-diagram, its `{{` and `}}` lines counting the depth. A comment or `!` line
-   * is PlantUML's (`plant`, a state of its own so the body underneath stays as it was).
+   * is PlantUML's (`plant`, a state of its own so the body underneath stays as it was), and so is
+   * a `<style>` block in a type's own grammar, read as in a block of that type. The mode gets each
+   * line with its indentation cut, as the server hands it over.
    */
   function subToken(stream, state) {
     const sub = state.sub
@@ -525,13 +530,26 @@ export function plantumlLanguage(profiles = {}) {
       }
     }
     const mode = subMode(sub.type)
+    const own = mode !== umlSub && !mode.inactive
     // A comment or `!` line's groups left pending (its indentation first) are the plant's too.
-    const plant = mode !== umlSub && !mode.inactive && (sub.plant.pending || sub.plant.state === 'blockComment' || (!stream.sol() && bangStates.has(sub.plant.state))
+    const plant = own && (sub.plant.pending || sub.plant.state === 'blockComment' || (!stream.sol() && bangStates.has(sub.plant.state))
       || (stream.sol() && (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false))))
+    const read = () => {
+      if (plant) return base.token(stream, sub.plant)
+      if (own && sub.plant.style) return styleBody(stream, sub.plant)
+      const tags = own && stream.sol() ? styleStart(stream, sub.plant) : undefined
+      if (tags !== undefined) return tags
+      // The indentation is the body's; the mode reads from after it.
+      if (!mode.inactive && stream.sol() && stream.match(/^[ \t]+(?=\S)/)) {
+        sub.from = stream.pos
+        return null
+      }
+      return innerToken(stream, sub, mode)
+    }
     // A reader may hand back an empty first group at the line's start; read on here, or this
     // line would be begun again (its depth counted twice, its end looked for in a moved state).
     for (let tries = 0; tries < 10; tries++) {
-      const token = plant ? base.token(stream, sub.plant) : innerToken(stream, sub, mode)
+      const token = read()
       if (stream.pos > stream.start) {
         sub.begun = false
         return token
@@ -547,6 +565,8 @@ export function plantumlLanguage(profiles = {}) {
    */
   function subEnds(stream, state) {
     if (stream.match(diagramEdge, false)) return true
+    const closer = subClosers[state.state]?.exec(stream.string)
+    if (closer) return closer[1].length < state.sub.indent
     if (!subBodies[state.state]?.test(stream.string)) return false
     const own = state.sub.type === 'uml' && state.sub.state
     return !own || ![own.state, ...(own.stack ?? [])].some((key) => ownBodies[state.state]?.has(key))
@@ -556,7 +576,7 @@ export function plantumlLanguage(profiles = {}) {
   function subStart(stream, state, open) {
     const type = open[3] || 'uml'
     const mode = subMode(type)
-    state.sub = { type, depth: 1, from: null, begun: false, state: mode.startState ? mode.startState(stream.indentUnit) : {}, plant: base.startState() }
+    state.sub = { type, depth: 1, indent: open[1].length, from: null, begun: false, state: mode.startState ? mode.startState(stream.indentUnit) : {}, plant: base.startState() }
     return emit(stream, state, [[open[1], null], [open[2], 'brace'], [open[3], 'keyword'], [stream.string.slice(open[1].length + 2 + open[3].length), null]])
   }
 
@@ -649,12 +669,14 @@ export function plantumlLanguage(profiles = {}) {
 
   function blankLine(state, indentUnit) {
     if (state.style) style?.blankLine?.(state.style.state, indentUnit)
+    else if (state.sub?.plant.style) style?.blankLine?.(state.sub.plant.style.state, indentUnit)
     else if (state.sub) subMode(state.sub.type).blankLine?.(state.sub.state, indentUnit)
     else if (state.inner) modeOf(state.inner).blankLine?.(state.inner.state, indentUnit)
   }
 
   function indent(state, textAfter, context) {
     if (state.style) return style?.indent?.(state.style.state, textAfter, context) ?? null
+    if (state.sub?.plant.style) return style?.indent?.(state.sub.plant.style.state, textAfter, context) ?? null
     if (state.sub) return subMode(state.sub.type).indent?.(state.sub.state, textAfter, context) ?? null
     if (!state.inner) return base.indent(state, textAfter, context)
     return modeOf(state.inner).indent?.(state.inner.state, textAfter, context) ?? null

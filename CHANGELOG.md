@@ -55,6 +55,7 @@ All notable changes to this project are documented here. The format follows
 - An **All diagrams** menu at the end of the tab strip when the tabs overflow: every diagram, its type beside it, a pick activating it.
 - Pick a named colour by name: a pencil after a colour's swatch opens the server's colour names, each with its swatch.
 - Grammars for board, git, gantt and project diagrams, AsciiMath and LaTeX formulas, and sprite blocks.
+- Grammars for mindmap, wbs, regex, EBNF, chart, Chen ER, wire, flow, BPM, DOT, HCL, packetdiag and nwdiag diagrams.
 - The editor colours every kind of token one way across diagram types: keywords, names, values, operators by kind, brackets, paths and stereotypes.
 - A diagram's name after `@start…` is underlined.
 - `@startchronology` and `@startjcckit` bodies are grey: this server cannot draw them.

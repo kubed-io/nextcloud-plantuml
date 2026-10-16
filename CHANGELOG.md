@@ -64,7 +64,7 @@ All notable changes to this project are documented here. The format follows
 - A check marks `<back:#Name>` (and `<u:`, `<s:`, `<w:`), which PlantUML draws as text, with **Remove #**.
 - Grammars for salt wireframes and JSON diagrams.
 - JSON diagrams are checked as PlantUML reads them, the first mistake underlined with the reader's message.
-- A `{{salt` … `}}` sub-diagram in a note, legend, description or class body is coloured with its own type's grammar, folds, and `{{` completes the types.
+- A `{{type` … `}}` sub-diagram (salt, json, yaml, …) in a note, legend, description or class body is coloured with its own type's grammar, folds, and `{{` completes the types.
 
 ### Changed
 

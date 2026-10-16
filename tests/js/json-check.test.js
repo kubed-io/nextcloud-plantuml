@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // T10: `@startjson` is checked as PlantUML 1.2026.8's own reader reads it. The probes are
-// the 53 files the live server was asked about; `verdicts.txt` is what it answered.
+// the 55 files the live server was asked about; `verdicts.txt` is what it answered.
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
@@ -16,8 +16,8 @@ const lint = jsonLint({ scan })
 const found = (doc) => lint(EditorState.create({ doc }))
 
 describe('the reader', () => {
-  it('has the 53 probes', () => {
-    expect(verdicts).toHaveLength(53)
+  it('has the 55 probes', () => {
+    expect(verdicts).toHaveLength(55)
   })
 
   for (const [name, verdict] of verdicts) {
@@ -79,6 +79,16 @@ describe('the lint', () => {
     const doc = '@startjson\ntitle x\n{"a": 1}\n<style>\njson {\n  BackGroundColor red\n}\n</style>\n#highlight "a"\n@endjson\n'
 
     expect(found(doc)).toEqual([])
+  })
+
+  it('skips a skinparam block to its closing brace, and still marks an error after it', () => {
+    for (const head of ['skinparam {', 'skinparam json {']) {
+      const doc = `@startjson\n${head}\nBackgroundColor red\n}\n{"a": 1}\n@endjson\n`
+      expect(found(doc)).toEqual([])
+      const bad = `@startjson\n${head}\nBackgroundColor red\n}\n{"a" 1}\n@endjson\n`
+      const at = bad.indexOf('1}')
+      expect(found(bad)).toEqual([{ from: at, to: at + 2, severity: 'error', message: "Expected ':'" }])
+    }
   })
 
   it('marks a title after the second data line, which the server reads as JSON', () => {

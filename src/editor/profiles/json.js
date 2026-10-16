@@ -12,7 +12,7 @@
 import { json } from '@codemirror/legacy-modes/mode/javascript'
 import { jsonLint } from '../lint/json.js'
 
-const COMMON_LINE = /^[ \t]*(?:title|scale|skin|skinparam|hide)\b/i
+const COMMON_LINE = /^[ \t]*(?:title|scale|skin|skinparam|hide) /
 const HIGHLIGHT_LINE = /^#highlight(?= )/
 // Where a path part ends: the next `/`, a stereotype or the line's end.
 const PART_END = '(?=\\s*(?:/|<<|$))'

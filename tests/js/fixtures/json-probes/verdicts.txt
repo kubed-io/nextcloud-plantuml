@@ -51,3 +51,5 @@ two_values REJECT
 unicode_esc ACCEPT
 unquoted_key REJECT
 uppercase_true REJECT
+skinparam_block ACCEPT
+skinparam_json_block ACCEPT

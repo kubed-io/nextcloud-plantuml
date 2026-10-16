@@ -253,7 +253,10 @@ const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>
 // The bodies a sub-diagram opens in, each with the line that ends one left open there.
 const subBodies = { noteBody: /^[ \t]*end\s*[hr]?note\b/, legendBody: /^[ \t]*end\s*legend\b/, descBody: null, classBody: null }
 // A uml sub-diagram's own note or legend, whose end line is its own.
-const ownBodies = new Set(['noteHead', 'noteBody', 'noteBodyCode', 'legendHead', 'legendBody', 'legendBodyCode'])
+const ownBodies = {
+  noteBody: new Set(['noteHead', 'noteBody', 'noteBodyCode']),
+  legendBody: new Set(['legendHead', 'legendBody', 'legendBodyCode']),
+}
 
 /** A style import's value: a `file` path is `url`, quoted its quotes punctuation; else a string. */
 function sheetValue(name, value) {
@@ -546,7 +549,7 @@ export function plantumlLanguage(profiles = {}) {
     if (stream.match(diagramEdge, false)) return true
     if (!subBodies[state.state]?.test(stream.string)) return false
     const own = state.sub.type === 'uml' && state.sub.state
-    return !own || ![own.state, ...(own.stack ?? [])].some((key) => ownBodies.has(key))
+    return !own || ![own.state, ...(own.stack ?? [])].some((key) => ownBodies[state.state]?.has(key))
   }
 
   /** A body's `{{` line: the sub-diagram starts on the next line, the body kept underneath. */

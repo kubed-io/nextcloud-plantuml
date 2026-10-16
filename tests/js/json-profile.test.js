@@ -58,6 +58,14 @@ describe('the json profile', () => {
     expect(jsonTokens('skin rose', '{}')).toContainEqual(['skin', 'keyword'])
   })
 
+  it('reads only a lowercase keyword followed by a space as a common line', () => {
+    expect(jsonTokens('Title T', '{}').some(([, name]) => name === 'keyword')).toBe(false)
+    expect(jsonTokens('title\tT', '{}').some(([, name]) => name === 'keyword')).toBe(false)
+    const bare = jsonTokens('title', '{"a": 1, "b": [true]}')
+    expect(bare).toContainEqual(['"a"', 'propertyName'])
+    expect(bare).toContainEqual(['true', 'atom'])
+  })
+
   it('reads title after the second data line as json text', () => {
     const late = jsonTokens('{', '"a": 1,', 'title x', '}')
     expect(late.some(([, name]) => name === 'keyword')).toBe(false)

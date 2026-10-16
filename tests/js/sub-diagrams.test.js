@@ -86,6 +86,14 @@ describe('the grammar', () => {
     expect(tokens('note right', '{{', 'class X {', '}}', 'end note', 'A -> B').slice(-2)).toEqual([['end note', 'keyword'], ['->', 'LinkOperator']])
   })
 
+  it('ends a sub-diagram in a legend at end legend though its own note is left open', () => {
+    expect(tokens('legend', '{{', 'note right', 'x', 'end legend', 'A -> B').slice(-2)).toEqual([['end legend', 'keyword'], ['->', 'LinkOperator']])
+  })
+
+  it('ends a sub-diagram in a note at end note though its own legend is left open', () => {
+    expect(tokens('note right', '{{', 'legend', 'x', 'end note', 'A -> B').slice(-2)).toEqual([['end note', 'keyword'], ['->', 'LinkOperator']])
+  })
+
   it('ends one left open at end note, which is read as ever (Review Focus 2)', () => {
     expect(tokens('note right', '{{salt', '{', 'end note', 'A -> B').slice(-2)).toEqual([['end note', 'keyword'], ['->', 'LinkOperator']])
     expect(tokens('legend', '{{salt', '{', 'end legend', 'A -> B').slice(-2)).toEqual([['end legend', 'keyword'], ['->', 'LinkOperator']])

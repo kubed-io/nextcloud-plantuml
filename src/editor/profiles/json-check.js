@@ -114,13 +114,18 @@ export function checkJson(text) {
 export function jsonLines(lines) {
   let closer = null // ends the preprocessor comment or <style> block in progress
   let kept = 0
+  let skin = false // inside a `skinparam … {` block, which PlantUML skips to its `}`
   return lines.map((line) => {
     const t = line.trim()
     if (closer) { if (t.includes(closer)) closer = null; return '' }
+    if (skin) { if (t === '}') skin = false; return '' }
     if (t.startsWith("/'")) { closer = t.includes("'/", 2) ? null : "'/"; return '' }
     if (t === '<style>') { closer = '</style>'; return '' }   // StyleExtractor: trimmed line equals <style>
     if (t === '' || t.startsWith("'") || t.startsWith('!')) return ''  // preprocessor: comments, !pragma, !assume, other ! lines
-    if (kept <= 1 && /^(?:title |scale |skin |skinparam |hide )/.test(t)) return ''
+    if (kept <= 1 && /^(?:title |scale |skin |skinparam |hide )/.test(t)) {
+      skin = t.startsWith('skinparam ') && t.endsWith('{')
+      return ''
+    }
     if (line.startsWith('#')) return ''                       // #highlight and any other column-0 # line
     kept++
     return line

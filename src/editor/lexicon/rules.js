@@ -160,7 +160,8 @@ export const attributes = (end) => [
   // An image's source is a path (H22), quoted or not.
   { regex: /(src)(\s*)(=)(\s*)(")([^"]+)(")/, token: ['attributeName', null, 'definitionOperator', null, 'punctuation', 'url', 'punctuation'] },
   { regex: /(src)(\s*)(=)(\s*)([^\s>"',}]+)/, token: ['attributeName', null, 'definitionOperator', null, 'url'] },
-  { regex: /[\w-]+(?=\s*=)/, token: 'attributeName' },
+  // A namespaced name (`xlink:href`) is one.
+  { regex: /[\w:-]+(?=\s*=)/, token: 'attributeName' },
   { regex: /=/, token: 'definitionOperator' },
   { regex: /"[^"]*"|'[^']*'/, token: 'string' },
   { regex: /[^\s>"',}]+/, token: 'string' },
@@ -505,6 +506,8 @@ const commonArgs = [
 
 // The ends of the common bodies, which a `<latex>` block left open in one ends with.
 const commonEnd = /end[ \t]*(?:legend|title|header|footer)\b/i
+// The names `common` gives the states Creole pushes.
+const COMMON_STATES = { tagAttrs: 'commonTagAttrs', tagBraces: 'commonTagBraces', math: 'commonMath', latex: 'commonLatex', latexBlock: 'commonLatexBlock' }
 // The state of a common body: `commonTitle`, its `<code>` blocks `commonTitleCode`.
 const bodyOf = (word) => `common${word[0].toUpperCase()}${word.slice(1)}`
 
@@ -517,9 +520,10 @@ const bodyOf = (word) => `common${word[0].toUpperCase()}${word.slice(1)}`
  * and `show` with their words (colours, strings, numbers); `left to right direction` and `top to
  * bottom direction`; `legend` a body down to `end legend` (`'block'`), a keyword line (`'line'`,
  * chart's `legend <position>`), or none (`false`). With `title`, `title` read as `header` is,
- * alone (`{ all: false, title: true }` is hcl's). All in any case. The Creole states are here
- * too (`tagAttrs`, `tagBraces`, `math`, `latex`, `latexBlock`), ending with their line or block:
- * an inline formula and a `<latex>` block plain.
+ * alone (`{ all: false, title: true }` is hcl's). All in any case. The states Creole pushes are
+ * here too, under names of their own so a grammar's never collide (`commonTagAttrs`,
+ * `commonTagBraces`, `commonMath`, `commonLatex`, `commonLatexBlock`), ending with their line or
+ * block: an inline formula and a `<latex>` block plain.
  *
  * @param {object} [options]
  * @param {'block'|'line'|false} [options.legend]
@@ -543,32 +547,38 @@ export function common({ legend = 'block', title = true, all = true } = {}) {
     )
   }
   const bodies = ['title', 'header', 'footer', 'legend'].map((word) => body(bodyOf(word), new RegExp(`end[ \\t]*${word}\\b`, 'i')))
+  // Every push of one goes to its `COMMON_STATES` name.
+  const ownState = (rule) => (Object.hasOwn(COMMON_STATES, rule.push ?? '') ? { ...rule, push: COMMON_STATES[rule.push] } : rule)
   // A pushed state that ends with its line pops back to the one it was pushed from.
   const ending = (rules) => [atNextLine({ pop: true }), ...rules]
   const inline = (tag) => [
     { regex: new RegExp(`.+?(?=</${tag}>)`), token: null },
     { regex: new RegExp(`</${tag}>`), token: 'tagName', pop: true },
   ]
+  const states = {
+    commonText: [atNextLine({ next: 'start' }), ...creole(null)],
+    commonArgs,
+    // The rest of a legend's line (`legend top left`), then its body.
+    commonLegendHead: [atNextLine({ next: bodyOf('legend') }), ...commonArgs.slice(1)],
+    ...Object.assign({}, ...bodies),
+    tagAttrs: ending(tagStates.tagAttrs),
+    tagBraces: ending(tagStates.tagBraces),
+    math: inline('math'),
+    latex: inline('latex'),
+    latexBlock: [
+      { regex: /<\/latex>$/, sol: true, token: 'tagName', pop: true },
+      { regex: new RegExp(`(?=[ \\t]*${commonEnd.source})`, 'i'), sol: true, token: null, pop: true },
+      { regex: /.+/, token: null },
+    ],
+  }
   return {
     rules,
-    states: {
-      commonText: [atNextLine({ next: 'start' }), ...creole(null)],
-      commonArgs,
-      // The rest of a legend's line (`legend top left`), then its body.
-      commonLegendHead: [atNextLine({ next: bodyOf('legend') }), ...commonArgs.slice(1)],
-      ...Object.assign({}, ...bodies),
-      tagAttrs: ending(tagStates.tagAttrs),
-      tagBraces: ending(tagStates.tagBraces),
-      math: inline('math'),
-      latex: inline('latex'),
-      latexBlock: [
-        { regex: /<\/latex>$/, sol: true, token: 'tagName', pop: true },
-        { regex: new RegExp(`(?=[ \\t]*${commonEnd.source})`, 'i'), sol: true, token: null, pop: true },
-        { regex: /.+/, token: null },
-      ],
-    },
+    states: Object.fromEntries(Object.entries(states).map(([key, list]) => [COMMON_STATES[key] ?? key, list.map(ownState)])),
   }
 }
+
+/** A setting line of a math or latex block, from its start: `color`, `backgroundcolor`, `scale` or `dpi` and a space. */
+export const settingLine = /^[ \t]*(?:(?:background)?color|scale|dpi)[ \t]/i
 
 /**
  * A setting line's next token, in the math and latex profiles (`color red`, `scale 2`): its

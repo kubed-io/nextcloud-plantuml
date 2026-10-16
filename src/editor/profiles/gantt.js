@@ -145,9 +145,12 @@ function keywords(stream, state) {
 function build(lex) {
   const { colourPart } = lex.patterns
   const colour = { hash: new RegExp(`#${colourPart}`), any: new RegExp(`#?${colourPart}`) }
+  // A body's lines are H8's (rules, list markers, `<code>`); a one-line text is Creole alone.
+  const body = lex.textMode(null, { lines: true })
   const text = lex.textMode(null)
   return {
     startState,
+    // Both text modes keep simple-mode's state, which either copies.
     copyState: (state) => ({ ...state, text: state.text && text.copyState(state.text) }),
     token(stream, state) {
       if (stream.sol()) {
@@ -158,7 +161,7 @@ function build(lex) {
         if (state.next) {
           state.body = state.next
           state.next = null
-          state.text = text.startState()
+          state.text = body.startState()
         } else if (!state.body) {
           state.text = null
         }
@@ -166,7 +169,7 @@ function build(lex) {
       }
       // A body's line is Creole, but for its end.
       if (state.body && !state.closing) {
-        return text.token(stream, state.text)
+        return body.token(stream, state.text)
       }
       if (state.part) {
         return part(stream, state)

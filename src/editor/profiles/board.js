@@ -11,7 +11,7 @@
  * shares are the lexicon's common lines (G4), in any case.
  */
 export default (core) => {
-  const { atNextLine, common, creole, table } = core.lex
+  const { atNextLine, common, creole, table, tagStates } = core.lex
   const lines = common()
   const mode = table({
     start: [
@@ -21,7 +21,11 @@ export default (core) => {
       { regex: /.+/, token: 'heading' },
     ],
     card: [atNextLine({ next: 'start' }), ...creole(null)],
+    // What a card's Creole pushes ends with its line; an inline formula is plain.
+    ...tagStates,
+    math: [],
+    latex: [],
     ...lines.states,
-  })
+  }, { lineStates: ['tagAttrs', 'tagBraces', 'math', 'latex'] })
   return { type: 'board', mode, completions: [], lints: [], values: [] }
 }

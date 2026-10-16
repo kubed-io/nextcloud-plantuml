@@ -87,6 +87,13 @@ describe('lex', () => {
     expect(spans(lex.textMode('labelName'), ['**b** x'])).toEqual([['**b**', 'strong_labelName'], [' x', 'labelName']])
   })
 
+  it("reads H8's body lines in a text mode with lines, a code block to its end", () => {
+    expect(spans(lex.textMode(null, { lines: true }), ['----', '* a **b**', '<code>', '**x**', '</code>', '**y**'])).toEqual([
+      ['----', 'heading'], ['*', 'list'], ['**b**', 'strong'], ['<code>', 'tagName'], ['**x**', 'monospace'], ['</code>', 'tagName'], ['**y**', 'strong'],
+    ])
+    expect(spans(lex.textMode(null), ['----'])).toEqual([])
+  })
+
   it("ends a text mode's tag and inline formula with their line", () => {
     expect(spans(lex.textMode('labelName'), ['<font size=12', 'a <math>x</math>', 'b']).slice(-1)).toEqual([['b', 'labelName']])
   })
@@ -133,6 +140,14 @@ describe('lex.common', () => {
     expect(common('legend', '<latex>', 'x', 'end legend', 'scale 2')).toEqual([
       ['legend', 'keyword'], ['<latex>', 'tagName'], ['end legend', 'keyword'], ['scale', 'keyword'], ['2', 'number'],
     ])
+  })
+
+  it("keeps its Creole states its own, beside a grammar's tag states", () => {
+    const { rules, states } = lex.common()
+    const mode = lex.table({ start: [...rules, { regex: /\w+/, token: null }], ...states, ...lex.tagStates })
+
+    expect(spans(mode, ['title <font size=12', 'scale 2']).slice(-2)).toEqual([['scale', 'keyword'], ['2', 'number']])
+    expect(Object.keys(states).filter((key) => Object.hasOwn(lex.tagStates, key) || ['math', 'latex', 'latexBlock'].includes(key))).toEqual([])
   })
 
   it('reads a legend as one keyword line when asked, the next line its own', () => {

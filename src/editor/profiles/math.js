@@ -34,12 +34,11 @@ const operator = (name) => (LOGIC.has(name) ? 'logicOperator' : COMPARE.has(name
 const TOKENS = { functions: 'FunctionName', symbols: 'VariableName', operators: 'operator', brackets: 'punctuation', keywords: 'keyword' }
 const NAMES = new Map(Object.entries(data.asciimath).flatMap(([role, names]) => names.map((name) => [name, role === 'operators' ? operator(name) : role === 'brackets' ? BRACKET[name] ?? 'bracket' : TOKENS[role]])))
 const LONGEST = Math.max(...[...NAMES.keys()].map((name) => name.length))
-const SETTING = /^[ \t]*(?:(?:background)?color|scale|dpi)[ \t]/i
 const TEXT_CLOSER = { '(': ')', '[': ']', '{': '}' }
 const TEXT_ARGUMENT = { ')': /[^)]+/, ']': /[^\]]+/, '}': /[^}]+/ }
 
-/** The mode, its setting lines read by `setting` (the lexicon's). */
-function modeWith(setting) {
+/** The mode, its setting lines found and read by the lexicon's `settingLine` and `setting`. */
+function modeWith({ setting, settingLine }) {
   const mode = {
     // setting: the line is a setting, value: what of it comes next (`setting`'s 'keyword',
     // 'colour', 'number' or 'rest'); text: 'open' after `text`, then its argument's closer.
@@ -47,7 +46,7 @@ function modeWith(setting) {
     copyState: (state) => ({ ...state }),
     token(stream, state) {
       if (stream.sol()) {
-        state.setting = SETTING.test(stream.string)
+        state.setting = settingLine.test(stream.string)
         state.value = state.setting ? 'keyword' : null
         state.text = null
       }
@@ -116,4 +115,4 @@ function text(stream, state, mode) {
   return 'string'
 }
 
-export default (core) => ({ type: 'math', mode: modeWith(core.lex.setting), completions: [], lints: [], values: [] })
+export default (core) => ({ type: 'math', mode: modeWith(core.lex), completions: [], lints: [], values: [] })

@@ -210,7 +210,7 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     ])
   })
 
-  it('reads a note, a legend and a title down to their ends, the text plain', () => {
+  it('reads a note, a legend and a title down to their ends', () => {
     expect(read('note bottom', '[A] lasts 2 days', 'end note', '[A] lasts 1 day')).toEqual([
       ['note bottom', 'keyword'], ['end note', 'keyword'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'],
     ])
@@ -225,6 +225,16 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     expect(read('title', '//Plan//', 'end title')).toEqual([['title', 'keyword'], ['//Plan//', 'emphasis'], ['end title', 'keyword']])
     expect(read('title **Rounds**')).toEqual([['title', 'keyword'], ['**Rounds**', 'strong']])
     expect(read('caption a **b**', '[A] lasts 1 day').slice(0, 3)).toEqual([['caption', 'keyword'], ['**b**', 'strong'], ['[', 'squareBracket']])
+  })
+
+  it("reads H8's body lines in a note: rules, list markers, code (G5)", () => {
+    expect(read('note bottom', '----', '* item', '<code>', 'x', '</code>', 'end note', '[A] lasts 1 day')).toEqual([
+      ['note bottom', 'keyword'], ['----', 'heading'], ['*', 'list'], ['<code>', 'tagName'], ['x', 'monospace'], ['</code>', 'tagName'],
+      ['end note', 'keyword'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'],
+    ])
+    // A `<code>` or `<latex>` block left open ends with its body.
+    expect(read('legend', '<code>', '**x**', 'end legend', '[A] lasts 1 day').slice(2, 4)).toEqual([['**x**', 'monospace'], ['end legend', 'keyword']])
+    expect(read('note bottom', '<latex>', 'x', 'end note', 'note bottom', '**n**', 'end note').slice(-3)).toEqual([['note bottom', 'keyword'], ['**n**', 'strong'], ['end note', 'keyword']])
   })
 
   it('ends a tag left open in a note or a title with its line', () => {

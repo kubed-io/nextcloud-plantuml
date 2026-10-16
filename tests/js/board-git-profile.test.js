@@ -47,7 +47,7 @@ describe('the board profile', () => {
     expect(boardTokens('Activity 2 : with colon')).toEqual([['Activity 2 : with colon', 'heading']])
   })
 
-  it('names the plus run a list marker and leaves a card plain', () => {
+  it('names the plus run a list marker', () => {
     expect(boardTokens('+Completion')).toEqual([['+', 'list']])
     expect(boardTokens('++Directives')).toEqual([['++', 'list']])
     expect(boardTokens('+++ Task a1')).toEqual([['+++', 'list']])
@@ -58,6 +58,7 @@ describe('the board profile', () => {
     expect(boardTokens('++ <b>x</b>', 'Editor')).toEqual([['++', 'list'], ['<b>', 'tagName'], ['</b>', 'tagName'], ['Editor', 'heading']])
     // A tag left open ends with its card's line.
     expect(boardTokens('+ <font size=1', 'Editor').slice(-1)).toEqual([['Editor', 'heading']])
+    expect(boardTokens('+ <math>x</math>', 'Editor').slice(-1)).toEqual([['Editor', 'heading']])
   })
 
   it('reads a title as a keyword and its text as Creole, the common lines with it (G4)', () => {

@@ -83,6 +83,13 @@ describe('the sprites profile', () => {
     ])
   })
 
+  it('reads a namespaced svg attribute as an attribute', () => {
+    expect(spriteTokens('sprite dot <svg xmlns:xlink="http://www.w3.org/1999/xlink"></svg>').slice(3, 6)).toEqual([
+      ['xmlns:xlink', 'attributeName'], ['=', 'definitionOperator'], ['"http://www.w3.org/1999/xlink"', 'string'],
+    ])
+    expect(umlTokens('sprite dot <svg><use xlink:href="#a"/></svg>').slice(3, 5)).toEqual([['xlink:href', 'attributeName'], ['=', 'definitionOperator']])
+  })
+
   it('reads a multi-line svg sprite down to the line holding </svg>', () => {
     expect(spriteTokens('sprite a <svg viewBox="0 0 8 8">', '<path d="M1 0"/>', '</svg>', 'listsprite').slice(-4)).toEqual([
       ['"M1 0"', 'string'], ['/>', 'tagName'], ['</svg>', 'tagName'], ['listsprite', 'keyword'],

@@ -10,22 +10,20 @@
  * A block's line starting `color`, `backgroundcolor`, `scale` or `dpi` and a space is a setting,
  * a keyword and its value, read by the lexicon's `setting`, as in the math profile.
  */
-const SETTING = /^[ \t]*(?:(?:background)?color|scale|dpi)[ \t]/i
-
 const BRACKETS = { '{': 'brace', '}': 'brace', '[': 'squareBracket', ']': 'squareBracket', '(': 'paren', ')': 'paren' }
 
 // What `\begin` or `\end` expects next: its brace, the name, the closing brace.
 const ENVIRONMENT = ['{', 'name', '}']
 
-/** The mode, its setting lines read by `setting` (the lexicon's). */
-const modeWith = (setting) => ({
+/** The mode, its setting lines found and read by the lexicon's `settingLine` and `setting`. */
+const modeWith = ({ setting, settingLine }) => ({
   // environment: where in a `\begin{…}` the line is; value: what of a setting line comes next
   // (`setting`'s 'keyword', 'colour', 'number' or 'rest'), null on any other line.
   startState: () => ({ environment: null, value: null }),
   copyState: (state) => ({ ...state }),
   token(stream, state) {
     if (stream.sol()) {
-      state.value = SETTING.test(stream.string) ? 'keyword' : null
+      state.value = settingLine.test(stream.string) ? 'keyword' : null
     }
     if (stream.eatSpace()) {
       return null
@@ -82,4 +80,4 @@ function environment(stream, state) {
   return 'brace'
 }
 
-export default (core) => ({ type: 'latex', mode: modeWith(core.lex.setting), completions: [], lints: [], values: [] })
+export default (core) => ({ type: 'latex', mode: modeWith(core.lex), completions: [], lints: [], values: [] })

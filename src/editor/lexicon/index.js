@@ -32,13 +32,23 @@ function match(stream, rules) {
 /**
  * A stream mode that reads every line as Creole with `base` for its text, the
  * tags Creole opens ending with their line, for a profile written by hand. An
- * inline `<math>` or `<latex>` is left plain to the end of its line.
+ * inline `<math>` or `<latex>` is left plain to the end of its line. With
+ * `lines`, it reads a body's lines as H8 has them too (`lines()`): rules and
+ * headings, list markers, tree lines, a `<code>` block monospace to `</code>`
+ * and a `<latex>` block plain to `</latex>`; the profile ends the body, and a
+ * block left open with it.
  *
  * @param {string|null} base
+ * @param {object} [options]
+ * @param {boolean} [options.lines]
  */
-const textMode = (base) => table(
-  { start: shared.creole(base), ...shared.tagStates, math: [], latex: [] },
-  { lineStates: ['tagAttrs', 'tagBraces', 'math', 'latex'] },
-)
+const textMode = (base, { lines = false } = {}) => table({
+  start: [...(lines ? shared.lines('code') : []), ...shared.creole(base)],
+  code: shared.codeLines(null, 'start'),
+  ...shared.tagStates,
+  math: [],
+  latex: [],
+  latexBlock: [{ regex: /<\/latex>$/, sol: true, token: 'tagName', pop: true }, { regex: /.+/, token: null }],
+}, { lineStates: ['tagAttrs', 'tagBraces', 'math', 'latex'] })
 
 export const lex = { simpleMode, table, match, textMode, ...shared }

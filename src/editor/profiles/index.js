@@ -50,6 +50,7 @@ export const PROFILES = {
   project: () => import('./gantt.js').then((module) => ({ default: module.project })),
   regex: () => import('./regex.js'),
   ebnf: () => import('./ebnf.js'),
+  chart: () => import('./chart.js'),
   mindmap: () => import('./tree.js'),
   // The same chunk: wbs reads what mindmap does differently.
   wbs: () => import('./tree.js').then((module) => ({ default: module.wbs })),

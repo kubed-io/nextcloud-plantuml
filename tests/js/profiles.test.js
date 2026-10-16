@@ -56,6 +56,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\na = b ;\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are chart only when a chart block is in the file', () => {
+    expect(neededFor('@startchart\nbar [1,2]\n@endchart\n')).toEqual(new Set(['chart']))
+    expect(neededFor('@startuml\nbar [1,2]\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

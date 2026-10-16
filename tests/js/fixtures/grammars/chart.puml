@@ -1,0 +1,38 @@
+@startchart
+h-axis [Q1, Q2, Q3, Q4]
+v-axis "Revenue" 0 --> 100
+bar "Sales" [45, 62, 58, 70] #3498db
+legend right
+@endchart
+@startchart
+title Dual axis
+h-axis "Quarters" [Q1, Q2, Q3, Q4] label-right grid
+v-axis "Revenue" 0 --> 100 ticks [0:"Poor", 50:"Average", 100:"Excellent"] label-top
+v2-axis "Market Share %" 0 --> 50 spacing 10
+stackMode stacked
+bar "Sales" [45, 62, 58, 70] #red labels
+line "Market Share" [15, 20, 18, 25] #ff7f0e v2 labels
+annotation "Peak sales" at (Q4, 70) <<arrow>>
+legend bottom
+@endchart
+@startchart
+<style>
+.datapoints {
+  MarkerColor #1f77b4
+  MarkerShape circle
+  MarkerSize 10
+}
+</style>
+h-axis "t" -10 --> 10 spacing 2 label-right
+v-axis "f(t)" -10 --> 50 spacing 10 label-top
+line "Trajectory" [(-10,0), (2,10), (5,30), (8,45), (10,50)] #3498db
+scatter <<datapoints>> "Checkpoints" [(1,12), (6,34), (7,47)] #e74c3c labels <<square>>
+legend right
+@endchart
+@startchart
+orientation horizontal
+v-axis [Product A, Product B, Product C]
+h-axis "Revenue" 0 --> 100
+bar [75, 55, 30] #3498db
+' a comment
+@endchart

@@ -27,3 +27,12 @@ Feature: Diagrams in a folder README
 
     # Only the fence tag "plantuml" is recognised; it is the one every other tool
     # agrees on. The image is handled as Text handles any image: inline, no link.
+
+    # ── RULE: an image may name one diagram of a file ─────────────────────────
+
+  @gesture @unbuilt
+  Scenario: A README shows one diagram of a file that holds several
+    Given "Screens.puml" holds the diagrams "nodes" and "login"
+    And the README embeds the image "Screens.puml#login"
+    When the user reads the README
+    Then they see the diagram "login"

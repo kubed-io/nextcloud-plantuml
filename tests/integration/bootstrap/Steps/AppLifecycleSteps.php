@@ -36,6 +36,12 @@ trait AppLifecycleSteps {
 		);
 	}
 
+	/** @Given the app is installed but not enabled */
+	public function theAppIsInstalledButNotEnabled(): void {
+		$this->occ('app:disable ' . self::APP_ID);
+		$this->theAppIsNotEnabled();
+	}
+
 	/** @When the admin enables the app */
 	public function theAdminEnablesTheApp(): void {
 		$res = $this->occ('app:enable --force ' . self::APP_ID);

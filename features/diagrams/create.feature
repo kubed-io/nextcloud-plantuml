@@ -10,6 +10,7 @@ Feature: Creating a diagram file
 
   @gesture
   Scenario: A new diagram starts empty and ready to write in
+    Given I am working in the folder "Diagrams"
     When I create a new diagram in "Diagrams"
     Then "Diagrams/New diagram.puml" holds an empty diagram
 

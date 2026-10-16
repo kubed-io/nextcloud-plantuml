@@ -14,6 +14,7 @@ Feature: Looking at a diagram file
 
   @api
   Scenario: Asking for a diagram file by its path returns its diagram
+    Given "Diagrams/Order flow.puml" holds a diagram
     When I request the image of "Diagrams/Order flow.puml"
     Then I receive the diagram as an SVG image
 

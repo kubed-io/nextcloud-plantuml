@@ -14,6 +14,11 @@ namespace OCA\PlantUml\Tests\Integration\Steps;
  * entry creates it. What the file holds is the app's doing, not the client's.
  */
 trait CreateSteps {
+	/** @Given /^I am working in the folder "([^"]*)"$/ */
+	public function iAmWorkingInTheFolder(string $folder): void {
+		$this->davEnsureFolder($folder);
+	}
+
 	/** @When /^I create a new diagram in "([^"]*)"$/ */
 	public function iCreateANewDiagramIn(string $folder): void {
 		$this->davEnsureFolder($folder);

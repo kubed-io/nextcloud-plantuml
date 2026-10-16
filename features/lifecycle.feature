@@ -7,6 +7,7 @@ Feature: App install lifecycle
 
   @admin @occ
   Scenario: Enabling the app
+    Given the app is installed but not enabled
     When the admin enables the app
     Then the app is enabled
     And ".puml" files are registered as their own file type

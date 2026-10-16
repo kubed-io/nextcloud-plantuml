@@ -22,6 +22,27 @@ trait ConnectionSteps {
 	}
 
 	/**
+	 * The test server answers a diagram before the admin names it.
+	 *
+	 * @Given the admin has a PlantUML server to connect to
+	 */
+	public function theAdminHasAPlantUmlServerToConnectTo(): void {
+		$response = (new \GuzzleHttp\Client(['http_errors' => false]))->post($this->plantumlUrl . '/svg', ['body' => "@startuml\nA -> B\n@enduml\n"]);
+		if ($response->getStatusCode() !== 200) {
+			throw new \RuntimeException("the test server answered HTTP {$response->getStatusCode()}");
+		}
+	}
+
+	/**
+	 * The scene only: each example row names the kind of address, and the When
+	 * fills it in.
+	 *
+	 * @Given the admin has a server address that cannot render diagrams
+	 */
+	public function theAdminHasAServerAddressThatCannotRender(): void {
+	}
+
+	/**
 	 * "Connected" implies "enabled": CI never pre-enables the app, so a feature
 	 * whose Background starts here would otherwise run set-url as an unknown
 	 * command.

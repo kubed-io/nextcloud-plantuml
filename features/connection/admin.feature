@@ -11,6 +11,7 @@ Feature: The admin connects the app to a PlantUML server
 
   @admin @occ
   Scenario: An admin enters a working server address
+    Given the admin has a PlantUML server to connect to
     When the admin fills in the connection details:
       | url | the test server |
     And the admin tests the connection
@@ -19,6 +20,7 @@ Feature: The admin connects the app to a PlantUML server
 
   @admin @occ
   Scenario Outline: An admin enters a server address that cannot render
+    Given the admin has a server address that cannot render diagrams
     When the admin fills in the connection details:
       | url | <url> |
     And the admin tests the connection

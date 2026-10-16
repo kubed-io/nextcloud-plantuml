@@ -24,6 +24,40 @@ trait RenderApiSteps {
 		$this->renderResponse = $this->renderByPath($path);
 	}
 
+	/**
+	 * As the editor draws the diagram its cursor is in: the file's source, and
+	 * the diagram's place among the file's `@start` lines.
+	 *
+	 * @When /^I draw the diagram "([^"]*)" of "([^"]*)"$/
+	 */
+	public function iDrawTheDiagramOf(string $name, string $path): void {
+		$response = $this->davGet($path);
+		if ($response->getStatusCode() !== 200) {
+			throw new \RuntimeException("GET {$path} answered HTTP {$response->getStatusCode()}");
+		}
+		$source = (string)$response->getBody();
+		preg_match_all('/^[ \t]*@start\w+[ \t]*(\S*)/m', $source, $m);
+		$index = array_search($name, $m[1], true);
+		if ($index === false) {
+			throw new \RuntimeException("{$path} has no diagram named {$name}");
+		}
+		$this->renderResponse = $this->httpClient()->post($this->baseUrl . '/index.php/apps/plantuml/render', [
+			'json' => ['source' => $source, 'index' => $index],
+			'headers' => ['OCS-APIRequest' => 'true'],
+		]);
+	}
+
+	/** @Then /^I receive the diagram "([^"]*)"$/ */
+	public function iReceiveTheDiagram(string $name): void {
+		$response = $this->lastRenderResponse();
+		$this->assertSvg($response, self::markerOf($name));
+		preg_match_all('/\b(\w+)Marker\b/', (string)$response->getBody(), $m);
+		$others = array_diff(array_unique($m[1]), [ucfirst($name)]);
+		if ($others !== []) {
+			throw new \RuntimeException('the picture also draws ' . implode(', ', $others));
+		}
+	}
+
 	/** @Then I receive the diagram as an SVG image */
 	public function iReceiveTheDiagramAsAnSvgImage(): void {
 		$this->assertSvg($this->lastRenderResponse());

@@ -26,6 +26,32 @@ trait DiagramFileSteps {
 		$this->putFile($folder, $name, "Some notes, not a diagram.\n");
 	}
 
+	/** @Given /^"([^"]*)" holds a diagram$/ */
+	public function holdsADiagram(string $path): void {
+		$response = $this->davGet($path);
+		if ($response->getStatusCode() !== 200 || !str_contains((string)$response->getBody(), '@startuml')) {
+			throw new \RuntimeException("{$path} holds no diagram (HTTP {$response->getStatusCode()})");
+		}
+	}
+
+	/**
+	 * Each block draws a participant named after it, so the picture says which
+	 * block it is.
+	 *
+	 * @Given /^"([^"]*)" holds the diagrams "([^"]*)" and "([^"]*)"$/
+	 */
+	public function holdsTheDiagrams(string $path, string $first, string $second): void {
+		$body = '';
+		foreach ([$first, $second] as $name) {
+			$body .= "@startuml {$name}\n" . self::markerOf($name) . " -> Shop : open\n@enduml\n";
+		}
+		$this->putFile(dirname($path), basename($path), $body);
+	}
+
+	private static function markerOf(string $name): string {
+		return ucfirst($name) . 'Marker';
+	}
+
 	private function putFile(string $folder, string $name, string $body): void {
 		$this->davEnsureFolder($folder);
 		$path = $folder . '/' . $name;

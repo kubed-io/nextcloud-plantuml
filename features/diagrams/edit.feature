@@ -13,6 +13,7 @@ Feature: Editing a diagram file
 
   @gesture
   Scenario: A changed source draws the changed diagram
+    Given I am editing "Diagrams/Order flow.puml"
     When I change the source of "Diagrams/Order flow.puml" without saving
     Then the diagram shows the change
     And "Diagrams/Order flow.puml" still holds its old source
@@ -21,6 +22,7 @@ Feature: Editing a diagram file
 
   @gesture
   Scenario: Saving writes the source back to the file
+    Given I am editing "Diagrams/Order flow.puml"
     When I change the source of "Diagrams/Order flow.puml" and save
     Then "Diagrams/Order flow.puml" holds the changed source
 
@@ -42,10 +44,32 @@ Feature: Editing a diagram file
 
   @api
   Scenario: Asking for the server's themes
+    Given the PlantUML server offers its own themes
     When I ask for the themes the server offers
     Then I receive the themes the PlantUML server lists
 
+  @api
+  Scenario: Asking for the server's icons
+    Given the PlantUML server offers its own icons
+    When I ask for the icons the server offers
+    Then I receive the icons the PlantUML server lists
+
+  @api
+  Scenario: Asking for the server's emoji
+    Given the PlantUML server offers its own emoji
+    When I ask for the emoji the server offers
+    Then I receive the emoji the PlantUML server lists
+
   @gesture
   Scenario: A mistake in the source names its line
+    Given I am editing "Diagrams/Order flow.puml"
     When I change the source of "Diagrams/Order flow.puml" to one with a mistake, without saving
     Then the diagram names the line the mistake is on
+
+    # ── RULE: a file of several diagrams draws the one asked for ──────────────
+
+  @api
+  Scenario: Drawing one diagram of a file that holds several
+    Given "Diagrams/Screens.puml" holds the diagrams "nodes" and "login"
+    When I draw the diagram "login" of "Diagrams/Screens.puml"
+    Then I receive the diagram "login"

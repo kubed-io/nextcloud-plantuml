@@ -30,6 +30,11 @@ trait EditSteps {
 	private ?ResponseInterface $previewResponse = null;
 	private int $saveStatus = 0;
 
+	/** @Given /^I am editing "([^"]*)"$/ */
+	public function iAmEditing(string $path): void {
+		$this->openForEditing($path);
+	}
+
 	/** @When /^I change the source of "([^"]*)" without saving$/ */
 	public function iChangeTheSourceWithoutSaving(string $path): void {
 		$this->openForEditing($path);

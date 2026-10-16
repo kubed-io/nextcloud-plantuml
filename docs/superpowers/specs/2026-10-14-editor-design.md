@@ -439,7 +439,7 @@ Not agreed; each waits on Dr K.
 - Named colours (`#Red`) in the picker.
 - A diff view in the conflict state (S6), from `@codemirror/merge`.
 
-Pending Gherkin proposals, awaiting Dr K: **"Asking for the server's icons"** and **"Asking for the server's emoji"**, beside the approved "Asking for the server's themes". For the diagram-types rounds: **"Drawing one diagram of a file that holds several"** (`diagrams/edit.feature`, round 1) and **"A README shows one diagram of a file that holds several"** (`readme/render.feature`, round 4).
+Gherkin agreed with Dr K on 2026-10-16: **"Asking for the server's icons"** and **"Asking for the server's emoji"** beside "Asking for the server's themes", and **"Drawing one diagram of a file that holds several"** (`diagrams/edit.feature`); **"A README shows one diagram of a file that holds several"** (`readme/render.feature`) is `@unbuilt` until the README-links round. Every scenario opens with a Given of its own.
 
 ## Building blocks
 

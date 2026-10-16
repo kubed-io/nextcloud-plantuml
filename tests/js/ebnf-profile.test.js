@@ -1,0 +1,92 @@
+// SPDX-FileCopyrightText: 2026 kubed-io
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// The ebnf profile (T8): what its mode names inside `@startebnf` blocks, read the way
+// CodeMirror reads them.
+import { describe, expect, it } from 'vitest'
+import { Text } from '@codemirror/state'
+import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
+import { core } from './helpers/core.js'
+import ebnfProfile from '../../src/editor/profiles/ebnf.js'
+
+const ebnf = ebnfProfile(core)
+const language = plantumlLanguage({ ebnf: ebnf.mode })
+
+/** [text, token class] for every highlighted span of the lines in a block of `type`. */
+function tokens(type, ...lines) {
+  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
+  const out = []
+  language.parser.parse(doc.toString()).iterate({
+    enter(node) {
+      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
+    },
+  })
+  return out.slice(1, -1)
+}
+const read = (...lines) => tokens('ebnf', ...lines)
+
+describe('the ebnf profile', () => {
+  it('is the ebnf type with no completions or lints', () => {
+    expect(ebnf).toMatchObject({ type: 'ebnf', completions: [], lints: [], values: [] })
+  })
+
+  it('reads a rule: its name, the definition, separators, brackets, strings and the terminator', () => {
+    expect(read('expr = term , { ( "+" | "-" ) , term } ;')).toEqual([
+      ['expr', 'typeName'], ['=', 'definitionOperator'], [',', 'separator'], ['{', 'brace'], ['(', 'paren'],
+      ['"+"', 'string'], ['|', 'logicOperator'], ['"-"', 'string'], [')', 'paren'], [',', 'separator'],
+      ['}', 'brace'], [';', 'separator'],
+    ])
+  })
+
+  it('takes a hyphenated name whole and a single-quoted string', () => {
+    expect(read("my-rule = 'a' ;")).toEqual([
+      ['my-rule', 'typeName'], ['=', 'definitionOperator'], ["'a'", 'string'], [';', 'separator'],
+    ])
+  })
+
+  it('reads a dash with spaces around it as the exception', () => {
+    expect(read('consonant = letter - vowel ;')).toEqual([
+      ['consonant', 'typeName'], ['=', 'definitionOperator'], ['-', 'arithmeticOperator'], [';', 'separator'],
+    ])
+  })
+
+  it('reads a count and its star, and the one-or-more close', () => {
+    expect(read('three = 3 * "ab" ;')).toEqual([
+      ['three', 'typeName'], ['=', 'definitionOperator'], ['3', 'number'], ['*', 'Quantifier'], ['"ab"', 'string'], [';', 'separator'],
+    ])
+    expect(read('some = { x }- ;')).toEqual([
+      ['some', 'typeName'], ['=', 'definitionOperator'], ['{', 'brace'], ['}', 'brace'], ['-', 'Quantifier'], [';', 'separator'],
+    ])
+  })
+
+  it('reads a special sequence as a string', () => {
+    expect(read('sp = ? any char ? ;')).toEqual([
+      ['sp', 'typeName'], ['=', 'definitionOperator'], ['? any char ?', 'string'], [';', 'separator'],
+    ])
+  })
+
+  it('reads comments across lines, the documentation form too', () => {
+    expect(read('(* a', 'comment *)')).toEqual([['(* a', 'comment'], ['comment *)', 'comment']])
+    expect(read('(** doc **)')).toEqual([['(** doc **)', 'comment']])
+  })
+
+  it('names a rule only at a line start, and a keyword-like name is no keyword', () => {
+    expect(read('file = "a" ;')[0]).toEqual(['file', 'typeName'])
+    expect(read('file = "a" ;').some(([, token]) => token === 'keyword')).toBe(false)
+    expect(read('a =', '  b | c', '  ;')).toEqual([
+      ['a', 'typeName'], ['=', 'definitionOperator'], ['|', 'logicOperator'], [';', 'separator'],
+    ])
+  })
+
+  it('does not let an open comment run into the next block', () => {
+    const doc = Text.of(['@startebnf', '(* open', '@endebnf', '@startuml', 'A -> B', '@enduml'])
+    const out = []
+    language.parser.parse(doc.toString()).iterate({
+      enter(node) {
+        if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
+      },
+    })
+    expect(out).toContainEqual(['@endebnf', 'keyword'])
+    expect(out).toContainEqual(['->', 'LinkOperator'])
+  })
+})

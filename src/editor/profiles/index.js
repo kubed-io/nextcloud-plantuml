@@ -49,6 +49,7 @@ export const PROFILES = {
   // PlantUML's alias of gantt: the same chunk, its profile under the type `project`.
   project: () => import('./gantt.js').then((module) => ({ default: module.project })),
   regex: () => import('./regex.js'),
+  ebnf: () => import('./ebnf.js'),
   mindmap: () => import('./tree.js'),
   // The same chunk: wbs reads what mindmap does differently.
   wbs: () => import('./tree.js').then((module) => ({ default: module.wbs })),

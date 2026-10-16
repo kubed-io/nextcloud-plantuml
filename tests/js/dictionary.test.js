@@ -81,7 +81,7 @@ describe('the styling dictionary', () => {
 
   it('has a fixture for every type with a grammar', () => {
     expect(fixtures.map((name) => name.replace('.puml', '')).sort()).toEqual(
-      ['board', 'creole', 'files', 'gantt', 'git', 'latex', 'math', 'mindmap', 'project', 'regex', 'sprites', 'style', 'uml', 'wbs', 'yaml'])
+      ['board', 'creole', 'ebnf', 'files', 'gantt', 'git', 'latex', 'math', 'mindmap', 'project', 'regex', 'sprites', 'style', 'uml', 'wbs', 'yaml'])
   })
 
   it.each(fixtures)('%s: every token is a dictionary token', (name) => {

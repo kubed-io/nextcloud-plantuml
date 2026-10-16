@@ -51,6 +51,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\n^a$\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are ebnf only when an ebnf block is in the file', () => {
+    expect(neededFor('@startebnf\na = b ;\n@endebnf\n')).toEqual(new Set(['ebnf']))
+    expect(neededFor('@startuml\na = b ;\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

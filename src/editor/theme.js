@@ -322,20 +322,24 @@ export const surfaceRules = {
   '.cm-doc-icon svg': { width: '16px', height: '16px' },
   '.cm-doc-name': { fontFamily: MONO, fontWeight: 'bold' },
   '.cm-doc-kind': { color: 'var(--color-text-maxcontrast)' },
-  '.cm-doc-close': {
+  // As button.<class>, since core's button rules outrank a class alone and put the × after the
+  // kind; the auto margin keeps it at the head's right end, hidden or shown.
+  [buttonStates('button.cm-doc-close')]: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     width: '20px',
     height: '20px',
-    marginLeft: 'auto',
+    minWidth: '0',
+    minHeight: '0',
+    margin: '0 0 0 auto',
     padding: '0',
-    visibility: 'hidden',
     color: 'var(--color-text-maxcontrast)',
     backgroundColor: 'transparent',
     border: 'none',
     cursor: 'pointer',
   },
+  '.cm-doc-close': { visibility: 'hidden' },
   '.cm-doc-close svg': { width: '14px', height: '14px' },
   '.cm-doc-summary': { marginTop: '4px' },
   '.cm-doc-example': {

@@ -277,6 +277,15 @@ describe('the doc card', () => {
     expect(rule('.cm-doc-pinned .cm-doc-close').visibility).toBe('visible')
   })
 
+  // Core's button rules outrank a single class (spec, Traps): live, they put the × after the kind.
+  it('styles the × as button.cm-doc-close, pushed to the head row\'s right end at 20 px', () => {
+    const selector = Object.keys(surfaceRules).find((one) => one.split(', ').includes('button.cm-doc-close'))
+    expect(selector).toBeDefined()
+    expect(selector).toContain('button.cm-doc-close:not(:disabled):hover')
+    expect(rule(selector)).toMatchObject({ margin: '0 0 0 auto', width: '20px', height: '20px', minWidth: '0', minHeight: '0', padding: '0', border: 'none', backgroundColor: 'transparent' })
+    expect(rule(selector).marginLeft).toBeUndefined()
+  })
+
   it('gives a hidden icon no room, flex display notwithstanding', () => {
     expect(rule('.cm-doc-icon[hidden]').display).toBe('none')
   })

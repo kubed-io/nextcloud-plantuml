@@ -415,7 +415,6 @@ Each checked against the code on 2026-10-14.
 - **The editor bundle carries the whole WebDAV client** (`webdav`, `axios`, `semver`, through `@nextcloud/files/dav`) for one GET, one PROPFIND and two PUTs. Not part of the diagram-types rounds; a candidate for its own.
 - **The first `<:` of a day waits ~9 s** while the server reads every emoji block (C7).
 - **`<<stereotype>>`:** the first `<` briefly opens the tag popup, which the second closes.
-- **Penpot boards for the style editor are not drawn yet:** the Penpot plugin was unreachable during the style round.
 - **Includes inside a false `!if` branch or a block comment are resolved,** since the resolver cannot evaluate the preprocessor; a rare false "Cannot find" in a branch nobody uses.
 - **A shared diagram's relative includes resolve in the viewer's own files** (R1's caller's-rights rule): a deliberate share can show the viewer's own file in the viewer's render.
 - **README fence renders are cached for the page,** so an edited include shows there after a reload.

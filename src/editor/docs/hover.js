@@ -3,15 +3,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * The doc card on hover (I2), pinned in place (I3). Resting the pointer on a
- * known element for 500 ms shows its card below the word; a click in the card
- * pins it through `activateHover`, which locks every hover at that spot, so a
- * lint message sharing the box stays in it. The source hands back the same
- * memoised tooltip, so CodeMirror keeps the card's DOM and the box neither
- * moves nor changes size. Pinned, the pointer no longer closes it: Escape, the
- * ×, a click outside it, a moved caret or an edit does.
+ * known element for 500 ms shows its card below the word, with the word's lint
+ * messages drawn above the card in the same tooltip: lint's own hover, which
+ * waits 300 ms and opens above, leaves a carded word to this one, so the box
+ * never jumps. A click in the card pins it through `activateHover`; the source
+ * hands back the same memoised tooltip, so CodeMirror keeps its DOM and the
+ * box neither moves nor changes size. Pinned, the pointer no longer closes it:
+ * Escape, the ×, a click outside it, a moved caret or an edit does.
  */
-import { StateEffect, StateField } from '@codemirror/state'
+import { Prec, StateEffect, StateField } from '@codemirror/state'
 import { ViewPlugin, activateHover, closeHoverTooltips, hoverTooltip, keymap } from '@codemirror/view'
+import { ensureSyntaxTree } from '@codemirror/language'
+import { forEachDiagnostic, setDiagnosticsEffect } from '@codemirror/lint'
 import { elementAt } from './element.js'
 import { loadDocs } from './index.js'
 import { renderDoc } from './card.js'
@@ -35,10 +38,137 @@ const cards = new WeakMap()
 
 const pin = StateEffect.define()
 
+/** Whether `a`…`b` and `from`…`to` share a character, or the empty one lies in the other. */
+const overlap = (a, b, from, to) => (a === b ? from <= a && a <= to : a < to && b > from)
+
+/** Per state: whether a range holds a carded element. */
+const carded = new WeakMap()
+
 /**
- * The card for the element at `pos`, or null: for a word with no entry, while
- * a card is pinned, and until the index has arrived. The same element gives
- * the same tooltip object.
+ * Whether a carded element lies in `from`…`to`, the range of a lint message
+ * this hover draws instead of lint's own. Each token and each word in it is
+ * asked once.
+ *
+ * @param {import('@codemirror/state').EditorState} state
+ */
+export function onCard(state, from, to) {
+  if (!docs) {
+    return false
+  }
+  const known = carded.get(state) ?? new Map()
+  carded.set(state, known)
+  const id = `${from}:${to}`
+  if (!known.has(id)) {
+    const starts = new Set([from])
+    ensureSyntaxTree(state, to, 50)?.iterate({ from, to, enter: (node) => { starts.add(Math.max(node.from, from)) } })
+    for (const word of state.sliceDoc(from, to).matchAll(/\S+/g)) {
+      starts.add(from + word.index)
+    }
+    known.set(id, [...starts].some((pos) => [1, -1].some((side) => {
+      const element = elementAt(state, pos, side)
+      return element && overlap(from, to, element.from, element.to) && docs.get(element.key, element.type)
+    })))
+  }
+  return known.get(id)
+}
+
+/** The lint messages in `from`…`to`, each with its range now. */
+function diagnosticsIn(state, from, to, keep = () => true) {
+  const found = []
+  forEachDiagnostic(state, (diagnostic, start, end) => {
+    if (overlap(start, end, from, to) && keep(start, end)) {
+      found.push({ diagnostic, from: start, to: end })
+    }
+  })
+  return found
+}
+
+/** The element `tag` with `className` and, if given, `text`. */
+function el(tag, className, text) {
+  const node = document.createElement(tag)
+  node.className = className
+  if (text !== undefined) {
+    node.textContent = text
+  }
+  return node
+}
+
+/** Lint messages as `@codemirror/lint` draws them in its tooltip, each action applied where its message is now. */
+function lintSection(view, found) {
+  const list = el('ul', 'cm-tooltip-lint')
+  for (const { diagnostic } of found) {
+    const item = el('li', `cm-diagnostic cm-diagnostic-${diagnostic.severity}`)
+    const text = el('span', 'cm-diagnosticText')
+    text.append(diagnostic.renderMessage ? diagnostic.renderMessage(view) : diagnostic.message)
+    item.append(text)
+    for (const action of diagnostic.actions ?? []) {
+      const button = el('button', `cm-diagnosticAction${action.markClass ? ` ${action.markClass}` : ''}`, action.name)
+      button.type = 'button'
+      button.setAttribute('aria-label', ` Action: ${action.name}.`)
+      let fired = false
+      const run = (event) => {
+        event.preventDefault()
+        if (fired) {
+          return
+        }
+        fired = true
+        const now = diagnosticsIn(view.state, 0, view.state.doc.length).find((one) => one.diagnostic === diagnostic)
+        if (now) {
+          action.apply(view, now.from, now.to)
+        }
+      }
+      button.addEventListener('mousedown', run)
+      button.addEventListener('click', run)
+      item.append(button)
+    }
+    if (diagnostic.source) {
+      item.append(el('div', 'cm-diagnosticSource', diagnostic.source))
+    }
+    list.append(item)
+  }
+  return list
+}
+
+/**
+ * Lint's messages at `pos` that lint's own hover leaves to this one, alone:
+ * a message on a carded word, where the pointer is off the word.
+ */
+function lintAlone(view, pos, side) {
+  const found = diagnosticsIn(view.state, pos, pos, (from, to) => (from === to || (side < 0 ? pos > from : pos < to)) && onCard(view.state, from, to))
+  if (!found.length) {
+    return null
+  }
+  return {
+    pos: Math.min(...found.map(({ from }) => from)),
+    end: Math.max(...found.map(({ to }) => to)),
+    above: true,
+    create: (view) => ({ dom: lintSection(view, found) }),
+  }
+}
+
+/** The memoised card tooltip for the element at `pos`, or null. */
+function cardAt(view, pos, side) {
+  const element = elementAt(view.state, pos, side)
+  const entry = element && docs.get(element.key, element.type)
+  if (!entry) {
+    return null
+  }
+  let memo = last.get(view)
+  if (!memo || ['key', 'type', 'from', 'to'].some((field) => memo.element[field] !== element[field])) {
+    memo = { element }
+    memo.tooltip = { pos: element.from, end: element.to, above: false, create: (view) => cardView(view, entry, memo) }
+    last.set(view, memo)
+  }
+  // A click pins where the hover was asked for.
+  memo.at = { pos, side }
+  return memo.tooltip
+}
+
+/**
+ * The card for the element at `pos`, its lint messages above it, or a carded
+ * word's messages alone beside the word; null for anything else, while a card
+ * is pinned, and until the index has arrived. The same element gives the same
+ * tooltip object.
  *
  * @param {import('@codemirror/view').EditorView} view
  * @param {number} pos
@@ -53,20 +183,7 @@ export function docSource(view, pos, side) {
   if (view.state.field(docPinned, false)) {
     return null
   }
-  const element = elementAt(view.state, pos, side)
-  const entry = element && docs.get(element.key, element.type)
-  if (!entry) {
-    return null
-  }
-  let memo = last.get(view)
-  if (!memo || ['key', 'type', 'from', 'to'].some((field) => memo.element[field] !== element[field])) {
-    memo = { element }
-    memo.tooltip = { pos: element.from, end: element.to, above: false, create: (view) => cardView(view, entry, memo) }
-    last.set(view, memo)
-  }
-  // A click pins where the hover was asked for, so every hover there comes back as it was.
-  memo.at = { pos, side }
-  return memo.tooltip
+  return cardAt(view, pos, side) ?? lintAlone(view, pos, side)
 }
 
 /** The hover's own field, which holds its tooltips. */
@@ -89,19 +206,19 @@ export const docPinned = StateField.define({
 const until = (tr) => tr.docChanged || !!tr.selection
 
 /**
- * Pins the card of the element at `pos`, and every hover there with it, and
- * gives it focus unless `focus` is false. False when there is no card to pin,
- * or one is pinned already.
+ * Pins the card of the element at `pos`, with its lint messages, and gives it
+ * focus unless `focus` is false. False when there is no card to pin, or one
+ * is pinned already.
  *
  * @param {import('@codemirror/view').EditorView} view
  * @param {number} pos
  * @param {{ side?: -1|1, focus?: boolean }} [options]
  */
 export function pinDocAt(view, pos, { side = 1, focus = true } = {}) {
-  if (!docSource(view, pos, side)) {
+  if (!docs || view.state.field(docPinned, false) || !cardAt(view, pos, side)) {
     return false
   }
-  activateHover(view, pos, side, { until })
+  activateHover(view, pos, side, { tooltip: docHover, until })
   view.dispatch({ effects: pin.of({ pos }) })
   if (focus) {
     cards.get(view)?.focus({ preventScroll: true })
@@ -109,7 +226,7 @@ export function pinDocAt(view, pos, { side = 1, focus = true } = {}) {
   return true
 }
 
-/** Closes the card, pinned or not, and what shares its box; focus goes back to the source. */
+/** Closes the card, pinned or not, and whatever shares its box; focus goes back to the source. */
 export function closeDoc(view) {
   if (!view.state.field(docPinned, false) && !view.state.field(docHover.active, false)?.length) {
     return false
@@ -131,13 +248,27 @@ function docAtCaret(view) {
 }
 
 /**
- * The hover's view of a card. The box is the hover host every source shares;
- * pinned, it is a dialog named after the element, and the card, which
- * scrolls, takes focus.
+ * The hover's view of a card: the element's lint messages, then the card. The
+ * box is the hover host every source shares; pinned, it is a dialog named
+ * after the element, and the card, which scrolls, takes focus.
  */
 function cardView(view, entry, memo) {
   const card = renderDoc(entry)
-  const { dom } = card
+  const dom = el('div', 'cm-doc-box')
+  const { from, to } = memo.element
+  let lint = null
+  const drawLint = (state) => {
+    const found = diagnosticsIn(state, from, to)
+    const next = found.length ? lintSection(view, found) : null
+    if (lint) {
+      lint.replaceWith(...(next ? [next] : []))
+    } else if (next) {
+      dom.prepend(next)
+    }
+    lint = next
+  }
+  dom.append(card.dom)
+  drawLint(view.state)
   let box = null
   let pinned = false
 
@@ -155,27 +286,28 @@ function cardView(view, entry, memo) {
     box.setAttribute('role', on ? 'dialog' : 'tooltip')
     if (on) {
       box.setAttribute('aria-label', entry.name)
-      dom.tabIndex = -1
+      card.dom.tabIndex = -1
       dom.ownerDocument.addEventListener('mousedown', outside, true)
     } else {
       box.removeAttribute('aria-label')
-      dom.removeAttribute('tabindex')
+      card.dom.removeAttribute('tabindex')
       dom.ownerDocument.removeEventListener('mousedown', outside, true)
+    }
+  }
+  // Keys in the box (the card, a lint action) never reach CodeMirror's keymaps,
+  // and the editor closes on an Escape nothing used.
+  const escape = (event) => {
+    if (event.key === 'Escape' && !event.defaultPrevented) {
+      event.preventDefault()
+      closeDoc(view)
     }
   }
 
   dom.addEventListener('click', (event) => {
     if (event.target.closest('.cm-doc-close')) {
       closeDoc(view)
-    } else if (!event.target.closest('a') && !pinned) {
+    } else if (!event.target.closest('a, button') && !pinned) {
       pinDocAt(view, memo.at.pos, { side: memo.at.side })
-    }
-  })
-  // Keys in the card never reach CodeMirror's keymaps, and the editor closes on an Escape nothing used.
-  dom.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !event.defaultPrevented) {
-      event.preventDefault()
-      closeDoc(view)
     }
   })
 
@@ -184,10 +316,14 @@ function cardView(view, entry, memo) {
     mount() {
       box = dom.closest('.cm-tooltip-hover') ?? dom
       box.setAttribute('role', 'tooltip')
-      cards.set(view, dom)
+      box.addEventListener('keydown', escape)
+      cards.set(view, card.dom)
       show(!!view.state.field(docPinned, false))
     },
     update(update) {
+      if (update.transactions.some((tr) => tr.effects.some((effect) => effect.is(setDiagnosticsEffect)))) {
+        drawLint(update.state)
+      }
       if (box) {
         show(!!update.state.field(docPinned, false))
       }
@@ -196,8 +332,9 @@ function cardView(view, entry, memo) {
       if (box) {
         show(false)
         box.removeAttribute('role')
+        box.removeEventListener('keydown', escape)
       }
-      if (cards.get(view) === dom) {
+      if (cards.get(view) === card.dom) {
         cards.delete(view)
       }
       card.destroy()
@@ -205,7 +342,11 @@ function cardView(view, entry, memo) {
   }
 }
 
-/** The hover, the pin and the keys; Escape after completionKeymap's, which is Prec.highest. */
+/**
+ * The hover, the pin and the keys. Escape is Prec.highest, after
+ * completionKeymap's (plantumlCompletion comes first), so an open list closes
+ * first and a pinned card before a snippet's fields.
+ */
 export const plantumlDocs = [
   // The docs chunk loads as the view opens, so the first hover finds it.
   ViewPlugin.define(() => {
@@ -216,8 +357,6 @@ export const plantumlDocs = [
   }),
   docHover,
   docPinned,
-  keymap.of([
-    { key: 'Escape', run: closeDoc },
-    { key: 'Mod-k Mod-i', run: docAtCaret },
-  ]),
+  Prec.highest(keymap.of([{ key: 'Escape', run: closeDoc }])),
+  keymap.of([{ key: 'Mod-k Mod-i', run: docAtCaret }]),
 ]

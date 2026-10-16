@@ -351,10 +351,9 @@ export const surfaceRules = {
   '.cm-doc-pinned .cm-doc-close': { visibility: 'visible' },
   // The box's outline marks the focused card; the card's own ring would double it.
   '.cm-doc-pinned .cm-doc:focus-visible': { outline: 'none' },
-  // A lint message on a carded word shares the box below the word (the card's
-  // hover comes first, so the box takes its place) and shows above the card.
-  '.cm-tooltip-hover:has(> .cm-doc)': { display: 'flex', flexDirection: 'column' },
-  '.cm-tooltip-hover:has(> .cm-doc) > .cm-tooltip-lint': { order: '-1', borderTop: 'none', borderBottom: '1px solid var(--color-border)' },
+  // A carded word's lint messages, drawn by the card's hover above the card, as wide as it.
+  '.cm-doc-box': { maxWidth: '400px' },
+  '.cm-doc-box > .cm-tooltip-lint': { borderBottom: '1px solid var(--color-border)' },
   ...Object.fromEntries(Object.entries(DOC_NAME_COLOURS).map(([look, color]) => [`.cm-doc-name.cm-doc-${look}`, { color }])),
   '.cm-completionIcon-constant': { color: towardText('--color-element-success') },
   '.cm-completionIcon-constant:after': { content: '"c"' },

@@ -8,12 +8,13 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { EditorView, activateHover, hasHoverTooltips } from '@codemirror/view'
+import { keymap } from '@codemirror/view'
 import { setDiagnostics } from '@codemirror/lint'
-import { autocompletion, completionStatus, startCompletion } from '@codemirror/autocomplete'
+import { autocompletion, completionStatus, hasNextSnippetField, snippet, startCompletion } from '@codemirror/autocomplete'
 import { elementAt } from '../../src/editor/docs/element.js'
 import { buildDocs, loadDocs } from '../../src/editor/docs/index.js'
 import { DOC_HOVER, closeDoc, docPinned, docSource, pinDocAt, plantumlDocs } from '../../src/editor/docs/hover.js'
-import { plantumlLint } from '../../src/editor/lint/index.js'
+import { plantumlLint, plantumlLintKeymap, tooltipFilter } from '../../src/editor/lint/index.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import { core } from './helpers/core.js'
 import styleProfile from '../../src/editor/profiles/style.js'
@@ -243,7 +244,8 @@ describe('the card on hover (I2) and pinned (I3)', () => {
   function viewOf(extra = []) {
     const view = new EditorView({
       parent: document.body,
-      state: EditorState.create({ doc, extensions: [...extensions, plantumlDocs, plantumlLint, ...extra] }),
+      // As the editor orders them: the completion before the docs.
+      state: EditorState.create({ doc, extensions: [...extensions, ...extra, plantumlDocs, plantumlLint] }),
     })
     views.push(view)
     return view
@@ -418,5 +420,116 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     docKeys(view)
     expect(host(view).contains(document.activeElement)).toBe(true)
     expect(view.state.selection.main.head).toBe(at('%strlen', 2))
+  })
+
+  // Fix round 1: a carded word's lint messages ride in its card, one tooltip at 500 ms below the word.
+  const alt = (message = 'An alt with no else', apply = () => {}) => ({ from: 0, to: 3, severity: 'warning', message, actions: [{ name: 'Add else', apply }] })
+  const bob = { from: doc.indexOf('Bob'), to: doc.indexOf('Bob') + 3, severity: 'warning', message: 'Bob is never used' }
+
+  it('draws a carded word’s lint message in its own tooltip, above the card', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    const tooltip = docSource(view, at('alt'), 1)
+    expect(tooltip).toMatchObject({ pos: 0, end: 3, above: false })
+    const { dom } = tooltip.create(view)
+    expect([...dom.children].map((el) => el.classList[0])).toEqual(['cm-tooltip-lint', 'cm-doc'])
+    const item = dom.querySelector('ul.cm-tooltip-lint > li.cm-diagnostic.cm-diagnostic-warning')
+    expect(item.querySelector('.cm-diagnosticText').textContent).toBe('An alt with no else')
+    expect(item.querySelector('button.cm-diagnosticAction').textContent).toBe('Add else')
+
+    activateHover(view, at('alt'), 1)
+    expect(host(view).querySelectorAll('.cm-tooltip-lint')).toHaveLength(1)
+    expect(host(view).querySelectorAll('.cm-tooltip-section')).toHaveLength(1)
+  })
+
+  it('leaves lint’s own hover nothing on a carded word, and an uncarded word’s messages as they were', () => {
+    const view = viewOf()
+    const [onAlt] = [alt()]
+    view.dispatch(setDiagnostics(view.state, [onAlt, bob]))
+    expect(tooltipFilter([onAlt], view.state) ?? []).toEqual([])
+    expect(tooltipFilter([bob], view.state)).toEqual([bob])
+    expect(tooltipFilter([onAlt, bob], view.state)).toEqual([bob])
+  })
+
+  it('shows a message on a carded word, where the pointer is beside the word, alone', () => {
+    const view = viewOf()
+    const line = { from: 0, to: 'alt paid'.length, severity: 'error', message: 'Syntax error' }
+    view.dispatch(setDiagnostics(view.state, [line]))
+    expect(tooltipFilter([line], view.state) ?? []).toEqual([])
+    const tooltip = docSource(view, at('paid'), 1)
+    expect(tooltip).toMatchObject({ pos: 0, end: line.to, above: true })
+    const { dom } = tooltip.create(view)
+    expect(dom.matches('ul.cm-tooltip-lint')).toBe(true)
+    expect(dom.textContent).toContain('Syntax error')
+    expect(pinDocAt(view, at('paid'))).toBe(false)
+  })
+
+  it('applies an action from the card’s box', () => {
+    const view = viewOf()
+    const apply = vi.fn((view, from, to) => view.dispatch({ changes: { from: to, insert: ' x' } }))
+    view.dispatch(setDiagnostics(view.state, [alt('An alt with no else', apply)]))
+    activateHover(view, at('alt'), 1)
+    host(view).querySelector('button.cm-diagnosticAction').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    expect(apply).toHaveBeenCalledTimes(1)
+    expect(apply).toHaveBeenCalledWith(view, 0, 3)
+    expect(view.state.doc.toString().startsWith('alt x paid')).toBe(true)
+  })
+
+  it('keeps the card and its message together when pinned', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    activateHover(view, at('alt'), 1)
+    const shown = card(view)
+    expect(pinDocAt(view, at('alt'))).toBe(true)
+    expect(card(view)).toBe(shown)
+    expect(host(view).querySelectorAll('.cm-tooltip-lint')).toHaveLength(1)
+    expect(host(view).classList.contains('cm-doc-pinned')).toBe(true)
+  })
+
+  it('opens F8’s message on a carded word, which moves to the diagnostic, not the pointer', () => {
+    const view = viewOf([keymap.of(plantumlLintKeymap)])
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    view.dispatch({ selection: { anchor: doc.length } })
+    key(view.contentDOM, { key: 'F8', keyCode: 119 })
+    expect(view.state.selection.main).toMatchObject({ from: 0, to: 3 })
+    expect(host(view)?.querySelector('.cm-tooltip-lint')?.textContent).toContain('An alt with no else')
+  })
+
+  it('closes on Escape from an action button in the pinned box (Review Focus 2)', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    activateHover(view, at('alt'), 1)
+    pinDocAt(view, at('alt'))
+    const button = host(view).querySelector('button.cm-diagnosticAction')
+    button.focus()
+    expect(document.activeElement).toBe(button)
+    expect(key(button, { key: 'Escape', keyCode: 27 }).defaultPrevented).toBe(true)
+    expect(hasHoverTooltips(view.state)).toBe(false)
+    expect(document.activeElement).toBe(view.contentDOM)
+  })
+
+  it('closes a pinned card on Escape before a snippet’s fields (K1)', () => {
+    const view = viewOf()
+    view.focus()
+    snippet('note ${1:left} : ${2:text}')(view, null, doc.length, doc.length)
+    expect(hasNextSnippetField(view.state)).toBe(true)
+    expect(pinDocAt(view, at('alt'), { focus: false })).toBe(true)
+
+    expect(key(view.contentDOM, { key: 'Escape', keyCode: 27 }).defaultPrevented).toBe(true)
+    expect(view.state.field(docPinned)).toBeNull()
+    expect(hasNextSnippetField(view.state)).toBe(true)
+
+    key(view.contentDOM, { key: 'Escape', keyCode: 27 })
+    expect(hasNextSnippetField(view.state)).toBe(false)
+  })
+
+  it('leaves no listener behind once the view is gone', () => {
+    const view = viewOf()
+    pinDocAt(view, at('alt'))
+    view.destroy()
+    views = views.filter((other) => other !== view)
+    const dispatch = vi.spyOn(view, 'dispatch')
+    expect(() => document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))).not.toThrow()
+    expect(dispatch).not.toHaveBeenCalled()
   })
 })

@@ -22,7 +22,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { bracketMatching } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
-import { closeLintPanel, lintKeymap } from '@codemirror/lint'
+import { closeLintPanel } from '@codemirror/lint'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
@@ -32,7 +32,7 @@ import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
 import { valueWidgets } from './editor/values/widgets.js'
 import { colorSwatches } from './editor/swatches.js'
-import { plantumlLint } from './editor/lint/index.js'
+import { plantumlLint, plantumlLintKeymap } from './editor/lint/index.js'
 import { plantumlDocs } from './editor/docs/hover.js'
 import { plantumlFolding } from './editor/folding.js'
 import { fileName, filePath, setServerError } from './editor/lint/state.js'
@@ -566,7 +566,7 @@ export function openEditor(node) {
           // The PlantUML language, and what the loaded profiles add to it.
           profilesConfig.of(profileExtension([])),
           plantumlCompletion,
-          // Before the linter, so a lint message on a carded word joins the card's box below the word.
+          // After the completion, whose Escape closes its list first; it draws a carded word's lint messages.
           plantumlDocs,
           plantumlLint,
           plantumlFolding,
@@ -588,7 +588,7 @@ export function openEditor(node) {
             ...defaultKeymap,
             ...searchKeymap,
             ...historyKeymap,
-            ...lintKeymap,
+            ...plantumlLintKeymap,
             // An open diagnostics panel takes Escape before the editor does.
             { key: 'Escape', run: closeLintPanel },
             indentWithTab,

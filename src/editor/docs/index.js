@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * The docs index (I1): one entry per known element, keyed `<kind>:<name>`, a
- * block type's own entry `<kind>:<name>@<type>`. PlantUML's source describes the
+ * block type's own entry `<kind>:<name>@<type>`; a property, selector, skin
+ * parameter and library name lower-cased, as PlantUML reads them. PlantUML's source describes the
  * `%` functions, the themes and the libraries; our own lines describe the rest;
  * plantuml.com gives each a link. Its data is a chunk of its own, loaded once
  * the editor has opened (a dynamic import: the entry must never import a chunk
@@ -53,10 +54,11 @@ function sourceText({ source, builtins }) {
   for (const { name, description, example } of builtins) {
     text.set(`function:${name}`, { summary: description, example })
   }
-  for (const [kind, list] of [['theme', source.themes], ['library', source.libraries]]) {
-    for (const [name, { summary }] of Object.entries(list)) {
-      text.set(`${kind}:${name}`, { summary })
-    }
+  for (const [name, { summary }] of Object.entries(source.themes)) {
+    text.set(`theme:${name}`, { summary })
+  }
+  for (const [key, name] of written('library', Object.keys(source.libraries))) {
+    text.set(key, { summary: source.libraries[name].summary })
   }
   return text
 }
@@ -107,6 +109,7 @@ export function buildDocs(data) {
     ...written('selector', data.vocabulary.style.selectors),
     ...written('property', data.vocabulary.style.properties),
     ...written('skinparam', data.language.skinparameters),
+    ...written('library', Object.keys(data.source.libraries)),
   ])
   const keys = new Set([...source.keys(), ...ours.keys(), ...Object.keys(own), ...Object.keys(links)])
   const entries = new Map()

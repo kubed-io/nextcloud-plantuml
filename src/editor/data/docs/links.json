@@ -4558,12 +4558,12 @@
       "page": "theme",
       "section": "Themes"
     },
-    "library:C4": {
+    "library:c4": {
       "page": "stdlib",
       "anchor": "062f75176513a666",
       "section": "C4 Library"
     },
-    "library:DomainStory": {
+    "library:domainstory": {
       "page": "stdlib",
       "section": "PlantUML Standard Library"
     },

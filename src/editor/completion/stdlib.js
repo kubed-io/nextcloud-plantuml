@@ -99,7 +99,7 @@ export async function stdlib(context) {
     }
     const options = libraries.map((library) => ({
       label: library.name,
-      docKey: `library:${library.name}`,
+      docKey: `library:${library.name.toLowerCase()}`,
       detail: `${library.version} · ${library.source}`,
       type: 'namespace',
       // A library with no index is offered by its name only.

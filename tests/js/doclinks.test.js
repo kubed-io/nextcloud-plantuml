@@ -102,7 +102,7 @@ describe('buildLinks', () => {
     expect(built['selector:delta'].page).toBe('style')
     expect(built['property:backgroundcolor'].page).toBe('style')
     expect(built['theme:cerulean'].page).toBe('theme')
-    expect(built['library:C4'].page).toBe('stdlib')
+    expect(built['library:c4'].page).toBe('stdlib')
     expect(built['tag:back'].section).toBe('Second Section')
     expect(built['connector:-->'].section).toBe('First Section')
     expect(built['diagram:yaml']).toEqual({ page: 'yaml', section: 'Sample Page' })

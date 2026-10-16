@@ -1684,6 +1684,16 @@ describe('stdlib', () => {
     expect(fetch).toHaveBeenCalledWith('/index.php/apps/plantuml/stdlib', expect.objectContaining({ credentials: 'same-origin' }))
   })
 
+  it('gives a library the server names lower-cased its card, and keeps its version as the detail', async () => {
+    const { withDocs: fresher } = await import('../../src/editor/completion/docs.js')
+    const { state, pos } = freshState('!include <|')
+    const result = await fresher(stdlibSource)(new CompletionContext(state, pos, false))
+    const c4 = result.options.find((option) => option.label === 'c4')
+    expect(c4.docKey).toBe('library:c4')
+    expect(c4.detail).toBe('2.13.0 · https://github.com/plantuml-stdlib/C4-PlantUML')
+    expect(c4.info().dom.querySelector('.cm-doc-name').textContent).toBe('C4')
+  })
+
   it.each(['!include <|', '!include <c|', '  !include_once <|'])('offers no Creole tag from any source at `%s`', async (marked) => {
     const { state, pos } = freshState(marked)
     const results = await Promise.all(state.languageDataAt('autocomplete', pos).map((source) => source(new CompletionContext(state, pos, false))))

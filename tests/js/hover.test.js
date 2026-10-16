@@ -130,7 +130,9 @@ describe('elementAt: known elements', () => {
 
   it('reads a theme after !theme and a library in !include <…>', () => {
     expect(on(['!theme cerulean'], 'cerulean')).toEqual({ key: 'theme:cerulean', type: 'uml', from: 7, to: 15 })
-    expect(on(['!include <C4/C4_Container>'], 'C4')).toEqual({ key: 'library:C4', type: 'uml', from: 10, to: 12 })
+    expect(on(['!include <C4/C4_Container>'], 'C4')).toEqual({ key: 'library:c4', type: 'uml', from: 10, to: 12 })
+    expect(key(['!include <c4/C4_Container>'], 'c4')).toBe('library:c4')
+    expect(key(['!include <DomainStory/domainStory>'], 'DomainStory')).toBe('library:domainstory')
   })
 
   it('reads a helper command alone on its line', () => {

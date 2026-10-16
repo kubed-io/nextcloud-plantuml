@@ -52,11 +52,11 @@ function keyOf(state, node, pos, side) {
     case 'LinkOperator':
       return connectors.has(text) ? { key: `connector:${text}` } : null
     case 'url': {
-      // The library is the path's first folder, `C4` of `<C4/C4_Container>`.
+      // The library is the path's first folder, `C4` of `<C4/C4_Container>`, lower-cased as the server names it.
       const line = state.doc.lineAt(node.from)
       const folder = text.split('/')[0]
       const end = node.from + folder.length
-      return LIBRARY.test(state.sliceDoc(line.from, node.from)) && within(pos, side, node.from, end) ? { key: `library:${folder}`, to: end } : null
+      return LIBRARY.test(state.sliceDoc(line.from, node.from)) && within(pos, side, node.from, end) ? { key: `library:${folder.toLowerCase()}`, to: end } : null
     }
     case 'typeName':
       return inStyleBody(state, pos) ? { key: `selector:${text.toLowerCase()}` } : null

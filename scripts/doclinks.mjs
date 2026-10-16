@@ -186,7 +186,7 @@ export function buildLinks(pages, source) {
   for (const word of source.vocabulary.style.selectors) set(`selector:${word.toLowerCase()}`, whole('style', word, caseless))
   for (const word of source.vocabulary.style.properties) set(`property:${word.toLowerCase()}`, whole('style', word, caseless))
   for (const word of Object.keys(source.source.themes)) set(`theme:${word}`, whole('theme', word, caseless))
-  for (const word of Object.keys(source.source.libraries)) set(`library:${word}`, whole('stdlib', word, { ...caseless, titled: true }))
+  for (const word of Object.keys(source.source.libraries)) set(`library:${word.toLowerCase()}`, whole('stdlib', word, { ...caseless, titled: true }))
   return out
 }
 

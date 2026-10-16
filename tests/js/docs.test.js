@@ -63,7 +63,7 @@ describe('buildDocs', () => {
     expect(docs.get('function:%strlen')).toMatchObject({ summary: 'Calculate the length of a String', example: '%strlen("foo")', signature: '%strlen(text)' })
     expect(docs.get('function:%now')).toMatchObject({ name: '%now', summary: 'The time' })
     expect(docs.get('theme:cerulean').summary).toBe('Cerulean theme based off of the bootstrap theme')
-    expect(docs.get('library:C4')).toMatchObject({ name: 'C4', kind: 'library', look: 'library', summary: 'The C4 library' })
+    expect(docs.get('library:c4')).toMatchObject({ name: 'C4', kind: 'library', look: 'library', summary: 'The C4 library' })
   })
 
   it('leaves out what nothing gives, and a function with no signature shows its bare name', () => {
@@ -98,7 +98,7 @@ describe('buildDocs', () => {
   it('reads every other kind whatever the block type', () => {
     expect(docs.get('function:%strlen', 'gantt').name).toBe('%strlen')
     expect(docs.get('theme:cerulean', 'yaml').kind).toBe('theme')
-    expect(docs.get('library:C4', 'dot').kind).toBe('library')
+    expect(docs.get('library:c4', 'dot').kind).toBe('library')
     expect(docs.get('diagram:yaml', 'yaml').kind).toBe('diagram')
   })
 
@@ -127,6 +127,11 @@ describe('buildDocs', () => {
       example: '<style>\nactivityBar {\n  BackgroundColor LightBlue\n}\n</style>',
     })
     expect(docs.get('selector:node')).toMatchObject({ summary: 'Styles every node in a <style> block', example: 'node, ours' })
+  })
+
+  it('keys a library lower-cased, as the server names it, and names it as its folder is written', () => {
+    expect(docs.get('library:C4')).toBeUndefined()
+    expect(docs.get('library:c4').name).toBe('C4')
   })
 
   it('generates a skin parameter’s entry', () => {
@@ -261,6 +266,13 @@ describe('our own lines for diagram types, directives and functions', () => {
         expect(real.get(`keyword:${word}`, type)).toBeUndefined()
       }
     }
+  })
+
+  it('describes every library the server names, in its case (`c4`, `domainstory`)', () => {
+    const named = Object.keys(data('docs/source').libraries).map((name) => name.toLowerCase())
+    expect(named).toEqual(expect.arrayContaining(['c4', 'domainstory']))
+    expect(named.filter((name) => !real.get(`library:${name}`)?.link)).toEqual([])
+    expect(real.get('library:c4')).toMatchObject({ name: 'C4', kind: 'library' })
   })
 
   it('writes alt as the brief says', () => {

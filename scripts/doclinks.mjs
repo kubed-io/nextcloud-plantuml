@@ -119,15 +119,15 @@ function standing(word, flags) {
 
 /**
  * The section of `sections` that covers `word`: a heading naming it (`titled` also accepts a title that
- * holds it as a whole word), else, unless `coded` is false, the first section whose code holds it; null
+ * holds it as a whole word), else the first section whose code holds it, of those `coded` accepts; null
  * when none does.
  */
-export function findLink(word, page, sections, { titled = false, caseless = false, coded = true } = {}) {
+export function findLink(word, page, sections, { titled = false, caseless = false, coded = () => true } = {}) {
   const flags = caseless ? 'i' : ''
   const same = (other) => (caseless ? other.toLowerCase() === word.toLowerCase() : other === word)
   const pattern = standing(word, flags)
   const hit = sections.find((s) => headingWords(s.title).some(same) || same(s.title) || (titled && pattern.test(s.title)))
-    ?? (coded ? sections.find((s) => s.codes.some((code) => pattern.test(code))) : undefined)
+    ?? sections.find((s) => coded(s) && s.codes.some((code) => pattern.test(code)))
   return hit ? { page, anchor: hit.anchor, section: bare(hit.title) } : null
 }
 
@@ -139,6 +139,12 @@ export function linkFor(word, page, sections, options) {
 /** The first string of each `['…', …]` row of a list in a source file. */
 export function quotedHeads(source) {
   return [...source.matchAll(/^\s*\[\s*'([^']+)'\s*,/gm)].map((m) => m[1])
+}
+
+/** The connectors connectors.js lists, one quoted name a line in `CONNECTORS = [ … ]`. */
+export function connectorWords(source) {
+  const list = source.match(/CONNECTORS = \[\n([\s\S]*?)^\]/m)?.[1] ?? ''
+  return [...list.matchAll(/^\s*'([^']+)',?$/gm)].map((m) => m[1])
 }
 
 /** The bare word of each `<tag…>` row: `<size:12>` is `size`. */
@@ -176,11 +182,13 @@ export function buildLinks(pages, source) {
     const page = ['preprocessing', 'theme', 'stdlib', 'style'].find((name) => on(name, word)) ?? 'preprocessing'
     set(`directive:${word}`, whole(page, word))
   }
-  // A function no heading names links the builtin functions, not the first code that happens to use it.
+  // A function no heading names links a section about a function whose code shows it, else the builtin
+  // functions: never the first code that happens to use it.
   const builtins = pages.preprocessing?.find((s) => /^built-?in functions$/i.test(bare(s.title)))
   const listed = builtins && { page: 'preprocessing', anchor: builtins.anchor, section: bare(builtins.title) }
+  const about = (s) => /function/i.test(s.title)
   for (const { name } of source.builtins) {
-    set(`function:${name}`, on('preprocessing', name, { titled: true, coded: false }) ?? listed ?? whole('preprocessing', name))
+    set(`function:${name}`, on('preprocessing', name, { titled: true, coded: about }) ?? listed ?? whole('preprocessing', name))
   }
   for (const word of [...source.language.keywords, ...source.language.types]) {
     if (!word.startsWith('@')) everywhere('keyword', word)
@@ -226,7 +234,7 @@ async function main() {
     builtins: await json('data/builtins.json'),
     vocabulary: await json('data/vocabulary.json'),
     source: await json('data/docs/source.json'),
-    connectors: quotedHeads((await readFile(new URL('../src/editor/completion/connectors.js', import.meta.url), 'utf8')).split('const options')[0]),
+    connectors: connectorWords(await readFile(new URL('../src/editor/completion/connectors.js', import.meta.url), 'utf8')),
     tags: tagWords(await readFile(new URL('../src/editor/completion/creole.js', import.meta.url), 'utf8')),
   }
   const links = buildLinks(pages, source)

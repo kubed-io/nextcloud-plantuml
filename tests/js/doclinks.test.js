@@ -5,7 +5,8 @@
 // on a small hand-written page in the site's markup, never the network.
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { buildLinks, headingWords, linkFor, pageTitle, quotedHeads, sectionsOf, tagWords } from '../../scripts/doclinks.mjs'
+import { buildLinks, connectorWords, headingWords, linkFor, pageTitle, quotedHeads, sectionsOf, tagWords } from '../../scripts/doclinks.mjs'
+import { CONNECTORS } from '../../src/editor/completion/connectors.js'
 import links from '../../src/editor/data/docs/links.json'
 
 const html = readFileSync(new URL('./fixtures/doclinks/page.html', import.meta.url), 'utf8')
@@ -21,6 +22,7 @@ describe('sectionsOf', () => {
       { anchor: '5e1f0c2d9a7b4e36', title: 'Builtin functions', level: 2 },
       { anchor: 'a4c97e0b13d6f852', title: 'Escapes [%dollar]', level: 3 },
       { anchor: 'c2b8e5f1d0a39476', title: '%size builtin function', level: 2 },
+      { anchor: '9d3e6a1f0b7c2584', title: 'Quoting function', level: 2 },
     ])
   })
 
@@ -68,6 +70,13 @@ describe('word lists from the editor source', () => {
     expect(quotedHeads("const C = [\n  ['-->', 'dashed'],\n  ['-up->', 'up'],\n]")).toEqual(['-->', '-up->'])
   })
 
+  // connectors.js lists plain names; reading it for rows dropped every connector link.
+  it('reads the connectors as connectors.js lists them, brackets and all', () => {
+    const file = readFileSync(new URL('../../src/editor/completion/connectors.js', import.meta.url), 'utf8')
+    expect(connectorWords(file)).toEqual(CONNECTORS)
+    expect(connectorWords(file)).toContain('-[hidden]-')
+  })
+
   it('reads the bare tag word', () => {
     expect(tagWords("  ['<b>', '<b>', 'bold'],\n  ['<size:12>', 'x', 'size'],\n  ['<img:url>', 'x', 'image'],")).toEqual(['b', 'size', 'img'])
   })
@@ -89,7 +98,7 @@ describe('buildLinks', () => {
   const source = {
     language: { keywords: ['beta', 'lasts', '@startyaml', '@endyaml'], types: ['gamma'], skinparameters: ['Alpha'] },
     directives: { directives: ['!if'] },
-    builtins: [{ name: '%strlen' }, { name: '%parse' }, { name: '%dollar' }, { name: '%size' }],
+    builtins: [{ name: '%strlen' }, { name: '%parse' }, { name: '%dollar' }, { name: '%size' }, { name: '%quote' }],
     vocabulary: { style: { selectors: ['Delta'], properties: ['BackGroundColor'] } },
     source: { themes: { cerulean: {} }, libraries: { C4: {} } },
     connectors: ['-->'],
@@ -112,10 +121,15 @@ describe('buildLinks', () => {
   })
 
   // %str2json linked the first section whose code used it, which was not about the function.
-  it('links a function no heading names to the builtin functions, before any section whose code shows it', () => {
+  it('links a function no heading names to the builtin functions, before a section not about a function whose code shows it', () => {
     expect(built['function:%parse']).toEqual({ page: 'preprocessing', anchor: '5e1f0c2d9a7b4e36', section: 'Builtin functions' })
     expect(built['function:%dollar']).toEqual({ page: 'preprocessing', anchor: 'a4c97e0b13d6f852', section: 'Escapes' })
     expect(built['function:%size']).toEqual({ page: 'preprocessing', anchor: 'c2b8e5f1d0a39476', section: '%size builtin function' })
+  })
+
+  // The escape functions link "Escape function", the section about them, not the generic list.
+  it('links a function to the first section about a function whose code shows it, before the builtin functions', () => {
+    expect(built['function:%quote']).toEqual({ page: 'preprocessing', anchor: '9d3e6a1f0b7c2584', section: 'Quoting function' })
   })
 
   it('links a function to the preprocessing page alone when it has no builtin functions section', () => {
@@ -141,5 +155,7 @@ describe('links.json', () => {
     expect(links.links['connector:-->']).toBeDefined()
     expect(links.links['function:%strlen']).toBeDefined()
     expect(links.links['function:%str2json'].section).toBe('Builtin functions')
+    expect(links.links['function:%dollar'].section).toBe('Escape function')
+    expect(Object.keys(links.links).filter((key) => key.startsWith('connector:'))).toHaveLength(22)
   })
 })

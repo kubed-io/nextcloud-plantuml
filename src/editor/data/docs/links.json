@@ -305,8 +305,8 @@
     },
     "function:%backslash": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "e33ec765c5ca417c",
+      "section": "Escape function"
     },
     "function:%boolval": {
       "page": "preprocessing",
@@ -350,8 +350,8 @@
     },
     "function:%dollar": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "e33ec765c5ca417c",
+      "section": "Escape function"
     },
     "function:%eval": {
       "page": "preprocessing",
@@ -560,8 +560,8 @@
     },
     "function:%percent": {
       "page": "preprocessing",
-      "anchor": "291cabbe982ff775",
-      "section": "Builtin functions"
+      "anchor": "e33ec765c5ca417c",
+      "section": "Escape function"
     },
     "function:%random": {
       "page": "preprocessing",

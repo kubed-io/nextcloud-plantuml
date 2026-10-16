@@ -248,10 +248,19 @@ describe('our own lines for diagram types, directives and functions', () => {
   it('reads in json only the keywords the json block reads, so legend is not there', () => {
     expect(real.get('keyword:legend', 'json')).toBeUndefined()
     expect(real.get('keyword:header', 'yaml')).toBeUndefined()
-    for (const word of ['title', 'scale', 'skinparam', 'skin', 'hide', 'true']) {
+    for (const word of ['title', 'scale', 'skinparam', 'skin', 'hide']) {
       expect(real.get(`keyword:${word}`, 'json')?.summary).toBeTruthy()
     }
     expect(real.get('keyword:skinparam', 'salt')).toMatchObject({ name: 'skinparam' })
+  })
+
+  it('reads the preprocessor’s true, false and not in uml only: a yaml or json value is data', () => {
+    for (const word of ['true', 'false', 'not']) {
+      expect(real.get(`keyword:${word}`)?.summary).toBeTruthy()
+      for (const type of ['yaml', 'json', 'hcl']) {
+        expect(real.get(`keyword:${word}`, type)).toBeUndefined()
+      }
+    }
   })
 
   it('writes alt as the brief says', () => {

@@ -21,6 +21,14 @@ import styleProfile from '../../src/editor/profiles/style.js'
 import ganttProfile, { project as projectProfile } from '../../src/editor/profiles/gantt.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 import dotProfile from '../../src/editor/profiles/dot.js'
+import jsonProfile from '../../src/editor/profiles/json.js'
+import hclProfile from '../../src/editor/profiles/hcl.js'
+import ownLines from '../../src/editor/data/docs/own.json'
+import docLinks from '../../src/editor/data/docs/links.json'
+import sourceData from '../../src/editor/data/docs/source.json'
+import builtinList from '../../src/editor/data/builtins.json'
+import language from '../../src/editor/data/language.json'
+import vocabulary from '../../src/editor/data/vocabulary.json'
 import { atTopLevel } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 
@@ -50,7 +58,7 @@ vi.mock('../../src/editor/docs/index.js', async (importOriginal) => {
   return { ...real, loadDocs: vi.fn(() => Promise.resolve(docs)) }
 })
 
-const extensions = [profileExtension([styleProfile(core), ganttProfile(core), projectProfile(core), yamlProfile(core), dotProfile(core)])]
+const extensions = [profileExtension([styleProfile(core), ganttProfile(core), projectProfile(core), yamlProfile(core), dotProfile(core), jsonProfile(core), hclProfile(core)])]
 
 /**
  * The element inside the `nth` (0-based) `word` of the lines, one character in,
@@ -207,6 +215,25 @@ describe('elementAt with the index: a block’s own words', () => {
     expect(entry(['node n', 'A -> B'], 'node').summary).toBe('A deployment node')
     expect(entry(['A -> B'], '->').summary).toBe('Arrow')
     expect(entry(['@startuml', 'alt x', 'end', '@enduml'], 'alt').summary).toBe('Alternatives')
+  })
+})
+
+// The shipped index (the mock above stands in for loadDocs only).
+const shipped = buildDocs({ own: ownLines, links: docLinks, source: sourceData, builtins: builtinList, language, vocabulary })
+
+describe('elementAt with the shipped index: a data block’s values open no card', () => {
+  const card = (lines, word) => {
+    const element = on(lines, word)
+    return (element && shipped.get(element.key, element.type)) ?? null
+  }
+
+  it.each([
+    ['a yaml true', ['@startyaml', 'a: true', '@endyaml'], 'true'],
+    ['a yaml false', ['@startyaml', 'a: false', '@endyaml'], 'false'],
+    ['a json literal true', ['@startjson', '{"a": true}', '@endjson'], 'true'],
+    ['an hcl atom', ['@starthcl', 'a = true', '@endhcl'], 'true'],
+  ])('%s', (_name, lines, word) => {
+    expect(card(lines, word)).toBeNull()
   })
 })
 

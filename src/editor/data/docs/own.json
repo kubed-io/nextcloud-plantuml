@@ -357,20 +357,17 @@
   "keyword:true": {
     "summary": "Boolean true in a condition",
     "example": "!$on = true\n!if $on\nAlice -> Bob : on\n!endif",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:false": {
     "summary": "Boolean false in a condition",
     "example": "!$on = false\n!if $on\nAlice -> Bob : on\n!endif\nAlice -> Bob : always",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:not": {
     "summary": "Negates a condition",
     "example": "!$on = false\n!if not $on\nAlice -> Bob : off\n!endif",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:start": {
     "summary": "Begins the flow",

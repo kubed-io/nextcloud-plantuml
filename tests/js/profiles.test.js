@@ -71,6 +71,16 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\n* a\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are flow only when a flow block is in the file', () => {
+    expect(neededFor('@startflow\nfoo "flow"\n@endflow\n')).toEqual(new Set(['flow']))
+    expect(neededFor('@startuml\nfoo "flow"\n@enduml\n')).toEqual(new Set())
+  })
+
+  it('are bpm only when a bpm block is in the file', () => {
+    expect(neededFor('@startbpm\n:login;\n@endbpm\n')).toEqual(new Set(['bpm']))
+    expect(neededFor('@startuml\n:login;\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

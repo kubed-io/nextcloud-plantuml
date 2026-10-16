@@ -56,6 +56,8 @@ export const PROFILES = {
   wbs: () => import('./tree.js').then((module) => ({ default: module.wbs })),
   chen: () => import('./chen.js'),
   wire: () => import('./wire.js'),
+  flow: () => import('./flow.js'),
+  bpm: () => import('./bpm.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

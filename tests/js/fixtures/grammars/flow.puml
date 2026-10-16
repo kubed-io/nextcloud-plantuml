@@ -1,0 +1,22 @@
+@startflow
+foo "flow"
+bar "bar"
+baz "baz"
+@endflow
+@startflow
+start "Start"
+e work "Do the work"
+s check "Check"
+w alt "Alternative"
+@endflow
+@startflow
+a "A"
+b "B"
+c "C"
+n b
+@endflow
+@startflow
+a "A"
+e b "B"
+w a
+@endflow

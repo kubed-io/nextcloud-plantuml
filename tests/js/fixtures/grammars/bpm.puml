@@ -1,0 +1,34 @@
+@startbpm
+:login;
+20:<+>
+:show new message1;
+30:<+>
+resume 20
+:show new task2;
+@endbpm
+@startbpm
+:login;
+new branch
+:show new message1;
+else
+:show new task2;
+end branch
+new branch
+:Accept Task;
+else
+:nothing;
+else
+new branch
+:read message;
+else
+:dummy;
+end branch
+end branch
+:logout;
+@endbpm
+@startbpm
+:start;
+a<+>
+:work;
+goto a
+@endbpm

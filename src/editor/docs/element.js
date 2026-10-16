@@ -99,12 +99,16 @@ export function elementAt(state, pos, side) {
   if (!node) {
     return null
   }
-  const diagram = diagramAt(scan(state.doc.toString()), state.doc.lineAt(pos).number)
-  const type = diagram?.type ?? 'uml'
-  const lineForm = type === 'uml' && atTopLevel(state, pos, diagram?.start ?? 1)
-  const found = node.type.isTop ? lineForm && lineKey(state, pos, side) : keyOf(state, node, pos, side)
-  if (!found) {
+  // The block is read only for a key, or for untokenised text, where it decides whether a line form counts.
+  const found = !node.type.isTop && keyOf(state, node, pos, side)
+  if (!found && !node.type.isTop) {
     return null
   }
-  return { key: found.key, type, from: found.from ?? node.from, to: found.to ?? node.to }
+  const diagram = diagramAt(scan(state.doc.toString()), state.doc.lineAt(pos).number)
+  const type = diagram?.type ?? 'uml'
+  const element = found || (type === 'uml' && atTopLevel(state, pos, diagram?.start ?? 1) && lineKey(state, pos, side))
+  if (!element) {
+    return null
+  }
+  return { key: element.key, type, from: element.from ?? node.from, to: element.to ?? node.to }
 }

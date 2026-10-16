@@ -3,7 +3,7 @@
 //
 // The element under a position (I6): the syntax tree's token there, with its
 // text, names the docs key; every other token names none.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { elementAt } from '../../src/editor/docs/element.js'
 import { buildDocs } from '../../src/editor/docs/index.js'
@@ -13,6 +13,18 @@ import styleProfile from '../../src/editor/profiles/style.js'
 import ganttProfile, { project as projectProfile } from '../../src/editor/profiles/gantt.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 import dotProfile from '../../src/editor/profiles/dot.js'
+import { atTopLevel } from '../../src/editor/plantuml-mode.js'
+import { scan } from '../../src/editor/blocks.js'
+
+// The real functions, counted: the top-level check and the scan run only where they are needed.
+vi.mock('../../src/editor/plantuml-mode.js', async (importOriginal) => {
+  const real = await importOriginal()
+  return { ...real, atTopLevel: vi.fn(real.atTopLevel) }
+})
+vi.mock('../../src/editor/blocks.js', async (importOriginal) => {
+  const real = await importOriginal()
+  return { ...real, scan: vi.fn(real.scan) }
+})
 
 const extensions = [profileExtension([styleProfile(core), ganttProfile(core), projectProfile(core), yamlProfile(core), dotProfile(core)])]
 
@@ -171,5 +183,31 @@ describe('elementAt with the index: a block’s own words', () => {
     expect(entry(['node n', 'A -> B'], 'node').summary).toBe('A deployment node')
     expect(entry(['A -> B'], '->').summary).toBe('Arrow')
     expect(entry(['@startuml', 'alt x', 'end', '@enduml'], 'alt').summary).toBe('Alternatives')
+  })
+})
+
+describe('elementAt: only the work a position needs', () => {
+  const lines = ['@startuml', 'alt paid', '  A -> B : hi', 'end', 'listfonts', '@enduml']
+
+  it('runs no top-level check on a token', () => {
+    atTopLevel.mockClear()
+    expect(key(lines, 'alt')).toBe('keyword:alt')
+    expect(key(lines, '->')).toBe('connector:->')
+    expect(atTopLevel).not.toHaveBeenCalled()
+  })
+
+  it('runs it on untokenised text in a uml block, and not outside one', () => {
+    atTopLevel.mockClear()
+    expect(key(lines, 'listfonts')).toBe('helper:listfonts')
+    expect(atTopLevel).toHaveBeenCalledTimes(1)
+    atTopLevel.mockClear()
+    expect(key(['@startyaml', 'colors', '@endyaml'], 'colors')).toBeNull()
+    expect(atTopLevel).not.toHaveBeenCalled()
+  })
+
+  it('reads no block for a token that names nothing', () => {
+    scan.mockClear()
+    expect(key(lines, 'hi')).toBeNull()
+    expect(scan).not.toHaveBeenCalled()
   })
 })

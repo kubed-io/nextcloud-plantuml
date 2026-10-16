@@ -194,7 +194,7 @@ describe('loadProfile', () => {
     expect(await loadProfile('yaml')).toBe(made)
     expect(factory).toHaveBeenCalledTimes(1)
     const [[core]] = factory.mock.calls
-    expect(Object.keys(core)).toEqual(['scan', 't', 'lex'])
+    expect(Object.keys(core)).toEqual(['scan', 't', 'lex', 'subDiagrams'])
     expect(core.t).toBe(translate)
     expect(core.scan('@startyaml\na: 1\n@endyaml')[0]).toMatchObject({ type: 'yaml', start: 1, end: 3 })
   })

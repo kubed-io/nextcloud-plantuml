@@ -9,10 +9,11 @@ import { EditorState } from '@codemirror/state'
 import { checkJson, jsonLines } from '../../src/editor/profiles/json-check.js'
 import { jsonLint } from '../../src/editor/lint/json.js'
 import { scan } from '../../src/editor/blocks.js'
+import { subDiagramsOf } from '../../src/editor/sub-diagrams.js'
 
 const dir = new URL('./fixtures/json-probes/', import.meta.url)
 const verdicts = readFileSync(new URL('verdicts.txt', dir), 'utf8').trim().split('\n').map((line) => line.split(' '))
-const lint = jsonLint({ scan })
+const lint = jsonLint({ scan, subDiagrams: subDiagramsOf })
 const found = (doc) => lint(EditorState.create({ doc }))
 
 describe('the reader', () => {
@@ -125,5 +126,32 @@ describe('the lint', () => {
     const at = doc.indexOf('1\n}')
 
     expect(found(doc)).toEqual([{ from: at, to: at + 1, severity: 'error', message: "Expected ':'" }])
+  })
+})
+
+describe('the lint of a {{json sub-diagram', () => {
+  const note = (body) => `@startuml\nnote right\n  {{json\n${body}\n  }}\nend note\n@enduml\n`
+
+  it('marks Expected \':\' from the 1, the two spaces counted', () => {
+    const doc = note('  {"a" 1}')
+    const at = doc.indexOf('1}')
+
+    expect(found(doc)).toEqual([{ from: at, to: at + 2, severity: 'error', message: "Expected ':'" }])
+  })
+
+  it('leaves valid JSON alone', () => {
+    expect(found(note('  {"a": 1}'))).toEqual([])
+  })
+
+  it('leaves an indented #highlight alone', () => {
+    expect(found(note('  #highlight "a"\n  {"a": 1}'))).toEqual([])
+  })
+
+  it('does not check a {{json left open', () => {
+    expect(found('@startuml\nnote right\n  {{json\n  {"a" 1}\nend note\n@enduml\n')).toEqual([])
+  })
+
+  it('does not check one outside a uml diagram', () => {
+    expect(found('@startmindmap\n{{json\n{"a" 1}\n}}\n@endmindmap\n')).toEqual([])
   })
 })

@@ -19,6 +19,7 @@
  *   app id written out so Nextcloud's string extractor finds the strings
  * @property {typeof lex} lex the lexicon: the rules the core grammar shares,
  *   and the helpers that build a stream mode from them
+ * @property {typeof subDiagramsOf} subDiagrams the `{{type … }}` regions of a text
  *
  * @typedef {object} Profile
  * @property {string} type the word after `@start`
@@ -33,7 +34,7 @@ import { APP_ID } from '../../files-helpers.js'
 import { scan } from '../blocks.js'
 import { lex } from '../lexicon/index.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
-import { SUB_OPEN } from '../sub-diagrams.js'
+import { SUB_OPEN, subDiagramsOf } from '../sub-diagrams.js'
 import { profileRules } from '../lint/index.js'
 import { valuesFacet } from '../values/index.js'
 
@@ -109,7 +110,7 @@ export function needed(diagrams, text) {
 }
 
 /** @type {Core} what every profile's factory is given */
-export const core = { scan, t: translate, lex }
+export const core = { scan, t: translate, lex, subDiagrams: subDiagramsOf }
 const loading = new Map() // type → Promise<Profile|null>, for the page
 const failed = new Set()
 

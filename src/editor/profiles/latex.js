@@ -8,7 +8,7 @@
  * name in `\begin{…}` and `\end{…}` is an environment. `{ }` are braces, `[ ]` square brackets, `( )` parens, `^`,
  * `_`, `&` and `\\` operators, `%` starts a comment to the line's end and `$` is punctuation.
  * A block's line starting `color`, `backgroundcolor`, `scale` or `dpi` and a space is a setting,
- * a keyword and its value, as in the math profile.
+ * a keyword and its value, read by the lexicon's `setting`, as in the math profile.
  */
 const SETTING = /^[ \t]*(?:(?:background)?color|scale|dpi)[ \t]/i
 
@@ -17,9 +17,10 @@ const BRACKETS = { '{': 'brace', '}': 'brace', '[': 'squareBracket', ']': 'squar
 // What `\begin` or `\end` expects next: its brace, the name, the closing brace.
 const ENVIRONMENT = ['{', 'name', '}']
 
-const mode = {
+/** The mode, its setting lines read by `setting` (the lexicon's). */
+const modeWith = (setting) => ({
   // environment: where in a `\begin{…}` the line is; value: what of a setting line comes next
-  // ('keyword', 'colour', 'number', null for the rest).
+  // (`setting`'s 'keyword', 'colour', 'number' or 'rest'), null on any other line.
   startState: () => ({ environment: null, value: null }),
   copyState: (state) => ({ ...state }),
   token(stream, state) {
@@ -67,27 +68,7 @@ const mode = {
     }
     return '^_&=+-*/<>|'.includes(ch) ? 'operator' : null
   },
-}
-
-/** A setting's keyword, then a colour or a number, the rest plain; the line's end ends it. */
-function setting(stream, state) {
-  if (state.value === 'keyword') {
-    stream.match(/\w+/)
-    state.value = /color$/i.test(stream.current()) ? 'colour' : 'number'
-    return 'keyword'
-  }
-  if (state.value === 'colour' && stream.match(/#?\w+/)) {
-    state.value = 'rest'
-    return 'ColorLiteral'
-  }
-  if (state.value === 'number' && stream.match(/\d+(?:\.\d+)?(?!\w)/)) {
-    state.value = 'rest'
-    return 'number'
-  }
-  stream.match(/\S+/)
-  state.value = 'rest'
-  return null
-}
+})
 
 /** The braces and the name of a `\begin{…}` or `\end{…}`, the name a type. */
 function environment(stream, state) {
@@ -101,4 +82,4 @@ function environment(stream, state) {
   return 'brace'
 }
 
-export default () => ({ type: 'latex', mode, completions: [], lints: [], values: [] })
+export default (core) => ({ type: 'latex', mode: modeWith(core.lex.setting), completions: [], lints: [], values: [] })

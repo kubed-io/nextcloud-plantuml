@@ -3,7 +3,7 @@
 //
 // The latex profile: LaTeX inside `@startlatex`, in an inline `<latex>…</latex>`
 // and in a `<latex>` … `</latex>` block, read the way CodeMirror reads them.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
@@ -88,6 +88,13 @@ describe('a @startlatex block', () => {
 
   it('reads ( ) as parens', () => {
     expect(read('f(x)')).toEqual([['(', 'paren'], [')', 'paren']])
+  })
+
+  it("reads a setting line with the lexicon's reader (G2)", () => {
+    const setting = vi.fn(core.lex.setting)
+    const own = latexProfile({ ...core, lex: { ...core.lex, setting } })
+    plantumlLanguage({ latex: own.mode }).parser.parse('@startlatex\nscale 2\n@endlatex')
+    expect(setting).toHaveBeenCalled()
   })
 
   it('reads a setting line as a keyword and its value', () => {

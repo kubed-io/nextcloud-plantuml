@@ -65,9 +65,9 @@ export const colours = [
   { regex: named, token: 'ColorLiteral' },
 ]
 
-/** A rule for the start of a line: indentation plain, the rest as `token`. */
+/** A rule for the start of a line: indentation plain, the rest as `token`. A RegExp keeps its flags. */
 export const atLineStart = (pattern, token, extra = {}) => ({
-  regex: new RegExp(`([ \\t]*)(${pattern})`),
+  regex: new RegExp(`([ \\t]*)(${pattern.source ?? pattern})`, pattern.flags ?? ''),
   sol: true,
   token: [null, token],
   ...extra,
@@ -442,9 +442,16 @@ export const toColon = (next) => [
 ]
 
 /**
- * A sprite definition's states (T16), after `sprite $name`. The sprites profile writes them out
- * again (profiles/sprites.js): change one, change the other.
+ * A sprite definition (T16) and `listsprites`, at the start of a line: the definition's name a
+ * variable, the rest of its line read by the state `spriteHead`, which ends with its line (a
+ * table maps it to `start` in its `nextLine`).
  */
+export const spriteLines = [
+  { regex: /([ \t]*)(sprite)(\s+)(\$?[-.%\w]+)/, sol: true, token: [null, 'keyword', null, 'VariableName'], next: 'spriteHead' },
+  atLineStart(/listsprites?\b/.source, 'keyword'),
+]
+
+/** A sprite definition's states (T16), after `sprite $name`: its header, pixel rows and svg. */
 export const spriteStates = {
   // The rest of a sprite's header: its size, then a `{` that ends the line and opens
   // the rows, or a payload, or an svg. Ends with its line, see the core's `nextLine`.
@@ -474,6 +481,121 @@ export const spriteStates = {
     { regex: /<\/?[\w:-]+|\/?>/, token: 'tagName' },
     ...attributes(/(?=\s|\/?>|$)/.source),
   ],
+}
+
+/**
+ * A rule that, at the start of a line, takes nothing and moves on (`{ next }` or `{ pop: true }`):
+ * the first rule of a state that ends with its line by itself, with nothing in a table's
+ * `nextLine` or `lineStates` (`table` retries the line in the state it moved to).
+ */
+export const atNextLine = (move) => ({ regex: /(?=)/, sol: true, token: null, ...move })
+
+// A line of the common commands, in any case as PlantUML reads them: indentation plain, the
+// command a keyword, the rest of the line read by `next`.
+const command = (pattern, next) => ({ regex: new RegExp(`([ \\t]*)(${pattern})`, 'i'), sol: true, token: [null, 'keyword'], next })
+
+// What follows a `skinparam`, `scale`, `hide` or `show`, or a one-line legend: colours, strings and numbers.
+const commonArgs = [
+  atNextLine({ next: 'start' }),
+  ...colours,
+  { regex: /"[^"]*"/, token: 'string' },
+  number,
+  { regex: /\w+/, token: null },
+]
+
+// The ends of the common bodies, which a `<latex>` block left open in one ends with.
+const commonEnd = /end[ \t]*(?:legend|title|header|footer)\b/i
+// The state of a common body: `commonTitle`, its `<code>` blocks `commonTitleCode`.
+const bodyOf = (word) => `common${word[0].toUpperCase()}${word.slice(1)}`
+
+/**
+ * The lines of PlantUML's common commands (G4), for a profile's table: `{ rules, states }`, the
+ * rules for its `start` and the states they move to, which end with their line or body by
+ * themselves and come back to `start`: spread them into `table()`. With `all`: `header`,
+ * `footer`, `caption` and `mainframe` with their text as Creole (H8), `header` and `footer`
+ * alone on their line a body down to `end header` or `end footer`; `skinparam`, `scale`, `hide`
+ * and `show` with their words (colours, strings, numbers); `left to right direction` and `top to
+ * bottom direction`; `legend` a body down to `end legend` (`'block'`), a keyword line (`'line'`,
+ * chart's `legend <position>`), or none (`false`). With `title`, `title` read as `header` is,
+ * alone (`{ all: false, title: true }` is hcl's). All in any case. The Creole states are here
+ * too (`tagAttrs`, `tagBraces`, `math`, `latex`, `latexBlock`), ending with their line or block:
+ * an inline formula and a `<latex>` block plain.
+ *
+ * @param {object} [options]
+ * @param {'block'|'line'|false} [options.legend]
+ * @param {boolean} [options.title]
+ * @param {boolean} [options.all]
+ * @return {{ rules: object[], states: Record<string, object[]> }}
+ */
+export function common({ legend = 'block', title = true, all = true } = {}) {
+  const own = [...(title ? ['title'] : []), ...(all ? ['header', 'footer'] : [])]
+  const text = [...own, ...(all ? ['caption', 'mainframe'] : [])]
+  const rules = [
+    ...own.map((word) => command(`${word}(?=[ \\t]*$)`, bodyOf(word))),
+    ...(text.length ? [command(`(?:${text.join('|')})(?=\\s)`, 'commonText')] : []),
+  ]
+  if (all) {
+    if (legend === 'block') rules.push(command(/legend\b/.source, 'commonLegendHead'))
+    if (legend === 'line') rules.push(command(/legend\b/.source, 'commonArgs'))
+    rules.push(
+      command(/(?:skinparam|scale|hide|show)(?=\s|$)/.source, 'commonArgs'),
+      command(/(?:left[ \t]+to[ \t]+right|top[ \t]+to[ \t]+bottom)[ \t]+direction\b/.source, 'commonArgs'),
+    )
+  }
+  const bodies = ['title', 'header', 'footer', 'legend'].map((word) => body(bodyOf(word), new RegExp(`end[ \\t]*${word}\\b`, 'i')))
+  // A pushed state that ends with its line pops back to the one it was pushed from.
+  const ending = (rules) => [atNextLine({ pop: true }), ...rules]
+  const inline = (tag) => [
+    { regex: new RegExp(`.+?(?=</${tag}>)`), token: null },
+    { regex: new RegExp(`</${tag}>`), token: 'tagName', pop: true },
+  ]
+  return {
+    rules,
+    states: {
+      commonText: [atNextLine({ next: 'start' }), ...creole(null)],
+      commonArgs,
+      // The rest of a legend's line (`legend top left`), then its body.
+      commonLegendHead: [atNextLine({ next: bodyOf('legend') }), ...commonArgs.slice(1)],
+      ...Object.assign({}, ...bodies),
+      tagAttrs: ending(tagStates.tagAttrs),
+      tagBraces: ending(tagStates.tagBraces),
+      math: inline('math'),
+      latex: inline('latex'),
+      latexBlock: [
+        { regex: /<\/latex>$/, sol: true, token: 'tagName', pop: true },
+        { regex: new RegExp(`(?=[ \\t]*${commonEnd.source})`, 'i'), sol: true, token: null, pop: true },
+        { regex: /.+/, token: null },
+      ],
+    },
+  }
+}
+
+/**
+ * A setting line's next token, in the math and latex profiles (`color red`, `scale 2`): its
+ * keyword, then a colour or a number as `state.value` says (`'keyword'`, `'colour'`, `'number'`),
+ * the rest plain (`'rest'`).
+ *
+ * @param {import('@codemirror/language').StringStream} stream
+ * @param {{value: string|null}} state
+ * @return {string|null}
+ */
+export function setting(stream, state) {
+  if (state.value === 'keyword') {
+    stream.match(/\w+/)
+    state.value = /color$/i.test(stream.current()) ? 'colour' : 'number'
+    return 'keyword'
+  }
+  if (state.value === 'colour' && stream.match(/#?\w+/)) {
+    state.value = 'rest'
+    return 'ColorLiteral'
+  }
+  if (state.value === 'number' && stream.match(/\d+(?:\.\d+)?(?!\w)/)) {
+    state.value = 'rest'
+    return 'number'
+  }
+  stream.match(/\S+/)
+  state.value = 'rest'
+  return null
 }
 
 /**

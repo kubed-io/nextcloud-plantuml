@@ -53,6 +53,20 @@ describe('the board profile', () => {
     expect(boardTokens('+++ Task a1')).toEqual([['+++', 'list']])
   })
 
+  it("reads a card's text as Creole after the plus run (G5)", () => {
+    expect(boardTokens('+ a **card**')).toEqual([['+', 'list'], ['**card**', 'strong']])
+    expect(boardTokens('++ <b>x</b>', 'Editor')).toEqual([['++', 'list'], ['<b>', 'tagName'], ['</b>', 'tagName'], ['Editor', 'heading']])
+    // A tag left open ends with its card's line.
+    expect(boardTokens('+ <font size=1', 'Editor').slice(-1)).toEqual([['Editor', 'heading']])
+  })
+
+  it('reads a title as a keyword and its text as Creole, the common lines with it (G4)', () => {
+    expect(boardTokens('title My board')).toEqual([['title', 'keyword']])
+    expect(boardTokens('title My **board**')).toEqual([['title', 'keyword'], ['**board**', 'strong']])
+    expect(boardTokens('legend', '**l**', 'end legend', 'Editor')).toEqual([['legend', 'keyword'], ['**l**', 'strong'], ['end legend', 'keyword'], ['Editor', 'heading']])
+    expect(boardTokens('scale 2')).toEqual([['scale', 'keyword'], ['2', 'number']])
+  })
+
   it('reads a plus that is not at column 0 as an activity named with it', () => {
     expect(boardTokens('  + x')).toEqual([['  + x', 'heading']])
   })

@@ -11,7 +11,7 @@
  * by category (logic, comparison, arithmetic), brackets by shape; numbers are numbers, and a `"text"` and the argument of
  * `text( )` or `mbox( )` strings. A block's line starting `color`,
  * `backgroundcolor`, `scale` or `dpi` and a space is a setting: a keyword and its
- * value. PlantUML draws a formula it cannot read as text, so nothing is an error.
+ * value, read by the lexicon's `setting`. PlantUML draws a formula it cannot read as text, so nothing is an error.
  */
 import data from '../data/asciimath.json'
 
@@ -38,47 +38,51 @@ const SETTING = /^[ \t]*(?:(?:background)?color|scale|dpi)[ \t]/i
 const TEXT_CLOSER = { '(': ')', '[': ']', '{': '}' }
 const TEXT_ARGUMENT = { ')': /[^)]+/, ']': /[^\]]+/, '}': /[^}]+/ }
 
-const mode = {
-  // setting: the line is a setting, value: what of it comes next ('keyword', 'colour',
-  // 'number', null for the rest); text: 'open' after `text`, then its argument's closer.
-  startState: () => ({ setting: false, value: null, text: null }),
-  copyState: (state) => ({ ...state }),
-  token(stream, state) {
-    if (stream.sol()) {
-      state.setting = SETTING.test(stream.string)
-      state.value = state.setting ? 'keyword' : null
-      state.text = null
-    }
-    if (stream.eatSpace()) {
-      return null
-    }
-    if (state.setting) {
-      return setting(stream, state)
-    }
-    if (state.text) {
-      return text(stream, state)
-    }
-    if (stream.match(/"[^"]*"?/)) {
-      return 'string'
-    }
-    const name = longest(stream)
-    if (name) {
-      if (name === 'text' || name === 'mbox') {
-        state.text = 'open'
+/** The mode, its setting lines read by `setting` (the lexicon's). */
+function modeWith(setting) {
+  const mode = {
+    // setting: the line is a setting, value: what of it comes next (`setting`'s 'keyword',
+    // 'colour', 'number' or 'rest'); text: 'open' after `text`, then its argument's closer.
+    startState: () => ({ setting: false, value: null, text: null }),
+    copyState: (state) => ({ ...state }),
+    token(stream, state) {
+      if (stream.sol()) {
+        state.setting = SETTING.test(stream.string)
+        state.value = state.setting ? 'keyword' : null
+        state.text = null
       }
-      return NAMES.get(name)
-    }
-    if (stream.match(/\d+(?:\.\d+)?/)) {
-      return 'number'
-    }
-    // Any other letter is a variable, any other character an operator, but for `,` between
-    // items and the `\` PlantUML drops before a name (`\alpha`).
-    const ch = stream.next()
-    if (/[A-Za-z]/.test(ch)) {
-      return null
-    }
-    return ch === ',' ? 'separator' : ch === '\\' ? 'punctuation' : operator(ch)
-  },
+      if (stream.eatSpace()) {
+        return null
+      }
+      if (state.setting) {
+        return setting(stream, state)
+      }
+      if (state.text) {
+        return text(stream, state, mode)
+      }
+      if (stream.match(/"[^"]*"?/)) {
+        return 'string'
+      }
+      const name = longest(stream)
+      if (name) {
+        if (name === 'text' || name === 'mbox') {
+          state.text = 'open'
+        }
+        return NAMES.get(name)
+      }
+      if (stream.match(/\d+(?:\.\d+)?/)) {
+        return 'number'
+      }
+      // Any other letter is a variable, any other character an operator, but for `,` between
+      // items and the `\` PlantUML drops before a name (`\alpha`).
+      const ch = stream.next()
+      if (/[A-Za-z]/.test(ch)) {
+        return null
+      }
+      return ch === ',' ? 'separator' : ch === '\\' ? 'punctuation' : operator(ch)
+    },
+  }
+  return mode
 }
 
 /** The longest name of the table at the stream's position, consumed; undefined for none. */
@@ -93,26 +97,8 @@ function longest(stream) {
   return undefined
 }
 
-/** A setting's keyword, then a colour or a number, the rest plain. */
-function setting(stream, state) {
-  if (state.value === 'keyword') {
-    stream.match(/\w+/)
-    state.value = /color$/i.test(stream.current()) ? 'colour' : 'number'
-    return 'keyword'
-  }
-  if (state.value === 'colour' && stream.match(/#?\w+/)) {
-    state.value = null
-    return 'ColorLiteral'
-  }
-  if (state.value === 'number' && stream.match(/\d+(?:\.\d+)?(?!\w)/)) {
-    return 'number'
-  }
-  stream.match(/\S+/)
-  return null
-}
-
 /** After `text`: its bracket, the argument to the matching closer a string, the closer. */
-function text(stream, state) {
+function text(stream, state, mode) {
   if (state.text === 'open') {
     const closer = TEXT_CLOSER[stream.peek()]
     state.text = closer ?? null
@@ -130,4 +116,4 @@ function text(stream, state) {
   return 'string'
 }
 
-export default () => ({ type: 'math', mode, completions: [], lints: [], values: [] })
+export default (core) => ({ type: 'math', mode: modeWith(core.lex.setting), completions: [], lints: [], values: [] })

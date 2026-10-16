@@ -219,6 +219,19 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     expect(read('title Plan for the project')).toEqual([['title', 'keyword']])
   })
 
+  it('reads Creole in a note, a legend and a title (G5)', () => {
+    expect(read('note bottom', '**n**', 'end note')).toEqual([['note bottom', 'keyword'], ['**n**', 'strong'], ['end note', 'keyword']])
+    expect(read('legend', '<b>l</b>', 'end legend')).toEqual([['legend', 'keyword'], ['<b>', 'tagName'], ['</b>', 'tagName'], ['end legend', 'keyword']])
+    expect(read('title', '//Plan//', 'end title')).toEqual([['title', 'keyword'], ['//Plan//', 'emphasis'], ['end title', 'keyword']])
+    expect(read('title **Rounds**')).toEqual([['title', 'keyword'], ['**Rounds**', 'strong']])
+    expect(read('caption a **b**', '[A] lasts 1 day').slice(0, 3)).toEqual([['caption', 'keyword'], ['**b**', 'strong'], ['[', 'squareBracket']])
+  })
+
+  it('ends a tag left open in a note or a title with its line', () => {
+    expect(read('note bottom', '<font size=1', '**n**', 'end note').slice(-2)).toEqual([['**n**', 'strong'], ['end note', 'keyword']])
+    expect(read('title <font size=1', 'caption **c**').slice(-2)).toEqual([['caption', 'keyword'], ['**c**', 'strong']])
+  })
+
   it('reads a group around its tasks', () => {
     expect(read('group [Phase]', '[A] lasts 1 day', 'end group')).toEqual([
       ['group', 'keyword'], ['[', 'squareBracket'], ['Phase', 'typeName'], [']', 'squareBracket'], ['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number'], ['end group', 'keyword'],

@@ -27,7 +27,7 @@
 import { StreamLanguage } from '@codemirror/language'
 import {
   argsState, arrow, atLineStart, blockComment, body, box, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
-  declarations, directive, directiveLine, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteStates, startLine, stereotypeState,
+  declarations, directive, directiveLine, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteLines, spriteStates, startLine, stereotypeState,
   stereotypes, styledClose, styledOpen, tagStates, toColon,
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
@@ -84,8 +84,7 @@ const states = {
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
     // A sprite definition (T16): its header is read by `spriteHead`, its pixel rows by `spriteRows`.
-    { regex: /([ \t]*)(sprite)(\s+)(\$?[-.%\w]+)/, sol: true, token: [null, 'keyword', null, 'VariableName'], next: 'spriteHead' },
-    atLineStart(/listsprites?\b/.source, 'keyword'),
+    ...spriteLines,
     { regex: /"[^"]*"/, token: 'string' },
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     // A colon with a space beside it starts text, as a link's does (a link is read by `afterLink`).

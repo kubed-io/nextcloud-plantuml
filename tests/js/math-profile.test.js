@@ -89,6 +89,13 @@ describe('a @startmath block', () => {
     expect(read('{: x :}')).toEqual([['{:', 'brace'], [':}', 'brace']])
   })
 
+  it("reads a setting line with the lexicon's reader (G2)", () => {
+    const setting = vi.fn(core.lex.setting)
+    const own = mathProfile({ ...core, lex: { ...core.lex, setting } })
+    plantumlLanguage({ math: own.mode }).parser.parse('@startmath\nscale 2\n@endmath')
+    expect(setting).toHaveBeenCalled()
+  })
+
   it('reads a setting line as a keyword and its value', () => {
     expect(read('color red', 'backgroundcolor #EEF', '  scale 2', 'DPI 300', 'x')).toEqual([
       ['color', 'keyword'], ['red', 'ColorLiteral'],

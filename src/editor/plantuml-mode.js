@@ -252,6 +252,8 @@ const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>
 
 // The bodies a sub-diagram opens in, each with the line that ends one left open there.
 const subBodies = { noteBody: /^[ \t]*end\s*[hr]?note\b/, legendBody: /^[ \t]*end\s*legend\b/, descBody: null, classBody: null }
+// A uml sub-diagram's own note or legend, whose end line is its own.
+const ownBodies = new Set(['noteHead', 'noteBody', 'noteBodyCode', 'legendHead', 'legendBody', 'legendBodyCode'])
 
 /** A style import's value: a `file` path is `url`, quoted its quotes punctuation; else a string. */
 function sheetValue(name, value) {
@@ -518,11 +520,27 @@ export function plantumlLanguage(profiles = {}) {
       }
     }
     const mode = subMode(sub.type)
-    if (mode !== umlSub && !mode.inactive) {
-      if (sub.plant.state === 'blockComment' || (!stream.sol() && bangStates.has(sub.plant.state))) return base.token(stream, sub.plant)
-      if (stream.sol() && (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false))) return base.token(stream, sub.plant)
+    const plant = mode !== umlSub && !mode.inactive && (sub.plant.state === 'blockComment' || (!stream.sol() && bangStates.has(sub.plant.state))
+      || (stream.sol() && (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false))))
+    // A reader may hand back an empty first group at the line's start; read on here, or this
+    // line would be begun again (its depth counted twice, its end looked for in a moved state).
+    for (let tries = 0; tries < 10; tries++) {
+      const token = plant ? base.token(stream, sub.plant) : innerToken(stream, sub, mode)
+      if (stream.pos > stream.start) return token
     }
-    return innerToken(stream, sub, mode)
+    return null
+  }
+
+  /**
+   * Whether the line ends a sub-diagram left open: the diagram's edge, or its note's or legend's
+   * end line, unless a uml sub-diagram is in a note or legend of its own. The server never ends
+   * one there (a syntax error); this is recovery, so it must not misread valid input.
+   */
+  function subEnds(stream, state) {
+    if (stream.match(diagramEdge, false)) return true
+    if (!subBodies[state.state]?.test(stream.string)) return false
+    const own = state.sub.type === 'uml' && state.sub.state
+    return !own || ![own.state, ...(own.stack ?? [])].some((key) => ownBodies.has(key))
   }
 
   /** A body's `{{` line: the sub-diagram starts on the next line, the body kept underneath. */
@@ -539,7 +557,7 @@ export function plantumlLanguage(profiles = {}) {
     if (state.pending) return base.token(stream, state)
     // A sub-diagram left open ends at the diagram's edge, or its note's or legend's end line,
     // which is then read as ever.
-    if (state.sub && stream.sol() && (stream.match(diagramEdge, false) || subBodies[state.state]?.test(stream.string))) state.sub = null
+    if (state.sub && stream.sol() && subEnds(stream, state)) state.sub = null
     // A diagram's `@start` or `@end` line ends what is left open at the top level, a body, a
     // `<code>` or `<latex>` block, a `/' … '/` comment, as it does an inner block's (P5).
     if (stream.sol() && !state.inner && !state.style && state.state !== 'start' && stream.match(diagramEdge, false)) {

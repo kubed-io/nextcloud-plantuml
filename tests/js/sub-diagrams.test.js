@@ -91,6 +91,26 @@ describe('the grammar', () => {
     expect(tokens('legend', '{{salt', '{', 'end legend', 'A -> B').slice(-2)).toEqual([['end legend', 'keyword'], ['->', 'LinkOperator']])
   })
 
+  it('leaves a uml sub-diagram\'s own note its end note, the outer note\'s end after }}', () => {
+    const found = tokens('note right', '{{', 'X -> Y', 'note left', 'inner text', 'end note', '}}', 'OUTERTAIL', 'end note', 'A -> B')
+    expect(found).toEqual([
+      ['note', 'keyword'], ['{{', 'brace'], ['->', 'LinkOperator'], ['note', 'keyword'], ['end note', 'keyword'], ['}}', 'brace'],
+      ['end note', 'keyword'], ['->', 'LinkOperator'],
+    ])
+  })
+
+  it('leaves a uml sub-diagram\'s own legend its end legend, the outer legend\'s end after }}', () => {
+    const found = tokens('legend', '{{', 'legend', 'inner text', 'end legend', '}}', 'OUTERTAIL', 'end legend', 'A -> B')
+    expect(found).toEqual([
+      ['legend', 'keyword'], ['{{', 'brace'], ['legend', 'keyword'], ['end legend', 'keyword'], ['}}', 'brace'],
+      ['end legend', 'keyword'], ['->', 'LinkOperator'],
+    ])
+  })
+
+  it('still ends a uml one left open at end note when it is in no note of its own', () => {
+    expect(tokens('note right', '{{', 'X -> Y', 'end note', 'A -> B').slice(-2)).toEqual([['end note', 'keyword'], ['->', 'LinkOperator']])
+  })
+
   it('ends one left open at @enduml, the next diagram read as ever (Review Focus 2)', () => {
     const found = tokens('note right', '{{salt', '{', '@enduml', '@startuml', 'A -> B')
     expect(found).toContainEqual(['@enduml', 'keyword'])
@@ -114,6 +134,7 @@ describe('the grammar', () => {
     const found = tokens('note right', '{{salt', "' a comment", '!$x = 1', '{', '}', '}}', 'end note')
     expect(found).toContainEqual(["' a comment", 'comment'])
     expect(found).toContainEqual(['!', 'meta'])
+    expect(found).toContainEqual(['$x', 'VariableName'])
     expect(found.at(-1)).toEqual(['end note', 'keyword'])
   })
 
@@ -161,9 +182,20 @@ describe('needed', () => {
 })
 
 describe('folding', () => {
+  const stateOf = (doc) => EditorState.create({ doc, extensions: [language, plantumlFolding] })
+  const at = (state, n) => foldable(state, state.doc.line(n).from, state.doc.line(n).to)
+
   it('folds a sub-diagram from its {{ line to the line before }}', () => {
-    const state = EditorState.create({ doc: 'note right\n{{salt\n{\n}\n}}\nend note', extensions: [plantumlFolding] })
-    expect(foldable(state, state.doc.line(2).from, state.doc.line(2).to)).toEqual({ from: state.doc.line(2).to, to: state.doc.line(4).to })
+    const state = stateOf('note right\n{{salt\n{\n}\n}}\nend note')
+    expect(at(state, 2)).toEqual({ from: state.doc.line(2).to, to: state.doc.line(4).to })
+  })
+
+  it('folds only what the grammar reads as one', () => {
+    // At the top level, and nested in a uml sub-diagram's own note, a {{ line opens none.
+    const state = stateOf('@startuml\n{{salt\n{\n}\n}}\nnote right\n{{\nnote left\n{{json\n{}\n}}\nend note\n}}\nend note\n@enduml')
+    expect(at(state, 2)).toBeNull()
+    expect(at(state, 9)).toBeNull()
+    expect(at(state, 7)).toEqual({ from: state.doc.line(7).to, to: state.doc.line(12).to })
   })
 })
 

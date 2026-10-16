@@ -11,7 +11,7 @@
  * common lines are the lexicon's (G4).
  */
 export default (core) => {
-  const { argsState, atLineStart, atNextLine, colours, comma, common, creole, table, tagStates } = core.lex
+  const { atLineStart, atNextLine, colours, comma, common, creole, table, tagStates } = core.lex
   const lines = common()
   const coordinate = { regex: /-?\d+(?:%(?:[+-]\d+)?)?(?![\w.])/, token: 'number' }
   // A spot's or a link's `(x, y)`.
@@ -27,7 +27,8 @@ export default (core) => {
       // A column break: hyphens alone on the line, any length.
       atLineStart(/-+(?=[ \t]*$)/, 'heading'),
       // A link, from column 0: the first name (plain, so a uml keyword is only a name) and its style.
-      { regex: new RegExp(`(${name.source})(?=(?:\\([^()]*\\))?[ \\t]*${style.source}[ \\t]*${name.source})`), sol: true, token: null, next: 'linkFrom' },
+      // The server tries the common commands first, so the ones that take text are not links.
+      { regex: new RegExp(`(?!(?:title|header|footer|caption|mainframe)(?=\\s)|legend\\b)(${name.source})(?=(?:\\([^()]*\\))?[ \\t]*${style.source}[ \\t]*${name.source})`, 'i'), sol: true, token: null, next: 'linkFrom' },
       { regex: new RegExp(`(spot)([ \\t]+)(${name.source})`), sol: true, token: ['keyword', null, 'typeName'], next: 'spot' },
       atLineStart(/\*(?=[ \t]*\w)/, 'list', { next: 'componentName' }),
       { regex: /([ \t]*)(goto|move|print)(\()/, sol: true, token: [null, 'FunctionName', 'paren'], push: 'args' },
@@ -51,9 +52,16 @@ export default (core) => {
     ],
     linkFrom: [
       atNextLine({ next: 'start' }),
-      ...coordinates,
+      { regex: /\(/, token: 'paren', push: 'coordsIn' },
       { regex: style, token: 'LinkOperator', next: 'linkTo' },
       { regex: /\s+/, token: null },
+    ],
+    // A link's `(x, y)`: the signs belong to the numbers here, not to a style.
+    coordsIn: [
+      { regex: /\)/, token: 'paren', pop: true },
+      comma,
+      coordinate,
+      { regex: /[^)\d,-]+|./, token: null },
     ],
     linkTo: [
       atNextLine({ next: 'start' }),
@@ -62,11 +70,18 @@ export default (core) => {
       { regex: /[^:#]+|./, token: null },
     ],
     label: [atNextLine({ next: 'start' }), ...creole('labelName')],
-    args: argsState,
+    // `goto(`, `move(` and `print(`: wire has no arithmetic, so a sign is part of a number.
+    args: [
+      { regex: /\)/, token: 'paren', pop: true },
+      comma,
+      { regex: /"[^"]*"/, token: 'string' },
+      coordinate,
+      { regex: /[^)\d",-]+|./, token: null },
+    ],
     ...tagStates,
     math: [],
     latex: [],
     ...lines.states,
-  }, { lineStates: ['args', 'tagAttrs', 'tagBraces', 'math', 'latex'] })
+  }, { lineStates: ['args', 'coordsIn', 'tagAttrs', 'tagBraces', 'math', 'latex'] })
   return { type: 'wire', mode, completions: [], lints: [], values: [] }
 }

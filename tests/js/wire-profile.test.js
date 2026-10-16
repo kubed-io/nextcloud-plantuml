@@ -48,6 +48,30 @@ describe('the wire profile', () => {
     expect(tokens('\tprint("Foo 10")')).toEqual([['print', 'FunctionName'], ['(', 'paren'], ['"Foo 10"', 'string'], [')', 'paren']])
   })
 
+  it('reads signed offsets as numbers, wire having no arithmetic', () => {
+    expect(tokens('move(-40, 10)')).toEqual([['move', 'FunctionName'], ['(', 'paren'], ['-40', 'number'], [',', 'separator'], ['10', 'number'], [')', 'paren']])
+    expect(tokens('goto(100,10)')).toEqual([['goto', 'FunctionName'], ['(', 'paren'], ['100', 'number'], [',', 'separator'], ['10', 'number'], [')', 'paren']])
+  })
+
+  it('reads a digit name after a style as a name, and a sign in a coordinate as a number', () => {
+    expect(tokens('a - 2')).toEqual([['-', 'LinkOperator']])
+    expect(tokens('a -2')).toEqual([['-', 'LinkOperator']])
+    expect(tokens('a(10, -5) -> b').filter(([, t]) => t === 'number')).toEqual([['10', 'number'], ['-5', 'number']])
+  })
+
+  it('reads the common commands that take text before a link', () => {
+    for (const word of ['title', 'header', 'footer', 'caption', 'mainframe', 'legend']) {
+      expect(tokens(`${word} -> b`).map(([, t]) => t)).not.toContain('LinkOperator')
+    }
+    expect(tokens('legend -> b')[0]).toEqual(['legend', 'keyword'])
+    expect(tokens('scale -> b')).toEqual([['->', 'LinkOperator']])
+    expect(tokens('hide -> b')).toEqual([['->', 'LinkOperator']])
+  })
+
+  it('reads an indented link plain', () => {
+    expect(tokens('  a -> b')).toEqual([])
+  })
+
   it('reads a link with its colour before the label', () => {
     expect(tokens('DDR3 <=> SLC_NAND #red : abcd')).toEqual([['<=>', 'LinkOperator'], ['#red', 'ColorLiteral'], ['abcd', 'labelName']])
     expect(tokens('DDR3L(100%,50%-10) => Big_Chip.EEPROM : 32 bit').slice(0, 7)).toEqual([

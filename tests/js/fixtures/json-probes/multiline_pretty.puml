@@ -1,0 +1,8 @@
+@startjson
+{
+  "a": [
+    1,
+    2
+  ]
+}
+@endjson

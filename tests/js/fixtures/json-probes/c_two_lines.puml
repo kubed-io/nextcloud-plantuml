@@ -1,0 +1,6 @@
+@startjson
+{"a":1,
+// c1
+// c2
+"b":2}
+@endjson

@@ -10,6 +10,7 @@
  * line at column 0 is PlantUML's too, and the json mode would take it for garbage.
  */
 import { json } from '@codemirror/legacy-modes/mode/javascript'
+import { jsonLint } from '../lint/json.js'
 
 const COMMON_LINE = /^[ \t]*(?:title|scale|skin|skinparam|hide)\b/i
 const HIGHLIGHT_LINE = /^#highlight(?= )/
@@ -87,5 +88,5 @@ export default (core) => {
       return RENAME[raw] ?? null
     },
   }
-  return { type: 'json', mode, completions: [], lints: [], values: [] }
+  return { type: 'json', mode, completions: [], lints: [jsonLint(core)], values: [] }
 }

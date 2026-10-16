@@ -1,0 +1,4 @@
+@startjson
+skinparam handwritten true
+{"a":1}
+@endjson

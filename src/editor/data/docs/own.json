@@ -198,74 +198,62 @@
   "keyword:endtitle": {
     "summary": "Closes a multi-line title",
     "example": "title\n  Greeting\nendtitle\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:header": {
     "summary": "Text in the page header",
     "example": "header Draft\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:endheader": {
     "summary": "Closes a multi-line header",
     "example": "header\n  Draft\nendheader\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:footer": {
     "summary": "Text in the page footer",
     "example": "footer Page 1\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:endfooter": {
     "summary": "Closes a multi-line footer",
     "example": "footer\n  Page 1\nendfooter\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:legend": {
     "summary": "Legend box on the diagram",
     "example": "legend right\n  Key\nendlegend\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:endlegend": {
     "summary": "Closes a legend",
     "example": "legend\n  Key\nendlegend\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:caption": {
-    "summary": "Caption under the diagram",
+    "summary": "Text below the diagram",
     "example": "caption Figure 1\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:endcaption": {
     "summary": "Closes a multi-line caption",
     "example": "caption\n  Figure 1\nendcaption\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:mainframe": {
     "summary": "Frame around the whole diagram",
     "example": "mainframe Overview\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:newpage": {
     "summary": "Starts a new page",
     "example": "Alice -> Bob : one\nnewpage\nBob -> Alice : two",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:page": {
     "summary": "Splits the diagram into pages",
     "example": "page 2x1\nAlice -> Bob : one\nnewpage\nBob -> Alice : two",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:skinparam": {
     "summary": "Sets a skin parameter",
@@ -288,8 +276,7 @@
   "keyword:show": {
     "summary": "Shows a part of the diagram again",
     "example": "hide footbox\nshow footbox\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:style": {
     "summary": "Picks a skin style",
@@ -305,8 +292,7 @@
   "keyword:rotate": {
     "summary": "Turns the diagram a quarter",
     "example": "rotate\nAlice -> Bob : hi",
-    "home": "any",
-    "anywhere": true
+    "home": "any"
   },
   "keyword:allowmixing": {
     "summary": "Mixes element kinds in one diagram",
@@ -371,17 +357,20 @@
   "keyword:true": {
     "summary": "Boolean true in a condition",
     "example": "!$on = true\n!if $on\nAlice -> Bob : on\n!endif",
-    "home": "any"
+    "home": "any",
+    "anywhere": true
   },
   "keyword:false": {
     "summary": "Boolean false in a condition",
     "example": "!$on = false\n!if $on\nAlice -> Bob : on\n!endif\nAlice -> Bob : always",
-    "home": "any"
+    "home": "any",
+    "anywhere": true
   },
   "keyword:not": {
     "summary": "Negates a condition",
     "example": "!$on = false\n!if not $on\nAlice -> Bob : off\n!endif",
-    "home": "any"
+    "home": "any",
+    "anywhere": true
   },
   "keyword:start": {
     "summary": "Begins the flow",
@@ -783,7 +772,7 @@
   },
   "keyword:bottom@mindmap": {
     "summary": "Lays the map out bottom to top",
-    "example": "top to bottom direction\n* root\n** a"
+    "example": "bottom to top direction\n* root\n** a"
   },
   "keyword:left to right direction@mindmap": {
     "summary": "Lays the map out left to right",
@@ -862,7 +851,7 @@
     "example": "h-axis \"Q\" [Q1, Q2]\nv-axis \"Sales\" 0 --> 10 ticks [0:\"Low\", 10:\"High\"]\nbar \"Sales\" [3, 5]"
   },
   "keyword:spacing@chart": {
-    "summary": "Spacing option of an axis",
+    "summary": "Gap between the entries of an axis",
     "example": "h-axis \"Q\" [Q1, Q2] spacing 20\nbar \"Sales\" [3, 5]"
   },
   "keyword:stackmode@chart": {
@@ -876,10 +865,6 @@
   "keyword:note@files": {
     "summary": "Annotates a file or folder",
     "example": "/src/main.js\nnote: entry point"
-  },
-  "keyword:skinparam@salt": {
-    "summary": "Sets the zoom or look of a salt form",
-    "example": "skinparam dpi 150\n{\n  [OK]\n}"
   },
   "keyword:sprite@nwdiag": {
     "summary": "Sets the icon of a node",

@@ -244,6 +244,15 @@ describe('our own lines for diagram types, directives and functions', () => {
     expect(wrong).toEqual([])
   })
 
+  it('reads in json only the keywords the json block reads, so legend is not there', () => {
+    expect(real.get('keyword:legend', 'json')).toBeUndefined()
+    expect(real.get('keyword:header', 'yaml')).toBeUndefined()
+    for (const word of ['title', 'scale', 'skinparam', 'skin', 'hide', 'true']) {
+      expect(real.get(`keyword:${word}`, 'json')?.summary).toBeTruthy()
+    }
+    expect(real.get('keyword:skinparam', 'salt')).toMatchObject({ name: 'skinparam' })
+  })
+
   it('writes alt as the brief says', () => {
     expect(ownLines['keyword:alt']).toEqual({
       summary: 'Alternatives, one drawn per else',

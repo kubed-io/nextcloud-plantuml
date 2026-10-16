@@ -25,7 +25,7 @@ const PLACES = [
   // `actor Bob #`, `[Web] #`, `note left of A #`: a declaration, before any label.
   new RegExp(`^[ \\t]*(?:(?:${KINDS.join('|')})(?![\\w-])|\\[[^\\]]*\\]|\\([^)]*\\)|:[^:]+:)(?:[ \\t](?:"[^"]*"|[^:"'])*)?[ \\t]#(\\w*)$`),
   /[-.]\[(?:[^\]]*[,;])?#(\w*)$/,
-  /<(?:color|back|u|s|w):#?(\w*)$/,
+  /<(?:color|back|u|s|w):(#?\w*)$/,
   /<font\b[^>]*\scolor=["']?#?(\w*)$/i,
   // The braces after an icon, an emoji or a sprite (values/index.js BRACES, less an image
   // and a QR code, which take a scale only), not any brace.
@@ -92,5 +92,5 @@ export async function colors(context) {
     return null
   }
   const options = Object.entries(await serverColors()).map(([label, swatch]) => ({ label, swatch }))
-  return { from: pos - typed.length, options, validFor: /^\w*$/ }
+  return { from: pos - typed.length, options, validFor: /^#?\w*$/ }
 }

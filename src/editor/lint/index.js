@@ -13,8 +13,9 @@ import { fileName, serverError } from './state.js'
 import { unnamedStart } from './unnamed-start.js'
 import { serverMistake } from './server-error.js'
 import { blocksLint } from './blocks.js'
+import { creoleColour } from './creole-colour.js'
 
-export const rules = [unnamedStart, blocksLint, serverMistake]
+export const rules = [unnamedStart, blocksLint, serverMistake, creoleColour]
 
 /** The loaded profiles' rules, run beside `rules`. */
 export const profileRules = Facet.define({ combine: (values) => values.flat() })

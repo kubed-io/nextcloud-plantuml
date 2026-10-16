@@ -567,7 +567,7 @@ describe('named colours by name (W5)', () => {
     ['node a #gold', ['gold']],
     ['skinparam backgroundColor #FFF3B0', ['FFF3B0']],
     ['A -> B : <color:red>x', ['red']],
-    ['A -> B : <color:#336699>x', ['336699']],
+    ['A -> B : <color:#336699>x', ['#336699']],
     ['A -> B : <font color=#336699>x', ['#336699']],
     ['A -> B : <font color="navy">x', ['navy']],
     ['node a #Red/Yellow', ['Red', 'Yellow']],
@@ -622,6 +622,9 @@ describe('named colours by name (W5)', () => {
     ['skinparam backgroundColor #FFF3B0|', 'gold', 'skinparam backgroundColor #gold'],
     ['A -> B : <font color=#336699|>', 'navy', 'A -> B : <font color=navy>'],
     ['A -> B : <color:red|>x', 'gold', 'A -> B : <color:gold>x'],
+    ['A -> B : <back:#ff0000|>x</back>', 'red', 'A -> B : <back:red>x</back>'],
+    ['A -> B : <u:#Re|d>x</u>', 'navy', 'A -> B : <u:navy>x</u>'],
+    ['node a #ff0000|', 'red', 'node a #red'],
     ['node a #Re|d/Yellow', 'gold', 'node a #gold/Yellow'],
   ])('a name picked in %j writes %j', async (marked, name, picked) => {
     open(marked)

@@ -161,7 +161,7 @@ const fontFamilyValue = {
 // gradient its own. The `#` stays outside the range where the place needs it (`#gold` after an
 // element); where the name is written bare (a style block, after `color=`) it is inside, so a
 // pick replaces it. None once the server is known to name no colours.
-const BARE_AFTER = /\bcolor\s*=\s*["']?$/i
+const BARE_AFTER = /(?:\bcolor\s*=\s*["']?|<(?:color|back|u|s|w):)$/i
 
 /** Sent when the server's colours have arrived, so the chooser's pencils are drawn (or not). */
 export const coloursKnown = StateEffect.define()

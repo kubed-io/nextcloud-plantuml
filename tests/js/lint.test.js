@@ -10,6 +10,7 @@ import { EditorView } from '@codemirror/view'
 import { rules } from '../../src/editor/lint/index.js'
 import { fileName, serverError, setServerError } from '../../src/editor/lint/state.js'
 import { diagramName, unnamedStart } from '../../src/editor/lint/unnamed-start.js'
+import { creoleColour } from '../../src/editor/lint/creole-colour.js'
 import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
 import { yamlLint as yamlRule } from '../../src/editor/lint/yaml.js'
@@ -22,7 +23,7 @@ const stateOf = (doc, name = 'Order flow.puml') => EditorState.create({ doc, ext
 
 describe('the lint rules', () => {
   it('are listed in order', () => {
-    expect(rules).toEqual([unnamedStart, blocksLint, serverMistake])
+    expect(rules).toEqual([unnamedStart, blocksLint, serverMistake, creoleColour])
   })
 })
 
@@ -382,5 +383,30 @@ describe('style', () => {
 
   it('says nothing outside a style block', () => {
     expect(run('@startuml\nnode {\n  FontSise 12\n}\n@enduml\n')).toEqual([])
+  })
+})
+
+describe('creole-colour (W6)', () => {
+  const MESSAGE = 'PlantUML draws this tag as text: write the colour name without #'
+
+  it('marks #Red in a back tag, from the # to the name, and Remove # leaves the bare name', () => {
+    const doc = 'A -> B : <back:#Red>x</back>'
+    const [diagnostic, ...rest] = creoleColour(stateOf(doc))
+
+    expect(rest).toEqual([])
+    const from = doc.indexOf('#')
+    expect(diagnostic).toMatchObject({ from, to: from + '#Red'.length, severity: 'error', message: MESSAGE })
+    expect(diagnostic.actions.map((action) => action.name)).toEqual(['Remove #'])
+    const view = new EditorView({ state: stateOf(doc) })
+    diagnostic.actions[0].apply(view, diagnostic.from, diagnostic.to)
+    expect(view.state.doc.toString()).toBe('A -> B : <back:Red>x</back>')
+  })
+
+  it.each(['<back:#BUSINESS>x</back>', '<s:#Red>x</s>', '<w:#Red>x</w>', '<u:#Red>x</u>'])('marks %s', (tag) => {
+    expect(creoleColour(stateOf(`A -> B : ${tag}`))).toHaveLength(1)
+  })
+
+  it.each(['<back:#ff0000>x</back>', '<back:#FFF>x</back>', '<color:#Red>x</color>', '<back:Red>x</back>', "' <back:#Red>x</back>"])('leaves %s', (text) => {
+    expect(creoleColour(stateOf(text))).toHaveLength(0)
   })
 })

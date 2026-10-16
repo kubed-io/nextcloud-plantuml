@@ -429,8 +429,6 @@ describe('named colours', () => {
     'archimate #|',
     'A -[#|',
     'A -[bold,#|',
-    'A -> B : <color:#|',
-    'title <back:#Al|',
     'skinparam ArrowColor #|',
     'skinparam class {\n  BackgroundColor #|',
     '<style>\nnode {\n  BackGroundColor #|',
@@ -488,6 +486,18 @@ describe('named colours', () => {
     expect(result.from).toBe(marked.indexOf('|') - typed.length)
     expect(labels(result)).toEqual(Object.keys(COLORS))
     expect(result.options.map((option) => option.swatch)).toEqual(Object.values(COLORS))
+  })
+
+  // W6: a name is bare in a Creole tag, so the option replaces the `#` too.
+  it.each([
+    ['A -> B : <color:#|', '#'],
+    ['title <back:#Al|', '#Al'],
+    ['title <back:Re|', 'Re'],
+  ])('replaces %j from %j, # included', async (marked, typed) => {
+    const result = await complete(colorsSource, marked)
+
+    expect(result.from).toBe(marked.indexOf('|') - typed.length)
+    expect(result.validFor.test('#Red')).toBe(true)
   })
 
   it('offers the names inside an open quoted font colour, and inserts inside the quotes', async () => {
@@ -556,6 +566,13 @@ describe('named colours', () => {
 })
 
 describe('creole', () => {
+  it.each([['<color:#>', 'A -> B : <color:>'], ['<back:#>', 'A -> B : <back:>']])('inserts %s with no # (W6)', (label, written) => {
+    const view = pick('A -> B : <|', creole, label)
+
+    expect(view.state.doc.toString()).toBe(written)
+    view.destroy()
+  })
+
   it('offers the text tags after a < in text', () => {
     const marked = 'A -> B : <|'
     const result = complete(creole, marked)

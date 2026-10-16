@@ -72,6 +72,26 @@ describe('the chen profile', () => {
     expect(tokens('M =<= C')).toEqual([['=<=', 'LinkOperator']])
   })
 
+  it('opens no body after a subclass list: the next line reads as chen', () => {
+    expect(tokens('PERSON ->- U { A, B }', 'Name : TEXT', 'A -1- B').slice(5)).toEqual([
+      ['-', 'LinkOperator'], ['1', 'number'], ['-', 'LinkOperator'],
+    ])
+    expect(tokens('PERSON ->- U { A, B }', 'entity X {', '}').slice(5)).toEqual([['entity', 'keyword'], ['X', 'typeName'], ['{', 'brace'], ['}', 'brace']])
+  })
+
+  it('ends a body left open at the block end, the next diagram read as ever', () => {
+    const doc = '@startchen\nentity E {\n  Name : TEXT\n@endchen\n@startuml\nA -> B\n@enduml'
+    const out = []
+    language.parser.parse(doc).iterate({
+      enter(node) {
+        if (!node.type.isTop) out.push([doc.slice(node.from, node.to), node.type.name])
+      },
+    })
+    expect(out).toContainEqual(['Name', 'propertyName'])
+    expect(out).toContainEqual(['@endchen', 'keyword'])
+    expect(out.slice(-3)).toEqual([['@startuml', 'keyword'], ['->', 'LinkOperator'], ['@enduml', 'keyword']])
+  })
+
   it('reads an attribute named note or state as an attribute, and the lines after the body as chen', () => {
     expect(tokens('entity E {', '  note', '  state', '  class', '}', 'A -- B')).toEqual([
       ['entity', 'keyword'], ['E', 'typeName'], ['{', 'brace'],

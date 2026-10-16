@@ -20,7 +20,9 @@
 
 // A colour in brackets, then an underscore; one stereotype may follow a box's closer.
 const COLOUR = '(\\[)(#\\w+)(\\])'
-const ID = '(\\()([\\w\\u00C0-\\uFFFF]+)(\\))'
+// An id, in `(id)` and at either end of a link.
+const NAME = '[\\w\\u00C0-\\uFFFF]+'
+const ID = `(\\()(${NAME})(\\))`
 // A box ends on a line ending `;` and an optional stereotype (H18).
 const CLOSER = /;(?=\s*(?:<<[^>]*>>)?\s*$)/
 
@@ -52,7 +54,7 @@ function profile(core, type) {
       { regex: new RegExp(`${prefix}([ \\t]+)("[^"]*")([ \\t]+)(as)([ \\t]+)(\\w+)`), sol: true, token: [...tokens, null, 'string', null, 'keyword', null, 'typeName'], next: 'label' },
       node(prefix, tokens, '(?=[ \\t]|$)'),
       // `A -> B #red <<s>> : label`: the references plain, the connector, then the rest.
-      { regex: /([ \t]*)(\w+)([ \t]+)([.-]+>)([ \t]+)(\w+)/, sol: true, token: [null, null, null, 'LinkOperator', null, null], next: 'link' },
+      { regex: new RegExp(`([ \\t]*)(${NAME})([ \\t]+)([.-]+>)([ \\t]+)(${NAME})`), sol: true, token: [null, null, null, 'LinkOperator', null, null], next: 'link' },
     ]
   } else {
     const prefix = `([*#]+)(?:${COLOUR})?(_)?`

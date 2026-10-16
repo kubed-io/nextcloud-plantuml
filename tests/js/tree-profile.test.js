@@ -27,6 +27,17 @@ function tokens(type, ...lines) {
 const mm = (...lines) => tokens('mindmap', ...lines)
 const wb = (...lines) => tokens('wbs', ...lines)
 
+/** [text, token class] for every highlighted span of a whole document. */
+function parse(doc) {
+  const out = []
+  language.parser.parse(doc).iterate({
+    enter(node) {
+      if (!node.type.isTop) out.push([doc.slice(node.from, node.to), node.type.name])
+    },
+  })
+  return out
+}
+
 describe('the mindmap profile', () => {
   it('is the mindmap type with no completions or lints', () => {
     expect(mindmap).toMatchObject({ type: 'mindmap', completions: [], lints: [], values: [] })
@@ -62,6 +73,13 @@ describe('the mindmap profile', () => {
     expect(mm('**:x', 'y; <<s>>')).toEqual([
       ['**', 'list'], [':', 'bracket'], [';', 'bracket'], ['<<', 'angleBracket'], ['s', 'annotation'], ['>>', 'angleBracket'],
     ])
+  })
+
+  it('ends a box left open at the block end, the next diagram read as ever', () => {
+    const out = parse('@startmindmap\n**:open\nstill **open**\n@endmindmap\n@startuml\nA -> B\n@enduml')
+    expect(out).toContainEqual(['@endmindmap', 'keyword'])
+    expect(out).toContainEqual(['->', 'LinkOperator'])
+    expect(out).toContainEqual(['@enduml', 'keyword'])
   })
 
   it('colours the text after an inline formula, and the next line', () => {
@@ -139,6 +157,17 @@ describe('the wbs profile', () => {
   it('reads no direction line: wbs registers none, the server refuses it', () => {
     expect(wb('top to bottom direction')).toEqual([])
     expect(wb('left to right direction', '* Root')).toEqual([['*', 'list']])
+  })
+
+  it('reads a link between ids of any letters, as an (id) holds', () => {
+    expect(wb('Äpfel -> Birne : x')).toEqual([['->', 'LinkOperator'], ['x', 'labelName']])
+    expect(wb('a1 .> é')).toEqual([['.>', 'LinkOperator']])
+  })
+
+  it('ends a box left open at the block end, the next diagram read as ever', () => {
+    const out = parse('@startwbs\n**:open\nstill open\n@endwbs\n@startuml\nA -> B\n@enduml')
+    expect(out).toContainEqual(['@endwbs', 'keyword'])
+    expect(out).toContainEqual(['->', 'LinkOperator'])
   })
 
   it('colours the text after an inline formula', () => {

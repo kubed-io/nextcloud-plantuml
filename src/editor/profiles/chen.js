@@ -5,8 +5,8 @@
  * `@startchen` blocks (T22), a table of the lexicon's (`core.lex`), as
  * `cheneer/command/*.java` of 1.2026.8 reads them. `entity` and `relationship` open a body at
  * their `{`; a composite attribute's `{` nests another. A line in a body is an attribute: its
- * name a property (it may hold spaces and `:`), `Name : TYPE` a property, a separator and a
- * classifier. The body persists across lines by design, ends at its `}` and at the block's
+ * name a property (it may hold spaces), a `:` splitting it from its type, so `Name : TYPE` is a
+ * property, a separator and a classifier. The body persists across lines by design, ends at its `}` and at the block's
  * `@end` (the outer grammar resets there), and an attribute named `note`, `state` or `class` is
  * only an attribute. A connector is a single `-` or `=`, an optional cardinality between, never
  * a run; `->-`, `-<-`, `=>=`, `=<=` are subclass links, `d`, `o`, `U` and `{ A, B }` their

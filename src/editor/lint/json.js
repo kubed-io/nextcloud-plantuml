@@ -34,6 +34,10 @@ export const jsonLint = ({ scan }) => (state) => {
       const before = text.slice(0, error.offset).split('\n')
       at = doc.line(first + before.length - 1)
       from = Math.min(at.from + before[before.length - 1].length, at.to)
+      // A newline is the offending character: mark the line's last one, never an empty range.
+      if (from === at.to && at.to > at.from) {
+        from--
+      }
     } else {
       // Past the data: the last line that holds any, from its last character.
       const last = kept.findLastIndex((line) => line.trim() !== '')

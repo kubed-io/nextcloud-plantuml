@@ -35,6 +35,24 @@ describe('the reader', () => {
   })
 })
 
+describe('the nesting limit', () => {
+  const nest = (n) => '['.repeat(n) + ']'.repeat(n)
+
+  it('accepts 1000 levels', () => {
+    expect(checkJson(nest(1000))).toBeNull()
+    expect(checkJson('{"a":'.repeat(1000) + '1' + '}'.repeat(1000))).toBeNull()
+  })
+
+  it('refuses 1001, where the reader stands after the bracket', () => {
+    expect(checkJson(nest(1001))).toEqual({ message: 'Nesting too deep', offset: 1001 })
+  })
+
+  it('answers 100000 without throwing', () => {
+    expect(checkJson(nest(100000))).toMatchObject({ message: 'Nesting too deep' })
+    expect(checkJson('['.repeat(100000))).toMatchObject({ message: 'Nesting too deep' })
+  })
+})
+
 describe('the lint', () => {
   it('marks Expected \':\' from the 1', () => {
     const doc = '@startjson\n{"a" 1}\n@endjson\n'
@@ -83,5 +101,19 @@ describe('the lint', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].from).toBe(doc.lastIndexOf('1}'))
+  })
+
+  it('marks a raw newline in a string on the last character of its line', () => {
+    const doc = '@startjson\n{"a":"x\ny"}\n@endjson\n'
+    const end = doc.indexOf('\ny')
+
+    expect(found(doc)).toEqual([{ from: end - 1, to: end, severity: 'error', message: 'Expected valid string character' }])
+  })
+
+  it('maps an error below a style block, a comment and a title to its own line and column', () => {
+    const doc = "@startjson\ntitle x\n<style>\njson {\n}\n</style>\n/' a\nb '/\n{\n  \"a\" 1\n}\n@endjson\n"
+    const at = doc.indexOf('1\n}')
+
+    expect(found(doc)).toEqual([{ from: at, to: at + 1, severity: 'error', message: "Expected ':'" }])
   })
 })

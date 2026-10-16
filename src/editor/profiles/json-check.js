@@ -17,6 +17,7 @@
 export function checkJson(text) {
   const EOT = '\u0003'
   let i = 0
+  let depth = 0 // minimal-json's MAX_NESTING_LEVEL, also what keeps the recursion shallow
   const cur = () => (i < text.length ? text[i] : EOT)
   const err = (what) => ({ message: cur() === EOT ? 'Unexpected end of input' : what, offset: i })
   const ws = () => { while (cur() === ' ' || cur() === '\t' || cur() === '\n' || cur() === '\r') i++ }
@@ -59,10 +60,14 @@ export function checkJson(text) {
     return null
   }
   function arr() {
-    i++; ws()
-    if (eat(']')) return null
+    i++
+    if (++depth > 1000) return { message: 'Nesting too deep', offset: i }
+    ws()
+    if (eat(']')) { depth--; return null }
     do { ws(); const e = value(); if (e) return e; ws() } while (eat(','))
-    return eat(']') ? null : err("Expected ',' or ']'")
+    if (!eat(']')) return err("Expected ',' or ']'")
+    depth--
+    return null
   }
   function comment() { // after the first '/'
     if (!eat('/')) return err('Expected Error in comment')
@@ -71,8 +76,10 @@ export function checkJson(text) {
     return null
   }
   function obj() {
-    i++; ws()
-    if (eat('}')) return null
+    i++
+    if (++depth > 1000) return { message: 'Nesting too deep', offset: i }
+    ws()
+    if (eat('}')) { depth--; return null }
     do {
       ws()
       if (eat('/')) { const e = comment(); if (e) return e }
@@ -85,7 +92,9 @@ export function checkJson(text) {
       ws()
       if (eat('/')) { e = comment(); if (e) return e }
     } while (eat(','))
-    return eat('}') ? null : err("Expected ',' or '}'")
+    if (!eat('}')) return err("Expected ',' or '}'")
+    depth--
+    return null
   }
   ws()
   let e = value(); if (e) return e

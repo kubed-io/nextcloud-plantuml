@@ -1416,6 +1416,8 @@ describe('declarations and class bodies (H15, H17)', () => {
 
   it('reads a quoted multiplicity after a link as a string (H23)', () => {
     expect(tokens('A *-- "many" B')).toContainEqual(['"many"', 'string'])
+    // A stereotype after the far end keeps the string before it (H23).
+    expect(tokens('A --> "B" <<s>>')).toContainEqual(['"B"', 'string'])
     const strings = tokens('A "1" -- "2" B').filter(([, t]) => t === 'string').map(([s]) => s)
     expect(strings).toEqual(['"1"', '"2"'])
     const out = tokens('A --> "x" B : "y"')

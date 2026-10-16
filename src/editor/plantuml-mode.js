@@ -530,11 +530,11 @@ export function plantumlLanguage(profiles = {}) {
 
   /**
    * A line of a sub-diagram, its `{{` and `}}` lines counting the depth and its other lines the
-   * body's brackets (`nest`, see `subEnds`); a line in a `/' … '/` comment counts neither, as the
-   * server drops it first. A comment or `!` line is PlantUML's (`plant`, a state of its own so the
-   * body underneath stays as it was), and so is a `<style>` block in a type's own grammar, read as
-   * in a block of that type. The mode gets each line with its indentation cut, as the server hands
-   * it over.
+   * body's brackets (`nest`, see `subEnds`); a `'`, `/'` or `!` line, or one in a `/' … '/` comment,
+   * counts neither, as the server drops it first. A comment or `!` line is PlantUML's (`plant`, a
+   * state of its own so the body underneath stays as it was), and so is a `<style>` block in a
+   * type's own grammar, read as in a block of that type. The mode gets each line with its
+   * indentation cut, as the server hands it over.
    */
   function subToken(stream, state) {
     const sub = state.sub
@@ -551,7 +551,9 @@ export function plantumlLanguage(profiles = {}) {
         state.sub = null
         return emit(stream, state, [[close[1], null], [close[2], 'brace'], [stream.string.slice(close[1].length + 2), null]])
       }
-      if (!commented && !opened && !close && subBrackets[state.state]) sub.nest += netBrackets(stream.string, subBrackets[state.state])
+      // A comment or `!` line is the preprocessor's, gone before the sub-diagram is read.
+      const own = /^[ \t]*(?:'|\/')/.test(stream.string) || directiveLine.test(stream.string)
+      if (!commented && !own && !opened && !close && subBrackets[state.state]) sub.nest += netBrackets(stream.string, subBrackets[state.state])
     }
     const mode = subMode(sub.type)
     const own = mode !== umlSub && !mode.inactive

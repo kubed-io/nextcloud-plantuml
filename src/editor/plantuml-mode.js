@@ -498,7 +498,7 @@ export function plantumlLanguage(profiles = {}) {
     copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
     copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
     const sub = state.sub
-    copy.sub = sub && { type: sub.type, depth: sub.depth, from: sub.from, state: copyIn(subMode(sub.type), sub.state), plant: base.copyState(sub.plant) }
+    copy.sub = sub && { type: sub.type, depth: sub.depth, from: sub.from, begun: sub.begun, state: copyIn(subMode(sub.type), sub.state), plant: base.copyState(sub.plant) }
     copy.nested = state.nested
     return copy
   }
@@ -509,7 +509,9 @@ export function plantumlLanguage(profiles = {}) {
    */
   function subToken(stream, state) {
     const sub = state.sub
-    if (stream.sol()) {
+    // `begun`: a reader that has not advanced yet leaves the line at its start, begun once.
+    if (stream.sol() && !sub.begun) {
+      sub.begun = true
       sub.from = null
       base.startLine(sub.plant)
       if (stream.match(SUB_OPEN, false)) sub.depth++
@@ -520,13 +522,17 @@ export function plantumlLanguage(profiles = {}) {
       }
     }
     const mode = subMode(sub.type)
-    const plant = mode !== umlSub && !mode.inactive && (sub.plant.state === 'blockComment' || (!stream.sol() && bangStates.has(sub.plant.state))
+    // A comment or `!` line's groups left pending (its indentation first) are the plant's too.
+    const plant = mode !== umlSub && !mode.inactive && (sub.plant.pending || sub.plant.state === 'blockComment' || (!stream.sol() && bangStates.has(sub.plant.state))
       || (stream.sol() && (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false))))
     // A reader may hand back an empty first group at the line's start; read on here, or this
     // line would be begun again (its depth counted twice, its end looked for in a moved state).
     for (let tries = 0; tries < 10; tries++) {
       const token = plant ? base.token(stream, sub.plant) : innerToken(stream, sub, mode)
-      if (stream.pos > stream.start) return token
+      if (stream.pos > stream.start) {
+        sub.begun = false
+        return token
+      }
     }
     return null
   }
@@ -547,7 +553,7 @@ export function plantumlLanguage(profiles = {}) {
   function subStart(stream, state, open) {
     const type = open[3] || 'uml'
     const mode = subMode(type)
-    state.sub = { type, depth: 1, from: null, state: mode.startState ? mode.startState(stream.indentUnit) : {}, plant: base.startState() }
+    state.sub = { type, depth: 1, from: null, begun: false, state: mode.startState ? mode.startState(stream.indentUnit) : {}, plant: base.startState() }
     return emit(stream, state, [[open[1], null], [open[2], 'brace'], [open[3], 'keyword'], [stream.string.slice(open[1].length + 2 + open[3].length), null]])
   }
 

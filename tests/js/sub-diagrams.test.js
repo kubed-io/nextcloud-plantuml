@@ -138,6 +138,48 @@ describe('the grammar', () => {
     expect(found.at(-1)).toEqual(['end note', 'keyword'])
   })
 
+  it('ends an indented comment with its line, the salt after it read as salt', () => {
+    // The probe as found: `[OK]` after the table's `}` is plain, as salt reads it in a block too.
+    expect(tokens('note right', '{{salt', "  ' a comment", '{', '}', "' second", '[OK]', '}}', 'end note')).toEqual([
+      ['note', 'keyword'], ['{{', 'brace'], ['salt', 'keyword'], ["' a comment", 'comment'], ['{', 'brace'], ['}', 'brace'],
+      ["' second", 'comment'], ['}}', 'brace'], ['end note', 'keyword'],
+    ])
+    expect(tokens('note right', '{{salt', "  ' a comment", '{', "' second", '[OK]', '}', '}}', 'end note')).toEqual([
+      ['note', 'keyword'], ['{{', 'brace'], ['salt', 'keyword'], ["' a comment", 'comment'], ['{', 'brace'],
+      ["' second", 'comment'], ['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'], ['}}', 'brace'], ['end note', 'keyword'],
+    ])
+  })
+
+  it('ends an indented ! line and an indented /\' \'/ comment with their lines', () => {
+    const bang = tokens('note right', '{{salt', '  !$x = 1', '{', '[OK]', '}', '}}', 'end note')
+    expect(bang.slice(3, 5)).toEqual([['!', 'meta'], ['$x', 'VariableName']])
+    expect(bang.slice(-6)).toEqual([['{', 'brace'], ['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'], ['}}', 'brace'], ['end note', 'keyword']])
+    expect(tokens('note right', '{{salt', "  /' x '/", '{', '[OK]', '}', '}}', 'end note')).toEqual([
+      ['note', 'keyword'], ['{{', 'brace'], ['salt', 'keyword'], ["/' x '/", 'comment'],
+      ['{', 'brace'], ['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'], ['}}', 'brace'], ['end note', 'keyword'],
+    ])
+  })
+
+  it('reads on past a whitespace-only line in a salt sub-diagram', () => {
+    expect(tokens('note right', '{{salt', '{', '   ', '[OK]', '}', '}}', 'end note', 'A -> B').slice(3)).toEqual([
+      ['{', 'brace'], ['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'], ['}}', 'brace'], ['end note', 'keyword'], ['->', 'LinkOperator'],
+    ])
+  })
+
+  it.each([
+    ['an object body', ['object o {'], '}'],
+    ['an hnote', ['hnote over A'], 'endhnote'],
+    ['a note as N', ['note as N'], 'end note'],
+  ])('reads a sub-diagram in %s', (_, head, closer) => {
+    const found = tokens(...head, '{{salt', '{', '[OK]', '}', '}}', closer, 'A -> B')
+    expect(found).toContainEqual(['{{', 'brace'])
+    expect(found.slice(-3)).toEqual([['}}', 'brace'], [closer, closer === '}' ? 'brace' : 'keyword'], ['->', 'LinkOperator']])
+  })
+
+  it('ends one left open in an hnote at endhnote', () => {
+    expect(tokens('hnote over A', '{{salt', '{', 'endhnote', 'A -> B').slice(-2)).toEqual([['endhnote', 'keyword'], ['->', 'LinkOperator']])
+  })
+
   it('reads a sub-diagram in a description, its ] after }} closing it', () => {
     const found = tokens('node web [', '{{salt', '{', '}', '}}', ']', 'A -> B')
     expect(found).toContainEqual(['{{', 'brace'])
@@ -219,6 +261,11 @@ describe('completion', () => {
   it('starts after {{ while a type is typed', () => {
     const { context, pos } = contextAt('@startuml\nnote right\n{{sa|\nend note\n@enduml')
     expect(subDiagrams(context).from).toBe(pos - 2)
+  })
+
+  it('offers nothing where the grammar would open none', () => {
+    expect(subDiagrams(contextAt('@startuml\n{{|\n@enduml').context)).toBeNull()
+    expect(subDiagrams(contextAt('@startuml\nnote right\n{{sa|lt x\nend note\n@enduml').context)).toBeNull()
   })
 
   it('offers nothing outside a uml block', () => {

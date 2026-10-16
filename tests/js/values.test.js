@@ -191,7 +191,9 @@ describe('a tag\'s values (W4)', () => {
     ['<&star{color=red,scale=2}>', '2'],
   ])('finds a number, never below 0, in %j', (text, word) => {
     const from = text.indexOf(word)
-    expect(on(text).filter((value) => value.kind === 'number')).toEqual([expect.objectContaining({ from, to: from + word.length, kind: 'number', min: 0 })])
+    // An icon's name is a list value of its own, ahead of the number.
+    const icon = text.startsWith('<&') ? [expect.objectContaining({ from: 2, to: 6, kind: 'list' })] : []
+    expect(on(text)).toEqual([...icon, expect.objectContaining({ from, to: from + word.length, kind: 'number', min: 0 })])
   })
 
   it('finds none where the attribute belongs to another tag', () => {
@@ -290,7 +292,9 @@ describe('a tag\'s values (W4)', () => {
     expect(on('skinparam x { scale=2 }')).toEqual([])
     expect(on('A -> B : {scale=3}')).toEqual([])
     for (const tag of ['<&star>{scale=3}', '<:smile:>{scale=3}', '<$box>{scale=3}', '<img:a.png>{scale=3}', '<qrcode:hi>{scale=3}']) {
-      expect(on(tag).filter((value) => value.kind === 'number')).toEqual([expect.objectContaining({ from: tag.indexOf('3'), kind: 'number', min: 0 })])
+      const named = tag.startsWith('<&') ? 'star' : tag.startsWith('<:') ? 'smile' : null
+      const name = named ? [expect.objectContaining({ from: tag.indexOf(named), to: tag.indexOf(named) + named.length, kind: 'list' })] : []
+      expect(on(tag)).toEqual([...name, expect.objectContaining({ from: tag.indexOf('3'), kind: 'number', min: 0 })])
     }
   })
 
@@ -307,9 +311,10 @@ describe('icons and emoji by name (W7)', () => {
   const EMOJI = ['rocket', 'sunny', 'smile']
   const lists = async (url) => {
     const name = String(url).split('/').pop()
-    return new Response(JSON.stringify({ icons: ICONS, emoji: EMOJI }[name] ? { [name]: { icons: ICONS, emoji: EMOJI }[name] } : {}), { status: 200 })
+    if (!(name in { icons: 1, emoji: 1 })) return answer(url)
+    return new Response(JSON.stringify({ [name]: { icons: ICONS, emoji: EMOJI }[name] }), { status: 200 })
   }
-  const lists_on = async (text) => {
+  const listsOn = async (text) => {
     fetch.mockImplementation(lists)
     await Promise.all([serverList('icons'), serverList('emoji')])
     return valuesOn(stateAt(text), 1).filter((value) => value.kind === 'list')
@@ -325,7 +330,7 @@ describe('icons and emoji by name (W7)', () => {
     ['<#green:sunny:>', 'sunny'],
   ])('finds the name in %j as a list', async (text, name) => {
     const from = text.indexOf(name)
-    const found = await lists_on(text)
+    const found = await listsOn(text)
 
     expect(found).toEqual([expect.objectContaining({ from, to: from + name.length, kind: 'list' })])
     expect(await found[0].options()).toEqual(name === 'rocket' || name === 'sunny' ? EMOJI : ICONS)
@@ -341,6 +346,32 @@ describe('icons and emoji by name (W7)', () => {
     expect(labels[0]).toBe('document')
     await pick('file')
     expect(doc()).toBe('<&file>')
+  })
+
+  it('writes no value for text that is not an icon or an emoji', async () => {
+    for (const text of ['<<x>>', '<#red>', 'A : <:smi', '&#9731;']) {
+      expect(await listsOn(text)).toEqual([])
+    }
+  })
+
+  it('finds the icon\'s name and its scale as two values, a pencil then a stepper', async () => {
+    fetch.mockImplementation(lists)
+    await serverList('icons')
+    const text = 'A : <&star{scale=2}>'
+    const star = text.indexOf('star')
+    const two = text.indexOf('2')
+    const state = stateAt(text)
+
+    expect(valuesOn(state, 1)).toEqual([
+      expect.objectContaining({ from: star, to: star + 4, kind: 'list' }),
+      expect.objectContaining({ from: two, to: two + 1, kind: 'number', min: 0 }),
+    ])
+    expect(valueAt(state, star + 2)).toMatchObject({ kind: 'list' })
+    expect(valueAt(state, two)).toMatchObject({ kind: 'number' })
+
+    open(text.replace('A', 'A|'))
+    const drawn = [...view.dom.querySelectorAll('.cm-plantuml-chooser, .cm-plantuml-stepper')]
+    expect(drawn.map((el) => el.className.match(/chooser|stepper/)[0])).toEqual(['chooser', 'stepper'])
   })
 
   it('finds none once the server is known to list none', async () => {

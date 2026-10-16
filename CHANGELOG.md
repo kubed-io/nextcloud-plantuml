@@ -65,6 +65,7 @@ All notable changes to this project are documented here. The format follows
 - Grammars for salt wireframes and JSON diagrams.
 - JSON diagrams are checked as PlantUML reads them, the first mistake underlined with the reader's message.
 - A `{{type` … `}}` sub-diagram (salt, json, yaml, …) in a note, legend, description or class body is coloured with its own type's grammar, folds, and `{{` completes the types.
+- A `{{json` sub-diagram is checked like a `@startjson` block, its first mistake underlined.
 
 ### Changed
 
@@ -87,3 +88,7 @@ All notable changes to this project are documented here. The format follows
 - The colour pencil, completion and snippets write a colour name in `<back:` and its kin without `#`.
 - A tab shows a quoted or braced `@start` name as PlantUML reads it.
 - A note, legend, title or description left open no longer hides the diagrams after it.
+- A class member's visibility with a space after it (`+ render()`) is coloured as PlantUML reads it.
+- A quoted multiplicity or role after a link (`A *-- "many" B`) is coloured as a string.
+- A sub-diagram's indented lines read as the server reads them: `#highlight` works indented, a `<style>` inside is a style block, and one left open in a class body ends at the class's `}`.
+- A salt button holding a `]` and a tree opened right before a block read as PlantUML draws them.

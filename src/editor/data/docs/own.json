@@ -169,5 +169,555 @@
   },
   "tag:r": {
     "summary": "right-aligned cell"
+  },
+  "diagram:uml": {
+    "summary": "UML diagrams, drawn from text",
+    "example": "@startuml\nAlice -> Bob : hi\n@enduml"
+  },
+  "diagram:board": {
+    "summary": "Story map, headings with cards below",
+    "example": "@startboard\nTodo\n+ Write\n@endboard"
+  },
+  "diagram:bpm": {
+    "summary": "Business process flow",
+    "example": "@startbpm\n:Start;\n@endbpm"
+  },
+  "diagram:chart": {
+    "summary": "Bar, line and area charts",
+    "example": "@startchart\nh-axis \"Q\" [Q1, Q2]\nbar \"Sales\" [3, 5]\n@endchart"
+  },
+  "diagram:chen": {
+    "summary": "Entity-relationship diagram in Chen notation",
+    "example": "@startchen\nentity Person {\n  Name\n}\n@endchen"
+  },
+  "diagram:chronology": {
+    "summary": "Timeline of dated events",
+    "example": "@startchronology\n[Kickoff] happens on 2024-01-01\n@endchronology"
+  },
+  "diagram:creole": {
+    "summary": "Creole text, drawn formatted",
+    "example": "@startcreole\n**bold** and //italic//\n@endcreole"
+  },
+  "diagram:def": {
+    "summary": "Definitions kept for !includedef",
+    "example": "@startdef\n!define MSG hi\n@enddef"
+  },
+  "diagram:ditaa": {
+    "summary": "ASCII art, drawn as shapes",
+    "example": "@startditaa\n+--+\n|hi|\n+--+\n@endditaa"
+  },
+  "diagram:dot": {
+    "summary": "Graphviz DOT source",
+    "example": "@startdot\ndigraph G {\n  a -> b\n}\n@enddot"
+  },
+  "diagram:ebnf": {
+    "summary": "EBNF grammar, drawn as a railroad diagram",
+    "example": "@startebnf\nx = \"a\";\n@endebnf"
+  },
+  "diagram:files": {
+    "summary": "File tree",
+    "example": "@startfiles\n/src/main.js\n@endfiles"
+  },
+  "diagram:flow": {
+    "summary": "Boxes and the links between them",
+    "example": "@startflow\nstart \"Start\"\n@endflow"
+  },
+  "diagram:gantt": {
+    "summary": "Gantt chart of tasks over time",
+    "example": "@startgantt\n[Task] lasts 3 days\n@endgantt"
+  },
+  "diagram:git": {
+    "summary": "Git commit graph",
+    "example": "@startgit\n* commit\n@endgit"
+  },
+  "diagram:hcl": {
+    "summary": "HCL data, drawn as a tree",
+    "example": "@starthcl\nname = \"x\"\n@endhcl"
+  },
+  "diagram:jcckit": {
+    "summary": "JCCKit chart",
+    "example": "@startjcckit\n@endjcckit"
+  },
+  "diagram:json": {
+    "summary": "JSON data, drawn as a tree",
+    "example": "@startjson\n{\"a\": 1}\n@endjson"
+  },
+  "diagram:latex": {
+    "summary": "LaTeX formula",
+    "example": "@startlatex\nE=mc^2\n@endlatex"
+  },
+  "diagram:math": {
+    "summary": "AsciiMath formula",
+    "example": "@startmath\nx^2\n@endmath"
+  },
+  "diagram:mindmap": {
+    "summary": "Mind map from an indented outline",
+    "example": "@startmindmap\n* root\n** leaf\n@endmindmap"
+  },
+  "diagram:nwdiag": {
+    "summary": "Network diagram of networks and servers",
+    "example": "@startnwdiag\nnetwork n {\n  a;\n}\n@endnwdiag"
+  },
+  "diagram:packetdiag": {
+    "summary": "Packet layout, drawn field by field",
+    "example": "@startpacketdiag\npacketdiag {\n  0-7: Byte\n}\n@endpacketdiag"
+  },
+  "diagram:project": {
+    "summary": "Gantt chart, under its project name",
+    "example": "@startproject\n[Task] lasts 3 days\n@endproject"
+  },
+  "diagram:regex": {
+    "summary": "Regular expression, drawn as a railroad diagram",
+    "example": "@startregex\nabc\n@endregex"
+  },
+  "diagram:salt": {
+    "summary": "Wireframe of interface widgets",
+    "example": "@startsalt\n{\n  [OK]\n}\n@endsalt"
+  },
+  "diagram:sprites": {
+    "summary": "Sprite pictures defined in text",
+    "example": "@startsprites\nsprite $a [2x2/16] {\n  0F\n  F0\n}\n@endsprites"
+  },
+  "diagram:wbs": {
+    "summary": "Work breakdown structure",
+    "example": "@startwbs\n* root\n** leaf\n@endwbs"
+  },
+  "diagram:wire": {
+    "summary": "Components wired together on a grid",
+    "example": "@startwire\n* A [20x10]\n* B [20x10]\nA --> B\n@endwire"
+  },
+  "diagram:yaml": {
+    "summary": "YAML data, drawn as a tree",
+    "example": "@startyaml\nshop:\n  open: true\n@endyaml"
+  },
+  "directive:!assert": {
+    "summary": "Stops with a message unless a condition holds",
+    "example": "!assert %strlen(\"ab\") == 2 : \"ab is two long\""
+  },
+  "directive:!define": {
+    "summary": "Defines a macro",
+    "example": "!define MSG hi\nAlice -> Bob : MSG"
+  },
+  "directive:!definelong": {
+    "summary": "Defines a multi-line macro",
+    "example": "!definelong PING(x)\nAlice -> x\n!enddefinelong\nPING(Bob)"
+  },
+  "directive:!dump_memory": {
+    "summary": "Prints the variables and functions defined so far",
+    "example": "!$n = 1\n!dump_memory"
+  },
+  "directive:!else": {
+    "summary": "The branch an !if did not take",
+    "example": "!if 1 == 2\nAlice -> Bob\n!else\nBob -> Alice\n!endif"
+  },
+  "directive:!elseif": {
+    "summary": "Another condition after an !if",
+    "example": "!$n = 1\n!if $n == 2\nAlice -> Bob\n!elseif $n == 1\nBob -> Alice\n!endif"
+  },
+  "directive:!enddefinelong": {
+    "summary": "Ends a !definelong body",
+    "example": "!definelong PING(x)\nAlice -> x\n!enddefinelong\nPING(Bob)"
+  },
+  "directive:!endfor": {
+    "summary": "Ends a !foreach loop",
+    "example": "!foreach $who in [\"Bob\", \"Carol\"]\nAlice -> $who\n!endfor"
+  },
+  "directive:!endfunction": {
+    "summary": "Ends a !function body",
+    "example": "!function $twice($x)\n!return $x + $x\n!endfunction\nAlice -> Bob : $twice(2)"
+  },
+  "directive:!endif": {
+    "summary": "Ends an !if block",
+    "example": "!if 1 == 2\nAlice -> Bob\n!else\nBob -> Alice\n!endif"
+  },
+  "directive:!endprocedure": {
+    "summary": "Ends a !procedure body",
+    "example": "!procedure $greet($who)\nAlice -> $who\n!endprocedure\n$greet(Bob)"
+  },
+  "directive:!endsub": {
+    "summary": "Ends a !startsub part",
+    "example": "!startsub A\nAlice -> Bob\n!endsub"
+  },
+  "directive:!endwhile": {
+    "summary": "Ends a !while loop",
+    "example": "!$i = 0\n!while $i < 2\nAlice -> Bob\n!$i = $i + 1\n!endwhile"
+  },
+  "directive:!final": {
+    "summary": "Locks a function so it cannot be redefined",
+    "example": "!final function $f()\n!return 1\n!endfunction\nAlice -> Bob : $f()"
+  },
+  "directive:!foreach": {
+    "summary": "Loops over the items of a JSON array",
+    "example": "!foreach $who in [\"Bob\", \"Carol\"]\nAlice -> $who\n!endfor"
+  },
+  "directive:!function": {
+    "summary": "Defines a function that returns a value",
+    "example": "!function $twice($x)\n!return $x + $x\n!endfunction\nAlice -> Bob : $twice(2)"
+  },
+  "directive:!global": {
+    "summary": "Assigns a variable seen everywhere",
+    "example": "!global $x = 1\nAlice -> Bob : $x"
+  },
+  "directive:!if": {
+    "summary": "Keeps the lines below only when a condition holds",
+    "example": "!if 1 == 2\nAlice -> Bob\n!else\nBob -> Alice\n!endif"
+  },
+  "directive:!ifdef": {
+    "summary": "Keeps the lines below when a name is defined",
+    "example": "!define X\n!ifdef X\nAlice -> Bob\n!endif"
+  },
+  "directive:!ifndef": {
+    "summary": "Keeps the lines below when a name is not defined",
+    "example": "!ifndef X\nAlice -> Bob\n!endif"
+  },
+  "directive:!import": {
+    "summary": "Adds a zip file or folder to the library path",
+    "example": "!import library.zip"
+  },
+  "directive:!include": {
+    "summary": "Includes a file, a standard library or a URL",
+    "example": "!include <C4/C4_Container>\nPerson(a, \"A\")"
+  },
+  "directive:!include_many": {
+    "summary": "Includes a file each time it is named",
+    "example": "!include_many <C4/C4_Container>\nPerson(a, \"A\")"
+  },
+  "directive:!include_once": {
+    "summary": "Includes a file only the first time it is named",
+    "example": "!include_once <C4/C4_Container>\n!include_once <C4/C4_Container>\nPerson(a, \"A\")"
+  },
+  "directive:!includedef": {
+    "summary": "Includes only the @startdef blocks of a file",
+    "example": "!includedef <tupadr3/common>"
+  },
+  "directive:!includesub": {
+    "summary": "Includes one named !startsub part of a file",
+    "example": "!includesub parts.puml!BODY"
+  },
+  "directive:!includeurl": {
+    "summary": "Includes a file from a URL",
+    "example": "!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml\nContainer(a, \"A\")"
+  },
+  "directive:!local": {
+    "summary": "Assigns a variable only inside a function or procedure",
+    "example": "!procedure $p()\n!local $x = 1\nAlice -> Bob : $x\n!endprocedure\n$p()"
+  },
+  "directive:!log": {
+    "summary": "Writes a line to the server log",
+    "example": "!log hello\nAlice -> Bob"
+  },
+  "directive:!option": {
+    "summary": "Turns on a rendering option",
+    "example": "!option handwritten true\nAlice -> Bob"
+  },
+  "directive:!pragma": {
+    "summary": "Switches on a PlantUML pragma",
+    "example": "!pragma teoz true\nAlice -> Bob"
+  },
+  "directive:!procedure": {
+    "summary": "Defines a procedure that draws lines",
+    "example": "!procedure $greet($who)\nAlice -> $who\n!endprocedure\n$greet(Bob)"
+  },
+  "directive:!return": {
+    "summary": "Gives back a function’s value",
+    "example": "!function $twice($x)\n!return $x + $x\n!endfunction\nAlice -> Bob : $twice(2)"
+  },
+  "directive:!startsub": {
+    "summary": "Starts a named part of a file, for !includesub",
+    "example": "!startsub A\nAlice -> Bob\n!endsub"
+  },
+  "directive:!theme": {
+    "summary": "Applies a theme",
+    "example": "!theme plain\nAlice -> Bob"
+  },
+  "directive:!undef": {
+    "summary": "Removes a macro or variable",
+    "example": "!$x = 1\n!undef $x\nAlice -> Bob"
+  },
+  "directive:!unquoted": {
+    "summary": "Lets a function or procedure take unquoted arguments",
+    "example": "!unquoted procedure $go($w)\nAlice -> $w\n!endprocedure\n$go(Bob)"
+  },
+  "directive:!while": {
+    "summary": "Repeats the lines below while a condition holds",
+    "example": "!$i = 0\n!while $i < 2\nAlice -> Bob\n!$i = $i + 1\n!endwhile"
+  },
+  "function:%and": {
+    "signature": "%and(a, b[, ...])",
+    "summary": "Logical and of its arguments",
+    "example": "%and(1 == 1, 2 == 2)"
+  },
+  "function:%backslash": {
+    "signature": "%backslash()",
+    "summary": "A backslash",
+    "example": "%backslash()"
+  },
+  "function:%boolval": {
+    "signature": "%boolval(value)"
+  },
+  "function:%breakline": {
+    "signature": "%breakline()"
+  },
+  "function:%call_user_func": {
+    "signature": "%call_user_func(function[, ...])"
+  },
+  "function:%chr": {
+    "signature": "%chr(code)"
+  },
+  "function:%darken": {
+    "signature": "%darken(color, ratio)"
+  },
+  "function:%date": {
+    "signature": "%date([format[, time[, zone]]])"
+  },
+  "function:%dec2hex": {
+    "signature": "%dec2hex(number)"
+  },
+  "function:%dirpath": {
+    "signature": "%dirpath()"
+  },
+  "function:%dollar": {
+    "signature": "%dollar()",
+    "summary": "A dollar sign",
+    "example": "%dollar()"
+  },
+  "function:%eval": {
+    "signature": "%eval(expression)",
+    "summary": "Evaluates an expression held in text",
+    "example": "%eval(\"1 + 2\")"
+  },
+  "function:%false": {
+    "signature": "%false()"
+  },
+  "function:%feature": {
+    "signature": "%feature(name)"
+  },
+  "function:%file_exists": {
+    "signature": "%file_exists(path)"
+  },
+  "function:%filedate": {
+    "signature": "%filedate()",
+    "summary": "When the source file last changed",
+    "example": "%filedate()"
+  },
+  "function:%filename": {
+    "signature": "%filename()"
+  },
+  "function:%filename_no_extension": {
+    "signature": "%filename_no_extension()",
+    "summary": "The source file’s name without its extension",
+    "example": "%filename_no_extension()"
+  },
+  "function:%function_exists": {
+    "signature": "%function_exists(name)"
+  },
+  "function:%get_all_stdlib": {
+    "signature": "%get_all_stdlib([detail])"
+  },
+  "function:%get_all_theme": {
+    "signature": "%get_all_theme()"
+  },
+  "function:%get_current_theme": {
+    "signature": "%get_current_theme()",
+    "summary": "The theme in use, as JSON",
+    "example": "!theme plain\nAlice -> Bob : %get_current_theme()"
+  },
+  "function:%get_json_keys": {
+    "signature": "%get_json_keys(json)",
+    "summary": "The keys of a JSON object",
+    "example": "!$j = {\"a\": 1, \"b\": 2}\nAlice -> Bob : %get_json_keys($j)"
+  },
+  "function:%get_json_type": {
+    "signature": "%get_json_type(json)",
+    "summary": "The type of a JSON value",
+    "example": "!$j = {\"a\": 1, \"b\": 2}\nAlice -> Bob : %get_json_type($j)"
+  },
+  "function:%get_stdlib": {
+    "signature": "%get_stdlib([library[, field]])",
+    "summary": "Describes a standard library, or one field of it",
+    "example": "%get_stdlib(\"tupadr3\", \"name\")"
+  },
+  "function:%get_variable_value": {
+    "signature": "%get_variable_value(name)"
+  },
+  "function:%getenv": {
+    "signature": "%getenv(name)"
+  },
+  "function:%hex2dec": {
+    "signature": "%hex2dec(hex)"
+  },
+  "function:%hsl_color": {
+    "signature": "%hsl_color(hue, saturation, lightness[, alpha])"
+  },
+  "function:%intval": {
+    "signature": "%intval(text)"
+  },
+  "function:%invoke_procedure": {
+    "signature": "%invoke_procedure(procedure[, ...])"
+  },
+  "function:%is_dark": {
+    "signature": "%is_dark(color)"
+  },
+  "function:%is_light": {
+    "signature": "%is_light(color)"
+  },
+  "function:%json_add": {
+    "signature": "%json_add(json, item[, value])",
+    "summary": "Adds an item to a JSON array or object",
+    "example": "!$j = [1, 2]\nAlice -> Bob : %json_add($j, 3)"
+  },
+  "function:%json_key_exists": {
+    "signature": "%json_key_exists(json, key)",
+    "summary": "Whether a JSON object has a key",
+    "example": "!$j = {\"a\": 1, \"b\": 2}\nAlice -> Bob : %json_key_exists($j, \"a\")"
+  },
+  "function:%json_merge": {
+    "signature": "%json_merge(first, second)",
+    "summary": "Merges two JSON objects",
+    "example": "!$a = {\"a\": 1}\n!$b = {\"b\": 2}\nAlice -> Bob : %json_merge($a, $b)"
+  },
+  "function:%json_remove": {
+    "signature": "%json_remove(json, key)",
+    "summary": "Removes a key from a JSON object",
+    "example": "!$j = {\"a\": 1, \"b\": 2}\nAlice -> Bob : %json_remove($j, \"a\")"
+  },
+  "function:%json_set": {
+    "signature": "%json_set(json, key[, value])",
+    "summary": "Changes the value of a key in a JSON object",
+    "example": "!$j = {\"a\": 1, \"b\": 2}\nAlice -> Bob : %json_set($j, \"a\", 5)"
+  },
+  "function:%left_align": {
+    "signature": "%left_align()",
+    "summary": "A line break that aligns the text left",
+    "example": "note over Alice : a%left_align()bb"
+  },
+  "function:%lighten": {
+    "signature": "%lighten(color, ratio)"
+  },
+  "function:%load_json": {
+    "signature": "%load_json(source[, default[, charset]])"
+  },
+  "function:%lower": {
+    "signature": "%lower(text)"
+  },
+  "function:%mod": {
+    "signature": "%mod(a, b)"
+  },
+  "function:%n": {
+    "signature": "%n()"
+  },
+  "function:%nand": {
+    "signature": "%nand(a, b[, ...])",
+    "summary": "Logical nand of its arguments",
+    "example": "%nand(1 == 1, 2 == 2)"
+  },
+  "function:%newline": {
+    "signature": "%newline()"
+  },
+  "function:%nor": {
+    "signature": "%nor(a, b[, ...])",
+    "summary": "Logical nor of its arguments",
+    "example": "%nor(1 == 2, 2 == 3)"
+  },
+  "function:%not": {
+    "signature": "%not(condition)"
+  },
+  "function:%now": {
+    "signature": "%now()"
+  },
+  "function:%nxor": {
+    "signature": "%nxor(a, b[, ...])",
+    "summary": "Logical xnor of its arguments",
+    "example": "%nxor(1 == 1, 2 == 2)"
+  },
+  "function:%or": {
+    "signature": "%or(a, b[, ...])",
+    "summary": "Logical or of its arguments",
+    "example": "%or(1 == 2, 2 == 2)"
+  },
+  "function:%ord": {
+    "signature": "%ord(char)"
+  },
+  "function:%percent": {
+    "signature": "%percent()",
+    "summary": "A percent sign",
+    "example": "%percent()"
+  },
+  "function:%random": {
+    "signature": "%random([min[, max]])",
+    "summary": "A random integer, within a range if given",
+    "example": "%random(1, 6)"
+  },
+  "function:%retrieve_procedure": {
+    "signature": "%retrieve_procedure(name[, ...])",
+    "summary": "A procedure’s body, as text",
+    "example": "!procedure $hi()\nAlice -> Bob : x\n!endprocedure\nAlice -> Bob : %retrieve_procedure(\"$hi\")"
+  },
+  "function:%reverse_color": {
+    "signature": "%reverse_color(color)"
+  },
+  "function:%reverse_hsluv_color": {
+    "signature": "%reverse_hsluv_color(color)"
+  },
+  "function:%right_align": {
+    "signature": "%right_align()",
+    "summary": "A line break that aligns the text right",
+    "example": "note over Alice : a%right_align()bb"
+  },
+  "function:%set_variable_value": {
+    "signature": "%set_variable_value(name, value)"
+  },
+  "function:%size": {
+    "signature": "%size(value)"
+  },
+  "function:%splitstr": {
+    "signature": "%splitstr(text, delimiter)"
+  },
+  "function:%splitstr_regex": {
+    "signature": "%splitstr_regex(text, pattern)"
+  },
+  "function:%str2json": {
+    "signature": "%str2json(text)",
+    "summary": "Parses text as JSON",
+    "example": "Alice -> Bob : %str2json(\"[1, 2]\")"
+  },
+  "function:%string": {
+    "signature": "%string(value)"
+  },
+  "function:%strlen": {
+    "signature": "%strlen(text)"
+  },
+  "function:%strpos": {
+    "signature": "%strpos(text, search)"
+  },
+  "function:%substr": {
+    "signature": "%substr(text, start[, length])"
+  },
+  "function:%tab": {
+    "signature": "%tab()",
+    "summary": "A tab character",
+    "example": "%tab()"
+  },
+  "function:%true": {
+    "signature": "%true()"
+  },
+  "function:%upper": {
+    "signature": "%upper(text)"
+  },
+  "function:%variable_exists": {
+    "signature": "%variable_exists(name)"
+  },
+  "function:%version": {
+    "signature": "%version()"
+  },
+  "function:%xargs": {
+    "signature": "%xargs(index)",
+    "summary": "The diagram’s @start line",
+    "example": "@startuml a b\nAlice -> Bob : %xargs(0)\n@enduml"
+  },
+  "function:%xor": {
+    "signature": "%xor(a, b[, ...])",
+    "summary": "Logical xor of its arguments",
+    "example": "%xor(1 == 1, 2 == 2)"
   }
 }

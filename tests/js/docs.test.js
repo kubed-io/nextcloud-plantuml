@@ -3,6 +3,7 @@
 //
 // The docs index (I1): what each key's entry holds once the source's text,
 // our own lines and the plantuml.com links are merged, and how it loads.
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { buildDocs, loadDocs } from '../../src/editor/docs/index.js'
 
@@ -143,5 +144,67 @@ describe('loadDocs', () => {
     expect(docs.get('function:%strlen')).toMatchObject({ name: '%strlen', summary: 'Calculate the length of a String' })
     expect(docs.get('diagram:yaml').link.section).toBe('Display YAML Data')
     expect(await loadDocs()).toBe(docs)
+  })
+})
+
+// Our own lines (I8): read from disk, as the mock above empties the import.
+const data = (name) => JSON.parse(readFileSync(new URL(`../../src/editor/data/${name}.json`, import.meta.url), 'utf8'))
+
+describe('our own lines for diagram types, directives and functions', () => {
+  const ownLines = data('docs/own')
+  const language = data('language')
+  const builtins = data('builtins')
+  const real = buildDocs({
+    own: ownLines,
+    links: data('docs/links'),
+    source: data('docs/source'),
+    builtins,
+    language,
+    vocabulary: data('vocabulary'),
+  })
+  const types = language.keywords.filter((word) => word.startsWith('@start')).map((word) => `diagram:${word.slice(6)}`)
+  const directives = data('directives').directives.map((word) => `directive:${word}`)
+  const functions = builtins.map(({ name }) => `function:${name}`)
+  const missing = (keys, fields) => keys.filter((key) => fields.some((field) => !real.get(key)?.[field]))
+
+  it('gives every diagram type a summary and an example', () => {
+    expect(types).toHaveLength(30)
+    expect(missing(types, ['summary', 'example'])).toEqual([])
+  })
+
+  it('gives every directive a summary and an example', () => {
+    expect(directives).toHaveLength(38)
+    expect(missing(directives, ['summary', 'example'])).toEqual([])
+  })
+
+  it('gives every function a summary, an example and a signature', () => {
+    expect(functions).toHaveLength(74)
+    expect(missing(functions, ['summary', 'example', 'signature'])).toEqual([])
+  })
+
+  it('writes each signature to fit the function’s min and max', () => {
+    const wrong = builtins.filter(({ name, min, max }) => {
+      const signature = real.get(`function:${name}`)?.signature ?? ''
+      const [, list] = /^[^(]+\((.*)\)$/.exec(signature) ?? []
+      if (list === undefined || !signature.startsWith(`${name}(`)) {
+        return true
+      }
+      const count = (text) => text.split(',').map((part) => part.replace(/[[\]]/g, '').trim()).filter((part) => part && part !== '...').length
+      const open = list.includes('...')
+      const low = count(list.split('[')[0])
+      const high = count(list)
+      return low !== min || (max === null ? !open : open || high !== max)
+    })
+    expect(wrong.map(({ name }) => name)).toEqual([])
+  })
+
+  it('keeps our summaries to one clause of at most 80 characters, no full stop', () => {
+    const long = Object.entries(ownLines).filter(([, { summary }]) => summary && (summary.length > 80 || summary.endsWith('.') || summary.includes('. '))).map(([key]) => key)
+    expect(long).toEqual([])
+  })
+
+  it('keeps every example to 6 lines', () => {
+    const tall = Object.entries(ownLines).filter(([, { example }]) => example && example.split('\n').length > 6).map(([key]) => key)
+    expect(tall).toEqual([])
   })
 })

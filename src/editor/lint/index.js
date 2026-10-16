@@ -14,6 +14,7 @@ import { unnamedStart } from './unnamed-start.js'
 import { serverMistake } from './server-error.js'
 import { blocksLint } from './blocks.js'
 import { creoleColour } from './creole-colour.js'
+import { docPinned } from '../docs/hover.js'
 
 export const rules = [unnamedStart, blocksLint, serverMistake, creoleColour]
 
@@ -27,8 +28,22 @@ function needsRefresh(update) {
     || update.startState.facet(profileRules) !== update.state.facet(profileRules)
 }
 
+/**
+ * While a doc card is pinned (I3), its box shows only the messages on its own
+ * word, and no other word's opens. An empty list would still draw an empty
+ * section; null draws none.
+ */
+function tooltipFilter(diagnostics, state) {
+  const pinned = state.field(docPinned, false)
+  if (!pinned) {
+    return diagnostics
+  }
+  const covering = diagnostics.filter(({ from, to }) => from <= pinned.pos && pinned.pos <= to)
+  return covering.length ? covering : null
+}
+
 export const plantumlLint = [
   serverError,
-  linter((view) => [...rules, ...view.state.facet(profileRules)].flatMap((rule) => rule(view.state)), { needsRefresh }),
+  linter((view) => [...rules, ...view.state.facet(profileRules)].flatMap((rule) => rule(view.state)), { needsRefresh, tooltipFilter }),
   lintGutter(),
 ]

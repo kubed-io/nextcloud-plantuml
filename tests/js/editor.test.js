@@ -238,6 +238,37 @@ describe('Escape', () => {
     expect(q('.plantuml-editor')).toBeNull()
   })
 
+  it('closes a pinned doc card first, from the card or the source, and the editor only after', async () => {
+    await open()
+    const view = EditorView.findFromDOM(q('.cm-editor'))
+    const docKeys = () => {
+      q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'k', keyCode: 75, ctrlKey: true, bubbles: true, cancelable: true }))
+      q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'i', keyCode: 73, ctrlKey: true, bubbles: true, cancelable: true }))
+    }
+    view.dispatch({ selection: { anchor: 1 } })
+    await vi.waitFor(() => {
+      docKeys()
+      expect(q('.cm-doc-pinned .cm-doc')).not.toBeNull()
+    })
+
+    docKeys()
+    expect(q('.cm-doc-pinned').contains(document.activeElement)).toBe(true)
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true, cancelable: true }))
+    expect(q('.cm-doc')).toBeNull()
+    expect(document.activeElement).toBe(q('.cm-content'))
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    docKeys()
+    expect(q('.cm-doc-pinned')).not.toBeNull()
+    escape()
+    expect(q('.cm-doc')).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+
+    escape()
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
   it('closes the diagnostics panel first, and the editor only after', async () => {
     await open()
     const key = (target, init) => target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }))

@@ -33,6 +33,7 @@ import { plantumlCompletion } from './editor/completion/index.js'
 import { valueWidgets } from './editor/values/widgets.js'
 import { colorSwatches } from './editor/swatches.js'
 import { plantumlLint } from './editor/lint/index.js'
+import { plantumlDocs } from './editor/docs/hover.js'
 import { plantumlFolding } from './editor/folding.js'
 import { fileName, filePath, setServerError } from './editor/lint/state.js'
 import { ConflictError, currentEtag, loadFile, saveCopy, saveFile } from './editor/save.js'
@@ -565,6 +566,8 @@ export function openEditor(node) {
           // The PlantUML language, and what the loaded profiles add to it.
           profilesConfig.of(profileExtension([])),
           plantumlCompletion,
+          // Before the linter, so a lint message on a carded word joins the card's box below the word.
+          plantumlDocs,
           plantumlLint,
           plantumlFolding,
           nameConfig.of([fileName.of(name), filePath.of(currentPath)]),

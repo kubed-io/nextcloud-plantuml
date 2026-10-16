@@ -1,12 +1,19 @@
+// @vitest-environment jsdom
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The element under a position (I6): the syntax tree's token there, with its
-// text, names the docs key; every other token names none.
-import { describe, expect, it, vi } from 'vitest'
+// text, names the docs key; every other token names none. Its card on hover
+// (I2), pinned in place by a click or the keys (I3), and Escape's order (K1).
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
+import { EditorView, activateHover, hasHoverTooltips } from '@codemirror/view'
+import { setDiagnostics } from '@codemirror/lint'
+import { autocompletion, completionStatus, startCompletion } from '@codemirror/autocomplete'
 import { elementAt } from '../../src/editor/docs/element.js'
-import { buildDocs } from '../../src/editor/docs/index.js'
+import { buildDocs, loadDocs } from '../../src/editor/docs/index.js'
+import { DOC_HOVER, closeDoc, docPinned, docSource, pinDocAt, plantumlDocs } from '../../src/editor/docs/hover.js'
+import { plantumlLint } from '../../src/editor/lint/index.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import { core } from './helpers/core.js'
 import styleProfile from '../../src/editor/profiles/style.js'
@@ -24,6 +31,22 @@ vi.mock('../../src/editor/plantuml-mode.js', async (importOriginal) => {
 vi.mock('../../src/editor/blocks.js', async (importOriginal) => {
   const real = await importOriginal()
   return { ...real, scan: vi.fn(real.scan) }
+})
+// A small index in place of the data chunks.
+vi.mock('../../src/editor/docs/index.js', async (importOriginal) => {
+  const real = await importOriginal()
+  const docs = real.buildDocs({
+    own: {
+      'keyword:alt': { summary: 'Alternatives, one drawn per else', example: 'alt paid\nend' },
+      'function:%strlen': { signature: '%strlen(text)', summary: 'The length of a string' },
+    },
+    links: { links: { 'keyword:alt': { page: 'sequence-diagram', anchor: 'grouping', section: 'Grouping message' } } },
+    source: { themes: {}, libraries: {} },
+    builtins: [],
+    language: { skinparameters: [] },
+    vocabulary: { style: { selectors: [], properties: [] } },
+  })
+  return { ...real, loadDocs: vi.fn(() => Promise.resolve(docs)) }
 })
 
 const extensions = [profileExtension([styleProfile(core), ganttProfile(core), projectProfile(core), yamlProfile(core), dotProfile(core)])]
@@ -209,5 +232,191 @@ describe('elementAt: only the work a position needs', () => {
     scan.mockClear()
     expect(key(lines, 'hi')).toBeNull()
     expect(scan).not.toHaveBeenCalled()
+  })
+})
+
+describe('the card on hover (I2) and pinned (I3)', () => {
+  const doc = ['alt paid', '  A -> B : hi', 'end', 'participant Bob', '!$x = %strlen("ab")'].join('\n')
+  const at = (word, offset = 1) => doc.indexOf(word) + offset
+  let views = []
+
+  function viewOf(extra = []) {
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ doc, extensions: [...extensions, plantumlDocs, plantumlLint, ...extra] }),
+    })
+    views.push(view)
+    return view
+  }
+  const host = (view) => view.dom.querySelector('.cm-tooltip-hover')
+  const card = (view) => view.dom.querySelector('.cm-tooltip-hover .cm-doc')
+  const key = (target, init) => {
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+    target.dispatchEvent(event)
+    return event
+  }
+  const docKeys = (view) => {
+    key(view.contentDOM, { key: 'k', keyCode: 75, ctrlKey: true })
+    key(view.contentDOM, { key: 'i', keyCode: 73, ctrlKey: true })
+  }
+
+  beforeAll(async () => {
+    // Until the index arrives no card shows; the view asks for it as it opens.
+    const view = viewOf()
+    expect(docSource(view, at('alt'), 1)).toBeNull()
+    expect(pinDocAt(view, at('alt'))).toBe(false)
+    await loadDocs()
+    expect(docSource(view, at('alt'), 1)).toMatchObject({ pos: 0, end: 3 })
+  })
+
+  afterEach(() => {
+    for (const view of views) {
+      view.destroy()
+    }
+    views = []
+    document.body.innerHTML = ''
+  })
+
+  it('waits 500 ms and goes on an edit', () => {
+    expect(DOC_HOVER).toEqual({ hoverTime: 500, hideOnChange: true })
+  })
+
+  it('answers a known element with its tooltip at the element, the same one twice', () => {
+    const view = viewOf()
+    const tooltip = docSource(view, at('alt'), 1)
+    expect(tooltip).toMatchObject({ pos: 0, end: 3, above: false })
+    expect(docSource(view, at('alt', 2), 1)).toBe(tooltip)
+    expect(docSource(view, at('alt', 3), -1)).toBe(tooltip)
+    expect(docSource(view, at('%strlen'), 1)).toMatchObject({ pos: doc.indexOf('%strlen'), end: doc.indexOf('%strlen') + 7 })
+  })
+
+  it.each([
+    ['a string', '"ab"'],
+    ['a name', 'Bob'],
+    ['a word with no entry', 'end'],
+  ])('answers %s with nothing', (_name, word) => {
+    expect(docSource(viewOf(), at(word), 1)).toBeNull()
+  })
+
+  it('pins in place: the same card, the lint message still beside it (Review Focus 1)', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [{ from: 0, to: 3, severity: 'warning', message: 'An alt with no else' }]))
+    activateHover(view, at('alt'), 1)
+    const shown = card(view)
+    expect(shown).not.toBeNull()
+    expect(host(view).querySelector('.cm-tooltip-lint')).not.toBeNull()
+    expect(host(view).getAttribute('role')).toBe('tooltip')
+    expect(host(view).classList.contains('cm-doc-pinned')).toBe(false)
+
+    expect(pinDocAt(view, at('alt'))).toBe(true)
+    expect(card(view)).toBe(shown)
+    expect(shown.isConnected).toBe(true)
+    expect(host(view).querySelector('.cm-tooltip-lint')?.textContent).toContain('An alt with no else')
+    expect(host(view).classList.contains('cm-doc-pinned')).toBe(true)
+    expect(host(view).getAttribute('role')).toBe('dialog')
+    expect(host(view).getAttribute('aria-label')).toBe('alt')
+    expect(shown.getAttribute('tabindex')).toBe('-1')
+    expect(host(view).contains(document.activeElement)).toBe(true)
+    expect(view.state.field(docPinned)).toEqual({ pos: at('alt') })
+  })
+
+  it('pins on a click in the card, and not on its link', () => {
+    const view = viewOf()
+    activateHover(view, at('alt'), 1)
+    const link = card(view).querySelector('.cm-doc-link')
+    link.addEventListener('click', (event) => event.preventDefault())
+    link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(view.state.field(docPinned)).toBeNull()
+
+    card(view).querySelector('.cm-doc-summary').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(view.state.field(docPinned)).toEqual({ pos: at('alt') })
+  })
+
+  it('closes on an edit', () => {
+    const view = viewOf()
+    pinDocAt(view, at('alt'))
+    view.dispatch({ changes: { from: doc.length, insert: '\n' } })
+    expect(view.state.field(docPinned)).toBeNull()
+    expect(hasHoverTooltips(view.state)).toBe(false)
+  })
+
+  it('closes on closeDoc and on ×, focus back in the source, the caret where it was', () => {
+    const view = viewOf()
+    view.dispatch({ selection: { anchor: at('paid') } })
+    pinDocAt(view, at('alt'))
+    expect(closeDoc(view)).toBe(true)
+    expect(hasHoverTooltips(view.state)).toBe(false)
+    expect(view.state.field(docPinned)).toBeNull()
+    expect(document.activeElement).toBe(view.contentDOM)
+    expect(view.state.selection.main.head).toBe(at('paid'))
+    expect(closeDoc(view)).toBe(false)
+
+    pinDocAt(view, at('alt'))
+    card(view).querySelector('.cm-doc-close').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(hasHoverTooltips(view.state)).toBe(false)
+    expect(document.activeElement).toBe(view.contentDOM)
+  })
+
+  it('closes on a mousedown outside it, and not inside', () => {
+    const view = viewOf()
+    pinDocAt(view, at('alt'))
+    card(view).querySelector('.cm-doc-summary').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    expect(view.state.field(docPinned)).not.toBeNull()
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    expect(view.state.field(docPinned)).toBeNull()
+    expect(hasHoverTooltips(view.state)).toBe(false)
+  })
+
+  it('opens no other card, nor another word’s lint message, while pinned', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [{ from: doc.indexOf('Bob'), to: doc.indexOf('Bob') + 3, severity: 'warning', message: 'Bob is never used' }]))
+    pinDocAt(view, at('alt'))
+    expect(docSource(view, at('%strlen'), 1)).toBeNull()
+    activateHover(view, at('Bob'), 1)
+    expect(host(view).querySelector('.cm-tooltip-lint')).toBeNull()
+    expect(view.state.field(docPinned)).toEqual({ pos: at('alt') })
+  })
+
+  it('closes on Escape in the card, which no one else then sees (Review Focus 2)', () => {
+    const view = viewOf()
+    view.dispatch({ selection: { anchor: at('paid') } })
+    pinDocAt(view, at('alt'))
+    const escape = key(document.activeElement, { key: 'Escape', keyCode: 27 })
+    expect(escape.defaultPrevented).toBe(true)
+    expect(hasHoverTooltips(view.state)).toBe(false)
+    expect(document.activeElement).toBe(view.contentDOM)
+    expect(view.state.selection.main.head).toBe(at('paid'))
+  })
+
+  it('closes the completion list first on Escape, then the card', async () => {
+    const view = viewOf([autocompletion({ override: [(context) => ({ from: context.pos, options: [{ label: 'alt' }, { label: 'else' }] })] })])
+    view.focus()
+    view.dispatch({ selection: { anchor: at('%strlen') } })
+    docKeys(view)
+    expect(view.state.field(docPinned)).not.toBeNull()
+    startCompletion(view)
+    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+
+    expect(key(view.contentDOM, { key: 'Escape', keyCode: 27 }).defaultPrevented).toBe(true)
+    expect(completionStatus(view.state)).toBeNull()
+    expect(view.state.field(docPinned)).not.toBeNull()
+
+    expect(key(view.contentDOM, { key: 'Escape', keyCode: 27 }).defaultPrevented).toBe(true)
+    expect(view.state.field(docPinned)).toBeNull()
+    expect(key(view.contentDOM, { key: 'Escape', keyCode: 27 }).defaultPrevented).toBe(false)
+  })
+
+  it('opens the caret’s card pinned on Mod-k Mod-i, and moves focus into it on the same keys again', () => {
+    const view = viewOf()
+    view.focus()
+    view.dispatch({ selection: { anchor: at('%strlen', 2) } })
+    docKeys(view)
+    expect(view.state.field(docPinned)).toEqual({ pos: at('%strlen', 2) })
+    expect(card(view).querySelector('.cm-doc-name').textContent).toBe('%strlen(text)')
+    expect(document.activeElement).toBe(view.contentDOM)
+
+    docKeys(view)
+    expect(host(view).contains(document.activeElement)).toBe(true)
+    expect(view.state.selection.main.head).toBe(at('%strlen', 2))
   })
 })

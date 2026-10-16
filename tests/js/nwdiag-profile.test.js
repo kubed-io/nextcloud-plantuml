@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The nwdiag profile (T25): what its mode names inside `@startnwdiag` blocks, read the way CodeMirror reads them.
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
@@ -71,5 +72,33 @@ describe('the nwdiag profile', () => {
 
   it('reads the common lines', () => {
     expect(tokens('hide footbox')[0]).toEqual(['hide', 'keyword'])
+  })
+
+  it.each([
+    '  color = pink',
+    '  color = "#FFAAAA";',
+    '  address = 12',
+    '  width = full',
+    '  description = "abc',
+  ])('ends %s with its line', (property) => {
+    const found = tokens(property, '  web01 [address = "x"];', '  inet -- router;')
+    const rest = found.slice(found.findIndex(([text]) => text === 'web01'))
+    expect(rest).toEqual([
+      ['web01', 'typeName'], ['[', 'squareBracket'], ['address', 'attributeName'], ['=', 'definitionOperator'], ['"x"', 'string'],
+      [']', 'squareBracket'], [';', 'separator'],
+      ['inet', 'typeName'], ['--', 'LinkOperator'], ['router', 'typeName'], [';', 'separator'],
+    ])
+  })
+
+  it('keeps every element, group and link line of the fixture read as one', () => {
+    const lines = readFileSync(new URL('./fixtures/grammars/nwdiag.puml', import.meta.url), 'utf8').split('\n')
+      .filter((line) => !/^@/.test(line))
+    const found = tokens(...lines)
+    const names = lines.map((line) => line.match(/^\s*([-.\w]+)\s*(?:\[|--|;\s*$)/)?.[1]).filter(Boolean)
+    expect(names.length).toBeGreaterThan(10)
+    // Every name opens its line as a classifier, in order.
+    expect(found.filter(([, token]) => token === 'typeName').map(([text]) => text)).toEqual(expect.arrayContaining(names))
+    // A colour only where a `color` is.
+    expect(found.filter(([, token]) => token === 'ColorLiteral').length).toBe(lines.filter((line) => /color\s*=/.test(line)).length)
   })
 })

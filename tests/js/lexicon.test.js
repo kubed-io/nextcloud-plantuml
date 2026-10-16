@@ -183,4 +183,15 @@ describe('lex.setting', () => {
     expect([next(), next(), next()]).toEqual(['keyword', 'number', null])
     expect(stream.eol()).toBe(true)
   })
+
+  it('builds an inline attribute list: its extras first, popping on the bracket', () => {
+    const mode = lex.table({
+      start: [{ regex: /\[/, token: 'squareBracket', push: 'list' }, { regex: /./, token: null }],
+      list: lex.attributeList([{ regex: /(n)(=)(\d+)/, token: ['attributeName', 'definitionOperator', 'number'] }]),
+    }, { lineStates: ['list'] })
+    expect(spans(mode, ['[n=3, k = "v", w] x'])).toEqual([
+      ['[', 'squareBracket'], ['n', 'attributeName'], ['=', 'definitionOperator'], ['3', 'number'], [',', 'separator'],
+      ['k', 'attributeName'], ['=', 'definitionOperator'], ['"v"', 'string'], [',', 'separator'], [']', 'squareBracket'],
+    ])
+  })
 })

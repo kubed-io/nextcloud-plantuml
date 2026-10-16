@@ -79,4 +79,8 @@ describe('the packetdiag profile', () => {
   it('reads a field in an unclosed wrapper the same', () => {
     expect(tokens('packetdiag {', '  1: a').slice(2)).toEqual([['1', 'number'], [':', 'separator']])
   })
+
+  it('reads a colon after a space as a separator', () => {
+    expect(tokens('  3-4 : foo')).toEqual([['3', 'number'], ['-', 'separator'], ['4', 'number'], [':', 'separator']])
+  })
 })

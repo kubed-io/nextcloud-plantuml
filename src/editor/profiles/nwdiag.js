@@ -12,11 +12,12 @@
  * colour), a bare `name;` too; a link is `a -- b`; `//` at a line's start is a comment.
  */
 export default (core) => {
-  const { common, number, patterns, table } = core.lex
+  const { atNextLine, attributeList, common, number, patterns, table } = core.lex
   const lines = common()
   const name = /[-.\w]+/.source
   const colour = `#?${patterns.colourPart}`
-  const end = /(?=[\s,\];]|$)/.source
+  const quotedColour = new RegExp(`(color)(\\s*)(=)(\\s*)(")(${colour})(")`)
+  const bareColour = new RegExp(`(color)(\\s*)(=)(\\s*)(${colour})(?=[\\s,\\];]|$)`)
   const mode = table({
     start: [
       { regex: /([ \t]*)(\/\/.*)/, sol: true, token: [null, 'comment'] },
@@ -35,6 +36,7 @@ export default (core) => {
       { regex: /./, token: null },
     ],
     colour: [
+      atNextLine({ next: 'start' }),
       { regex: new RegExp(`(")(${colour})(")`), token: ['string', 'ColorLiteral', 'string'] },
       { regex: /"[^"]*"/, token: 'string' },
       { regex: new RegExp(`${colour}(?![\\w.])`), token: 'ColorLiteral' },
@@ -42,25 +44,19 @@ export default (core) => {
       { regex: /./, token: null },
     ],
     value: [
+      atNextLine({ next: 'start' }),
       { regex: /"[^"]*"/, token: 'string' },
       { regex: /full(?!\w)/, token: 'atom' },
       number,
       { regex: /;/, token: 'separator' },
       { regex: /./, token: null },
     ],
-    attributes: [
-      { regex: /\]/, token: 'squareBracket', pop: true },
-      { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(")(${colour})(")`), token: ['attributeName', null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
-      { regex: new RegExp(`(color)(\\s*)(=)(\\s*)(${colour})${end}`), token: ['attributeName', null, 'definitionOperator', null, 'ColorLiteral'] },
+    attributes: attributeList([
+      { regex: quotedColour, token: ['attributeName', null, 'definitionOperator', null, 'string', 'ColorLiteral', 'string'] },
+      { regex: bareColour, token: ['attributeName', null, 'definitionOperator', null, 'ColorLiteral'] },
       { regex: /(shape)(\s*)(=)(\s*)([^\s,"\]]+)/, token: ['attributeName', null, 'definitionOperator', null, 'atom'] },
-      { regex: /[A-Za-z_]\w*(?=\s*=)/, token: 'attributeName' },
-      { regex: /=/, token: 'definitionOperator' },
-      { regex: /"[^"]*"/, token: 'string' },
-      { regex: /,/, token: 'separator' },
-      { regex: /[^\s,\]="]+/, token: null },
-      { regex: /./, token: null },
-    ],
+    ]),
     ...lines.states,
-  }, { lineStates: ['attributes', 'colour', 'value'] })
+  }, { lineStates: ['attributes'] })
   return { type: 'nwdiag', mode, completions: [], lints: [], values: [] }
 }

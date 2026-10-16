@@ -11,7 +11,7 @@
  * in it text) and an optional trailing `[len = 8, rotate = 270]` attribute list.
  */
 export default (core) => {
-  const { atNextLine, common, creole, number, table, tagStates } = core.lex
+  const { atNextLine, attributeList, common, creole, number, table, tagStates } = core.lex
   const lines = common()
   const bit = /\d+/.source
   // A field's start: the range, its tokens, then the colon or a space.
@@ -21,7 +21,7 @@ export default (core) => {
     [/(\*)/.source, ['atom']],
   ]
   const fields = ranges.flatMap(([range, token]) => [
-    { regex: new RegExp(`([ \\t]*)${range}(:)`), sol: true, token: [null, ...token, 'separator'], next: 'description' },
+    { regex: new RegExp(`([ \\t]*)${range}([ \\t]*)(:)`), sol: true, token: [null, ...token, null, 'separator'], next: 'description' },
     { regex: new RegExp(`([ \\t]*)${range}(?=\\s|$)`), sol: true, token: [null, ...token], next: 'description' },
   ])
   const mode = table({
@@ -46,16 +46,7 @@ export default (core) => {
       { regex: /\[(?=[^[\]]*\]\s*$)/, token: 'squareBracket', push: 'attributes' },
       ...creole(null),
     ],
-    attributes: [
-      { regex: /\]/, token: 'squareBracket', pop: true },
-      { regex: /[A-Za-z_]\w*(?=\s*=)/, token: 'attributeName' },
-      { regex: /=/, token: 'definitionOperator' },
-      { regex: /"[^"]*"/, token: 'string' },
-      { regex: /,/, token: 'separator' },
-      number,
-      { regex: /[^\s,\]="]+/, token: null },
-      { regex: /./, token: null },
-    ],
+    attributes: attributeList([number]),
     // What a description's Creole pushes ends with its line; an inline formula is plain.
     ...tagStates,
     math: [],

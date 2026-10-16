@@ -697,3 +697,21 @@ export function startLine(stream, state) {
   state.pending = others.length ? others.map(([part, style]) => ({ text: part, token: style })) : null
   return token
 }
+
+/**
+ * An inline attribute list's state (Y8), `[k = v, …]` as blockdiag's diagrams have it: the rules
+ * a profile pushes on its `[` and that pop on the `]`. A key is an `attributeName`, `=` a
+ * `definitionOperator`, a quoted value a `string`, `,` a `separator`; any other word is plain.
+ * `extra` rules (a key's own value: a colour, a number, a value word) are tried first. The state
+ * ends with its line: list it in the table's `lineStates`.
+ */
+export const attributeList = (extra = []) => [
+  ...extra,
+  { regex: /\]/, token: 'squareBracket', pop: true },
+  { regex: /[A-Za-z_]\w*(?=\s*=)/, token: 'attributeName' },
+  { regex: /=/, token: 'definitionOperator' },
+  { regex: /"[^"]*"/, token: 'string' },
+  { regex: /,/, token: 'separator' },
+  { regex: /[^\s,\]="]+/, token: null },
+  { regex: /./, token: null },
+]

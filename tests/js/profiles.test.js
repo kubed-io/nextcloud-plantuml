@@ -81,6 +81,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\n:login;\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are dot only when a dot block is in the file', () => {
+    expect(neededFor('@startdot\ndigraph g {\n}\n@enddot\n')).toEqual(new Set(['dot']))
+    expect(neededFor('@startuml\ndigraph g {\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

@@ -1,0 +1,32 @@
+@startdot
+digraph foo {
+  node [style=rounded]
+  node1 [shape=box]
+  node2 [fillcolor=yellow, style="rounded,filled", shape=diamond]
+  node3 [shape=record, label="{ a | b | c }"]
+  node1 -> node2 -> node3
+}
+@enddot
+@startdot
+digraph foo {
+ PlantUML -> Dot [label=use];
+}
+@enddot
+@startdot
+strict graph G {
+  // line comment
+  /* block
+     comment */
+  # preprocessor-style line
+  rankdir=LR;
+  subgraph cluster_0 {
+    label = "Cluster <0>";
+    color=lightgrey;
+    a0 -- a1 -- a2;
+  }
+  a0:n -- b [weight=2.5, color="#ff0000", label=<<b>bold</b> html>];
+  edge [dir=none]
+  node [shape=Mrecord]
+  b -- c -- 42;
+}
+@enddot

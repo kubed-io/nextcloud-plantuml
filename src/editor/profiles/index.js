@@ -58,6 +58,7 @@ export const PROFILES = {
   wire: () => import('./wire.js'),
   flow: () => import('./flow.js'),
   bpm: () => import('./bpm.js'),
+  dot: () => import('./dot.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

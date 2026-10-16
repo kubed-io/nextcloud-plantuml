@@ -3,15 +3,17 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Each `@start` line folds its block, down to the line before `@end` so the
- * `@end` stays visible, and each `<style>` line its style block, down to the
- * line before `</style>`. The stream mode has no syntax tree, so the ranges
- * come from blocks.js and a scan for the style lines. The keys are
+ * `@end` stays visible, each `<style>` line its style block, down to the line
+ * before `</style>`, and each sub-diagram's `{{` line down to the line before
+ * its `}}`. The stream mode has no syntax tree, so the ranges come from
+ * blocks.js, sub-diagrams.js and a scan for the style lines. The keys are
  * CodeMirror's own `foldKeymap`, less fold-all and unfold-all: their Ctrl-Alt-[
  * and ] are AltGr+8 and 9, which type [ and ] on German and Nordic layouts.
  */
 import { foldAll, foldGutter, foldKeymap, foldService, unfoldAll } from '@codemirror/language'
 import { keymap } from '@codemirror/view'
 import { blocksOf, scan } from './blocks.js'
+import { subDiagramsOf } from './sub-diagrams.js'
 
 const STYLE_OPEN = /^\s*<style>\s*$/
 const STYLE_CLOSE = /^\s*<\/style>\s*$/
@@ -37,7 +39,8 @@ const cache = new WeakMap()
 
 function rangesIn(doc) {
   if (!cache.has(doc)) {
-    cache.set(doc, [...blocksOf(scan(doc.toString())), ...stylesOf(doc)])
+    const text = doc.toString()
+    cache.set(doc, [...blocksOf(scan(text)), ...stylesOf(doc), ...subDiagramsOf(text)])
   }
   return cache.get(doc)
 }

@@ -27,8 +27,9 @@ import { colors, swatchOption } from './colors.js'
 import { builtins } from './builtins.js'
 import { localFiles } from './local-files.js'
 import { protocols } from './protocols.js'
+import { subDiagrams } from './sub-diagrams.js'
 
-export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols]
+export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols, subDiagrams]
 
 // One data entry per source: an array under `autocomplete` is read as a list
 // of completions, not of sources. autocompletion() binds completionKeymap

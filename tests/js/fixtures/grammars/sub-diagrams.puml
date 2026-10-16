@@ -1,0 +1,36 @@
+@startuml
+Alice -> Bob: hi
+note right of Bob
+{{salt
+{+ "embedded" | [OK] | (X) yes }
+}}
+end note
+@enduml
+
+@startuml
+Alice -> Bob: hi
+note right
+{{salt
+{+ "embedded" | [OK] }
+}}
+end note
+@enduml
+
+@startuml
+' A class body holding a salt form: its braces are salt's, the class's own } closes it
+class Form {
+  {{salt
+  {
+    Name | "      "
+    [Cancel] | [OK]
+  }
+  }}
+  + submit() : void
+}
+legend
+{{json
+{"name": "Ada", "tags": ["a", 1, true, null]}
+}}
+end legend
+Form -> Bob
+@enduml

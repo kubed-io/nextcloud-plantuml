@@ -26,6 +26,7 @@ import { emoji } from '../../src/editor/completion/emoji.js'
 import { builtins } from '../../src/editor/completion/builtins.js'
 import { localFiles } from '../../src/editor/completion/local-files.js'
 import { protocols } from '../../src/editor/completion/protocols.js'
+import { subDiagrams } from '../../src/editor/completion/sub-diagrams.js'
 import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
 import { scan } from '../../src/editor/blocks.js'
@@ -54,7 +55,7 @@ describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
-    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols])
+    expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols, subDiagrams])
   })
 
   it('stay registered when the language is swapped for one with an inner mode', () => {

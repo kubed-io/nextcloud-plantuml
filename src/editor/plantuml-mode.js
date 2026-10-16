@@ -22,7 +22,8 @@
  * `inner.style` or else left plain, the middle of an inline `<math>…</math>` in Creole is read by
  * `inner.math` or else left plain, and likewise `<latex>…</latex>` by `inner.latex` and the lines
  * of a Creole body between a line `<latex>` and a line `</latex>`, and a `@startcreole` block is Creole and a `@startfiles` block
- * is paths and `<note>` bodies.
+ * is paths and `<note>` bodies. In a uml note, legend, description or class body, a sub-diagram
+ * (`{{type` … `}}`, sub-diagrams.js) is read by `inner[type]`, a base grammar of its own for uml.
  */
 import { StreamLanguage } from '@codemirror/language'
 import {
@@ -32,6 +33,7 @@ import {
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
+import { SUB_CLOSE, SUB_OPEN } from './sub-diagrams.js'
 
 // The rule and tags importers took from here before the lexicon held them.
 export { arrow }
@@ -248,6 +250,9 @@ const bodyEnd = /^[ \t]*(?:end\s*(?:[hr]?note|legend|title|header|footer)\b|@end
 // A files note ends with its `</note>` line, a description with the line starting `]`.
 const bodyEnds = { filesNote: /^[ \t]*<\/note>/, filesNoteCode: /^[ \t]*<\/note>/, descBody: /^[ \t]*\]/, descBodyCode: /^[ \t]*\]/ }
 
+// The bodies a sub-diagram opens in, each with the line that ends one left open there.
+const subBodies = { noteBody: /^[ \t]*end\s*[hr]?note\b/, legendBody: /^[ \t]*end\s*legend\b/, descBody: null, classBody: null }
+
 /** A style import's value: a `file` path is `url`, quoted its quotes punctuation; else a string. */
 function sheetValue(name, value) {
   if (name !== 'file') return [[value, 'string']]
@@ -451,8 +456,7 @@ export function plantumlLanguage(profiles = {}) {
    * (`/' a '/ rest`) the mode reads the rest as a line of its own, as PlantUML
    * does with the comment gone, so nothing of its last line carries over.
    */
-  function innerToken(stream, block) {
-    const mode = modeOf(block)
+  function innerToken(stream, block, mode = modeOf(block)) {
     block.from ??= stream.pos
     const from = block.from
     if (!from) return mode.token(stream, block.state)
@@ -469,107 +473,173 @@ export function plantumlLanguage(profiles = {}) {
     }
   }
 
-  return StreamLanguage.define({
-    ...base,
-    startState: () => ({ ...base.startState(), inner: null, style: null, math: null, latex: null }),
-    copyState(state) {
-      const copy = base.copyState(state)
-      const block = state.inner
-      copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state), from: block.from }
-      copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until }
-      copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
-      copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
-      return copy
-    },
-    token(stream, state) {
-      // A rule matched at the start of a line hands back its groups one at a
-      // time (`pending`), all still at the start: they belong to the state it set.
-      if (state.pending) return base.token(stream, state)
-      // A diagram's `@start` or `@end` line ends what is left open at the top level, a body, a
-      // `<code>` or `<latex>` block, a `/' … '/` comment, as it does an inner block's (P5).
-      if (stream.sol() && !state.inner && !state.style && state.state !== 'start' && stream.match(diagramEdge, false)) {
-        state.state = 'start'
-        state.stack = []
-        state.latex = null
+  // A uml sub-diagram is this language's own reading, with a state of its own that opens none.
+  const umlSub = {
+    startState: (indentUnit) => ({ ...startState(indentUnit), nested: true }),
+    copyState,
+    token,
+    blankLine,
+    indent,
+  }
+  // `style` names the mode for style blocks, not a diagram type.
+  const subMode = (type) => (type === 'uml' ? umlSub : type !== 'style' && Object.hasOwn(inner, type) ? inner[type] : plain)
+
+  function startState() {
+    return { ...base.startState(), inner: null, style: null, math: null, latex: null, sub: null, nested: false }
+  }
+
+  function copyState(state) {
+    const copy = base.copyState(state)
+    const block = state.inner
+    copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state), from: block.from }
+    copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until }
+    copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
+    copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
+    const sub = state.sub
+    copy.sub = sub && { type: sub.type, depth: sub.depth, from: sub.from, state: copyIn(subMode(sub.type), sub.state), plant: base.copyState(sub.plant) }
+    copy.nested = state.nested
+    return copy
+  }
+
+  /**
+   * A line of a sub-diagram, its `{{` and `}}` lines counting the depth. A comment or `!` line
+   * is PlantUML's (`plant`, a state of its own so the body underneath stays as it was).
+   */
+  function subToken(stream, state) {
+    const sub = state.sub
+    if (stream.sol()) {
+      sub.from = null
+      base.startLine(sub.plant)
+      if (stream.match(SUB_OPEN, false)) sub.depth++
+      const close = stream.match(SUB_CLOSE, false)
+      if (close && !--sub.depth) {
+        state.sub = null
+        return emit(stream, state, [[close[1], null], [close[2], 'brace'], [stream.string.slice(close[1].length + 2), null]])
       }
-      if (state.state === 'math') return inlineMiddle(stream, state, 'math', math)
-      if (state.state === 'latex') return inlineMiddle(stream, state, 'latex', latex)
-      if (state.state === 'latexBlock') return latexBody(stream, state)
-      // A `!` line is PlantUML's to its end, in a nested mode or a style block too.
-      if (bangStates.has(state.state)) {
-        if (!stream.sol()) return base.token(stream, state)
-        // At the next line it is popped, back to the state the line was read in.
-        base.startLine(state)
-      }
-      if (state.style) {
-        const token = styleBody(stream, state)
-        // A block left open ends at `@end`, which is then read as ever.
-        if (state.style || stream.pos > stream.start) return token
-      }
-      if (state.inner) {
-        if (stream.sol()) {
-          state.inner.from = null
-          // The block ends here, a `/' … '/` comment left open with it.
-          const end = stream.match(/^([ \t]*)(@end\w*)/, false)
-          if (end) {
-            state.inner = null
-            // A `/' … '/` comment left open in the block leaves its start on the stack.
-            state.state = 'start'
-            state.stack = []
-            return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
-          }
-          // An open block ends at the next `@start`, which is read as ever (B1).
-          if (stream.match(/^[ \t]*@start\w+/, false)) {
-            state.inner = null
-            state.state = 'start'
-            state.stack = []
-          }
+    }
+    const mode = subMode(sub.type)
+    if (mode !== umlSub && !mode.inactive) {
+      if (sub.plant.state === 'blockComment' || (!stream.sol() && bangStates.has(sub.plant.state))) return base.token(stream, sub.plant)
+      if (stream.sol() && (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false))) return base.token(stream, sub.plant)
+    }
+    return innerToken(stream, sub, mode)
+  }
+
+  /** A body's `{{` line: the sub-diagram starts on the next line, the body kept underneath. */
+  function subStart(stream, state, open) {
+    const type = open[3] || 'uml'
+    const mode = subMode(type)
+    state.sub = { type, depth: 1, from: null, state: mode.startState ? mode.startState(stream.indentUnit) : {}, plant: base.startState() }
+    return emit(stream, state, [[open[1], null], [open[2], 'brace'], [open[3], 'keyword'], [stream.string.slice(open[1].length + 2 + open[3].length), null]])
+  }
+
+  function token(stream, state) {
+    // A rule matched at the start of a line hands back its groups one at a
+    // time (`pending`), all still at the start: they belong to the state it set.
+    if (state.pending) return base.token(stream, state)
+    // A sub-diagram left open ends at the diagram's edge, or its note's or legend's end line,
+    // which is then read as ever.
+    if (state.sub && stream.sol() && (stream.match(diagramEdge, false) || subBodies[state.state]?.test(stream.string))) state.sub = null
+    // A diagram's `@start` or `@end` line ends what is left open at the top level, a body, a
+    // `<code>` or `<latex>` block, a `/' … '/` comment, as it does an inner block's (P5).
+    if (stream.sol() && !state.inner && !state.style && state.state !== 'start' && stream.match(diagramEdge, false)) {
+      state.state = 'start'
+      state.stack = []
+      state.latex = null
+    }
+    if (state.sub) return subToken(stream, state)
+    if (state.state === 'math') return inlineMiddle(stream, state, 'math', math)
+    if (state.state === 'latex') return inlineMiddle(stream, state, 'latex', latex)
+    if (state.state === 'latexBlock') return latexBody(stream, state)
+    // A `!` line is PlantUML's to its end, in a nested mode or a style block too.
+    if (bangStates.has(state.state)) {
+      if (!stream.sol()) return base.token(stream, state)
+      // At the next line it is popped, back to the state the line was read in.
+      base.startLine(state)
+    }
+    if (state.style) {
+      const token = styleBody(stream, state)
+      // A block left open ends at `@end`, which is then read as ever.
+      if (state.style || stream.pos > stream.start) return token
+    }
+    if (state.inner) {
+      if (stream.sol()) {
+        state.inner.from = null
+        // The block ends here, a `/' … '/` comment left open with it.
+        const end = stream.match(/^([ \t]*)(@end\w*)/, false)
+        if (end) {
+          state.inner = null
+          // A `/' … '/` comment left open in the block leaves its start on the stack.
+          state.state = 'start'
+          state.stack = []
+          return emit(stream, state, [[end[1], null], [end[2], 'keyword']])
+        }
+        // An open block ends at the next `@start`, which is read as ever (B1).
+        if (stream.match(/^[ \t]*@start\w+/, false)) {
+          state.inner = null
+          state.state = 'start'
+          state.stack = []
         }
       }
-      if (state.inner) {
-        // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
-        if (modeOf(state.inner).inactive) return innerToken(stream, state.inner)
-        if (state.state === 'blockComment') return base.token(stream, state)
-        if (stream.sol()) {
-          const tags = styleStart(stream, state)
-          if (tags !== undefined) return tags
-          // Comment and preprocessor lines are PlantUML's in any diagram.
-          if (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false)) return base.token(stream, state)
-        }
-        return innerToken(stream, state.inner)
-      }
-      // The line's state, before its `<style>` or `@start` is looked for (see `table`).
-      if (stream.sol()) base.startLine(state)
-      if (stream.sol() && state.state === 'start') {
+    }
+    if (state.inner) {
+      // A `/' … '/` comment is PlantUML's in any diagram, down to its closer, mid-line or not.
+      if (modeOf(state.inner).inactive) return innerToken(stream, state.inner)
+      if (state.state === 'blockComment') return base.token(stream, state)
+      if (stream.sol()) {
         const tags = styleStart(stream, state)
         if (tags !== undefined) return tags
+        // Comment and preprocessor lines are PlantUML's in any diagram.
+        if (stream.match(/^[ \t]*(?:'|\/')/, false) || stream.match(directiveLine, false)) return base.token(stream, state)
       }
-      const start = stream.sol() && state.state === 'start' && stream.match(/^([ \t]*)(@start(\w+))(.*)/, false)
-      // `style` names the mode for style blocks, not a diagram type.
-      if (start && start[3] !== 'style' && Object.hasOwn(inner, start[3])) {
-        const mode = inner[start[3]]
-        state.inner = { type: start[3], state: mode.startState ? mode.startState(stream.indentUnit) : {} }
-        // The block starts on the next line: the rest of this one is the type's, its name.
-        return startLine(stream, state)
-      }
-      if (start) {
-        const token = startLine(stream, state)
-        // A creole or files diagram is Creole or paths from the line after its start.
-        if (start[3] === 'creole') state.state = 'creoleHead'
-        else if (start[3] === 'files') state.state = 'filesHead'
-        return token
-      }
-      return base.token(stream, state)
-    },
-    blankLine(state, indentUnit) {
-      if (state.style) style?.blankLine?.(state.style.state, indentUnit)
-      else if (state.inner) modeOf(state.inner).blankLine?.(state.inner.state, indentUnit)
-    },
-    indent(state, textAfter, context) {
-      if (state.style) return style?.indent?.(state.style.state, textAfter, context) ?? null
-      if (!state.inner) return base.indent(state, textAfter, context)
-      return modeOf(state.inner).indent?.(state.inner.state, textAfter, context) ?? null
-    },
+      return innerToken(stream, state.inner)
+    }
+    // The line's state, before its `<style>` or `@start` is looked for (see `table`).
+    if (stream.sol()) base.startLine(state)
+    const open = stream.sol() && !state.nested && Object.hasOwn(subBodies, state.state) && stream.match(SUB_OPEN, false)
+    if (open) return subStart(stream, state, open)
+    if (stream.sol() && state.state === 'start') {
+      const tags = styleStart(stream, state)
+      if (tags !== undefined) return tags
+    }
+    const start = stream.sol() && state.state === 'start' && stream.match(/^([ \t]*)(@start(\w+))(.*)/, false)
+    // `style` names the mode for style blocks, not a diagram type.
+    if (start && start[3] !== 'style' && Object.hasOwn(inner, start[3])) {
+      const mode = inner[start[3]]
+      state.inner = { type: start[3], state: mode.startState ? mode.startState(stream.indentUnit) : {} }
+      // The block starts on the next line: the rest of this one is the type's, its name.
+      return startLine(stream, state)
+    }
+    if (start) {
+      const token = startLine(stream, state)
+      // A creole or files diagram is Creole or paths from the line after its start.
+      if (start[3] === 'creole') state.state = 'creoleHead'
+      else if (start[3] === 'files') state.state = 'filesHead'
+      return token
+    }
+    return base.token(stream, state)
+  }
+
+  function blankLine(state, indentUnit) {
+    if (state.style) style?.blankLine?.(state.style.state, indentUnit)
+    else if (state.sub) subMode(state.sub.type).blankLine?.(state.sub.state, indentUnit)
+    else if (state.inner) modeOf(state.inner).blankLine?.(state.inner.state, indentUnit)
+  }
+
+  function indent(state, textAfter, context) {
+    if (state.style) return style?.indent?.(state.style.state, textAfter, context) ?? null
+    if (state.sub) return subMode(state.sub.type).indent?.(state.sub.state, textAfter, context) ?? null
+    if (!state.inner) return base.indent(state, textAfter, context)
+    return modeOf(state.inner).indent?.(state.inner.state, textAfter, context) ?? null
+  }
+
+  return StreamLanguage.define({
+    ...base,
+    startState,
+    copyState,
+    token,
+    blankLine,
+    indent,
     // The highlight of a token @lezer/highlight has no tag for (lexicon/tags.js).
     tokenTable,
   })

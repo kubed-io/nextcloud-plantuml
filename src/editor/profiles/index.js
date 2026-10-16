@@ -33,6 +33,7 @@ import { APP_ID } from '../../files-helpers.js'
 import { scan } from '../blocks.js'
 import { lex } from '../lexicon/index.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
+import { SUB_OPEN } from '../sub-diagrams.js'
 import { profileRules } from '../lint/index.js'
 import { valuesFacet } from '../values/index.js'
 
@@ -73,9 +74,9 @@ const LATEX = /<latex>/
 
 /**
  * The profiles a file needs: its block types, archimate when a uml block
- * includes the library or draws an element, style when a line starts
- * `<style`, and math or latex when a line holds an inline `<math>` or a `<latex>`. Only those with a
- * profile, so the loader never asks for another.
+ * includes the library or draws an element, each sub-diagram's type a uml block holds, style when
+ * a line starts `<style`, and math or latex when a line holds an inline `<math>` or a `<latex>`.
+ * Only those with a profile, so the loader never asks for another.
  *
  * @param {import('../blocks.js').Diagram[]} diagrams
  * @param {string} text
@@ -84,8 +85,16 @@ const LATEX = /<latex>/
 export function needed(diagrams, text) {
   const types = new Set(diagrams.map((d) => d.type))
   const lines = text.split('\n')
-  if (diagrams.some((d) => d.type === 'uml' && lines.slice(d.from - 1, d.to).some((line) => ARCHIMATE.test(line)))) {
+  const uml = diagrams.filter((d) => d.type === 'uml').flatMap((d) => lines.slice(d.from - 1, d.to))
+  if (uml.some((line) => ARCHIMATE.test(line))) {
     types.add('archimate')
+  }
+  for (const line of uml) {
+    const type = SUB_OPEN.exec(line)?.[3]
+    // `style` names the style blocks' profile, which the grammar never reads a sub-diagram with.
+    if (type && type !== 'style') {
+      types.add(type)
+    }
   }
   if (STYLE.test(text)) {
     types.add('style')

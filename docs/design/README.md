@@ -20,7 +20,8 @@ board. The spec's "The design" section says what each board shows and what the p
 | Editor | a tag's parts coloured, the pencil after `valign=top` and the attributes after `<font ` | [editor-tag-attributes.png](editor-tag-attributes.png) |
 | Editor | `!include <c4/`, the standard library's C4 folders and files | [editor-stdlib.png](editor-stdlib.png) |
 | Editor | the pointer on `alt`, its doc card below the word | [editor-hover-docs.png](editor-hover-docs.png) |
-| Editor | the `!include` card pinned: outline and × | [editor-hover-pinned.png](editor-hover-pinned.png) |
+| Editor | the `alt` card pinned in place: outline and × | [editor-hover-pinned.png](editor-hover-pinned.png) |
+| Editor | the pointer on `@startyaml`, the diagram type's card | [editor-hover-diagram.png](editor-hover-diagram.png) |
 | Editor | a lint mark and a doc card in one hover box, the message on top | [editor-hover-lint.png](editor-hover-lint.png) |
 | Editor | `%str` completions, `%strlen`'s card beside the list | [editor-completion-docs.png](editor-completion-docs.png) |
 | Editor | the hover docs on the dark theme | [editor-hover-docs-dark.png](editor-hover-docs-dark.png) |

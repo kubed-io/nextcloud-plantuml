@@ -19,11 +19,17 @@ board. The spec's "The design" section says what each board shows and what the p
 | Editor | the dark theme, with the search panel open | [editor-dark.png](editor-dark.png) |
 | Editor | a tag's parts coloured, the pencil after `valign=top` and the attributes after `<font ` | [editor-tag-attributes.png](editor-tag-attributes.png) |
 | Editor | `!include <c4/`, the standard library's C4 folders and files | [editor-stdlib.png](editor-stdlib.png) |
+| Editor | the pointer on `alt`, its doc card below the word | [editor-hover-docs.png](editor-hover-docs.png) |
+| Editor | the `!include` card pinned: outline and × | [editor-hover-pinned.png](editor-hover-pinned.png) |
+| Editor | a lint mark and a doc card in one hover box, the message on top | [editor-hover-lint.png](editor-hover-lint.png) |
+| Editor | `%str` completions, `%strlen`'s card beside the list | [editor-completion-docs.png](editor-completion-docs.png) |
+| Editor | the hover docs on the dark theme | [editor-hover-docs-dark.png](editor-hover-docs-dark.png) |
 | Style guide | what the guide covers and how it is built | [style-guide-about.png](style-guide-about.png) |
 | Style guide | the styling dictionary, Y1–Y38, light and dark | [style-guide-dictionary.png](style-guide-dictionary.png) |
 | Style guide | the looks and their colours | [style-guide-looks.png](style-guide-looks.png) |
 | Style guide | every diagram type and its grammar | [style-guide-diagram-types.png](style-guide-diagram-types.png) |
 | Style guide | the editor's parts: swatch, pencil, stepper, lint marks, tabs, folding | [style-guide-editor-parts.png](style-guide-editor-parts.png) |
+| Style guide | the doc card: anatomy, hover and pinned, its timing and keys | [style-guide-doc-card.png](style-guide-doc-card.png) |
 | Files | the Diagrams folder | [files.png](files.png) |
 | Files | the Viewer on a diagram | [viewer.png](viewer.png) |
 | Files | the + New menu, with UML Diagram | [new-menu.png](new-menu.png) |

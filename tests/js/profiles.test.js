@@ -61,6 +61,11 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\nbar [1,2]\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are chen only when a chen block is in the file', () => {
+    expect(neededFor('@startchen\nentity A {\n}\n@endchen\n')).toEqual(new Set(['chen']))
+    expect(neededFor('@startuml\nentity A {\n}\n@enduml\n')).toEqual(new Set())
+  })
+
   it('include archimate when a uml block includes its library or draws an archimate element', () => {
     PROFILES.archimate = () => Promise.resolve({ default: { type: 'archimate', completions: [], lints: [] } })
 

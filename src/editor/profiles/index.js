@@ -54,6 +54,7 @@ export const PROFILES = {
   mindmap: () => import('./tree.js'),
   // The same chunk: wbs reads what mindmap does differently.
   wbs: () => import('./tree.js').then((module) => ({ default: module.wbs })),
+  chen: () => import('./chen.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

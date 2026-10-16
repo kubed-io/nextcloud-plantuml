@@ -1,0 +1,62 @@
+@startchen
+left to right direction
+entity Person {
+}
+entity Location {
+}
+relationship Birthplace {
+}
+Person -N- Birthplace
+Birthplace -1- Location
+@endchen
+@startchen
+entity DIRECTOR {
+  Number : INTEGER <<key>>
+  Name {
+    Fname : STRING
+    Lname : STRING
+  }
+  Born : DATE
+}
+entity CUSTOMER {
+  Number : INTEGER <<key>>
+  Bonus : REAL <<derived>>
+  Name : STRING <<multi>>
+}
+relationship RENTED_TO {
+  Date
+}
+RENTED_TO =1= CUSTOMER
+RENTED_TO -(N,M)- DIRECTOR
+@endchen
+@startchen movies
+<style>
+.red {
+  BackGroundColor Red
+  FontColor White
+}
+</style>
+title Movies
+entity "Customer" as CUSTOMER #lightblue {
+  "customer number" as Number <<key>>
+  "member bonus" as Bonus <<derived>>
+  Died<<red>>
+}
+entity "Parent" as PARENT {
+}
+entity "Member" as MEMBER {
+}
+entity "Kid" as CHILD <<weak>> {
+  Name <<key>>
+}
+relationship "is-parent-of" as PARENT_OF <<identifying>> {
+}
+CUSTOMER ->- PARENT
+MEMBER -<- CUSTOMER
+PARENT_OF -1- PARENT
+PARENT_OF =N= CHILD
+entity PERSON {
+}
+PERSON ->- U { CUSTOMER, MEMBER } #red
+CHILD =>= d { PARENT }
+@endchen

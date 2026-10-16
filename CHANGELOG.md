@@ -66,6 +66,8 @@ All notable changes to this project are documented here. The format follows
 - JSON diagrams are checked as PlantUML reads them, the first mistake underlined with the reader's message.
 - A `{{type` … `}}` sub-diagram (salt, json, yaml, …) in a note, legend, description or class body is coloured with its own type's grammar, folds, and `{{` completes the types.
 - A `{{json` sub-diagram is checked like a `@startjson` block, its first mistake underlined.
+- Resting the pointer on a keyword, directive, function, style property, theme or library shows its docs after half a second; a click pins the card, and Escape or × closes it.
+- The completion list shows the docs of the selected option beside it.
 
 ### Changed
 

@@ -10,23 +10,15 @@ import { DICTIONARY, DICTIONARY_TOKENS } from '../../src/editor/lexicon/dictiona
 import { Tag, tags } from '@lezer/highlight'
 import { tokenTable } from '../../src/editor/lexicon/tags.js'
 import { core } from './helpers/core.js'
-import yamlProfile from '../../src/editor/profiles/yaml.js'
-import styleProfile from '../../src/editor/profiles/style.js'
-import boardProfile from '../../src/editor/profiles/board.js'
-import gitProfile from '../../src/editor/profiles/git.js'
-import spritesProfile from '../../src/editor/profiles/sprites.js'
-import ganttProfile, { project } from '../../src/editor/profiles/gantt.js'
-import mathProfile from '../../src/editor/profiles/math.js'
-import latexProfile from '../../src/editor/profiles/latex.js'
-import mindmapProfile, { wbs } from '../../src/editor/profiles/tree.js'
+import { PROFILES } from '../../src/editor/profiles/index.js'
 
 const DIR = new URL('./fixtures/grammars/', import.meta.url)
 
-const modes = Object.fromEntries([
-  ['yaml', yamlProfile], ['style', styleProfile], ['board', boardProfile], ['git', gitProfile],
-  ['sprites', spritesProfile], ['gantt', ganttProfile], ['project', project], ['math', mathProfile], ['latex', latexProfile],
-  ['mindmap', mindmapProfile], ['wbs', wbs],
-].map(([type, factory]) => [type, factory(core).mode]))
+// Every profile the editor can load, present and future, each factory given `core`.
+const modes = Object.fromEntries(await Promise.all(Object.entries(PROFILES).map(async ([type, load]) => {
+  const { default: factory } = await load()
+  return [type, factory(core).mode]
+})))
 
 /** The YAML legacy mode's own tokens, which the dictionary does not hold it to. */
 const YAML_OWN = new Set(['atom', 'def', 'meta', 'string', 'number', 'comment', 'keyword', 'variable-2', 'operator', 'punctuation', 'variable', 'property'])
@@ -78,6 +70,12 @@ describe('the styling dictionary', () => {
   })
 
   const fixtures = readdirSync(DIR).filter((name) => name.endsWith('.puml'))
+
+  it('reads every fixture of a type with a profile with that profile', () => {
+    const typed = fixtures.map((name) => name.replace('.puml', '')).filter((type) => Object.hasOwn(PROFILES, type))
+    expect(typed.filter((type) => !modes[type])).toEqual([])
+    expect(Object.keys(modes).sort()).toEqual(Object.keys(PROFILES).sort())
+  })
 
   it('has a fixture for every type with a grammar', () => {
     expect(fixtures.map((name) => name.replace('.puml', '')).sort()).toEqual(

@@ -236,7 +236,7 @@
   },
   "diagram:jcckit": {
     "summary": "JCCKit chart",
-    "example": "@startjcckit\n@endjcckit"
+    "example": "@startjcckit\ndata/curves/0/y = 1 2 3\n@endjcckit"
   },
   "diagram:json": {
     "summary": "JSON data, drawn as a tree",
@@ -562,7 +562,7 @@
     "signature": "%is_light(color)"
   },
   "function:%json_add": {
-    "signature": "%json_add(json, item[, value])",
+    "signature": "%json_add(json, item_or_key[, value])",
     "summary": "Adds an item to a JSON array or object",
     "example": "!$j = [1, 2]\nAlice -> Bob : %json_add($j, 3)"
   },
@@ -711,7 +711,7 @@
     "signature": "%version()"
   },
   "function:%xargs": {
-    "signature": "%xargs(index)",
+    "signature": "%xargs(unused)",
     "summary": "The diagram’s @start line",
     "example": "@startuml a b\nAlice -> Bob : %xargs(0)\n@enduml"
   },

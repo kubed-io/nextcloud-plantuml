@@ -13,6 +13,7 @@ import { translate } from '@nextcloud/l10n'
 import { plantumlLint, profileRules } from '../../src/editor/lint/index.js'
 import { fileName } from '../../src/editor/lint/state.js'
 import { PROFILES, needed, profileExtension, profileLoader } from '../../src/editor/profiles/index.js'
+import { withDocs } from '../../src/editor/completion/docs.js'
 import { valuesFacet } from '../../src/editor/values/index.js'
 
 const neededFor = (text) => needed(scan(text), text)
@@ -242,7 +243,7 @@ describe('profileExtension', () => {
       extensions: profileExtension([{ type: 'yaml', mode: { token: word }, completions: [source], lints: [] }]),
     })
 
-    expect(state.languageDataAt('autocomplete', 0)).toEqual([source])
+    expect(state.languageDataAt('autocomplete', 0)).toEqual([withDocs(source)])
   })
 
   it('runs each profile\'s lint rules beside the core ones, from the moment it arrives', async () => {

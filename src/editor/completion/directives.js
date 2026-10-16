@@ -38,7 +38,7 @@ const SNIPPETS = {
 
 /** `!$` is a variable assignment, not in the generated list. Every other word is inserted with a space after it. */
 const PREPROCESSOR = [...preprocessor.directives, '!$'].sort().map((label) => (
-  SNIPPETS[label] ? snippetCompletion(SNIPPETS[label], { label, type: 'keyword' }) : { label, type: 'keyword', apply: `${label} ` }
+  SNIPPETS[label] ? snippetCompletion(SNIPPETS[label], { label, type: 'keyword', docKey: `directive:${label}` }) : { label, type: 'keyword', docKey: `directive:${label}`, apply: `${label} ` }
 ))
 
 /** The words that continue or close a conditional, offered first while one is open. */
@@ -51,7 +51,7 @@ const BRACED = ['salt', 'json']
 function startOption(label) {
   const type = label.slice('@start'.length)
   const body = BRACED.includes(type) ? '{\n\t${}\n}' : type === 'files' ? '/${}' : '${}'
-  return snippetCompletion(`${label} \${name}\n${body}\n@end${type}`, { label, type: 'keyword' })
+  return snippetCompletion(`${label} \${name}\n${body}\n@end${type}`, { label, type: 'keyword', docKey: `diagram:${type}` })
 }
 
 const starts = STARTS.map(startOption)

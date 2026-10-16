@@ -36,8 +36,14 @@ import vocabulary from '../../src/editor/data/vocabulary.json'
 import preprocessor from '../../src/editor/data/directives.json'
 import { filePath } from '../../src/editor/lint/state.js'
 import { listFolder, loadFile } from '../../src/editor/save.js'
+import { loadDocs } from '../../src/editor/docs/index.js'
+import { withDocs } from '../../src/editor/completion/docs.js'
 
 vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn(), loadFile: vi.fn() }))
+vi.mock('../../src/editor/docs/index.js', async (original) => {
+  const real = await original()
+  return { ...real, loadDocs: vi.fn(real.loadDocs) }
+})
 
 function stateAt(marked) {
   const pos = marked.indexOf('|')
@@ -54,7 +60,7 @@ const labels = (result) => result.options.map((option) => option.label)
 describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
     const { state, pos } = stateAt('|')
-    expect(state.languageDataAt('autocomplete', pos)).toEqual(sources)
+    expect(state.languageDataAt('autocomplete', pos)).toEqual(sources.map(withDocs))
     expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols, subDiagrams])
   })
 
@@ -64,7 +70,7 @@ describe('the completion sources', () => {
     const yaml = { token: (stream) => { stream.skipToEnd(); return 'atom' } }
     const { state } = before.update({ effects: language.reconfigure(plantumlLanguage({ yaml })) })
 
-    expect(state.languageDataAt('autocomplete', 3)).toEqual(sources)
+    expect(state.languageDataAt('autocomplete', 3)).toEqual(sources.map(withDocs))
     expect(labels(directives(new CompletionContext(state, 3, false)))).toContain('@startuml')
   })
 })
@@ -582,7 +588,7 @@ describe('creole', () => {
     expect(labels(result)).toEqual(expect.arrayContaining([
       '<b>', '<i>', '<u>', '<s>', '<w>', '<plain>', '<size:12>', '<color:>', '<back:>', '<font:name>', '<sub>', '<sup>', '<img:url>', '<r>',
     ]))
-    expect(result.options.every((option) => option.type === 'text' && option.detail)).toBe(true)
+    expect(result.options.every((option) => option.type === 'text' && option.docKey)).toBe(true)
     expect(result.validFor.test('<si')).toBe(true)
     expect(result.validFor.test('<size:')).toBe(false)
   })
@@ -750,7 +756,7 @@ describe('connectors', () => {
 
     expect(result.from).toBe(marked.indexOf('|'))
     expect(labels(result)).toEqual(expect.arrayContaining(['-->', '->', '--', '..', '~~', '==', '<-', '<->', '--|>', '..|>', '*--', 'o--', '-up->', '-[hidden]-']))
-    expect(result.options.every((option) => option.type === 'operator' && option.detail)).toBe(true)
+    expect(result.options.every((option) => option.type === 'operator' && option.docKey)).toBe(true)
   })
 
   it('put the commonest first', () => {
@@ -883,7 +889,7 @@ describe('the server\'s keywords', () => {
 
     expect(labels(result).filter((label) => label === 'alt')).toHaveLength(1)
     expect(labels(result).filter((label) => label === 'actor')).toHaveLength(1)
-    expect(result.options.find((option) => option.label === 'alt')).toMatchObject({ detail: 'alternatives', type: 'keyword' })
+    expect(result.options.find((option) => option.label === 'alt')).toMatchObject({ docKey: 'keyword:alt', type: 'keyword' })
   })
 
   it('ranks the hand-kept words above the server-only ones', async () => {
@@ -943,11 +949,11 @@ describe('helper commands', () => {
 })
 
 describe('built-in functions', () => {
-  it('lists the functions after %, with the description as the detail', async () => {
+  it('lists the functions after %, keyed for their docs', async () => {
     const result = await complete(builtins, '!x = %str|')
 
     expect(result.from).toBe(5)
-    expect(result.options).toContainEqual(expect.objectContaining({ label: '%strlen', type: 'function', detail: 'Calculate the length of a String' }))
+    expect(result.options).toContainEqual(expect.objectContaining({ label: '%strlen', type: 'function', docKey: 'function:%strlen' }))
     expect(labels(result)).toEqual(expect.arrayContaining(['%date', '%lighten', '%get_all_stdlib', '%get_current_theme']))
   })
 
@@ -1850,5 +1856,74 @@ describe('protocols', () => {
     const state = EditorState.create({ doc: '@startuml ', selection: { anchor: 10 }, extensions: [plantumlMode, plantumlCompletion] })
     const option = protocols(new CompletionContext(state, 10, false)).options[0]
     expect(option.apply ?? option.label).toBe('file://')
+  })
+})
+
+describe('the docs beside the completion list', () => {
+  const context = (marked, explicit = false) => {
+    const { state, pos } = stateAt(marked)
+    return new CompletionContext(state, pos, explicit)
+  }
+  const docd = (source, marked, explicit = false) => withDocs(source)(context(marked, explicit))
+  const option = (result, label) => result.options.find((candidate) => candidate.label === label)
+
+  it('gives a keyword its summary as detail and a card as info', async () => {
+    const alt = option(await docd(keywords, '@startuml\n|', true), 'alt')
+    expect(alt.detail).toBe('alternatives')
+    const { dom } = alt.info()
+    expect(dom.className).toBe('cm-doc')
+  })
+
+  it('shows a function its signature', async () => {
+    const strlen = option(await docd(builtins, '%str|'), '%strlen')
+    expect(strlen.info().dom.textContent).toContain('%strlen(')
+    expect(strlen.detail).toBeTruthy()
+  })
+
+  it('leaves an option without a key with no info', async () => {
+    const result = await docd(names, '@startuml\nactor Bob\nBob -> |', true)
+    expect(result.options.length).toBeGreaterThan(0)
+    for (const candidate of result.options) {
+      expect(candidate.info).toBeUndefined()
+    }
+  })
+
+  it('keeps a connector detail through its entry', async () => {
+    const arrow = option(await docd(connectors, 'A |'), '-->')
+    expect(arrow.detail).toBe('dashed arrow')
+  })
+
+  it('keeps a helper, a tag and a directive described', async () => {
+    expect(option(await docd(keywords, '@startuml\ncolo|', true), 'colors').detail).toBe('the named colours')
+    expect(option(await docd(creole, '<|'), '<b>').detail).toBe('bold')
+    expect(option(await docd(directives, '@|'), '@startuml').info).toBeTypeOf('function')
+  })
+
+  it('does not change what the caller owns', async () => {
+    const result = connectors(context('A |'))
+    const before = result.options.map((candidate) => ({ ...candidate }))
+    await withDocs(() => result)(context('A |'))
+    expect(result.options).toEqual(before)
+  })
+
+  it('lists every option, without detail, when the docs fail to load', async () => {
+    const plain = await keywords(context('@startuml\n|', true))
+    loadDocs.mockRejectedValueOnce(new Error('offline'))
+    const result = await docd(keywords, '@startuml\n|', true)
+    expect(labels(result)).toEqual(labels(plain))
+    expect(result.options.some((candidate) => candidate.info)).toBe(false)
+    expect(option(result, 'alt').detail).toBeUndefined()
+  })
+
+  it('keys a style selector and property, lower-cased, with no core import', async () => {
+    const style = styleCompletion({ scan })
+    const selectors = await withDocs(style)(context('<style>\nsequenceDia|\n</style>', true))
+    expect(option(selectors, 'sequenceDiagram')).toMatchObject({ docKey: 'selector:sequencediagram' })
+    const properties = await withDocs(style)(context('<style>\nactor {\n  BackG|\n}\n</style>', true))
+    expect(option(properties, 'BackGroundColor').docKey).toBe('property:backgroundcolor')
+  })
+
+  it('passes a source that offers nothing through', async () => {
+    expect(await docd(connectors, 'x|')).toBeNull()
   })
 })

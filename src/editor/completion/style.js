@@ -49,7 +49,7 @@ const depth = {
 const GENERAL = ['root', 'element', 'document']
 const DIAGRAMS = new Set([...Object.values(DIAGRAM_SELECTORS), ...selectors.filter((name) => name.endsWith('Diagram'))])
 
-const propertyOptions = properties.map((label) => ({ label, type: 'property', boost: 10 }))
+const propertyOptions = properties.map((label) => ({ label, type: 'property', boost: 10, docKey: `property:${label.toLowerCase()}` }))
 
 /** The selectors, the enclosing diagram's first, then the elements, then the other diagrams. */
 function selectorOptions(type) {
@@ -58,6 +58,7 @@ function selectorOptions(type) {
   const options = selectors.map((label) => ({
     label,
     type: 'type',
+    docKey: `selector:${label.toLowerCase()}`,
     boost: nodes && NODES.includes(label) ? 9 - NODES.indexOf(label) : first.includes(label) ? 3 : DIAGRAMS.has(label) ? 1 : 2,
   }))
   return nodes ? [...options, depth] : options

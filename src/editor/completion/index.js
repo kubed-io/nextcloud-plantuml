@@ -28,14 +28,15 @@ import { builtins } from './builtins.js'
 import { localFiles } from './local-files.js'
 import { protocols } from './protocols.js'
 import { subDiagrams } from './sub-diagrams.js'
+import { withDocs } from './docs.js'
 
 export const sources = [directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols, subDiagrams]
 
 // One data entry per source: an array under `autocomplete` is read as a list
 // of completions, not of sources. autocompletion() binds completionKeymap
 // (Ctrl-Space, arrows, Enter, Escape) and leaves Tab alone. A named colour
-// shows its swatch in the list.
+// shows its swatch in the list, and a documented word its detail and card (`withDocs`).
 export const plantumlCompletion = [
-  ...sources.map((source) => EditorState.languageData.of(() => [{ autocomplete: source }])),
+  ...sources.map((source) => EditorState.languageData.of(() => [{ autocomplete: withDocs(source) }])),
   autocompletion({ addToOptions: [swatchOption] }),
 ]

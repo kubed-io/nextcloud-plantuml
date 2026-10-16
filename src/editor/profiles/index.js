@@ -37,6 +37,7 @@ import { plantumlLanguage } from '../plantuml-mode.js'
 import { SUB_OPEN, subDiagramsOf } from '../sub-diagrams.js'
 import { profileRules } from '../lint/index.js'
 import { valuesFacet } from '../values/index.js'
+import { withDocs } from '../completion/docs.js'
 
 /** @type {Record<string, () => Promise<{ default: (core: Core) => Profile }>>} */
 export const PROFILES = {
@@ -154,7 +155,7 @@ export function profileExtension(profiles) {
   const inner = Object.fromEntries(profiles.filter((p) => p.mode).map((p) => [p.type, p.mode]))
   return [
     plantumlLanguage(inner),
-    ...profiles.flatMap((p) => p.completions).map((source) => EditorState.languageData.of(() => [{ autocomplete: source }])),
+    ...profiles.flatMap((p) => p.completions).map((source) => EditorState.languageData.of(() => [{ autocomplete: withDocs(source) }])),
     profileRules.of(profiles.flatMap((p) => p.lints)),
     valuesFacet.of(profiles.flatMap((p) => p.values ?? [])),
   ]

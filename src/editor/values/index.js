@@ -14,6 +14,7 @@
  * @property {() => string[] | Promise<string[]>} [options] a list's values
  * @property {number} [min] the least a number steps to
  * @property {string} [close] what a pick adds after the label, a tag's `>` still to come
+ * @property {string} [doc] the docs kind of each value (`theme`), so its options carry a card
  * @property {boolean} [colours] the list is the server's named colours, each shown with its swatch (W5)
  *
  * @typedef {object} ValueEntry

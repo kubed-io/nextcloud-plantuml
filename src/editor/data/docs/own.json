@@ -1,1 +1,173 @@
-{}
+{
+  "keyword:alt": {
+    "summary": "alternatives"
+  },
+  "keyword:opt": {
+    "summary": "optional"
+  },
+  "keyword:par": {
+    "summary": "parallel"
+  },
+  "keyword:ref": {
+    "summary": "reference"
+  },
+  "keyword:autonumber": {
+    "summary": "number messages"
+  },
+  "keyword:skinparam": {
+    "summary": "style"
+  },
+  "helper:colors": {
+    "summary": "the named colours"
+  },
+  "helper:listsprite": {
+    "summary": "the standard sprites"
+  },
+  "helper:listopeniconic": {
+    "summary": "the Open Iconic icons"
+  },
+  "helper:listfonts": {
+    "summary": "the fonts on the server"
+  },
+  "helper:emoji": {
+    "summary": "the emoji"
+  },
+  "helper:stdlib": {
+    "summary": "the standard library"
+  },
+  "helper:skinparameters": {
+    "summary": "the skin parameters"
+  },
+  "helper:license": {
+    "summary": "the license"
+  },
+  "helper:version": {
+    "summary": "the PlantUML version"
+  },
+  "helper:authors": {
+    "summary": "the authors"
+  },
+  "helper:donors": {
+    "summary": "the donors"
+  },
+  "helper:sudoku": {
+    "summary": "a sudoku"
+  },
+  "helper:help themes": {
+    "summary": "the themes"
+  },
+  "helper:help types": {
+    "summary": "the element types"
+  },
+  "helper:help keywords": {
+    "summary": "the keywords"
+  },
+  "helper:help font": {
+    "summary": "the font help"
+  },
+  "helper:help colors": {
+    "summary": "the colour help"
+  },
+  "connector:-->": {
+    "summary": "dashed arrow"
+  },
+  "connector:->": {
+    "summary": "arrow"
+  },
+  "connector:--": {
+    "summary": "solid line"
+  },
+  "connector:..": {
+    "summary": "dotted"
+  },
+  "connector:~~": {
+    "summary": "wavy"
+  },
+  "connector:==": {
+    "summary": "bold"
+  },
+  "connector:<-": {
+    "summary": "arrow, backwards"
+  },
+  "connector:<--": {
+    "summary": "dashed arrow, backwards"
+  },
+  "connector:<->": {
+    "summary": "arrow both ways"
+  },
+  "connector:->>": {
+    "summary": "async"
+  },
+  "connector:--|>": {
+    "summary": "extends"
+  },
+  "connector:..|>": {
+    "summary": "implements"
+  },
+  "connector:*--": {
+    "summary": "composition"
+  },
+  "connector:o--": {
+    "summary": "aggregation"
+  },
+  "connector:-up->": {
+    "summary": "arrow, placed up"
+  },
+  "connector:-down->": {
+    "summary": "arrow, placed down"
+  },
+  "connector:-left->": {
+    "summary": "arrow, placed left"
+  },
+  "connector:-right->": {
+    "summary": "arrow, placed right"
+  },
+  "connector:-[hidden]-": {
+    "summary": "invisible, for layout"
+  },
+  "tag:b": {
+    "summary": "bold"
+  },
+  "tag:i": {
+    "summary": "italic"
+  },
+  "tag:u": {
+    "summary": "underline"
+  },
+  "tag:s": {
+    "summary": "strike-through"
+  },
+  "tag:w": {
+    "summary": "wavy underline"
+  },
+  "tag:size": {
+    "summary": "size"
+  },
+  "tag:color": {
+    "summary": "colour"
+  },
+  "tag:back": {
+    "summary": "background"
+  },
+  "tag:font": {
+    "summary": "font"
+  },
+  "tag:plain": {
+    "summary": "no formatting"
+  },
+  "tag:sub": {
+    "summary": "subscript"
+  },
+  "tag:sup": {
+    "summary": "superscript"
+  },
+  "tag:img": {
+    "summary": "image"
+  },
+  "tag:code": {
+    "summary": "monospace block"
+  },
+  "tag:r": {
+    "summary": "right-aligned cell"
+  }
+}

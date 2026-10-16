@@ -307,6 +307,8 @@ export const surfaceRules = {
     backgroundColor: 'var(--color-main-background)',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--border-radius-large)',
+    maxHeight: '20em',
+    overflow: 'auto',
   },
   // The doc card (docs/card.js), in a hover tooltip or a completion's info box:
   // the box draws the border, the card only its contents.

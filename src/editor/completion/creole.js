@@ -13,26 +13,26 @@ import { snippetCompletion } from '@codemirror/autocomplete'
 import { connectorTyped } from './connectors.js'
 import { inStyleBody } from '../plantuml-mode.js'
 
-/** [label, template, detail]. `${1:12}` is a field holding 12; a bare `${12}` would be field 12. */
+/** [label, template]; the tag's docs are keyed by its bare word. `${1:12}` is a field holding 12; a bare `${12}` would be field 12. */
 const TAGS = [
-  ['<b>', '<b>${}</b>', 'bold'],
-  ['<i>', '<i>${}</i>', 'italic'],
-  ['<u>', '<u>${}</u>', 'underline'],
-  ['<s>', '<s>${}</s>', 'strike-through'],
-  ['<w>', '<w>${}</w>', 'wavy underline'],
-  ['<size:12>', '<size:${1:12}>', 'size'],
-  ['<color:>', '<color:${}>', 'colour'],
-  ['<back:>', '<back:${}>', 'background'],
-  ['<font:name>', '<font:${name}>${}</font>', 'font'],
-  ['<plain>', '<plain>${}</plain>', 'no formatting'],
-  ['<sub>', '<sub>${}</sub>', 'subscript'],
-  ['<sup>', '<sup>${}</sup>', 'superscript'],
-  ['<img:url>', '<img:${url}>', 'image'],
-  ['<code>', '<code>\n${}\n</code>', 'monospace block'],
-  ['<r>', '<r>', 'right-aligned cell'],
+  ['<b>', '<b>${}</b>'],
+  ['<i>', '<i>${}</i>'],
+  ['<u>', '<u>${}</u>'],
+  ['<s>', '<s>${}</s>'],
+  ['<w>', '<w>${}</w>'],
+  ['<size:12>', '<size:${1:12}>'],
+  ['<color:>', '<color:${}>'],
+  ['<back:>', '<back:${}>'],
+  ['<font:name>', '<font:${name}>${}</font>'],
+  ['<plain>', '<plain>${}</plain>'],
+  ['<sub>', '<sub>${}</sub>'],
+  ['<sup>', '<sup>${}</sup>'],
+  ['<img:url>', '<img:${url}>'],
+  ['<code>', '<code>\n${}\n</code>'],
+  ['<r>', '<r>'],
 ]
 
-const options = TAGS.map(([label, template, detail]) => snippetCompletion(template, { label, detail, type: 'text' }))
+const options = TAGS.map(([label, template]) => snippetCompletion(template, { label, docKey: `tag:${/\w+/.exec(label)[0]}`, type: 'text' }))
 const inline = options.filter((option) => option.label !== '<code>')
 
 /** The tags a `</…>` can close. */

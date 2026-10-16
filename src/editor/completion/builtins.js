@@ -3,17 +3,16 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * PlantUML's built-in functions after a `%`, anywhere in a line but a `'`
- * comment. The list is its own chunk, loaded the first time a `%` is typed
+ * comment (the docs index gives each its detail and card). The list is its own chunk, loaded the first time a `%` is typed
  * (a dynamic import: the entry must never import a chunk statically).
  */
 let loaded = null
 
-function option({ name, description, example }) {
+function option({ name }) {
   return {
     label: name,
     type: 'function',
-    detail: description,
-    ...(example && { info: example }),
+    docKey: `function:${name}`,
     apply: (view, completion, from, to) => {
       const insert = `${name}()`
       view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length - 1 }, userEvent: 'input.complete' })

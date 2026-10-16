@@ -19,6 +19,6 @@ export const themeValue = {
       return []
     }
     const from = lineFrom + found[1].length
-    return [{ from, to: from + found[2].length, kind: 'list', options: () => serverList('themes') }]
+    return [{ from, to: from + found[2].length, kind: 'list', doc: 'theme', options: () => serverList('themes') }]
   },
 }

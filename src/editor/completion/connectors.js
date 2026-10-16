@@ -15,27 +15,27 @@ import { HELPER_HEADS, KEYWORDS } from './keywords.js'
 import { valueAt } from '../values/index.js'
 import { inStyleBody } from '../plantuml-mode.js'
 
-/** [connector, detail], the commonest first. */
+/** The commonest first; what each is lives in the docs (`connector:` keys). */
 export const CONNECTORS = [
-  ['-->', 'dashed arrow'],
-  ['->', 'arrow'],
-  ['--', 'solid line'],
-  ['..', 'dotted'],
-  ['~~', 'wavy'],
-  ['==', 'bold'],
-  ['<-', 'arrow, backwards'],
-  ['<--', 'dashed arrow, backwards'],
-  ['<->', 'arrow both ways'],
-  ['->>', 'async'],
-  ['--|>', 'extends'],
-  ['..|>', 'implements'],
-  ['*--', 'composition'],
-  ['o--', 'aggregation'],
-  ['-up->', 'arrow, placed up'],
-  ['-down->', 'arrow, placed down'],
-  ['-left->', 'arrow, placed left'],
-  ['-right->', 'arrow, placed right'],
-  ['-[hidden]-', 'invisible, for layout'],
+  '-->',
+  '->',
+  '--',
+  '..',
+  '~~',
+  '==',
+  '<-',
+  '<--',
+  '<->',
+  '->>',
+  '--|>',
+  '..|>',
+  '*--',
+  'o--',
+  '-up->',
+  '-down->',
+  '-left->',
+  '-right->',
+  '-[hidden]-',
 ]
 
 function apply(view, completion, from, to) {
@@ -43,7 +43,7 @@ function apply(view, completion, from, to) {
   startCompletion(view)
 }
 
-const options = CONNECTORS.map(([label, detail], i) => ({ label, detail, type: 'operator', boost: -i, apply }))
+const options = CONNECTORS.map((label, i) => ({ label, docKey: `connector:${label}`, type: 'operator', boost: -i, apply }))
 
 const ELEMENT = /(?:\w+|"[^"]*"|\[[^\]]*\]|\([^)]*\)|:[^:]+:)/.source
 // A connector starts with one of these; the rest of it is anything but a space.

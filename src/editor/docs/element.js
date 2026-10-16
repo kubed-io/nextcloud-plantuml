@@ -21,7 +21,7 @@ const DIRECTIVE = /^!\w+$/
 const LIBRARY = /^[ \t]*!include\w*[ \t]*<$/
 const THEME = /^([ \t]*!theme[ \t]+)(\S+)/
 const SKINPARAM = /^([ \t]*skinparam[ \t]+)(\w+)/
-const connectors = new Set(CONNECTORS.map(([connector]) => connector))
+const connectors = new Set(CONNECTORS)
 
 /** Whether the character on `side` of `pos` lies in `from`…`to`. */
 const within = (pos, side, from, to) => (side < 0 ? from < pos && pos <= to : from <= pos && pos < to)
@@ -79,7 +79,7 @@ function lineKey(state, pos, side) {
   }
   const helper = line.text.trim()
   const from = line.from + line.text.indexOf(helper)
-  if (Object.hasOwn(HELPERS, helper) && within(pos, side, from, from + helper.length)) {
+  if (HELPERS.includes(helper) && within(pos, side, from, from + helper.length)) {
     return { key: `helper:${helper}`, from, to: from + helper.length }
   }
   return null

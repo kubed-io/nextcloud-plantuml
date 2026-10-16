@@ -35,7 +35,7 @@ export async function values(context) {
   const labels = await value.options()
   const swatches = value.colours ? await serverColors() : null
   const option = (close) => (label) => {
-    const made = close ? { label, type: 'constant', apply: label + close } : { label, type: 'constant' }
+    const made = { label, type: 'constant', ...(close && { apply: label + close }), ...(value.doc && { docKey: `${value.doc}:${label}` }) }
     return swatches?.[label] ? { ...made, swatch: swatches[label] } : made
   }
   const filtered = (now) => ({ from: now.from, to: now.to, options: labels.map(option(now.close)), validFor: WORD })

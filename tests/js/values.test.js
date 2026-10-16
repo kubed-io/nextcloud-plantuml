@@ -16,7 +16,7 @@ import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import { plantumlCompletion } from '../../src/editor/completion/index.js'
 import { stepNumber, valueAt, valuesOn } from '../../src/editor/values/index.js'
-import { serverColors } from '../../src/editor/completion/server-list.js'
+import { serverColors, serverList } from '../../src/editor/completion/server-list.js'
 import { valueWidgets } from '../../src/editor/values/widgets.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 
@@ -191,7 +191,7 @@ describe('a tag\'s values (W4)', () => {
     ['<&star{color=red,scale=2}>', '2'],
   ])('finds a number, never below 0, in %j', (text, word) => {
     const from = text.indexOf(word)
-    expect(on(text)).toEqual([expect.objectContaining({ from, to: from + word.length, kind: 'number', min: 0 })])
+    expect(on(text).filter((value) => value.kind === 'number')).toEqual([expect.objectContaining({ from, to: from + word.length, kind: 'number', min: 0 })])
   })
 
   it('finds none where the attribute belongs to another tag', () => {
@@ -290,7 +290,7 @@ describe('a tag\'s values (W4)', () => {
     expect(on('skinparam x { scale=2 }')).toEqual([])
     expect(on('A -> B : {scale=3}')).toEqual([])
     for (const tag of ['<&star>{scale=3}', '<:smile:>{scale=3}', '<$box>{scale=3}', '<img:a.png>{scale=3}', '<qrcode:hi>{scale=3}']) {
-      expect(on(tag)).toEqual([expect.objectContaining({ from: tag.indexOf('3'), kind: 'number', min: 0 })])
+      expect(on(tag).filter((value) => value.kind === 'number')).toEqual([expect.objectContaining({ from: tag.indexOf('3'), kind: 'number', min: 0 })])
     }
   })
 
@@ -299,6 +299,58 @@ describe('a tag\'s values (W4)', () => {
 
     expect(choosers()).toHaveLength(1)
     expect(steppers()).toHaveLength(1)
+  })
+})
+
+describe('icons and emoji by name (W7)', () => {
+  const ICONS = ['document', 'file', 'cog', 'star']
+  const EMOJI = ['rocket', 'sunny', 'smile']
+  const lists = async (url) => {
+    const name = String(url).split('/').pop()
+    return new Response(JSON.stringify({ icons: ICONS, emoji: EMOJI }[name] ? { [name]: { icons: ICONS, emoji: EMOJI }[name] } : {}), { status: 200 })
+  }
+  const lists_on = async (text) => {
+    fetch.mockImplementation(lists)
+    await Promise.all([serverList('icons'), serverList('emoji')])
+    return valuesOn(stateAt(text), 1).filter((value) => value.kind === 'list')
+  }
+
+  afterEach(() => fetch.mockImplementation(answer))
+
+  it.each([
+    ['A : <&document> x', 'document'],
+    ['<&cog*4>', 'cog'],
+    ['<&star{scale=2}>', 'star'],
+    ['<:rocket:>', 'rocket'],
+    ['<#green:sunny:>', 'sunny'],
+  ])('finds the name in %j as a list', async (text, name) => {
+    const from = text.indexOf(name)
+    const found = await lists_on(text)
+
+    expect(found).toEqual([expect.objectContaining({ from, to: from + name.length, kind: 'list' })])
+    expect(await found[0].options()).toEqual(name === 'rocket' || name === 'sunny' ? EMOJI : ICONS)
+  })
+
+  it('writes the picked icon over the name, the current name first in the list', async () => {
+    fetch.mockImplementation(lists)
+    await serverList('icons')
+    open('<&docu|ment>')
+    click(choosers()[0])
+
+    const labels = await shown()
+    expect(labels[0]).toBe('document')
+    await pick('file')
+    expect(doc()).toBe('<&file>')
+  })
+
+  it('finds none once the server is known to list none', async () => {
+    fetch.mockImplementation(async () => new Response('{}', { status: 503 }))
+    vi.resetModules()
+    const fresh = await import('../../src/editor/values/index.js')
+    const { serverList: ask } = await import('../../src/editor/completion/server-list.js')
+    await Promise.all([ask('icons'), ask('emoji')])
+
+    expect(fresh.valuesOn(stateAt('<&document> <:rocket:>'), 1)).toEqual([])
   })
 })
 

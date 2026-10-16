@@ -157,6 +157,26 @@ const fontFamilyValue = {
   },
 }
 
+// An icon (`<&name>`) or an emoji (`<:name:>`, with an optional `<#colour:` before it) is a name
+// from the server's list; none once the server is known to list none, so no pencil is drawn for nothing.
+const ICON = /<&([\w.-]+)/g
+const EMOJI = /<(?:#\w+)?:([\w+-]+):/g
+
+const named = (list, pattern) => ({
+  match(lineText, state, lineFrom) {
+    if (serverListNow(list)?.length === 0) {
+      return []
+    }
+    return [...lineText.matchAll(pattern)].map((found) => {
+      const from = lineFrom + found.index + found[0].lastIndexOf(found[1])
+      return { from, to: from + found[1].length, kind: 'list', options: () => serverList(list) }
+    })
+  },
+})
+
+const iconValue = named('icons', ICON)
+const emojiValue = named('emoji', EMOJI)
+
 // A colour is the mode's `ColorLiteral` (so the swatch's, C6): a hex or a name, each part of a
 // gradient its own. The `#` stays outside the range where the place needs it (`#gold` after an
 // element); where the name is written bare (a style block, after `color=`) it is inside, so a
@@ -221,7 +241,7 @@ const colourValue = {
 }
 
 /** @type {ValueEntry[]} */
-export const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue, valignValue, tagNumberValue, spaceValue, fontFamilyValue, colourValue]
+export const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue, valignValue, tagNumberValue, spaceValue, fontFamilyValue, colourValue, iconValue, emojiValue]
 
 /**
  * The values on line `number`, in the order they sit.

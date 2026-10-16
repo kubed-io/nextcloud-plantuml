@@ -287,12 +287,23 @@ function cardView(view, entry, memo) {
   const drawLint = (state) => {
     const found = diagnosticsIn(state, from, to)
     const next = found.length ? lintSection(view, found) : null
+    // A focused action button goes with the old section, and focus with it to the page, where
+    // the next Escape would close the editor: it moves to the button in its place, else the card.
+    const active = dom.ownerDocument.activeElement
+    const at = lint?.contains(active) ? [...lint.querySelectorAll('button')].indexOf(active) : null
     if (lint) {
       lint.replaceWith(...(next ? [next] : []))
     } else if (next) {
       dom.prepend(next)
     }
     lint = next
+    if (at !== null) {
+      const target = next?.querySelectorAll('button')[at] ?? card.dom
+      target.focus({ preventScroll: true })
+      if (!dom.contains(dom.ownerDocument.activeElement)) {
+        view.focus()
+      }
+    }
   }
   dom.append(card.dom)
   drawLint(view.state)

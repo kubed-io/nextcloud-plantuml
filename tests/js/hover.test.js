@@ -595,6 +595,32 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     expect(document.activeElement).toBe(view.contentDOM)
   })
 
+  // Lint redrawing the box's messages removed the focused button, focus fell to the page, and
+  // the next Escape closed the editor.
+  it('keeps focus in the pinned box when new diagnostics redraw its messages', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    pinDocAt(view, at('alt'))
+    const button = host(view).querySelector('button.cm-diagnosticAction')
+    button.focus()
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    const next = host(view).querySelector('button.cm-diagnosticAction')
+    expect(next).not.toBe(button)
+    expect(document.activeElement).toBe(next)
+  })
+
+  it('moves focus to the card when the redraw has no button where the focused one was', () => {
+    const view = viewOf()
+    view.dispatch(setDiagnostics(view.state, [alt()]))
+    pinDocAt(view, at('alt'))
+    host(view).querySelector('button.cm-diagnosticAction').focus()
+    view.dispatch(setDiagnostics(view.state, [{ ...alt(), actions: [] }]))
+    expect(host(view).querySelector('button.cm-diagnosticAction')).toBeNull()
+    expect(document.activeElement).toBe(card(view))
+    view.dispatch(setDiagnostics(view.state, []))
+    expect(document.activeElement).toBe(card(view))
+  })
+
   it('gives focus back to the source when an action’s edit closes the pinned box', async () => {
     const view = viewOf()
     const apply = (view, from, to) => view.dispatch({ changes: { from: to, insert: ' x' } })

@@ -36,7 +36,7 @@ export function sourceOf(key, example) {
   } else if (kind === 'tag' && !example.includes('\n')) {
     body = `A -> B : ${example}`
   } else if (kind === 'property' && !example.includes('<style>')) {
-    body = STYLED.replace('%', example)
+    body = STYLED.replace('%', () => example)
   }
   return `@start${type}\n${body}\n@end${type}`
 }

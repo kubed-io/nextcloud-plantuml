@@ -999,7 +999,7 @@
     "example": "A <-> B"
   },
   "connector:->>": {
-    "summary": "async",
+    "summary": "Async message, open arrowhead",
     "example": "A ->> B : hi"
   },
   "connector:--|>": {
@@ -1835,11 +1835,11 @@
     "example": "<style>\nnode {\n  HyperlinkColor green\n}\n</style>\nnode \"[[http://example.com site]]\" as Web"
   },
   "property:hyperlinkunderlinestyle": {
-    "summary": "Line style of a link underline",
+    "summary": "Line style of a link's underline, PNG only",
     "example": "<style>\nnode {\n  HyperlinkUnderlineStyle dashed\n}\n</style>\nnode \"[[http://example.com site]]\" as Web"
   },
   "property:hyperlinkunderlinethickness": {
-    "summary": "Thickness of a link underline",
+    "summary": "Thickness of a link's underline, PNG only",
     "example": "<style>\nnode {\n  HyperlinkUnderlineThickness 3\n}\n</style>\nnode \"[[http://example.com site]]\" as Web"
   },
   "property:headcolor": {
@@ -1871,11 +1871,11 @@
     "example": "<style>\nnode {\n  MinimumWidth 200\n}\n</style>\nnode Web"
   },
   "property:exportedname": {
-    "summary": "Name given to an exported image",
+    "summary": "Accepted but unused on PlantUML 1.2026.8",
     "example": "<style>\ndocument {\n  ExportedName shop\n}\n</style>\nnode Web"
   },
   "property:image": {
-    "summary": "Image drawn in an element",
+    "summary": "Accepted but unused on PlantUML 1.2026.8",
     "example": "<style>\nnode {\n  Image logo.png\n}\n</style>\nnode Web"
   },
   "property:horizontalalignment": {
@@ -1883,11 +1883,11 @@
     "example": "<style>\nnode {\n  HorizontalAlignment right\n}\n</style>\nnode \"Web server\\nfarm\" as Web"
   },
   "property:showstereotype": {
-    "summary": "Shows or hides stereotypes on participants",
+    "summary": "Shows or hides stereotypes",
     "example": "<style>\nparticipant {\n  ShowStereotype false\n}\n</style>\nparticipant Bob <<srv>>"
   },
   "property:imageposition": {
-    "summary": "Where the image sits in an element",
+    "summary": "Accepted but unused on PlantUML 1.2026.8",
     "example": "<style>\nnode {\n  ImagePosition left\n}\n</style>\nnode Web"
   },
   "property:markershape": {
@@ -1907,7 +1907,7 @@
     "example": "@startchart\n<style>bar { BarWidth 0.3 }</style>\nbar \"S\" [45, 62]\n@endchart"
   },
   "property:width": {
-    "summary": "Width of an element",
-    "example": "<style>\nnode {\n  Width 200\n}\n</style>\nnode Web"
+    "summary": "Width of a WBS node; auto fits the text",
+    "example": "@startwbs\n<style>node { Width auto }</style>\n* Plan\n** Build\n@endwbs"
   }
 }

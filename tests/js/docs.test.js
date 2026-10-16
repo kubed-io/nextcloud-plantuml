@@ -5,8 +5,9 @@
 // our own lines and the plantuml.com links are merged, and how it loads.
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
+import { CONNECTORS } from '../../src/editor/completion/connectors.js'
 import { buildDocs, loadDocs } from '../../src/editor/docs/index.js'
-import { KEYWORDS } from '../../src/editor/completion/keywords.js'
+import { HELPERS, KEYWORDS } from '../../src/editor/completion/keywords.js'
 
 // The first import of own.json fails, as a chunk does offline; every later one answers.
 const own = vi.hoisted(() => ({ failures: 1 }))
@@ -259,5 +260,58 @@ describe('our own lines for diagram types, directives and functions', () => {
       home: 'sequence',
       example: 'alt paid\n  Shop -> Customer : receipt\nelse declined\n  Shop -> Customer : retry\nend',
     })
+  })
+})
+
+describe('our own lines for types, tags, connectors, commands and style properties', () => {
+  const real = buildDocs({
+    own: data('docs/own'),
+    links: data('docs/links'),
+    source: data('docs/source'),
+    builtins: data('builtins'),
+    language: data('language'),
+    vocabulary: data('vocabulary'),
+  })
+  const ownLines = data('docs/own')
+  const missing = (keys) => keys.filter((key) => !real.get(key)?.summary || !real.get(key)?.example)
+  // A type that only one block knows, such as `network`, is described by its `@<type>` entry.
+  const lacking = (words) => words.filter((word) => {
+    const keys = [word, ...Object.keys(ownLines).filter((key) => key.startsWith(`${word}@`))]
+    return !keys.some((key) => {
+      const [plain, type] = key.split('@')
+      const entry = real.get(plain, type ?? 'uml')
+      return entry?.summary && entry.example
+    })
+  })
+  const creole = readFileSync(new URL('../../src/editor/completion/creole.js', import.meta.url), 'utf8')
+  const tags = [...creole.matchAll(/^ {2}\['<(\w+)/gm)].map(([, tag]) => `tag:${tag}`)
+
+  it('gives every element type a summary and an example', () => {
+    const types = data('language').types.map((word) => `keyword:${word}`)
+    expect(types).toHaveLength(53)
+    expect(lacking(types)).toEqual([])
+  })
+
+  it('gives every Creole tag, and the style block, a summary and an example', () => {
+    expect(tags).toHaveLength(15)
+    expect(missing([...tags, 'tag:style'])).toEqual([])
+    expect(real.get('tag:style').kind).toBe('style block')
+    expect(real.get('tag:back').example).toBe('<back:LightBlue>paid</back>')
+  })
+
+  it('gives every connector a summary and an example', () => {
+    expect(CONNECTORS).toHaveLength(19)
+    expect(missing(CONNECTORS.map((name) => `connector:${name}`))).toEqual([])
+  })
+
+  it('gives every helper command a summary and an example', () => {
+    expect(HELPERS).toHaveLength(17)
+    expect(missing(HELPERS.map((name) => `helper:${name}`))).toEqual([])
+  })
+
+  it('gives every style property a summary and an example', () => {
+    const properties = data('vocabulary').style.properties
+    expect(properties).toHaveLength(30)
+    expect(missing(properties.map((name) => `property:${name.toLowerCase()}`))).toEqual([])
   })
 })

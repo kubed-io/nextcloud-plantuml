@@ -895,157 +895,208 @@
     "example": "{ \"a\": null }"
   },
   "helper:colors": {
-    "summary": "the named colours"
+    "summary": "the named colours",
+    "example": "colors"
   },
   "helper:listsprite": {
-    "summary": "the standard sprites"
+    "summary": "the standard sprites",
+    "example": "listsprite"
   },
   "helper:listopeniconic": {
-    "summary": "the Open Iconic icons"
+    "summary": "the Open Iconic icons",
+    "example": "listopeniconic"
   },
   "helper:listfonts": {
-    "summary": "the fonts on the server"
+    "summary": "the fonts on the server",
+    "example": "listfonts"
   },
   "helper:emoji": {
-    "summary": "the emoji"
+    "summary": "the emoji",
+    "example": "emoji"
   },
   "helper:stdlib": {
-    "summary": "the standard library"
+    "summary": "the standard library",
+    "example": "stdlib"
   },
   "helper:skinparameters": {
-    "summary": "the skin parameters"
+    "summary": "the skin parameters",
+    "example": "skinparameters"
   },
   "helper:license": {
-    "summary": "the license"
+    "summary": "the license",
+    "example": "license"
   },
   "helper:version": {
-    "summary": "the PlantUML version"
+    "summary": "the PlantUML version",
+    "example": "version"
   },
   "helper:authors": {
-    "summary": "the authors"
+    "summary": "the authors",
+    "example": "authors"
   },
   "helper:donors": {
-    "summary": "the donors"
+    "summary": "the donors",
+    "example": "donors"
   },
   "helper:sudoku": {
-    "summary": "a sudoku"
+    "summary": "a sudoku",
+    "example": "sudoku"
   },
   "helper:help themes": {
-    "summary": "the themes"
+    "summary": "the themes",
+    "example": "help themes"
   },
   "helper:help types": {
-    "summary": "the element types"
+    "summary": "the element types",
+    "example": "help types"
   },
   "helper:help keywords": {
-    "summary": "the keywords"
+    "summary": "the keywords",
+    "example": "help keywords"
   },
   "helper:help font": {
-    "summary": "the font help"
+    "summary": "the font help",
+    "example": "help font"
   },
   "helper:help colors": {
-    "summary": "the colour help"
+    "summary": "the colour help",
+    "example": "help colors"
   },
   "connector:-->": {
-    "summary": "dashed arrow"
+    "summary": "dashed arrow",
+    "example": "A --> B"
   },
   "connector:->": {
-    "summary": "arrow"
+    "summary": "arrow",
+    "example": "A -> B"
   },
   "connector:--": {
-    "summary": "solid line"
+    "summary": "solid line",
+    "example": "A -- B"
   },
   "connector:..": {
-    "summary": "dotted"
+    "summary": "dotted",
+    "example": "A .. B"
   },
   "connector:~~": {
-    "summary": "wavy"
+    "summary": "wavy",
+    "example": "A ~~ B"
   },
   "connector:==": {
-    "summary": "bold"
+    "summary": "bold",
+    "example": "A == B"
   },
   "connector:<-": {
-    "summary": "arrow, backwards"
+    "summary": "arrow, backwards",
+    "example": "A <- B"
   },
   "connector:<--": {
-    "summary": "dashed arrow, backwards"
+    "summary": "dashed arrow, backwards",
+    "example": "A <-- B"
   },
   "connector:<->": {
-    "summary": "arrow both ways"
+    "summary": "arrow both ways",
+    "example": "A <-> B"
   },
   "connector:->>": {
-    "summary": "async"
+    "summary": "async",
+    "example": "A ->> B : hi"
   },
   "connector:--|>": {
-    "summary": "extends"
+    "summary": "extends",
+    "example": "class Dog\nclass Animal\nDog --|> Animal"
   },
   "connector:..|>": {
-    "summary": "implements"
+    "summary": "implements",
+    "example": "interface Shape\nclass Box\nBox ..|> Shape"
   },
   "connector:*--": {
-    "summary": "composition"
+    "summary": "composition",
+    "example": "class Car\nclass Wheel\nCar *-- Wheel"
   },
   "connector:o--": {
-    "summary": "aggregation"
+    "summary": "aggregation",
+    "example": "class Car\nclass Engine\nCar o-- Engine"
   },
   "connector:-up->": {
-    "summary": "arrow, placed up"
+    "summary": "arrow, placed up",
+    "example": "node A\nnode B\nA -up-> B"
   },
   "connector:-down->": {
-    "summary": "arrow, placed down"
+    "summary": "arrow, placed down",
+    "example": "node A\nnode B\nA -down-> B"
   },
   "connector:-left->": {
-    "summary": "arrow, placed left"
+    "summary": "arrow, placed left",
+    "example": "node A\nnode B\nA -left-> B"
   },
   "connector:-right->": {
-    "summary": "arrow, placed right"
+    "summary": "arrow, placed right",
+    "example": "node A\nnode B\nA -right-> B"
   },
   "connector:-[hidden]-": {
-    "summary": "invisible, for layout"
+    "summary": "invisible, for layout",
+    "example": "node A\nnode B\nA -[hidden]- B"
   },
   "tag:b": {
-    "summary": "bold"
+    "summary": "bold",
+    "example": "<b>paid</b>"
   },
   "tag:i": {
-    "summary": "italic"
+    "summary": "italic",
+    "example": "<i>paid</i>"
   },
   "tag:u": {
-    "summary": "underline"
+    "summary": "underline",
+    "example": "<u>paid</u>"
   },
   "tag:s": {
-    "summary": "strike-through"
+    "summary": "strike-through",
+    "example": "<s>old</s>"
   },
   "tag:w": {
-    "summary": "wavy underline"
+    "summary": "wavy underline",
+    "example": "<w>odd</w>"
   },
   "tag:size": {
-    "summary": "size"
+    "summary": "size",
+    "example": "<size:20>big</size>"
   },
   "tag:color": {
-    "summary": "colour"
+    "summary": "colour",
+    "example": "<color:red>late</color>"
   },
   "tag:back": {
-    "summary": "background"
+    "summary": "background",
+    "example": "<back:LightBlue>paid</back>"
   },
   "tag:font": {
-    "summary": "font"
+    "summary": "font",
+    "example": "<font:Courier>id 7</font>"
   },
   "tag:plain": {
-    "summary": "no formatting"
+    "summary": "no formatting",
+    "example": "<b>bold <plain>plain</plain></b>"
   },
   "tag:sub": {
-    "summary": "subscript"
+    "summary": "subscript",
+    "example": "H<sub>2</sub>O"
   },
   "tag:sup": {
-    "summary": "superscript"
+    "summary": "superscript",
+    "example": "x<sup>2</sup>"
   },
   "tag:img": {
-    "summary": "image"
+    "summary": "image",
+    "example": "<img:https://example.com/logo.png>"
   },
   "tag:code": {
-    "summary": "monospace block"
+    "summary": "monospace block",
+    "example": "A -> B\nnote right\n<code>\nx = 1\n</code>\nend note"
   },
   "tag:r": {
-    "summary": "right-aligned cell"
+    "summary": "right-aligned cell",
+    "example": "A -> B\nnote right\n| 11111111 | b |\n|<r> 3 | 4 |\nend note"
   },
   "diagram:uml": {
     "summary": "UML diagrams, drawn from text",
@@ -1596,5 +1647,267 @@
     "signature": "%xor(a, b[, ...])",
     "summary": "Logical xor of its arguments",
     "example": "%xor(1 == 1, 2 == 2)"
+  },
+  "keyword:action": {
+    "summary": "Declares an action",
+    "example": "action Pay",
+    "home": "deployment"
+  },
+  "keyword:agent": {
+    "summary": "Declares an agent",
+    "example": "agent Bot",
+    "home": "deployment"
+  },
+  "keyword:analog": {
+    "summary": "Declares a signal drawn as a line",
+    "example": "analog \"Temp\" as T\n@0\nT is 20\n@5\nT is 30",
+    "home": "timing"
+  },
+  "keyword:archimate": {
+    "summary": "Declares an Archimate element",
+    "example": "archimate #Technology \"Server\" as srv <<technology-node>>",
+    "home": "deployment"
+  },
+  "keyword:artifact": {
+    "summary": "Declares an artifact",
+    "example": "artifact app.jar",
+    "home": "deployment"
+  },
+  "keyword:binary": {
+    "summary": "Declares a signal with two levels",
+    "example": "binary \"Switch\" as S\n@0\nS is low\n@10\nS is high",
+    "home": "timing"
+  },
+  "keyword:card": {
+    "summary": "Declares a card",
+    "example": "card Ticket",
+    "home": "deployment"
+  },
+  "keyword:clock": {
+    "summary": "Declares a clock signal",
+    "example": "clock \"clk\" as C with period 50",
+    "home": "timing"
+  },
+  "keyword:concise": {
+    "summary": "Declares a signal drawn as labelled bars",
+    "example": "concise \"Link\" as L\n@0\nL is idle\n@10\nL is busy",
+    "home": "timing"
+  },
+  "keyword:dataclass": {
+    "summary": "Declares a data class",
+    "example": "dataclass Point",
+    "home": "class"
+  },
+  "keyword:diamond": {
+    "summary": "Declares a diamond",
+    "example": "diamond Choice",
+    "home": "class"
+  },
+  "keyword:exception": {
+    "summary": "Declares an exception class",
+    "example": "exception Failure",
+    "home": "class"
+  },
+  "keyword:file": {
+    "summary": "Declares a file",
+    "example": "file notes",
+    "home": "deployment"
+  },
+  "keyword:hexagon": {
+    "summary": "Declares a hexagon",
+    "example": "hexagon Core",
+    "home": "deployment"
+  },
+  "keyword:json": {
+    "summary": "Declares a JSON object",
+    "example": "json Order {\n  \"id\": 7\n}",
+    "home": "object"
+  },
+  "keyword:map": {
+    "summary": "Declares a map of keys to values",
+    "example": "map Table {\n  id => 7\n}",
+    "home": "object"
+  },
+  "keyword:metaclass": {
+    "summary": "Declares a metaclass",
+    "example": "metaclass Meta",
+    "home": "class"
+  },
+  "keyword:person": {
+    "summary": "Declares a person",
+    "example": "person Ann",
+    "home": "deployment"
+  },
+  "keyword:process": {
+    "summary": "Declares a process",
+    "example": "process Run",
+    "home": "deployment"
+  },
+  "keyword:protocol": {
+    "summary": "Declares a protocol",
+    "example": "protocol Wire",
+    "home": "class"
+  },
+  "keyword:record": {
+    "summary": "Declares a record",
+    "example": "record Row",
+    "home": "class"
+  },
+  "keyword:robust": {
+    "summary": "Declares a signal with named states",
+    "example": "robust \"Bus\" as B\n@0\nB is idle\n@10\nB is busy",
+    "home": "timing"
+  },
+  "keyword:stack": {
+    "summary": "Declares a stack",
+    "example": "stack Pile",
+    "home": "deployment"
+  },
+  "keyword:storage": {
+    "summary": "Declares a storage",
+    "example": "storage Disk",
+    "home": "deployment"
+  },
+  "keyword:struct": {
+    "summary": "Declares a struct",
+    "example": "struct Pt",
+    "home": "class"
+  },
+  "keyword:network@nwdiag": {
+    "summary": "A network the nodes below it join",
+    "example": "network dmz {\n  web01;\n}"
+  },
+  "keyword:packetdiag@packetdiag": {
+    "summary": "Opens the packet layout block",
+    "example": "packetdiag {\n  0-7: Port\n}"
+  },
+  "keyword:relationship@chen": {
+    "summary": "Declares a relationship between entities",
+    "example": "entity Student {\n}\nrelationship Enrolls {\n}\nStudent -N- Enrolls"
+  },
+  "tag:style": {
+    "summary": "Sets colours, fonts and lines by element",
+    "kind": "style block",
+    "example": "<style>\nnode {\n  BackgroundColor LightBlue\n}\n</style>\nnode Web"
+  },
+  "property:shadowing": {
+    "summary": "Draws a shadow under elements",
+    "example": "<style>\nnode {\n  Shadowing true\n}\n</style>\nnode Web"
+  },
+  "property:fontname": {
+    "summary": "Typeface of the text",
+    "example": "<style>\nnode {\n  FontName Courier\n}\n</style>\nnode Web"
+  },
+  "property:fontcolor": {
+    "summary": "Colour of the text",
+    "example": "<style>\nnode {\n  FontColor red\n}\n</style>\nnode Web"
+  },
+  "property:fontsize": {
+    "summary": "Size of the text",
+    "example": "<style>\nnode {\n  FontSize 20\n}\n</style>\nnode Web"
+  },
+  "property:fontstyle": {
+    "summary": "Style of the text, such as italic",
+    "example": "<style>\nnode {\n  FontStyle italic\n}\n</style>\nnode Web"
+  },
+  "property:fontweight": {
+    "summary": "Weight of the text, such as bold",
+    "example": "<style>\nnode {\n  FontWeight bold\n}\n</style>\nnode Web"
+  },
+  "property:backgroundcolor": {
+    "summary": "Fill colour",
+    "example": "<style>\nnode {\n  BackgroundColor LightBlue\n}\n</style>\nnode Web"
+  },
+  "property:roundcorner": {
+    "summary": "Radius of rounded corners",
+    "example": "<style>\nrectangle {\n  RoundCorner 25\n}\n</style>\nrectangle Web"
+  },
+  "property:linethickness": {
+    "summary": "Thickness of the outline",
+    "example": "<style>\nnode {\n  LineThickness 4\n}\n</style>\nnode Web"
+  },
+  "property:diagonalcorner": {
+    "summary": "Size of the cut corners",
+    "example": "<style>\nrectangle {\n  DiagonalCorner 15\n}\n</style>\nrectangle Web"
+  },
+  "property:hyperlinkcolor": {
+    "summary": "Colour of a link",
+    "example": "<style>\nnode {\n  HyperlinkColor green\n}\n</style>\nnode \"[[http://example.com site]]\" as Web"
+  },
+  "property:hyperlinkunderlinestyle": {
+    "summary": "Line style of a link underline",
+    "example": "<style>\nnode {\n  HyperlinkUnderlineStyle dashed\n}\n</style>\nnode \"[[http://example.com site]]\" as Web"
+  },
+  "property:hyperlinkunderlinethickness": {
+    "summary": "Thickness of a link underline",
+    "example": "<style>\nnode {\n  HyperlinkUnderlineThickness 3\n}\n</style>\nnode \"[[http://example.com site]]\" as Web"
+  },
+  "property:headcolor": {
+    "summary": "Colour of the arrowheads",
+    "example": "<style>\narrow {\n  HeadColor red\n}\n</style>\nA --> B"
+  },
+  "property:linecolor": {
+    "summary": "Colour of the outline",
+    "example": "<style>\nnode {\n  LineColor red\n}\n</style>\nnode Web"
+  },
+  "property:linestyle": {
+    "summary": "Dash pattern of the outline, as dash-gap",
+    "example": "<style>\nnode {\n  LineStyle 8-4\n}\n</style>\nnode Web"
+  },
+  "property:padding": {
+    "summary": "Space inside the border",
+    "example": "<style>\nparticipant {\n  Padding 12\n}\n</style>\nAlice -> Bob"
+  },
+  "property:margin": {
+    "summary": "Space outside the border",
+    "example": "<style>\nparticipant {\n  Margin 12\n}\n</style>\nAlice -> Bob"
+  },
+  "property:maximumwidth": {
+    "summary": "Widest an element grows, longer text wraps",
+    "example": "<style>\nnode {\n  MaximumWidth 60\n}\n</style>\nnode \"Web server farm\" as Web"
+  },
+  "property:minimumwidth": {
+    "summary": "Narrowest an element can be",
+    "example": "<style>\nnode {\n  MinimumWidth 200\n}\n</style>\nnode Web"
+  },
+  "property:exportedname": {
+    "summary": "Name given to an exported image",
+    "example": "<style>\ndocument {\n  ExportedName shop\n}\n</style>\nnode Web"
+  },
+  "property:image": {
+    "summary": "Image drawn in an element",
+    "example": "<style>\nnode {\n  Image logo.png\n}\n</style>\nnode Web"
+  },
+  "property:horizontalalignment": {
+    "summary": "Alignment of the text inside an element",
+    "example": "<style>\nnode {\n  HorizontalAlignment right\n}\n</style>\nnode \"Web server\\nfarm\" as Web"
+  },
+  "property:showstereotype": {
+    "summary": "Shows or hides stereotypes on participants",
+    "example": "<style>\nparticipant {\n  ShowStereotype false\n}\n</style>\nparticipant Bob <<srv>>"
+  },
+  "property:imageposition": {
+    "summary": "Where the image sits in an element",
+    "example": "<style>\nnode {\n  ImagePosition left\n}\n</style>\nnode Web"
+  },
+  "property:markershape": {
+    "summary": "Shape of a chart marker",
+    "example": "@startchart\n<style>.d { MarkerShape square }</style>\nh-axis 0 --> 5\nscatter <<d>> \"C\" [(1,2),(3,4)]\n@endchart"
+  },
+  "property:markersize": {
+    "summary": "Size of a chart marker",
+    "example": "@startchart\n<style>.d { MarkerSize 12 }</style>\nh-axis 0 --> 5\nscatter <<d>> \"C\" [(1,2),(3,4)]\n@endchart"
+  },
+  "property:markercolor": {
+    "summary": "Colour of a chart marker",
+    "example": "@startchart\n<style>.d { MarkerColor red }</style>\nh-axis 0 --> 5\nscatter <<d>> \"C\" [(1,2),(3,4)]\n@endchart"
+  },
+  "property:barwidth": {
+    "summary": "Width of a chart bar",
+    "example": "@startchart\n<style>bar { BarWidth 0.3 }</style>\nbar \"S\" [45, 62]\n@endchart"
+  },
+  "property:width": {
+    "summary": "Width of an element",
+    "example": "<style>\nnode {\n  Width 200\n}\n</style>\nnode Web"
   }
 }

@@ -16,14 +16,28 @@ const own = JSON.parse(readFileSync(new URL('../src/editor/data/docs/own.json', 
  */
 const UNDRAWN = new Set(['diagram:chronology', 'diagram:jcckit', 'directive:!import', 'directive:!includesub'])
 
-/** What the server is sent: a diagram's example as it is, a directive's or a function's wrapped in a diagram. */
+/** The element a style property's example is wrapped around when it is only the property's line. */
+const STYLED = '<style>\nnode {\n  %\n}\n</style>\nnode Web'
+
+/**
+ * What the server is sent: a diagram's example as it is, and any other wrapped in the context it needs. A
+ * function's or a Creole tag's fragment goes in a message line (a whole-line example, one with a line
+ * break, stands as it is), a style property's bare line in a style block with an element to style.
+ */
 export function sourceOf(key, example) {
   if (example.startsWith('@start')) {
     return example
   }
   const [, kind, at] = /^(\w+):.*?(?:@(\w+))?$/.exec(key) ?? []
   const type = at ?? 'uml'
-  const body = kind === 'function' && example.startsWith('%') ? `Alice -> Bob : ${example}` : example
+  let body = example
+  if (kind === 'function' && example.startsWith('%')) {
+    body = `Alice -> Bob : ${example}`
+  } else if (kind === 'tag' && !example.includes('\n')) {
+    body = `A -> B : ${example}`
+  } else if (kind === 'property' && !example.includes('<style>')) {
+    body = STYLED.replace('%', example)
+  }
   return `@start${type}\n${body}\n@end${type}`
 }
 

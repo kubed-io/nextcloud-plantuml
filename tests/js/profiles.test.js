@@ -66,6 +66,16 @@ describe('the profiles a file needs', () => {
     expect(neededFor('@startuml\na {\n}\n@enduml\n')).toEqual(new Set())
   })
 
+  it('are packetdiag only when a packetdiag block is in the file', () => {
+    expect(neededFor('@startpacketdiag\n0-7: a\n@endpacketdiag\n')).toEqual(new Set(['packetdiag']))
+    expect(neededFor('@startuml\n0-7: a\n@enduml\n')).toEqual(new Set())
+  })
+
+  it('are nwdiag only when an nwdiag block is in the file', () => {
+    expect(neededFor('@startnwdiag\na -- b\n@endnwdiag\n')).toEqual(new Set(['nwdiag']))
+    expect(neededFor('@startuml\na -- b\n@enduml\n')).toEqual(new Set())
+  })
+
   it('are chen only when a chen block is in the file', () => {
     expect(neededFor('@startchen\nentity A {\n}\n@endchen\n')).toEqual(new Set(['chen']))
     expect(neededFor('@startuml\nentity A {\n}\n@enduml\n')).toEqual(new Set())

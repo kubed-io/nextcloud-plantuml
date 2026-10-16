@@ -1,0 +1,94 @@
+@startnwdiag
+nwdiag {
+  network dmz {
+    address = "210.x.x.x/24"
+    web01 [address = "210.x.x.1"];
+    web02 [address = "210.x.x.2"];
+  }
+  network internal {
+    address = "172.x.x.x/24";
+    web01 [address = "172.x.x.1"];
+    db01;
+    db02 [address = "172.x.x.3", description = "db <b>master</b>"];
+  }
+}
+@endnwdiag
+@startnwdiag
+// a comment line
+nwdiag {
+  group web {
+    color = "#FFAAAA";
+    description = "Web tier";
+    web01;
+    web02;
+  }
+  network dmz {
+    width = full;
+    web01 [shape = cloud, color = "red"];
+    web02;
+  }
+}
+@endnwdiag
+@startnwdiag
+nwdiag {
+  inet -- router;
+  router -- web01;
+}
+@endnwdiag
+@startnwdiag
+nwdiag {
+  network Sample_front {
+    address = "192.168.10.0/24"
+    color = "red"
+
+    // define group
+    group web {
+      web01 [address = ".1, .2", shape = "node"]
+      web02 [address = ".2, .3"]
+    }
+  }
+  network Sample_back {
+    address = "192.168.20.0/24"
+    color = "palegreen"
+    web01 [address = ".1"]
+    web02 [address = ".2"]
+    db01 [address = ".101", shape = database ]
+    db02 [address = ".102"]
+
+    // define network using defined nodes
+    group db {
+      db01;
+      db02;
+    }
+  }
+}
+@endnwdiag
+@startnwdiag
+
+nwdiag {
+  group nightly {
+    color = "#FFAAAA";
+    description = "<&clock> Restarted nightly <&clock>";
+    web02;
+    db01;
+  }
+  network dmz {
+      address = "210.x.x.x/24"
+
+      user [description = "<&person*4.5>\n user1"];
+      // set multiple addresses (using comma)
+      web01 [address = "210.x.x.1, 210.x.x.20",  description = "<&cog*4>\nweb01"]
+      web02 [address = "210.x.x.2",  description = "<&cog*4>\nweb02"];
+
+  }
+  network internal {
+      address = "172.x.x.x/24";
+
+      web01 [address = "172.x.x.1"];
+      web02 [address = "172.x.x.2"];
+      db01 [address = "172.x.x.100",  description = "<&spreadsheet*4>\n db01"];
+      db02 [address = "172.x.x.101",  description = "<&spreadsheet*4>\n db02"];
+      ptr  [address = "172.x.x.110",  description = "<&print*4>\n ptr01"];
+  }
+}
+@endnwdiag

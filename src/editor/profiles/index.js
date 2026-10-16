@@ -60,6 +60,8 @@ export const PROFILES = {
   bpm: () => import('./bpm.js'),
   dot: () => import('./dot.js'),
   hcl: () => import('./hcl.js'),
+  packetdiag: () => import('./packetdiag.js'),
+  nwdiag: () => import('./nwdiag.js'),
 }
 
 const ARCHIMATE = /^\s*(?:!include\s+<archimate\/|archimate\b)/

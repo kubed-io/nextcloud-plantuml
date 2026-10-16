@@ -33,6 +33,8 @@ import { scan } from '../../src/editor/blocks.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
+import language from '../../src/editor/data/language.json'
+import docSource from '../../src/editor/data/docs/source.json'
 import preprocessor from '../../src/editor/data/directives.json'
 import { filePath } from '../../src/editor/lint/state.js'
 import { listFolder, loadFile } from '../../src/editor/save.js'
@@ -1935,5 +1937,66 @@ describe('the docs beside the completion list', () => {
 
   it('passes a source that offers nothing through', async () => {
     expect(await docd(connectors, 'x|')).toBeNull()
+  })
+})
+
+// The seam between the sources and the index: every docKey a source offers names an entry of
+// the shipped index, for some block type (a gantt word is offered in every block, and only
+// gantt's entry describes it).
+describe('every docKey a source offers resolves in the shipped index', () => {
+  const TYPES = [undefined, ...language.keywords.filter((word) => word.startsWith('@start')).map((word) => word.slice(6))]
+  const server = {
+    types: language.types,
+    keywords: language.keywords.filter((word) => !word.startsWith('@')),
+    themes: Object.keys(docSource.themes),
+    stdlib: Object.keys(docSource.libraries).map((name) => ({ name: name.toLowerCase(), version: '1.0', source: 'https://x.example' })),
+  }
+  let fresh
+
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
+    vi.stubGlobal('fetch', answering(server))
+    fresh = await import('../../src/editor/completion/index.js')
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** The docKeys `source` offers at each marked context, asked for. */
+  async function keysOf(source, contexts) {
+    const keys = new Set()
+    for (const marked of contexts) {
+      const pos = marked.indexOf('|')
+      const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, profileExtension([styleProfile({ scan, t: (app, text) => text })])] })
+      const result = await source(new CompletionContext(state, pos, true))
+      expect(result?.options.length, `${source.name} at ${JSON.stringify(marked)}`).toBeGreaterThan(0)
+      for (const { docKey } of result.options) {
+        if (docKey) {
+          keys.add(docKey)
+        }
+      }
+    }
+    return [...keys]
+  }
+
+  it.each([
+    ['directives', ['@|', '!|']],
+    ['keywords', ['@startuml\n|', '@startuml\nend |', '@startchart\n|', '@startgantt\n|']],
+    ['values', ['!theme |']],
+    ['connectors', ['A |']],
+    ['stdlib', ['!include <|']],
+    ['creole', ['A -> B : <|']],
+    ['builtins', ['%|']],
+  ])('%s', async (name, contexts) => {
+    const docs = await loadDocs()
+    const source = fresh.sources.find((candidate) => candidate.name === name)
+    const keys = await keysOf(source, contexts)
+    expect(keys.length).toBeGreaterThan(0)
+    expect(keys.filter((key) => !TYPES.some((type) => docs.get(key, type)))).toEqual([])
+  })
+
+  it('style', async () => {
+    const docs = await loadDocs()
+    const keys = await keysOf(styleCompletion({ scan }), ['<style>\n|\n</style>', '<style>\nactor {\n  |\n}\n</style>'])
+    expect(keys.filter((key) => !docs.get(key))).toEqual([])
   })
 })

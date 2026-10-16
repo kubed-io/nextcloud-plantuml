@@ -21,6 +21,7 @@ import styleProfile from '../../src/editor/profiles/style.js'
 import ganttProfile, { project as projectProfile } from '../../src/editor/profiles/gantt.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 import dotProfile from '../../src/editor/profiles/dot.js'
+import mindmapProfile from '../../src/editor/profiles/tree.js'
 import jsonProfile from '../../src/editor/profiles/json.js'
 import hclProfile from '../../src/editor/profiles/hcl.js'
 import ownLines from '../../src/editor/data/docs/own.json'
@@ -58,7 +59,7 @@ vi.mock('../../src/editor/docs/index.js', async (importOriginal) => {
   return { ...real, loadDocs: vi.fn(() => Promise.resolve(docs)) }
 })
 
-const extensions = [profileExtension([styleProfile(core), ganttProfile(core), projectProfile(core), yamlProfile(core), dotProfile(core), jsonProfile(core), hclProfile(core)])]
+const extensions = [profileExtension([styleProfile(core), ganttProfile(core), projectProfile(core), yamlProfile(core), dotProfile(core), jsonProfile(core), hclProfile(core), mindmapProfile(core)])]
 
 /**
  * The element inside the `nth` (0-based) `word` of the lines, one character in,
@@ -84,9 +85,10 @@ describe('elementAt: known elements', () => {
     expect(on(['@startgantt', '[T] lasts 5 days', '@endgantt'], '@endgantt')).toMatchObject({ key: 'diagram:gantt', type: 'gantt' })
   })
 
-  it('reads a keyword, a two-word one as its last word', () => {
+  it('reads a keyword, a phrase as its words lower-cased', () => {
     expect(on(['alt paid', 'end'], 'alt')).toEqual({ key: 'keyword:alt', type: 'uml', from: 0, to: 3 })
-    expect(key(['note over A', 'text', 'end note'], 'end note')).toBe('keyword:note')
+    expect(key(['note over A', 'text', 'end note'], 'end note')).toBe('keyword:end note')
+    expect(key(['note over A', 'text', 'end  note'], 'end  note')).toBe('keyword:end note')
   })
 
   it('reads a keyword lower-cased, as PlantUML reads its commands', () => {
@@ -236,6 +238,19 @@ describe('elementAt with the shipped index: a data block’s values open no card
     ['an hcl atom', ['@starthcl', 'a = true', '@endhcl'], 'true'],
   ])('%s', (_name, lines, word) => {
     expect(card(lines, word)).toBeNull()
+  })
+})
+
+describe('elementAt with the shipped index: a phrase', () => {
+  const card = (lines, word) => {
+    const element = on(lines, word)
+    return element && shipped.get(element.key, element.type)
+  }
+
+  it('is its own entry’s where it has one, else its last word’s', () => {
+    expect(card(['@startmindmap', 'left to right direction', '* root', '@endmindmap'], 'left to right direction').summary).toBe('Lays the map out left to right')
+    expect(card(['note over A', 'text', 'end note'], 'end note')).toBe(shipped.get('keyword:note'))
+    expect(card(['start', 'fork', '  :a;', 'end fork'], 'end fork')).toBe(shipped.get('keyword:fork'))
   })
 })
 

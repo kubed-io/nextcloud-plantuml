@@ -49,8 +49,11 @@ export const HELPER_HEADS = ['colors', 'help']
 
 const helpers = HELPERS.map((label) => ({ label, type: 'keyword', docKey: `helper:${label}` }))
 
+/** A keyword's docs key, lower-cased as `docs/element.js` reads it (`stackMode`, `end fork`). */
+const keyOf = (label) => `keyword:${label.toLowerCase()}`
+
 /** The hand-kept words rank above the server's (X11). */
-const options = labels.map((label) => ({ label, type: 'keyword', boost: 1, docKey: `keyword:${label}` }))
+const options = labels.map((label) => ({ label, type: 'keyword', boost: 1, docKey: keyOf(label) }))
 
 /** The multi-word labels, such as `end fork`, as their words. */
 const PHRASES = [...labels, ...HELPERS].filter((label) => label.includes(' ')).map((label) => label.split(' '))
@@ -89,6 +92,6 @@ export async function keywords(context) {
   const line = context.state.doc.lineAt(context.pos)
   const alone = line.text.slice(context.pos - line.from).trim() === ''
   const offerHelpers = alone && helpers.some(({ label }) => label.startsWith(word)) && inUml(context.state, line.number)
-  const offered = [...options, ...extra.map((label) => ({ label, type: 'keyword', docKey: `keyword:${label}` }))]
+  const offered = [...options, ...extra.map((label) => ({ label, type: 'keyword', docKey: keyOf(label) }))]
   return { from: typed.to - word.length, options: offerHelpers ? [...offered, ...helpers] : offered, validFor: /^[\w-]*(?: [\w-]*)*$/ }
 }

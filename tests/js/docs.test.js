@@ -91,6 +91,15 @@ describe('buildDocs', () => {
     expect(docs.get('keyword:node', 'dot')).toBeUndefined()
   })
 
+  it('reads a keyword phrase as its own entry, else as its last word’s', () => {
+    const phrases = buildDocs({ ...inputs, own: { ...inputs.own, 'keyword:fork': { summary: 'Forks' }, 'keyword:floating note': { summary: 'Free note' } } })
+    expect(phrases.get('keyword:end fork').summary).toBe('Forks')
+    expect(phrases.get('keyword:floating note').summary).toBe('Free note')
+    expect(phrases.get('keyword:end start', 'gantt').summary).toBe('When a task starts')
+    expect(phrases.get('keyword:end nonsense')).toBeUndefined()
+    expect(phrases.get('helper:help fork')).toBeUndefined()
+  })
+
   it('reads a project block as gantt, PlantUML’s alias', () => {
     expect(docs.get('keyword:start', 'project').summary).toBe('When a task starts')
   })

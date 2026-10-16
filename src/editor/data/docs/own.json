@@ -1367,6 +1367,10 @@
     "summary": "Repeats the lines below while a condition holds",
     "example": "!$i = 0\n!while $i < 2\nAlice -> Bob\n!$i = $i + 1\n!endwhile"
   },
+  "directive:!$": {
+    "summary": "Assigns a preprocessor variable",
+    "example": "!$greeting = \"hello\"\nAlice -> Bob : $greeting"
+  },
   "function:%and": {
     "signature": "%and(a, b[, ...])",
     "summary": "Logical and of its arguments",

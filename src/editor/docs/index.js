@@ -42,6 +42,9 @@ const KINDS = {
 /** The kinds whose words are a block type's own: outside uml only a `@<type>` entry describes one. */
 const TYPED = new Set(['keyword', 'connector'])
 
+/** A keyword phrase's last word. */
+const PHRASE = /^keyword:.* (\S+)$/
+
 /** PlantUML's alias of a type, whose words are the type's (`profiles/index.js` loads gantt's for it). */
 const ALIASES = { project: 'gantt' }
 
@@ -97,7 +100,8 @@ const defined = (entry) => Object.fromEntries(Object.entries(entry).filter(([, v
  * `get` tries the block type's entry, then the plain one, which is uml's: a
  * keyword or connector in another type's block has only its type's entry, unless
  * the plain entry is `anywhere` (it means the same in every type). A
- * `project` block reads as `gantt`.
+ * `project` block reads as `gantt`. A keyword phrase is its own entry's where
+ * it has one (`left to right direction`), else its last word's (`end fork`).
  *
  * @return {{ get: (key: string, type?: string) => Entry|undefined }}
  */
@@ -136,7 +140,9 @@ export function buildDocs(data) {
   return {
     get(key, type = 'uml') {
       const own = ALIASES[type] ?? type
-      return entries.get(`${key}@${own}`) ?? (own === 'uml' || !TYPED.has(key.split(':')[0]) || anywhere.has(key) ? entries.get(key) : undefined)
+      const find = (one) => entries.get(`${one}@${own}`) ?? (own === 'uml' || !TYPED.has(one.split(':')[0]) || anywhere.has(one) ? entries.get(one) : undefined)
+      const last = PHRASE.exec(key)
+      return find(key) ?? (last ? find(`keyword:${last[1]}`) : undefined)
     },
   }
 }

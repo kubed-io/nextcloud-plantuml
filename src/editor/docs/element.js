@@ -35,8 +35,8 @@ function keyOf(state, node, pos, side) {
   }
   switch (node.name) {
     case 'keyword':
-      // PlantUML reads its commands in any case.
-      return { key: `keyword:${text.trim().split(/\s+/).pop().toLowerCase()}` }
+      // PlantUML reads its commands in any case; a phrase (`end note`) is its words, one space apart.
+      return { key: `keyword:${text.trim().split(/\s+/).join(' ').toLowerCase()}` }
     case 'meta': {
       // `!end function` is `!endfunction`'s; a bare `!` (`!$x = 1`) names none, nor does a
       // profile's own line (yaml's `#highlight`).

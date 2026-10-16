@@ -11,7 +11,7 @@ import c4 from '../../src/editor/data/stdlib/C4.json'
 import awslib from '../../src/editor/data/stdlib/awslib.json'
 import asciimath from '../../src/editor/data/asciimath.json'
 import { readFileSync } from 'node:fs'
-import { ROLES, asciimathNames, directiveWords, enumConstants, readmeRows, signatures, stdlibEntries, stdlibIndex, stdlibReadmes } from '../../scripts/vocabulary.mjs'
+import { ROLES, arities, asciimathNames, directiveWords, enumConstants, frontMatter, languageLists, readmeRows, signatures, stdlibEntries, stdlibIndex, stdlibReadmes } from '../../scripts/vocabulary.mjs'
 
 describe('style vocabulary', () => {
   it('records the PlantUML version it came from', () => {
@@ -199,5 +199,31 @@ describe('the AsciiMath names', () => {
     const all = [functions, symbols, operators, brackets, keywords].flat()
     expect(all.length).toBe(new Set(all).size)
     expect(all.filter((name) => /^[A-Za-z]$/.test(name) || name === '"')).toEqual([])
+  })
+})
+
+describe('docs source', () => {
+  const cover = (expr) => `public boolean canCover(int nbArg, Set<String> namedArgument) {\n\t${expr}\n}`
+
+  it('reads the argument counts a function accepts from its canCover', () => {
+    expect(arities(cover('return nbArg == 2 || nbArg == 3;'))).toEqual({ min: 2, max: 3 })
+    expect(arities(cover('return nbArg == 0;'))).toEqual({ min: 0, max: 0 })
+    expect(arities(cover('return nbArg >= 1;'))).toEqual({ min: 1, max: null })
+    expect(arities(cover('return nbArg > 0;'))).toEqual({ min: 1, max: null })
+  })
+
+  it('has no arities for a class without canCover', () => {
+    expect(arities('class A {}')).toBeNull()
+  })
+
+  it('reads the server word lists, leaving the colours out', () => {
+    const text = ';type\n;2\nactor\nclass\n;keyword\n;1\nalt\n;skinparameter\n;1\nBackgroundColor\n;color\n;1\nRed\n;EOF'
+    expect(languageLists(text)).toEqual({ types: ['actor', 'class'], keywords: ['alt'], skinparameters: ['BackgroundColor'] })
+  })
+
+  it('reads front matter, and none as empty', () => {
+    const text = '---\nname: cerulean\ndisplay_name: Cerulean\ndescription: Cerulean theme based off of the bootstrap theme of the same name\n---\n!theme'
+    expect(frontMatter(text)).toEqual({ name: 'cerulean', display_name: 'Cerulean', description: 'Cerulean theme based off of the bootstrap theme of the same name' })
+    expect(frontMatter('@startuml\n@enduml')).toEqual({})
   })
 })

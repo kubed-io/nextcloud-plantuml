@@ -2,444 +2,592 @@
   {
     "name": "%and",
     "args": 2,
+    "min": 2,
+    "max": null,
     "description": "",
     "example": ""
   },
   {
     "name": "%backslash",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%boolval",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Convert a value _(String, Integer, JSON value)_ to boolean value",
     "example": "%boolval(\"true\")"
   },
   {
     "name": "%breakline",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Return a newline in the PlantUML source code. _See more documentation on the newline page_",
     "example": "%breakline()"
   },
   {
     "name": "%call_user_func",
     "args": 1,
+    "min": 1,
+    "max": null,
     "description": "Invoke a return function by its name with given arguments.",
     "example": "%call_user_func(\"bold\", \"Hello\")"
   },
   {
     "name": "%chr",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return a character from a give Unicode value",
     "example": "%chr(65)"
   },
   {
     "name": "%darken",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "Return a darken color of a given color with some ratio",
     "example": "%darken(\"red\", 20)"
   },
   {
     "name": "%date",
     "args": 3,
+    "min": 0,
+    "max": 3,
     "description": "Retrieve current date. You can provide an optional format for the date",
     "example": "%date(\"yyyy.MM.dd' at 'HH:mm\")"
   },
   {
     "name": "%dec2hex",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return the hexadecimal string (String) of a decimal value (Int)",
     "example": "%dec2hex(12)"
   },
   {
     "name": "%dirpath",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Retrieve current dirpath",
     "example": "%dirpath()"
   },
   {
     "name": "%dollar",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%eval",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "",
     "example": ""
   },
   {
     "name": "%false",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Return always false",
     "example": "%false()"
   },
   {
     "name": "%feature",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Check if some feature is available in the current PlantUML running version",
     "example": "%feature(\"theme\")"
   },
   {
     "name": "%file_exists",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Check if a file exists on the local filesystem",
     "example": "%file_exists(\"c:/foo/dummy.txt\")"
   },
   {
     "name": "%filedate",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%filename",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Retrieve current filename",
     "example": "%filename()"
   },
   {
     "name": "%filename_no_extension",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%function_exists",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Check if a function exists",
     "example": "%function_exists(\"$some_function\")"
   },
   {
     "name": "%get_all_stdlib",
     "args": 1,
+    "min": 0,
+    "max": 1,
     "description": "Retreive a JSON Array of all PlantUML stdlib names",
     "example": "%get_all_stdlib()"
   },
   {
     "name": "%get_all_theme",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Retreive a JSON Array of all PlantUML theme",
     "example": "%get_all_theme()"
   },
   {
     "name": "%get_current_theme",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%get_json_keys",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "",
     "example": ""
   },
   {
     "name": "%get_json_type",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "",
     "example": ""
   },
   {
     "name": "%get_stdlib",
     "args": 1,
+    "min": 0,
+    "max": 2,
     "description": "",
     "example": ""
   },
   {
     "name": "%get_variable_value",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Retrieve some variable value",
     "example": "%get_variable_value(\"$my_variable\")"
   },
   {
     "name": "%getenv",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Retrieve environment variable value",
     "example": "%getenv(\"OS\")"
   },
   {
     "name": "%hex2dec",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return the decimal value (Int) of a hexadecimal string (String)",
     "example": "%hex2dec(\"d\") or %hex2dec(d)"
   },
   {
     "name": "%hsl_color",
     "args": 3,
+    "min": 3,
+    "max": 4,
     "description": "Return the RGBa color from a HSL color %hsl_color(h, s, l) or %hsl_color(h, s, l, a)",
     "example": "%hsl_color(120, 100, 50)"
   },
   {
     "name": "%intval",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Convert a String to Int",
     "example": "%intval(\"42\")"
   },
   {
     "name": "%invoke_procedure",
     "args": 1,
+    "min": 1,
+    "max": null,
     "description": "Dynamically invoke a procedure by its name, passing optional arguments to the called procedure.",
     "example": "%invoke_procedure(\"$go\", \"hello from Bob...\")"
   },
   {
     "name": "%is_dark",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Check if a color is a dark one",
     "example": "%is_dark(\"#000000\")"
   },
   {
     "name": "%is_light",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Check if a color is a light one",
     "example": "%is_light(\"#000000\")"
   },
   {
     "name": "%json_add",
     "args": 3,
+    "min": 2,
+    "max": 3,
     "description": "",
     "example": ""
   },
   {
     "name": "%json_key_exists",
     "args": 1,
+    "min": 2,
+    "max": 2,
     "description": "",
     "example": ""
   },
   {
     "name": "%json_merge",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "",
     "example": ""
   },
   {
     "name": "%json_remove",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "",
     "example": ""
   },
   {
     "name": "%json_set",
     "args": 3,
+    "min": 2,
+    "max": 3,
     "description": "",
     "example": ""
   },
   {
     "name": "%left_align",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%lighten",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "Return a lighten color of a given color with some ratio",
     "example": "%lighten(\"red\", 20)"
   },
   {
     "name": "%load_json",
     "args": 3,
+    "min": 1,
+    "max": 3,
     "description": "Load JSON data from local file or external URL",
     "example": "%load_json(\"http://localhost:7778/management/health\")"
   },
   {
     "name": "%lower",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return a lowercase string",
     "example": "%lower(\"Hello\")"
   },
   {
     "name": "%mod",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "Return the remainder of division of two integers (modulo division)",
     "example": "%mod(10, 3)"
   },
   {
     "name": "%n",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Return a newline in rendered text, similar to %newline. _See more documentation on the newline page_",
     "example": "%n()"
   },
   {
     "name": "%nand",
     "args": 2,
+    "min": 2,
+    "max": null,
     "description": "",
     "example": ""
   },
   {
     "name": "%newline",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Return a newline in rendered text, similar to %n. _See more documentation on the newline page_",
     "example": "%newline()"
   },
   {
     "name": "%nor",
     "args": 2,
+    "min": 2,
+    "max": null,
     "description": "",
     "example": ""
   },
   {
     "name": "%not",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return the logical negation of an expression",
     "example": "%not(2+2==4)"
   },
   {
     "name": "%now",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Return the current epoch time",
     "example": "%now()"
   },
   {
     "name": "%nxor",
     "args": 2,
+    "min": 2,
+    "max": null,
     "description": "",
     "example": ""
   },
   {
     "name": "%or",
     "args": 2,
+    "min": 2,
+    "max": null,
     "description": "",
     "example": ""
   },
   {
     "name": "%ord",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return a Unicode value from a given character",
     "example": "%ord(\"A\")"
   },
   {
     "name": "%percent",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%random",
     "args": 2,
+    "min": 0,
+    "max": 2,
     "description": "",
     "example": ""
   },
   {
     "name": "%retrieve_procedure",
     "args": 1,
+    "min": 1,
+    "max": null,
     "description": "",
     "example": ""
   },
   {
     "name": "%reverse_color",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Reverse a color using RGB",
     "example": "%reverse_color(\"#FF7700\")"
   },
   {
     "name": "%reverse_hsluv_color",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Reverse a color using HSLuv",
     "example": "%reverse_hsluv_color(\"#FF7700\")"
   },
   {
     "name": "%right_align",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%set_variable_value",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "Set a global variable",
     "example": "%set_variable_value(\"$my_variable\", \"some_value\")"
   },
   {
     "name": "%size",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return the size of any string or JSON structure",
     "example": "%size(\"foo\")"
   },
   {
     "name": "%splitstr",
     "args": 3,
+    "min": 2,
+    "max": 2,
     "description": "Split a string into an array based on a specified delimiter.",
     "example": "%splitstr(\"abc~def~ghi\", \"~\")"
   },
   {
     "name": "%splitstr_regex",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "Split a string into an array based on a specified REGEX.",
     "example": "%splitstr_regex(\"AbcDefGhi\", \"(?=[A-Z])\")"
   },
   {
     "name": "%str2json",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "",
     "example": ""
   },
   {
     "name": "%string",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Convert an expression to String",
     "example": "%string(1 + 2)"
   },
   {
     "name": "%strlen",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Calculate the length of a String",
     "example": "%strlen(\"foo\")"
   },
   {
     "name": "%strpos",
     "args": 2,
+    "min": 2,
+    "max": 2,
     "description": "Search a substring in a string",
     "example": "%strpos(\"abcdef\", \"ef\")"
   },
   {
     "name": "%substr",
     "args": 3,
+    "min": 2,
+    "max": 3,
     "description": "Extract a substring. Takes 2 or 3 arguments",
     "example": "%substr(\"abcdef\", 3, 2)"
   },
   {
     "name": "%tab",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "",
     "example": ""
   },
   {
     "name": "%true",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Return always true",
     "example": "%true()"
   },
   {
     "name": "%upper",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Return an uppercase string",
     "example": "%upper(\"Hello\")"
   },
   {
     "name": "%variable_exists",
     "args": 1,
+    "min": 1,
+    "max": 1,
     "description": "Check if a variable exists",
     "example": "%variable_exists(\"$my_variable\")"
   },
   {
     "name": "%version",
     "args": 0,
+    "min": 0,
+    "max": 0,
     "description": "Return PlantUML current version",
     "example": "%version()"
   },
   {
     "name": "%xargs",
     "args": 0,
+    "min": 1,
+    "max": 1,
     "description": "",
     "example": ""
   },
   {
     "name": "%xor",
     "args": 2,
+    "min": 2,
+    "max": null,
     "description": "",
     "example": ""
   }

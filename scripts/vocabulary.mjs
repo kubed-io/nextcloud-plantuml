@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Regenerates src/editor/data/{vocabulary,builtins,directives,asciimath}.json from PlantUML's source at
+// Regenerates src/editor/data/{vocabulary,builtins,directives,asciimath,language}.json and docs/source.json from PlantUML's source at
 // the tag of the pinned server image (X1, T14), and src/editor/data/stdlib/<folder>.json from plantuml-stdlib at
 // the last commit before that release, its files or the folder its README links to (X5). Needs
-// network; the tests never do.
+// network and the in-cluster PlantUML server (PLANTUML_URL); the tests never do.
 // Run: node scripts/vocabulary.mjs
 import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
@@ -82,6 +82,52 @@ export function signatures(java) {
   return [...java.matchAll(/new\s+TFunctionSignature\(\s*"(%\w+)"\s*(?:,\s*(\d+))?/g)].map((m) => ({ name: m[1], args: Number(m[2] ?? 0) }))
 }
 
+/**
+ * The argument counts a builtin class accepts, from its `canCover(int nbArg, ...)`: `==` values
+ * give the range, `>=`/`>` leave the top open (`max: null`). `null` for a class without one.
+ */
+export function arities(java) {
+  const body = /canCover\s*\([^)]*\)\s*\{([\s\S]*?)\}/.exec(withoutComments(java))?.[1]
+  const returned = /return\s+([^;]*);/.exec(body ?? '')?.[1]
+  if (!returned) return null
+  const exact = []
+  let min = Infinity
+  let open = false
+  for (const [, op, n] of returned.matchAll(/nbArg\s*(==|>=|>)\s*(\d+)/g)) {
+    const value = Number(n)
+    if (op === '==') exact.push(value)
+    else {
+      open = true
+      min = Math.min(min, op === '>' ? value + 1 : value)
+    }
+  }
+  if (!exact.length && !open) return null
+  return { min: Math.min(min, ...exact), max: open ? null : Math.max(...exact) }
+}
+
+/** The server's `/language` sections the editor uses: types, keywords and skin parameters. */
+export function languageLists(text) {
+  const sections = {}
+  let name = null
+  for (const line of text.split('\n')) {
+    if (line === ';EOF') break
+    if (/^;[a-z]+$/.test(line)) name = line.slice(1)
+    else if (name && line && !/^;\d+$/.test(line)) (sections[name] ??= []).push(line)
+  }
+  return { types: sections.type ?? [], keywords: sections.keyword ?? [], skinparameters: sections.skinparameter ?? [] }
+}
+
+/** A file's `---` front matter as `key -> value`, without the empty ones; `{}` when there is none. */
+export function frontMatter(text) {
+  const block = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text)?.[1]
+  if (block === undefined) return {}
+  const entries = block.split('\n').flatMap((line) => {
+    const match = /^([A-Za-z_]+):[ \t]*(.*?)[ \t]*$/.exec(line)
+    return match && match[2] ? [[match[1], match[2]]] : []
+  })
+  return Object.fromEntries(entries)
+}
+
 /** The readme's table rows as `name -> { description, example }`; a continuation row (no name) is skipped. */
 export function readmeRows(markdown) {
   const plain = (cell) => cell.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/``/g, '').trim()
@@ -103,10 +149,13 @@ async function builtins() {
   const files = (await res.json()).map((f) => f.name).filter((n) => n.endsWith('.java'))
   const [readme, ...classes] = await Promise.all([source(`${BUILTIN}/readme.md`), ...files.map((f) => source(`${BUILTIN}/${f}`))])
   const rows = readmeRows(readme)
-  const byName = new Map(classes.flatMap(signatures).map((s) => [s.name, s]))
+  const byName = new Map(classes.flatMap((java) => {
+    const range = arities(java)
+    return signatures(java).map((s) => [s.name, { ...s, min: range?.min ?? s.args, max: range ? range.max : s.args }])
+  }))
   return [...byName.values()]
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-    .map(({ name, args }) => ({ name, args, description: rows.get(name)?.description ?? '', example: rows.get(name)?.example ?? '' }))
+    .map(({ name, args, min, max }) => ({ name, args, min, max, description: rows.get(name)?.description ?? '', example: rows.get(name)?.example ?? '' }))
 }
 
 async function style() {
@@ -237,7 +286,8 @@ export function stdlibEntries(tree, readmes) {
   return entries
 }
 
-async function stdlib() {
+// The stdlib tree and each folder's README text, shared by the file lists and the docs.
+async function stdlibTree() {
   const api = `https://api.github.com/repos/plantuml/plantuml-stdlib/git/trees/${STDLIB}?recursive=1`
   const res = await fetch(api)
   if (!res.ok) throw new Error(`${api}: HTTP ${res.status}`)
@@ -249,7 +299,46 @@ async function stdlib() {
     if (!readme.ok) throw new Error(`${url}: HTTP ${readme.status}`)
     return [folder, await readme.text()]
   }))
-  return stdlibEntries(tree, Object.fromEntries(readmes))
+  return { tree, readmes: Object.fromEntries(readmes) }
+}
+
+async function stdlib() {
+  const { tree, readmes } = await stdlibTree()
+  return stdlibEntries(tree, readmes)
+}
+
+async function language() {
+  const url = `${process.env.PLANTUML_URL ?? 'http://plantuml.flow.svc'}/language`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)
+  return { plantuml: VERSION, ...languageLists(await res.text()) }
+}
+
+async function docsSource() {
+  const dir = 'src/main/resources/themes'
+  const api = `https://api.github.com/repos/${REPO}/contents/${dir}?ref=v${VERSION}`
+  const res = await fetch(api)
+  if (!res.ok) throw new Error(`${api}: HTTP ${res.status}`)
+  const files = (await res.json()).map((f) => f.name).filter((n) => /^puml-theme-.+\.puml$/.test(n))
+  const themes = Object.fromEntries(await Promise.all(files.map(async (file) => {
+    const url = `https://raw.githubusercontent.com/${REPO}/v${VERSION}/${dir}/${file}`
+    const theme = await fetch(url)
+    if (!theme.ok) throw new Error(`${url}: HTTP ${theme.status}`)
+    const meta = frontMatter(await theme.text())
+    const name = file.slice('puml-theme-'.length, -'.puml'.length)
+    return [name, { title: meta.display_name ?? name, summary: meta.description ?? '' }]
+  })))
+  const { readmes } = await stdlibTree()
+  const libraries = Object.fromEntries(Object.entries(readmes).map(([folder, text]) => {
+    const meta = frontMatter(text)
+    return [folder, { title: meta.display_name ?? folder, ...(meta.description && { summary: meta.description }), ...(meta.source && { source: meta.source }) }]
+  }))
+  return {
+    plantuml: VERSION,
+    stdlib: STDLIB,
+    themes: Object.fromEntries(Object.entries(themes).sort(([a], [b]) => (a < b ? -1 : 1))),
+    libraries: Object.fromEntries(Object.entries(libraries).sort(([a], [b]) => (a < b ? -1 : 1))),
+  }
 }
 
 const artifacts = [
@@ -257,6 +346,8 @@ const artifacts = [
   { file: 'builtins.json', build: builtins },
   { file: 'directives.json', build: directives },
   { file: 'asciimath.json', build: asciimath },
+  { file: 'language.json', build: language },
+  { file: 'docs/source.json', build: docsSource },
   { folder: 'stdlib', build: stdlib },
 ]
 
@@ -274,7 +365,10 @@ async function write({ file, folder, build }) {
     console.info(`${folder}/: ${entries.length} folders (${links} links), ${files} files`)
     return
   }
+  await mkdir(new URL('../src/editor/data/docs/', import.meta.url), { recursive: true })
   await save(file, data)
+  if (file === 'language.json') return void console.info(`${file}: ${data.types.length} types, ${data.keywords.length} keywords, ${data.skinparameters.length} skinparameters`)
+  if (file === 'docs/source.json') return void console.info(`${file}: ${Object.keys(data.themes).length} themes, ${Object.keys(data.libraries).length} libraries`)
   const counts = Array.isArray(data) ? { entries: data } : data.style ?? data.asciimath ?? { directives: data.directives }
   console.info(`${file}: ${Object.entries(counts).map(([k, v]) => `${v.length} ${k}`).join(', ')}`)
 }

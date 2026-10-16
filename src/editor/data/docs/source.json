@@ -1,0 +1,328 @@
+{
+  "plantuml": "1.2026.8",
+  "stdlib": "7167ca0",
+  "themes": {
+    "_none_": {
+      "title": "None",
+      "summary": "A no theme named `_none_` (intentionally empty); Especially to have a `no theme` (first or last in alphabetical order) to compare with all the others."
+    },
+    "amiga": {
+      "title": "Amiga Workbench 1.x",
+      "summary": "A white on blue theme based on Amiga Workbench 1.x"
+    },
+    "aws-orange": {
+      "title": "AWS orange",
+      "summary": "Theme based off of the colors used by Amazon Web Services"
+    },
+    "black-knight": {
+      "title": "Black Knight",
+      "summary": "Colors representing the black knight. Looks best on a dark background."
+    },
+    "bluegray": {
+      "title": "Blue Gray",
+      "summary": "A blue gray theme"
+    },
+    "blueprint": {
+      "title": "Blueprint",
+      "summary": "A white on blue theme based on the Blueprint reproduction process"
+    },
+    "carbon-gray": {
+      "title": "Carbon Gray",
+      "summary": "A gray theme using the IBM Carbon Design Gray palette"
+    },
+    "cerulean": {
+      "title": "Cerulean",
+      "summary": "Cerulean theme based off of the bootstrap theme of the same name"
+    },
+    "cerulean-outline": {
+      "title": "Cerulean Outline",
+      "summary": "Cerulean theme based off of the bootstrap theme of the same name, with outline colors"
+    },
+    "cloudscape-design": {
+      "title": "Cloudscape design",
+      "summary": "Theme based off of the colors used by Cloudscape design"
+    },
+    "crt-amber": {
+      "title": "Cathode-ray tube (CRT) amber",
+      "summary": "An orange on black theme based on monochrome CRT monitors"
+    },
+    "crt-green": {
+      "title": "Cathode-ray tube (CRT) green",
+      "summary": "A green on black theme based on monochrome CRT monitors"
+    },
+    "cyborg": {
+      "title": "Cyborg",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "cyborg-outline": {
+      "title": "Cyborg Outline",
+      "summary": "Theme based off of the bootstrap theme of the same name, with outline colors"
+    },
+    "hacker": {
+      "title": "Hacker",
+      "summary": "Theme based off of the Jekyll theme of the same name"
+    },
+    "lightgray": {
+      "title": "Lightgray",
+      "summary": "Lightgray theme - mostly grays"
+    },
+    "mars": {
+      "title": "Mars",
+      "summary": "The mars theme from future-architect/puml-themes"
+    },
+    "materia": {
+      "title": "Materia",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "materia-outline": {
+      "title": "Materia Outline",
+      "summary": "Theme based off of the bootstrap theme of the same name, with outline colors"
+    },
+    "metal": {
+      "title": "Metal",
+      "summary": "Mostly metal grays theme"
+    },
+    "mimeograph": {
+      "title": "Mimeograph",
+      "summary": "A purple on grey theme based on the Mimeograph reproduction process"
+    },
+    "minty": {
+      "title": "Minty",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "mono": {
+      "title": "Mono",
+      "summary": "A mostly monochrome theme with monospaced font, that adds more structure and tidiness with better shapes control, brought by monospaced font"
+    },
+    "plain": {
+      "title": "Plain",
+      "summary": "A simple black on white theme (with blue hyperlinks)"
+    },
+    "reddress-darkblue": {
+      "title": "Reddress Darkblue",
+      "summary": "A dark blue style from \"Red Dress\""
+    },
+    "reddress-darkgreen": {
+      "title": "Reddress Darkgreen",
+      "summary": "A dark green style from \"Red Dress\""
+    },
+    "reddress-darkorange": {
+      "title": "Reddress Darkorange",
+      "summary": "A dark orange style from \"Red Dress\""
+    },
+    "reddress-darkred": {
+      "title": "Reddress Darkred",
+      "summary": "A dark red style from \"Red Dress\""
+    },
+    "reddress-lightblue": {
+      "title": "Reddress Lightblue",
+      "summary": "A light blue style from \"Red Dress\""
+    },
+    "reddress-lightgreen": {
+      "title": "Reddress Lightgreen",
+      "summary": "A light green style from \"Red Dress\""
+    },
+    "reddress-lightorange": {
+      "title": "Reddress Lightorange",
+      "summary": "A light orange style from \"Red Dress\""
+    },
+    "reddress-lightred": {
+      "title": "Reddress Lightred",
+      "summary": "A light red style from \"Red Dress\""
+    },
+    "sandstone": {
+      "title": "Sandstone",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "silver": {
+      "title": "Silver",
+      "summary": "Mostly silver grays Theme"
+    },
+    "sketchy": {
+      "title": "Sketchy",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "sketchy-outline": {
+      "title": "Sketchy Outline",
+      "summary": "Theme based off of the bootstrap theme of the same name, with outline colors"
+    },
+    "spacelab": {
+      "title": "Spacelab",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "spacelab-white": {
+      "title": "Spacelab White",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "sunlust": {
+      "title": "Sunlust",
+      "summary": "A theme based off of the [solarized theme](https://ethanschoonover.com/solarized)"
+    },
+    "superhero": {
+      "title": "Superhero",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "superhero-outline": {
+      "title": "Superhero Outline",
+      "summary": "Theme based off of the bootstrap theme of the same name, with outline colors"
+    },
+    "toy": {
+      "title": "Toy",
+      "summary": "The toy theme from future-architect/puml-themes"
+    },
+    "united": {
+      "title": "United",
+      "summary": "Theme based off of the bootstrap theme of the same name"
+    },
+    "vibrant": {
+      "title": "Vibrant",
+      "summary": "The vibrant theme from https://github.com/future-architect/puml-themes"
+    }
+  },
+  "libraries": {
+    "C4": {
+      "title": "C4 (C4-PlantUML)",
+      "summary": "The C4 library enables a simple way of describing and communicate software architectures with an intuitive language.",
+      "source": "https://github.com/plantuml-stdlib/C4-PlantUML"
+    },
+    "DomainStory": {
+      "title": "DomainStory",
+      "summary": "A PlantUML macro library to describe your domain story as code.",
+      "source": "https://github.com/johthor/DomainStory-PlantUML"
+    },
+    "adaml": {
+      "title": "AdaML",
+      "source": "https://github.com/rocher/AdaML"
+    },
+    "archimate": {
+      "title": "Archimate",
+      "summary": "PlantUML support for Archimate diagrams",
+      "source": "https://github.com/plantuml-stdlib/Archimate-PlantUML"
+    },
+    "aws": {
+      "title": "Aws",
+      "source": "https://github.com/milo-minderbinder/AWS-PlantUML"
+    },
+    "awslib": {
+      "title": "Awslib",
+      "source": "https://github.com/awslabs/aws-icons-for-plantuml"
+    },
+    "awslib10": {
+      "title": "Awslib10",
+      "source": "https://github.com/awslabs/aws-icons-for-plantuml"
+    },
+    "awslib14": {
+      "title": "Awslib14",
+      "source": "https://github.com/awslabs/aws-icons-for-plantuml"
+    },
+    "awslib20": {
+      "title": "Awslib20",
+      "source": "https://github.com/awslabs/aws-icons-for-plantuml"
+    },
+    "azure": {
+      "title": "Azure",
+      "source": "https://github.com/plantuml-stdlib/Azure-PlantUML"
+    },
+    "bootstrap": {
+      "title": "Bootstrap",
+      "summary": "Bootstrap Icons from Bootstrap",
+      "source": "https://github.com/twbs/icons"
+    },
+    "bootstrap1.12.1": {
+      "title": "Bootstrap",
+      "summary": "Bootstrap Icons from Bootstrap",
+      "source": "https://github.com/twbs/icons"
+    },
+    "bootstrap1.13.1": {
+      "title": "Bootstrap",
+      "summary": "Bootstrap Icons from Bootstrap",
+      "source": "https://github.com/twbs/icons"
+    },
+    "classy": {
+      "title": "Classy",
+      "source": "https://github.com/james-gadrow-kr/classy-plantuml"
+    },
+    "classy-c4": {
+      "title": "Classy-c4",
+      "source": "https://github.com/james-gadrow-kr/classy-c4"
+    },
+    "cloudinsight": {
+      "title": "Cloudinsight",
+      "source": "https://github.com/plantuml-stdlib/cicon-plantuml-sprites"
+    },
+    "cloudogu": {
+      "title": "Cloudogu",
+      "source": "https://github.com/cloudogu/plantuml-cloudogu-sprites"
+    },
+    "edgy": {
+      "title": "Edgy",
+      "source": "https://github.com/boessu/plantuml-stdlib"
+    },
+    "eip": {
+      "title": "Eip",
+      "source": "https://github.com/plantuml-stdlib/EIP-PlantUML"
+    },
+    "elastic": {
+      "title": "Elastic",
+      "source": "https://github.com/Crashedmind/PlantUML-Elastic-icons"
+    },
+    "gcp": {
+      "title": "Gcp",
+      "source": "https://github.com/Crashedmind/PlantUML-icons-GCP"
+    },
+    "ibm": {
+      "title": "IBM",
+      "source": "https://github.com/XReyRobert/ibm-icons-for-plantuml"
+    },
+    "k8s": {
+      "title": "K8s",
+      "source": "https://github.com/dcasati/kubernetes-PlantUML"
+    },
+    "kubernetes": {
+      "title": "Kubernetes",
+      "source": "https://github.com/plantuml-stdlib/plantuml-kubernetes-sprites"
+    },
+    "logos": {
+      "title": "Logos",
+      "source": "https://github.com/plantuml-stdlib/gilbarbara-plantuml-sprites"
+    },
+    "material": {
+      "title": "Material",
+      "summary": "Material Design Icon"
+    },
+    "material2": {
+      "title": "Material",
+      "summary": "Material Design Icon"
+    },
+    "material2.1.19": {
+      "title": "Material",
+      "summary": "PNG Material Design Icon",
+      "source": "https://github.com/Templarian/MaterialDesign"
+    },
+    "material7": {
+      "title": "Material",
+      "summary": "Material Design Icon"
+    },
+    "material7.4.47": {
+      "title": "Material",
+      "summary": "SVG Material Design Icon",
+      "source": "https://github.com/Templarian/MaterialDesign-SVG/"
+    },
+    "office": {
+      "title": "Office",
+      "source": "https://github.com/Roemer/plantuml-office"
+    },
+    "osa": {
+      "title": "Osa",
+      "source": "https://github.com/Crashedmind/PlantUML-opensecurityarchitecture-icons"
+    },
+    "osa2": {
+      "title": "Osa2",
+      "source": "https://github.com/Crashedmind/PlantUML-opensecurityarchitecture2-icons"
+    },
+    "tupadr3": {
+      "title": "Tupadr3",
+      "source": "https://github.com/tupadr3/plantuml-icon-font-sprites"
+    }
+  }
+}

@@ -310,9 +310,13 @@ export const surfaceRules = {
   },
   // The doc card (docs/card.js), in a hover tooltip or a completion's info box:
   // the box draws the border, the card only its contents.
+  // The card pads itself, so an info box holding one adds none.
+  '.cm-completionInfo:has(> .cm-doc)': { padding: '0' },
   '.cm-doc': { padding: '8px 12px', maxWidth: '400px', maxHeight: '20em', overflow: 'auto' },
   '.cm-doc-head': { display: 'flex', alignItems: 'center', gap: '8px' },
   '.cm-doc-icon': { display: 'inline-flex', width: '16px', height: '16px' },
+  // display above would override the hidden attribute.
+  '.cm-doc-icon[hidden]': { display: 'none' },
   '.cm-doc-icon svg': { width: '16px', height: '16px' },
   '.cm-doc-name': { fontFamily: MONO, fontWeight: 'bold' },
   '.cm-doc-kind': { color: 'var(--color-text-maxcontrast)' },

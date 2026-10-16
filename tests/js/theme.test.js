@@ -277,8 +277,17 @@ describe('the doc card', () => {
     expect(rule('.cm-doc-pinned .cm-doc-close').visibility).toBe('visible')
   })
 
+  it('gives a hidden icon no room, flex display notwithstanding', () => {
+    expect(rule('.cm-doc-icon[hidden]').display).toBe('none')
+  })
+
+  it('leaves a completion info box that holds a card to the card\'s padding, and a plain one its own', () => {
+    expect(rule('.cm-completionInfo:has(> .cm-doc)').padding).toBe('0')
+    expect(rule('.cm-completionInfo').padding).toBe('4px 8px')
+  })
+
   it('uses no colour literal', () => {
-    for (const [selector, declarations] of Object.entries(surfaceRules).filter(([selector]) => selector.includes('.cm-doc'))) {
+    for (const [selector, declarations] of Object.entries(surfaceRules).filter(([selector]) => selector.includes('.cm-doc') || selector.includes(':has(> .cm-doc)'))) {
       for (const [property, value] of Object.entries(declarations)) {
         expect(value, `${selector} ${property}`).not.toMatch(LITERAL)
       }

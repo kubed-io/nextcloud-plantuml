@@ -40,7 +40,7 @@ describe('the doc card', () => {
     expect(renderDoc(full).dom.querySelector('.cm-doc-name').textContent).toBe('skinparam')
   })
 
-  it('leaves out a summary, example and link the entry lacks, and an icon it lacks stays empty', () => {
+  it('leaves out a summary, example and link the entry lacks, and marks the icon slot hidden and empty', () => {
     const { dom } = renderDoc({ name: 'x', kind: 'library', look: 'library' })
     expect(dom.querySelector('.cm-doc-summary')).toBeNull()
     expect(dom.querySelector('.cm-doc-example')).toBeNull()

@@ -285,11 +285,11 @@ describe('the card on hover (I2) and pinned (I3)', () => {
   const at = (word, offset = 1) => doc.indexOf(word) + offset
   let views = []
 
-  function viewOf(extra = []) {
+  function viewOf(extra = [], text = doc) {
     const view = new EditorView({
       parent: document.body,
       // As the editor orders them: the completion before the docs.
-      state: EditorState.create({ doc, extensions: [...extensions, ...extra, plantumlDocs, plantumlLint] }),
+      state: EditorState.create({ doc: text, extensions: [...extensions, ...extra, plantumlDocs, plantumlLint] }),
     })
     views.push(view)
     return view
@@ -508,21 +508,47 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     expect(pinDocAt(view, at('paid'))).toBe(false)
   })
 
-  it('spans a message shown alone over the pointer’s word only, so the carded word beside it still gets its card', () => {
+  it('spans a message shown alone up to the carded word beside it, so that word still gets its card', () => {
     const view = viewOf()
     const line = { from: 0, to: 'alt paid'.length, severity: 'error', message: 'Syntax error' }
     view.dispatch(setDiagnostics(view.state, [line]))
-    expect(docSource(view, at('paid'), 1)).toMatchObject({ pos: 4, end: 8, above: true })
-    expect(docSource(view, at('paid', 3), -1)).toMatchObject({ pos: 4, end: 8 })
-    expect(docSource(view, 3, 1)).toMatchObject({ pos: 3, end: 3 })
+    expect(docSource(view, at('paid'), 1)).toMatchObject({ pos: 3, end: 8, above: true })
+    expect(docSource(view, at('paid', 3), -1)).toMatchObject({ pos: 3, end: 8 })
+    expect(docSource(view, 3, 1)).toMatchObject({ pos: 3, end: 8 })
     expect(docSource(view, at('alt'), 1)).toMatchObject({ pos: 0, end: 3, above: false })
+  })
+
+  // Live, a whole-line server error closed at each word boundary and came back 500 ms later.
+  it('keeps a message shown alone steady across the uncarded words on either side of a carded one', () => {
+    const text = ['  foo bar %strlen("x") baz qux', 'end'].join('\n')
+    const view = viewOf([], text)
+    const line = { from: 0, to: text.indexOf('\n'), severity: 'error', message: 'Syntax error' }
+    view.dispatch(setDiagnostics(view.state, [line]))
+    const fn = { from: text.indexOf('%strlen'), to: text.indexOf('%strlen') + 7 }
+    expect(docSource(view, fn.from + 1, 1)).toMatchObject({ pos: fn.from, end: fn.to, above: false })
+    expect(docSource(view, text.indexOf('bar') + 1, 1)).toMatchObject({ pos: 0, end: fn.from, above: true })
+    expect(docSource(view, text.indexOf('foo') + 1, 1)).toMatchObject({ pos: 0, end: fn.from })
+    expect(docSource(view, text.indexOf('qux') + 1, 1)).toMatchObject({ pos: fn.to, end: line.to, above: true })
+    expect(docSource(view, text.indexOf('baz') + 1, 1)).toMatchObject({ pos: fn.to, end: line.to })
+  })
+
+  it('stops a message shown alone at the nearest carded word on each side', () => {
+    const text = ['  foo %strlen("a") bar %strlen("b") qux', 'end'].join('\n')
+    const view = viewOf([], text)
+    const line = { from: 0, to: text.indexOf('\n'), severity: 'error', message: 'Syntax error' }
+    view.dispatch(setDiagnostics(view.state, [line]))
+    const first = text.indexOf('%strlen') + 7
+    const second = text.lastIndexOf('%strlen')
+    expect(docSource(view, text.indexOf('bar') + 1, 1)).toMatchObject({ pos: first, end: second })
+    expect(docSource(view, text.indexOf('foo') + 1, 1)).toMatchObject({ pos: 0, end: first - 7 })
+    expect(docSource(view, text.indexOf('qux') + 1, 1)).toMatchObject({ pos: second + 7, end: line.to })
   })
 
   it('keeps a message shown alone inside its own range', () => {
     const view = viewOf()
     const part = { from: 0, to: 'alt pa'.length, severity: 'error', message: 'Syntax error' }
     view.dispatch(setDiagnostics(view.state, [part]))
-    expect(docSource(view, at('paid'), 1)).toMatchObject({ pos: 4, end: 6 })
+    expect(docSource(view, at('paid'), 1)).toMatchObject({ pos: 3, end: 6 })
   })
 
   it('applies an action from the card’s box', () => {

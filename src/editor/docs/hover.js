@@ -41,19 +41,18 @@ const pin = StateEffect.define()
 /** Whether `a`…`b` and `from`…`to` share a character, or the empty one lies in the other. */
 const overlap = (a, b, from, to) => (a === b ? from <= a && a <= to : a < to && b > from)
 
-/** Per state: whether a range holds a carded element. */
+/** Per state: the carded elements a range holds. */
 const carded = new WeakMap()
 
 /**
- * Whether a carded element lies in `from`…`to`, the range of a lint message
- * this hover draws instead of lint's own. Each token and each word in it is
- * asked once.
+ * The carded elements in `from`…`to`, each once, in order. Each token and
+ * each word in the range is asked once.
  *
  * @param {import('@codemirror/state').EditorState} state
  */
-export function onCard(state, from, to) {
+function cardedIn(state, from, to) {
   if (!docs) {
-    return false
+    return []
   }
   const known = carded.get(state) ?? new Map()
   carded.set(state, known)
@@ -64,12 +63,28 @@ export function onCard(state, from, to) {
     for (const word of state.sliceDoc(from, to).matchAll(/\S+/g)) {
       starts.add(from + word.index)
     }
-    known.set(id, [...starts].some((pos) => [1, -1].some((side) => {
-      const element = elementAt(state, pos, side)
-      return element && overlap(from, to, element.from, element.to) && docs.get(element.key, element.type)
-    })))
+    const found = new Map()
+    for (const pos of starts) {
+      for (const side of [1, -1]) {
+        const element = elementAt(state, pos, side)
+        if (element && overlap(from, to, element.from, element.to) && docs.get(element.key, element.type)) {
+          found.set(`${element.from}:${element.to}`, element)
+        }
+      }
+    }
+    known.set(id, [...found.values()].sort((a, b) => a.from - b.from))
   }
   return known.get(id)
+}
+
+/**
+ * Whether a carded element lies in `from`…`to`, the range of a lint message
+ * this hover draws instead of lint's own.
+ *
+ * @param {import('@codemirror/state').EditorState} state
+ */
+export function onCard(state, from, to) {
+  return cardedIn(state, from, to).length > 0
 }
 
 /** The lint messages in `from`…`to`, each with its range now. */
@@ -129,41 +144,30 @@ function lintSection(view, found) {
   return list
 }
 
-/** The run of word characters, or of other non-space ones, on `side` of `pos`; empty on a space. */
-function runAt(state, pos, side) {
-  const line = state.doc.lineAt(pos)
-  const at = pos - line.from - (side < 0 ? 1 : 0)
-  const char = line.text[at]
-  if (!char || /\s/.test(char)) {
-    return { from: pos, to: pos }
-  }
-  const same = /\w/.test(char) ? /\w/ : /[^\s\w]/
-  let from = at
-  let to = at + 1
-  while (from > 0 && same.test(line.text[from - 1])) {
-    from--
-  }
-  while (to < line.text.length && same.test(line.text[to])) {
-    to++
-  }
-  return { from: line.from + from, to: line.from + to }
-}
-
 /**
  * Lint's messages at `pos` that lint's own hover leaves to this one, alone:
  * a message on a carded word, where the pointer is off the word. The tooltip
- * spans the pointer's own word, not the message's range, so the pointer
- * moving onto the carded word leaves it and that word's card comes up.
+ * spans the messages' range up to the nearest carded word on each side, so it
+ * stays while the pointer crosses the words between, and the pointer moving
+ * onto a carded word leaves it and that word's card comes up.
  */
 function lintAlone(view, pos, side) {
   const found = diagnosticsIn(view.state, pos, pos, (from, to) => (from === to || (side < 0 ? pos > from : pos < to)) && onCard(view.state, from, to))
   if (!found.length) {
     return null
   }
-  const run = runAt(view.state, pos, side)
+  let from = Math.min(...found.map((one) => one.from))
+  let to = Math.max(...found.map((one) => one.to))
+  for (const element of cardedIn(view.state, from, to)) {
+    if (element.to <= pos) {
+      from = Math.max(from, element.to)
+    } else if (element.from >= pos) {
+      to = Math.min(to, element.from)
+    }
+  }
   return {
-    pos: Math.max(run.from, Math.min(...found.map(({ from }) => from))),
-    end: Math.min(run.to, Math.max(...found.map(({ to }) => to))),
+    pos: from,
+    end: to,
     above: true,
     create: (view) => ({ dom: lintSection(view, found) }),
   }

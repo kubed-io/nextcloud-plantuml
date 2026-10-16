@@ -168,6 +168,16 @@ describe('the salt profile', () => {
     expect(salted('{^', 'a | *', '}')).toContainEqual(['*', 'punctuation'])
   })
 
+  it('runs a button\'s label to the cell\'s last bracket (T2)', () => {
+    const found = salted('[a] ]')
+    expect(found.filter(([, t]) => t === 'squareBracket')).toEqual([['[', 'squareBracket'], [']', 'squareBracket']])
+    expect(found.at(-1)).toEqual([']', 'squareBracket'])
+  })
+
+  it('lets a tree open with a block right after it (T2)', () => {
+    expect(top('{T{+ a }')).toEqual([['{', 'brace'], ['T', 'modifier'], ['{', 'brace'], ['+', 'modifier'], ['}', 'brace']])
+  })
+
   it('ends what is left open at the block\'s end (P5)', () => {
     const next = ['@startuml', 'A -> B', '@enduml']
     for (const open of [['{', 'a'], ['{', '<<x', 'XX'], ['{', '{+ a | b', 'c']]) {

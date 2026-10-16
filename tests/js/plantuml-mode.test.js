@@ -94,7 +94,7 @@ describe('plantumlMode', () => {
 
   it('labels a headless link, a quoted end, and a label with no spaces round the colon', () => {
     expect(tokens('node1 -- node2 : label1')).toEqual([['--', 'LinkOperator'], ['label1', 'labelName']])
-    expect(tokens('A ~~ "Big B" : waves')).toEqual([['~~', 'LinkOperator'], ['waves', 'labelName']])
+    expect(tokens('A ~~ "Big B" : waves')).toEqual([['~~', 'LinkOperator'], ['"Big B"', 'string'], ['waves', 'labelName']])
     expect(tokens('A->B:hi')).toEqual([['->', 'LinkOperator'], ['hi', 'labelName']])
   })
 
@@ -1399,6 +1399,29 @@ describe('declarations and class bodies (H15, H17)', () => {
     for (const divider of ['--', '..', '==', '__', '.. Getters ..', '== Static ==', '__ Fields __']) {
       expect(tokens('class A {', `  ${divider}`, '}')).toContainEqual([divider, 'heading'])
     }
+  })
+
+  it('reads a visibility mark with a space after it (H17)', () => {
+    const out = tokens('class C {', '  + render() : void', '  - x : int', '  # y', '  ~ z', '}')
+    expect(out).toContainEqual(['+', 'modifier'])
+    expect(out).toContainEqual(['render', 'FunctionName'])
+    expect(out.filter(([, t]) => t === 'modifier').map(([s]) => s)).toEqual(['+', '-', '#', '~'])
+  })
+
+  it('leaves a plus in a note or a link label plain', () => {
+    const mods = (...l) => tokens(...l).filter(([, t]) => t === 'modifier')
+    expect(mods('note left : + x')).toEqual([])
+    expect(mods('A -> B : + x')).toEqual([])
+  })
+
+  it('reads a quoted multiplicity after a link as a string (H23)', () => {
+    expect(tokens('A *-- "many" B')).toContainEqual(['"many"', 'string'])
+    const strings = tokens('A "1" -- "2" B').filter(([, t]) => t === 'string').map(([s]) => s)
+    expect(strings).toEqual(['"1"', '"2"'])
+    const out = tokens('A --> "x" B : "y"')
+    expect(out).toContainEqual(['"x"', 'string'])
+    expect(out.at(-1)[0]).toContain('"y"')
+    expect(out.filter(([s, t]) => s === '"y"' && t === 'string')).toEqual([])
   })
 
   it('reads every visibility mark and member modifier', () => {

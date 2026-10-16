@@ -443,7 +443,8 @@ export const classStates = {
     atLineStart(/@end\w*/.source, 'keyword', { pop: true }),
     ...comments,
     atLineStart(/(?:--|\.\.|==|__)(?:.*?(?:--|\.\.|==|__))?\s*$/.source, 'heading'),
-    atLineStart(/[-+#~](?=\S)/.source, 'modifier'),
+    // A space may follow the mark: the server reads `+ render()` as `+render()`.
+    atLineStart(/[-+#~](?=[ \t]*\S)/.source, 'modifier'),
     { regex: /(\{)(static|abstract|field|method|classifier)(\})/, token: ['brace', 'modifier', 'brace'] },
     { regex: /(\s*)(:)(\s*)([A-Za-z_][\w.<>[\],]*)/, token: [null, 'separator', null, 'typeName'] },
     ...calls,
@@ -468,8 +469,10 @@ export const head = [
 /** The rest of a line up to the colon that starts its text, read by the state `next`. */
 export const toColon = (next) => [
   { regex: /\s*:\s*/, token: null, next },
+  // A multiplicity or role, as the one before the link is a string.
+  { regex: /"[^"]*"/, token: 'string' },
   ...names,
-  { regex: /[^:$%]+/, token: null },
+  { regex: /[^:$%"]+|"/, token: null },
 ]
 
 /**

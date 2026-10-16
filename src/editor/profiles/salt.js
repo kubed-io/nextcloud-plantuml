@@ -30,7 +30,8 @@ export default (core) => {
 
   const openers = [
     // The server splits `{` off, so the tree's `T…` may follow a space; `{ Text` is a table.
-    { regex: whole('(\\{)([ \\t]*)(T[-+!#^]?)'), token: ['brace', null, 'modifier'], push: 'tree' },
+    // A block may open right after it (`{T{+ a }`), and nothing cuts the line at an opener.
+    { regex: /(\{)([ \t]*)(T[-+!#^]?)(?=[ \t]*(?:[|{}]|$))/, token: ['brace', null, 'modifier'], push: 'tree' },
     // `{S+` is `{S` and a cell `+`.
     { regex: /(\{)(S[I-]?|\/)/, token: ['brace', 'modifier'], push: 'other' },
     { regex: /(\{)(\*)/, token: ['brace', 'modifier'], push: 'menu' },
@@ -148,9 +149,11 @@ export default (core) => {
     const { first, end } = stops(stream.string, stream.pos)
     if (CELLS.has(owner)) return end
     if (MIDS.has(owner)) return first
-    // A label ends at the cell's last `]`.
+    // A label ends at the cell's last `]`: Creole stops short of it, and the cut then keeps it
+    // alone, so the closing rule sees it as the cell's end and not an earlier `]`.
     const close = stream.string.lastIndexOf(']', end - 1)
-    return close >= stream.pos ? Math.min(first, close) : first
+    if (close < stream.pos) return first
+    return stream.pos === close ? close + 1 : Math.min(first, close)
   }
 
   const mode = {

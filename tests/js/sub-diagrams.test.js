@@ -71,7 +71,7 @@ describe('the grammar', () => {
       ['{{', 'brace'], ['salt', 'keyword'], ['{', 'brace'], ['[', 'squareBracket'], [']', 'squareBracket'], ['}', 'brace'], ['}}', 'brace'],
       ...today.slice(3),
     ])
-    expect(today.slice(3)).toEqual([[':', 'separator'], ['int', 'typeName'], ['}', 'brace'], ['->', 'LinkOperator']])
+    expect(today.slice(3)).toEqual([['+', 'modifier'], [':', 'separator'], ['int', 'typeName'], ['}', 'brace'], ['->', 'LinkOperator']])
   })
 
   it('reads a bare {{ in a legend as uml, a nested {{ counted', () => {

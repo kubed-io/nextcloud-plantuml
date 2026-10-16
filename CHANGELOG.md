@@ -55,6 +55,12 @@ All notable changes to this project are documented here. The format follows
 - An **All diagrams** menu at the end of the tab strip when the tabs overflow: every diagram, its type beside it, a pick activating it.
 - Pick a named colour by name: a pencil after a colour's swatch opens the server's colour names, each with its swatch.
 - Grammars for board, git, gantt and project diagrams, AsciiMath and LaTeX formulas, and sprite blocks.
+- The editor colours every kind of token one way across diagram types: keywords, names, values, operators by kind, brackets, paths and stereotypes.
+- A diagram's name after `@start…` is underlined.
+- `@startchronology` and `@startjcckit` bodies are grey: this server cannot draw them.
+- Typing a path offers `file://`, `https://` and `http://`.
+- A pencil picks an icon (`<&…>`) or an emoji (`<:…:>`) by name.
+- A check marks `<back:#Name>` (and `<u:`, `<s:`, `<w:`), which PlantUML draws as text, with **Remove #**.
 
 ### Changed
 
@@ -62,6 +68,7 @@ All notable changes to this project are documented here. The format follows
 - The preprocessor colours `$variables` and function names, no longer the whole line in one colour.
 - Every `@start…` and `@end…` line is coloured, whatever the diagram type.
 - A warmer orange for attributes.
+- `!include file!NAME` picks a block by its index or its `@startuml(id=NAME)` only, as PlantUML documents; a block named only `@startuml NAME` is now a mistake that says to add `(id=NAME)`.
 
 ### Fixed
 
@@ -73,3 +80,6 @@ All notable changes to this project are documented here. The format follows
 - Picking a font in an unclosed `<font:` closes the tag.
 - Element names are no longer offered inside a tag.
 - A block comment inside a nested block no longer runs past its `@end`.
+- The colour pencil, completion and snippets write a colour name in `<back:` and its kin without `#`.
+- A tab shows a quoted or braced `@start` name as PlantUML reads it.
+- A note, legend, title or description left open no longer hides the diagrams after it.

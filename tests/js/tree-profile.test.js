@@ -136,6 +136,11 @@ describe('the wbs profile', () => {
     expect(wb('title Work')).toEqual([['title', 'keyword']])
   })
 
+  it('reads no direction line: wbs registers none, the server refuses it', () => {
+    expect(wb('top to bottom direction')).toEqual([])
+    expect(wb('left to right direction', '* Root')).toEqual([['*', 'list']])
+  })
+
   it('colours the text after an inline formula', () => {
     expect(wb('* a <math>x</math> **b**', '** c')).toEqual([
       ['*', 'list'], ['<math>', 'tagName'], ['</math>', 'tagName'], ['**b**', 'strong'], ['**', 'list'],

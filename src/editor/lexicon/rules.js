@@ -553,15 +553,17 @@ const bodyOf = (word) => `common${word[0].toUpperCase()}${word.slice(1)}`
  * alone (`{ all: false, title: true }` is hcl's). All in any case. The states Creole pushes are
  * here too, under names of their own so a grammar's never collide (`commonTagAttrs`,
  * `commonTagBraces`, `commonMath`, `commonLatex`, `commonLatexBlock`), ending with their line or
- * block: an inline formula and a `<latex>` block plain.
+ * block: an inline formula and a `<latex>` block plain. With `direction` false (wbs, which
+ * registers no `CommandRankDir`), no direction line.
  *
  * @param {object} [options]
  * @param {'block'|'line'|false} [options.legend]
  * @param {boolean} [options.title]
  * @param {boolean} [options.all]
+ * @param {boolean} [options.direction]
  * @return {{ rules: object[], states: Record<string, object[]> }}
  */
-export function common({ legend = 'block', title = true, all = true } = {}) {
+export function common({ legend = 'block', title = true, all = true, direction = true } = {}) {
   const own = [...(title ? ['title'] : []), ...(all ? ['header', 'footer'] : [])]
   const text = [...own, ...(all ? ['caption', 'mainframe'] : [])]
   const rules = [
@@ -571,10 +573,8 @@ export function common({ legend = 'block', title = true, all = true } = {}) {
   if (all) {
     if (legend === 'block') rules.push(command(/legend\b/.source, 'commonLegendHead'))
     if (legend === 'line') rules.push(command(/legend\b/.source, 'commonArgs'))
-    rules.push(
-      command(/(?:skinparam|scale|hide|show)(?=\s|$)/.source, 'commonArgs'),
-      command(/(?:left[ \t]+to[ \t]+right|top[ \t]+to[ \t]+bottom)[ \t]+direction\b/.source, 'commonArgs'),
-    )
+    rules.push(command(/(?:skinparam|scale|hide|show)(?=\s|$)/.source, 'commonArgs'))
+    if (direction) rules.push(command(/(?:left[ \t]+to[ \t]+right|top[ \t]+to[ \t]+bottom)[ \t]+direction\b/.source, 'commonArgs'))
   }
   const bodies = ['title', 'header', 'footer', 'legend'].map((word) => body(bodyOf(word), new RegExp(`end[ \\t]*${word}\\b`, 'i')))
   // Every push of one goes to its `COMMON_STATES` name.

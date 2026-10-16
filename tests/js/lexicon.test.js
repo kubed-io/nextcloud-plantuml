@@ -168,6 +168,10 @@ describe('lex.common', () => {
   it('reads no title when asked', () => {
     expect(spans(commonTable({ title: false }), ['title x', 'scale 2'])).toEqual([['scale', 'keyword'], ['2', 'number']])
   })
+
+  it('reads no direction line when asked, as wbs takes it', () => {
+    expect(spans(commonTable({ direction: false }), ['top to bottom direction', 'left to right direction', 'scale 2'])).toEqual([['scale', 'keyword'], ['2', 'number']])
+  })
 })
 
 describe('lex.creoleStates', () => {

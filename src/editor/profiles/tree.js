@@ -30,8 +30,9 @@ const IDS = ['paren', 'typeName', 'paren']
 
 function profile(core, type) {
   const { atNextLine, box, colours, common, creole, creoleStates, stereotypes, stereotypeState, table } = core.lex
-  const lines = common()
   const wbs = type === 'wbs'
+  // wbs registers no direction lines (`CommandRankDir`): the server refuses them.
+  const lines = common({ direction: !wbs })
   const boxes = box(CLOSER)
   const rest = `(?=.*${CLOSER.source})`
   const opener = (prefix, tokens) => [

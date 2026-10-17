@@ -51,12 +51,11 @@ const check = (doc, first, last, indented, fallback) => {
   return { from, to: at.to, severity: 'error', message: error.message }
 }
 
-/** @param {{ scan: typeof import('../blocks.js').scan, subDiagrams: typeof import('../sub-diagrams.js').subDiagramsOf }} core */
-export const jsonLint = ({ scan, subDiagrams }) => (state) => {
+/** @param {{ diagrams: typeof import('../blocks.js').diagramsOf, subDiagrams: typeof import('../sub-diagrams.js').subDiagramsOf }} core */
+export const jsonLint = ({ diagrams: diagramsOf, subDiagrams }) => (state) => {
   const { doc } = state
-  const text = doc.toString()
   const found = []
-  const diagrams = scan(text)
+  const diagrams = diagramsOf(doc)
   for (const d of diagrams) {
     if (d.type !== 'json' || d.page !== 1 || d.start === null) {
       continue
@@ -67,7 +66,7 @@ export const jsonLint = ({ scan, subDiagrams }) => (state) => {
     }
   }
   // A `{{json` inside a uml diagram, closed: its lines between the `{{json` and `}}` lines.
-  for (const s of subDiagrams(text)) {
+  for (const s of subDiagrams(doc.toString())) {
     if (s.type !== 'json' || s.end === null) {
       continue
     }

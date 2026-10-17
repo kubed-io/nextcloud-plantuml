@@ -4,7 +4,8 @@
  */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { blocksOf, diagramAt, label, scan } from '../../src/editor/blocks.js'
+import { EditorState, Text } from '@codemirror/state'
+import { blocksOf, diagramAt, diagramsOf, diagramsWithout, label, scan } from '../../src/editor/blocks.js'
 
 const dir = new URL('../fixtures/diagrams/', import.meta.url)
 const expected = JSON.parse(readFileSync(new URL('expected.json', dir), 'utf8'))
@@ -154,4 +155,54 @@ describe('blocksOf', () => {
     ])
     expect(blocksOf(scan('A -> B'))).toEqual([])
   })
+})
+
+describe('diagramsOf, one scan per document version', () => {
+  const doc = Text.of(['@startuml a', 'A -> B', '@enduml', '@startyaml', 'a: 1', '@endyaml'])
+
+  it('is the scan of the document, the same array each time it is asked', () => {
+    expect(diagramsOf(doc)).toEqual(scan(doc.toString()))
+    expect(diagramsOf(doc)).toBe(diagramsOf(doc))
+  })
+
+  it('reads an edited document afresh and keeps the version before it', () => {
+    const state = EditorState.create({ doc })
+    const before = diagramsOf(state.doc)
+    const { state: after } = state.update({ changes: { from: 0, to: state.doc.line(1).to, insert: '@startsalt b' } })
+
+    expect(diagramsOf(after.doc)).not.toBe(before)
+    expect(diagramsOf(after.doc)[0]).toMatchObject({ type: 'salt', name: 'b', start: 1, end: 3 })
+    expect(diagramsOf(state.doc)).toBe(before)
+  })
+})
+
+describe('diagramsWithout, the diagrams around a line still being typed', () => {
+  const blanked = (doc, n) => {
+    const lines = doc.toString().split('\n')
+    lines[n - 1] = ''
+    return scan(lines.join('\n'))
+  }
+
+  it('reads the document\'s own scan where the line opens, closes and pages nothing', () => {
+    const doc = Text.of(['@startuml', 'A -> B', '@sta', '@enduml'])
+    expect(diagramsWithout(doc, 2)).toBe(diagramsOf(doc))
+    expect(diagramsWithout(doc, 3)).toBe(diagramsOf(doc))
+  })
+
+  it('reads the document with the line blank where it is a @start, @end or newpage line', () => {
+    const doc = Text.of(['@startuml', 'A -> B', 'newpage', '@startu', '@enduml'])
+    for (const n of [1, 3, 4, 5]) {
+      expect(diagramsWithout(doc, n)).toEqual(blanked(doc, n))
+      expect(diagramsWithout(doc, n)).not.toEqual(diagramsOf(doc))
+    }
+  })
+
+  for (const file of Object.keys(expected)) {
+    it(`reads every line of ${file} as the scan with that line blank`, () => {
+      const doc = Text.of(read(file).split('\n'))
+      for (let n = 1; n <= doc.lines; n++) {
+        expect(diagramsWithout(doc, n)).toEqual(blanked(doc, n))
+      }
+    })
+  }
 })

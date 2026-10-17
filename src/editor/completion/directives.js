@@ -6,7 +6,7 @@
  * a diagram after an `@`, the preprocessor's after a `!`, at the start of a line.
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
-import { blocksOf, scan } from '../blocks.js'
+import { blocksOf, diagramsWithout } from '../blocks.js'
 import preprocessor from '../data/directives.json'
 
 const DIRECTIVES = [
@@ -74,9 +74,7 @@ function conditionalOpen(state, line) {
 
 /** The type of the block the line is in when nothing has closed it yet; the line itself is still being typed. */
 function openType(state, line) {
-  const lines = state.doc.toString().split('\n')
-  lines[line - 1] = ''
-  const block = blocksOf(scan(lines.join('\n'))).findLast((candidate) => candidate.start <= line)
+  const block = blocksOf(diagramsWithout(state.doc, line)).findLast((candidate) => candidate.start <= line)
   return block && block.end === null ? block.type : null
 }
 

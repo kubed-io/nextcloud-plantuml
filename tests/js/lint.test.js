@@ -16,9 +16,9 @@ import { serverMistake } from '../../src/editor/lint/server-error.js'
 import { yamlLint as yamlRule } from '../../src/editor/lint/yaml.js'
 import { styleLint as styleRule } from '../../src/editor/lint/style.js'
 import { translate } from '@nextcloud/l10n'
-import { scan } from '../../src/editor/blocks.js'
+import { diagramsOf } from '../../src/editor/blocks.js'
 
-const yamlLint = yamlRule({ scan })
+const yamlLint = yamlRule({ diagrams: diagramsOf })
 const stateOf = (doc, name = 'Order flow.puml') => EditorState.create({ doc, extensions: [fileName.of(name), serverError] })
 
 describe('the lint rules', () => {

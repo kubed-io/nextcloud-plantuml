@@ -8,12 +8,12 @@ import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { checkJson, jsonLines } from '../../src/editor/profiles/json-check.js'
 import { jsonLint } from '../../src/editor/lint/json.js'
-import { scan } from '../../src/editor/blocks.js'
+import { diagramsOf } from '../../src/editor/blocks.js'
 import { subDiagramsOf } from '../../src/editor/sub-diagrams.js'
 
 const dir = new URL('./fixtures/json-probes/', import.meta.url)
 const verdicts = readFileSync(new URL('verdicts.txt', dir), 'utf8').trim().split('\n').map((line) => line.split(' '))
-const lint = jsonLint({ scan, subDiagrams: subDiagramsOf })
+const lint = jsonLint({ diagrams: diagramsOf, subDiagrams: subDiagramsOf })
 const found = (doc) => lint(EditorState.create({ doc }))
 
 describe('the reader', () => {

@@ -11,11 +11,11 @@
 import { parseDocument } from 'yaml'
 import { dataLines } from '../profiles/plantuml-lines.js'
 
-/** @param {{ scan: typeof import('../blocks.js').scan }} core */
-export const yamlLint = ({ scan }) => (state) => {
+/** @param {{ diagrams: typeof import('../blocks.js').diagramsOf }} core */
+export const yamlLint = ({ diagrams }) => (state) => {
   const { doc } = state
   const found = []
-  for (const d of scan(doc.toString())) {
+  for (const d of diagrams(doc)) {
     if (d.type !== 'yaml' || d.page !== 1 || d.start === null) {
       continue
     }

@@ -79,14 +79,13 @@ function bodyBefore(lines, line, column) {
   return null
 }
 
-/** @param {{ scan: typeof import('../blocks.js').scan }} core */
-export const styleCompletion = ({ scan }) => (context) => {
+/** @param {{ diagrams: typeof import('../blocks.js').diagramsOf }} core */
+export const styleCompletion = ({ diagrams }) => (context) => {
   const { state, pos } = context
   const typed = context.matchBefore(/[\w-]*/)
   const line = state.doc.lineAt(pos)
   const column = typed.from - line.from
-  const text = state.doc.toString()
-  const body = bodyBefore(text.split('\n'), line.number, column)
+  const body = bodyBefore(state.doc.toString().split('\n'), line.number, column)
   // A word after `.` or `:` is a stereotype class or a depth, free-form.
   if (!body || (column > body.at(-1).from && /[^\s{};,]/.test(line.text[column - 1]))) {
     return null
@@ -96,7 +95,7 @@ export const styleCompletion = ({ scan }) => (context) => {
   if (at === 'value') {
     return null
   }
-  const type = scan(text).find((d) => line.number >= d.from && line.number <= d.to)?.type
+  const type = diagrams(state.doc).find((d) => line.number >= d.from && line.number <= d.to)?.type
   if (depth > 0) {
     return result([...propertyOptions, ...selectorOptions(type)])
   }

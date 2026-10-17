@@ -111,6 +111,40 @@ export function scan(text) {
   return diagrams
 }
 
+const scanned = new WeakMap()
+
+/**
+ * The diagrams of one version of a document. A `Text` never changes, so it is scanned once and
+ * every reader of that version (the editor, folding, completion, lint, hover) shares the array.
+ *
+ * @param {import('@codemirror/state').Text} doc
+ * @returns {Diagram[]}
+ */
+export function diagramsOf(doc) {
+  if (!scanned.has(doc)) {
+    scanned.set(doc, scan(doc.toString()))
+  }
+  return scanned.get(doc)
+}
+
+/**
+ * The diagrams with line `number` blank, as a line still being typed is read. Only a `@start`,
+ * `@end` or `newpage` line changes the scan, so for any other the version's own one serves.
+ *
+ * @param {import('@codemirror/state').Text} doc
+ * @param {number} number 1-based
+ * @returns {Diagram[]}
+ */
+export function diagramsWithout(doc, number) {
+  const text = doc.line(number).text
+  if (!startOf(text) && !END.test(text) && !NEWPAGE.test(text)) {
+    return diagramsOf(doc)
+  }
+  const lines = doc.toString().split('\n')
+  lines[number - 1] = ''
+  return scan(lines.join('\n'))
+}
+
 /**
  * The last line of each image PlantUML draws, in its order. It reads a file
  * its own way, as the live server showed: a `@start` begins its block afresh,

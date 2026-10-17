@@ -5,7 +5,7 @@
 // Which profiles a file needs, loading each once for the page, and what a
 // loaded profile adds to the editor: its inner mode, completion and lint.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { diagnosticCount } from '@codemirror/lint'
 import { scan } from '../../src/editor/blocks.js'
@@ -187,7 +187,7 @@ describe('loadProfile', () => {
     expect(typeof first.mode.token).toBe('function')
   })
 
-  it('makes the profile from its module\'s factory, handing it the core it needs: the scan, the translator and the lexicon', async () => {
+  it('makes the profile from its module\'s factory, handing it the core it needs: the scan and its memo, the translator and the lexicon', async () => {
     const made = { type: 'yaml', completions: [], lints: [] }
     const factory = vi.fn(() => made)
     vi.spyOn(profiles.PROFILES, 'yaml').mockResolvedValue({ default: factory })
@@ -195,9 +195,12 @@ describe('loadProfile', () => {
     expect(await loadProfile('yaml')).toBe(made)
     expect(factory).toHaveBeenCalledTimes(1)
     const [[core]] = factory.mock.calls
-    expect(Object.keys(core)).toEqual(['scan', 't', 'lex', 'subDiagrams'])
+    expect(Object.keys(core)).toEqual(['scan', 'diagrams', 't', 'lex', 'subDiagrams'])
     expect(core.t).toBe(translate)
     expect(core.scan('@startyaml\na: 1\n@endyaml')[0]).toMatchObject({ type: 'yaml', start: 1, end: 3 })
+    const doc = Text.of(['@startyaml', 'a: 1', '@endyaml'])
+    expect(core.diagrams(doc)[0]).toMatchObject({ type: 'yaml', start: 1, end: 3 })
+    expect(core.diagrams(doc)).toBe(core.diagrams(doc))
   })
 
   it('logs a profile that will not load once, gives null, and tries again only after a reset', async () => {

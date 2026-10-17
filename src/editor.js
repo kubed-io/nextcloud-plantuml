@@ -26,7 +26,7 @@ import { closeLintPanel } from '@codemirror/lint'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from './files-helpers.js'
-import { diagramAt, scan } from './editor/blocks.js'
+import { diagramAt, diagramsOf } from './editor/blocks.js'
 import { profileExtension, profileLoader, resetProfiles } from './editor/profiles/index.js'
 import { plantumlTheme } from './editor/theme.js'
 import { plantumlCompletion } from './editor/completion/index.js'
@@ -597,9 +597,8 @@ export function openEditor(node) {
             if (update.docChanged) {
               failure = notice = ''
               showState()
-              const text = update.state.doc.toString()
-              diagrams = scan(text)
-              wantProfiles(diagrams, text)
+              diagrams = diagramsOf(update.state.doc)
+              wantProfiles(diagrams, update.state.doc.toString())
               if (!conflict) {
                 autosave.schedule()
               }
@@ -618,9 +617,9 @@ export function openEditor(node) {
     document.addEventListener('visibilitychange', drawAgain)
     window.addEventListener('focus', drawAgain)
     view.focus()
-    diagrams = scan(content)
+    diagrams = diagramsOf(view.state.doc)
     follow(view.state, true)
-    wantProfiles(diagrams, content)
+    wantProfiles(diagrams, view.state.doc.toString())
   }, (e) => {
     console.error(`[${APP_ID}] could not open ${currentPath}`, e)
     fail(t(APP_ID, 'Could not open the file'))

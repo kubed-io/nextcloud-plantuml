@@ -29,7 +29,8 @@ import { protocols } from '../../src/editor/completion/protocols.js'
 import { subDiagrams } from '../../src/editor/completion/sub-diagrams.js'
 import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
-import { scan } from '../../src/editor/blocks.js'
+import { diagramsOf, scan } from '../../src/editor/blocks.js'
+import { elementAt } from '../../src/editor/docs/element.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
@@ -42,6 +43,11 @@ import { loadDocs } from '../../src/editor/docs/index.js'
 import { withDocs } from '../../src/editor/completion/docs.js'
 
 vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn(), loadFile: vi.fn() }))
+// The real scan and its memo, counted: a document version is scanned once.
+vi.mock('../../src/editor/blocks.js', async (original) => {
+  const real = await original()
+  return { ...real, scan: vi.fn(real.scan), diagramsOf: vi.fn(real.diagramsOf) }
+})
 vi.mock('../../src/editor/docs/index.js', async (original) => {
   const real = await original()
   return { ...real, loadDocs: vi.fn(real.loadDocs) }
@@ -798,7 +804,7 @@ describe('connectors', () => {
     ['a style property\'s empty value', '<style>\nnode {\n  FontStyle |\n}\n</style>'],
   ])('are not offered where %s sits', (_what, marked) => {
     const pos = marked.indexOf('|')
-    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([styleProfile({ scan, t: (app, text) => text })])] })
+    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([styleProfile({ diagrams: diagramsOf, t: (app, text) => text })])] })
     expect(connectors(new CompletionContext(state, pos, true))).toBeNull()
   })
 
@@ -1091,8 +1097,8 @@ describe('snippets', () => {
 })
 
 describe('style', () => {
-  const style = styleCompletion({ scan })
-  const profile = styleProfile({ scan, t: (app, text) => text })
+  const style = styleCompletion({ diagrams: diagramsOf })
+  const profile = styleProfile({ diagrams: diagramsOf, t: (app, text) => text })
 
   /** The registry's list source over a state with the style profile's values. */
   function styleValues(marked, explicit = false) {
@@ -1213,7 +1219,7 @@ describe('style', () => {
 
 describe('inside a style block', () => {
   const COLORS = { AliceBlue: '#F0F8FF', Red: '#FF0000' }
-  const profile = styleProfile({ scan, t: (app, text) => text })
+  const profile = styleProfile({ diagrams: diagramsOf, t: (app, text) => text })
   const { selectors, fontStyles } = vocabulary.style
   let extensions
 
@@ -1928,7 +1934,7 @@ describe('the docs beside the completion list', () => {
   })
 
   it('keys a style selector and property, lower-cased, with no core import', async () => {
-    const style = styleCompletion({ scan })
+    const style = styleCompletion({ diagrams: diagramsOf })
     const selectors = await withDocs(style)(context('<style>\nsequenceDia|\n</style>', true))
     expect(option(selectors, 'sequenceDiagram')).toMatchObject({ docKey: 'selector:sequencediagram' })
     const properties = await withDocs(style)(context('<style>\nactor {\n  BackG|\n}\n</style>', true))
@@ -1937,6 +1943,36 @@ describe('the docs beside the completion list', () => {
 
   it('passes a source that offers nothing through', async () => {
     expect(await docd(connectors, 'x|')).toBeNull()
+  })
+
+  it('describes the same options once for each block type', async () => {
+    const options = [{ label: 'alt', type: 'keyword', docKey: 'keyword:alt' }]
+    const source = () => ({ from: 0, options })
+    const first = await withDocs(source)(context('A |'))
+    const again = await withDocs(source)(context('@startuml\nA |\n@enduml'))
+    const mindmap = await withDocs(source)(context('@startmindmap\n|\n@endmindmap'))
+
+    expect(again.options).toBe(first.options)
+    expect(first.options[0].detail).toBe('Alternatives, one drawn per else')
+    expect(mindmap.options).not.toBe(first.options)
+  })
+})
+
+describe('one block scan per document version (F2)', () => {
+  it('serves a completion request and a hover from a single scan', async () => {
+    const marked = '@startuml\nalt paid\n  Alice -> Bob\nend\nco|\n@enduml'
+    const { state, pos } = stateAt(marked)
+    scan.mockClear()
+    diagramsOf.mockClear()
+
+    const results = await Promise.all(state.languageDataAt('autocomplete', pos).map((source) => source(new CompletionContext(state, pos, true))))
+    expect(results.filter(Boolean).flatMap(labels)).toContain('colors')
+    expect(elementAt(state, marked.indexOf('alt') + 1, 1)).toMatchObject({ key: 'keyword:alt', type: 'uml' })
+
+    // Each scan the memo runs is a fresh array, so one array is one scan.
+    expect(scan).not.toHaveBeenCalled()
+    expect(diagramsOf.mock.calls.length).toBeGreaterThan(1)
+    expect(new Set(diagramsOf.mock.results.map((result) => result.value)).size).toBe(1)
   })
 })
 
@@ -1966,7 +2002,7 @@ describe('every docKey a source offers resolves in the shipped index', () => {
     const keys = new Set()
     for (const marked of contexts) {
       const pos = marked.indexOf('|')
-      const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, profileExtension([styleProfile({ scan, t: (app, text) => text })])] })
+      const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, profileExtension([styleProfile({ diagrams: diagramsOf, t: (app, text) => text })])] })
       const result = await source(new CompletionContext(state, pos, true))
       expect(result?.options.length, `${source.name} at ${JSON.stringify(marked)}`).toBeGreaterThan(0)
       for (const { docKey } of result.options) {
@@ -1996,7 +2032,7 @@ describe('every docKey a source offers resolves in the shipped index', () => {
 
   it('style', async () => {
     const docs = await loadDocs()
-    const keys = await keysOf(styleCompletion({ scan }), ['<style>\n|\n</style>', '<style>\nactor {\n  |\n}\n</style>'])
+    const keys = await keysOf(styleCompletion({ diagrams: diagramsOf }), ['<style>\n|\n</style>', '<style>\nactor {\n  |\n}\n</style>'])
     expect(keys.filter((key) => !docs.get(key))).toEqual([])
   })
 })

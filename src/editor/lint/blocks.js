@@ -8,13 +8,13 @@
  */
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
-import { blocksOf, scan } from '../blocks.js'
+import { blocksOf, diagramsOf } from '../blocks.js'
 
 const END = /^(\s*)@end(\w*)\s*$/
 
 /** @param {import('@codemirror/state').EditorState} state */
 export function blocksLint(state) {
-  const blocks = blocksOf(scan(state.doc.toString()))
+  const blocks = blocksOf(diagramsOf(state.doc))
   const found = []
 
   blocks.forEach((block) => {
@@ -34,7 +34,7 @@ export function blocksLint(state) {
           apply(view, from) {
             const doc = view.state.doc
             const line = doc.lineAt(from).number
-            const next = blocksOf(scan(doc.toString())).find((candidate) => candidate.start > line)
+            const next = blocksOf(diagramsOf(doc)).find((candidate) => candidate.start > line)
             const at = next ? doc.line(next.start).from : doc.length
             const lead = !next && doc.length && doc.sliceString(doc.length - 1) !== '\n' ? '\n' : ''
             view.dispatch({ changes: { from: at, insert: `${lead}@end${type}\n` } })

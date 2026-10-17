@@ -5,7 +5,7 @@
  * The words a PlantUML line starts with, grouped as the diagrams use them.
  * A word joins a list here; what it says of itself is its docs entry (`data/docs/`).
  */
-import { diagramAt, scan } from '../blocks.js'
+import { diagramAt, diagramsWithout } from '../blocks.js'
 import { inStyleBody } from '../plantuml-mode.js'
 import { PARTICIPANTS, STRUCTURES } from '../lexicon/rules.js'
 import { serverKeywords } from './server-list.js'
@@ -65,9 +65,7 @@ function startsAPhrase(words, phrases) {
 
 /** Whether the line sits in a `@startuml` block; the line itself is blanked, as it is still being typed. */
 export function inUml(state, number) {
-  const lines = state.doc.toString().split('\n')
-  lines[number - 1] = ''
-  const diagram = diagramAt(scan(lines.join('\n')), number)
+  const diagram = diagramAt(diagramsWithout(state.doc, number), number)
   return diagram?.start != null && diagram.type === 'uml'
 }
 

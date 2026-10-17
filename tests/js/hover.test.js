@@ -31,7 +31,7 @@ import builtinList from '../../src/editor/data/builtins.json'
 import language from '../../src/editor/data/language.json'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 import { atTopLevel } from '../../src/editor/plantuml-mode.js'
-import { scan } from '../../src/editor/blocks.js'
+import { diagramsOf, scan } from '../../src/editor/blocks.js'
 
 // The real functions, counted: the top-level check and the scan run only where they are needed.
 vi.mock('../../src/editor/plantuml-mode.js', async (importOriginal) => {
@@ -40,7 +40,7 @@ vi.mock('../../src/editor/plantuml-mode.js', async (importOriginal) => {
 })
 vi.mock('../../src/editor/blocks.js', async (importOriginal) => {
   const real = await importOriginal()
-  return { ...real, scan: vi.fn(real.scan) }
+  return { ...real, scan: vi.fn(real.scan), diagramsOf: vi.fn(real.diagramsOf) }
 })
 // A small index in place of the data chunks.
 vi.mock('../../src/editor/docs/index.js', async (importOriginal) => {
@@ -275,8 +275,10 @@ describe('elementAt: only the work a position needs', () => {
 
   it('reads no block for a token that names nothing', () => {
     scan.mockClear()
+    diagramsOf.mockClear()
     expect(key(lines, 'hi')).toBeNull()
     expect(scan).not.toHaveBeenCalled()
+    expect(diagramsOf).not.toHaveBeenCalled()
   })
 })
 

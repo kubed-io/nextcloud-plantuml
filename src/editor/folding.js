@@ -14,7 +14,7 @@
  */
 import { ensureSyntaxTree, foldAll, foldGutter, foldKeymap, foldService, unfoldAll } from '@codemirror/language'
 import { keymap } from '@codemirror/view'
-import { blocksOf, scan } from './blocks.js'
+import { blocksOf, diagramsOf } from './blocks.js'
 import { subDiagramsOf } from './sub-diagrams.js'
 
 const STYLE_OPEN = /^\s*<style>\s*$/
@@ -41,8 +41,7 @@ const cache = new WeakMap()
 
 function rangesIn(doc) {
   if (!cache.has(doc)) {
-    const text = doc.toString()
-    cache.set(doc, [...blocksOf(scan(text)), ...stylesOf(doc), ...subDiagramsOf(text).map((sub) => ({ ...sub, sub: true }))])
+    cache.set(doc, [...blocksOf(diagramsOf(doc)), ...stylesOf(doc), ...subDiagramsOf(doc.toString()).map((sub) => ({ ...sub, sub: true }))])
   }
   return cache.get(doc)
 }

@@ -6,7 +6,7 @@
  * block, above Creole's tags; not in a style block there.
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
-import { blocksOf, scan } from '../blocks.js'
+import { blocksOf, diagramsOf } from '../blocks.js'
 import { inStyleBody } from '../plantuml-mode.js'
 
 const option = snippetCompletion('<note>\n${}\n</note>', { label: '<note>', detail: 'files note', type: 'text', boost: 3 })
@@ -18,7 +18,7 @@ export function filesNote(context) {
     return null
   }
   const line = context.state.doc.lineAt(context.pos).number
-  const block = blocksOf(scan(context.state.doc.toString())).findLast((candidate) => candidate.start <= line)
+  const block = blocksOf(diagramsOf(context.state.doc)).findLast((candidate) => candidate.start <= line)
   if (block?.type !== 'files' || (block.end !== null && block.end < line)) {
     return null
   }

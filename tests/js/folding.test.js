@@ -22,6 +22,14 @@ describe('folding', () => {
     expect(foldable(state, lineStart(state, 1), state.doc.line(1).to)).toEqual({ from: '@startuml a'.length, to: '@startuml a\nA -> B\nB -> C'.length })
   })
 
+  it('folds each version of the document as it reads', () => {
+    const state = stateOf(DOC)
+    const { state: next } = state.update({ changes: { from: lineStart(state, 3), insert: '@enduml\n' } })
+
+    expect(foldable(next, lineStart(next, 1), next.doc.line(1).to)).toEqual({ from: '@startuml a'.length, to: '@startuml a\nA -> B'.length })
+    expect(foldable(state, lineStart(state, 1), state.doc.line(1).to)).toEqual({ from: '@startuml a'.length, to: '@startuml a\nA -> B\nB -> C'.length })
+  })
+
   it('has no fold for an unclosed block, an empty one, or any other line', () => {
     const state = stateOf(DOC + '@startyaml c\n@endyaml\n')
     const at = (n) => foldable(state, lineStart(state, n), state.doc.line(n).to)

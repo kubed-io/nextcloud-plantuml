@@ -10,7 +10,7 @@
  * value, is none.
  */
 import { ensureSyntaxTree } from '@codemirror/language'
-import { diagramAt, scan } from '../blocks.js'
+import { diagramAt, diagramsOf } from '../blocks.js'
 import { atTopLevel, inStyleBody } from '../plantuml-mode.js'
 import { CONNECTORS } from '../completion/connectors.js'
 import { HELPERS } from '../completion/keywords.js'
@@ -104,7 +104,7 @@ export function elementAt(state, pos, side) {
   if (!found && !node.type.isTop) {
     return null
   }
-  const diagram = diagramAt(scan(state.doc.toString()), state.doc.lineAt(pos).number)
+  const diagram = diagramAt(diagramsOf(state.doc), state.doc.lineAt(pos).number)
   const type = diagram?.type ?? 'uml'
   const element = found || (type === 'uml' && atTopLevel(state, pos, diagram?.start ?? 1) && lineKey(state, pos, side))
   if (!element) {

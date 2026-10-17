@@ -34,6 +34,15 @@ describe('a sheet', () => {
     expect(new Set(ids).size).toBe(2)
   })
 
+  it('prefixes its SVG ids with the prefix it is given', async () => {
+    const withId = '<svg xmlns="http://www.w3.org/2000/svg"><defs><filter id="f"/></defs><rect filter="url(#f)"/></svg>'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(withId, { status: 200 })))
+    const sheet = createSheets('/D/S.puml', { labelOf: () => 'a', idPrefix: 'view-7-' }).sheet(2)
+    await settled(sheet)
+
+    expect(sheet.querySelector('filter').id).toBe('view-7-2-f')
+  })
+
   it('shows the problem the route answered', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{"problem":"not set"}', { status: 503 })))
     const sheet = createSheets('/D/S.puml', { labelOf: () => 'a' }).sheet(1)

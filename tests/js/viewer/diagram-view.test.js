@@ -53,6 +53,29 @@ describe('the Viewer, in Tabs', () => {
     expect(root.querySelector('.plantuml-viewer__head [role="tablist"]')).not.toBeNull()
   })
 
+  it('gives two views on one page their own stage ids and SVG ids', async () => {
+    // The Viewer keeps the file before hidden, its view built, beside the one shown.
+    const withId = '<svg xmlns="http://www.w3.org/2000/svg"><defs><filter id="f"/></defs><rect filter="url(#f)"/></svg>'
+    fetch.mockImplementation(async () => new Response(withId, { status: 200 }))
+    seams.loadFile.mockResolvedValue({ content: SCREENS, etag: '"e"' })
+    const other = document.createElement('div')
+    document.body.append(other)
+    try {
+      createDiagramView(root, { path: '/D/Screens.puml', basename: 'Screens.puml', onReady: vi.fn() })
+      createDiagramView(other, { path: '/D/Other.puml', basename: 'Other.puml', onReady: vi.fn() })
+      await settle()
+
+      const stages = [root, other].map((view) => view.querySelector('.plantuml-viewer__stage').id)
+      expect(new Set(stages).size).toBe(2)
+      expect([root, other].map((view) => view.querySelector('[role="tab"]').getAttribute('aria-controls'))).toEqual(stages)
+      const filters = [root, other].map((view) => view.querySelector('.plantuml-viewer__stage filter').id)
+      expect(new Set(filters).size).toBe(2)
+      expect(document.querySelectorAll(`[id="${filters[0]}"]`)).toHaveLength(1)
+    } finally {
+      other.remove()
+    }
+  })
+
   it('opens on the first diagram and draws only it', async () => {
     seams.loadFile.mockResolvedValue({ content: SCREENS, etag: '"e"' })
     createDiagramView(root, { path: '/D/Screens.puml', basename: 'Screens.puml', onReady: vi.fn() })

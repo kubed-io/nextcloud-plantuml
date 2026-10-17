@@ -61,3 +61,13 @@ it('destroys nothing for a neighbour never shown', () => {
   expect(() => component.beforeDestroy.call(vm)).not.toThrow()
   expect(seams.view.destroy).not.toHaveBeenCalled()
 })
+
+it('keeps a hidden neighbour out of the focus order, and lets it back in when shown', () => {
+  const vm = instance(false)
+  component.mounted.call(vm)
+  expect(vm.$el.hasAttribute('inert')).toBe(true)
+  component.watch.active.call(vm, true)
+  expect(vm.$el.hasAttribute('inert')).toBe(false)
+  component.watch.active.call(vm, false)
+  expect(vm.$el.hasAttribute('inert')).toBe(true)
+})

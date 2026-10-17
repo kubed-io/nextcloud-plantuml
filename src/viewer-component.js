@@ -9,7 +9,8 @@
  * nothing of Vue and draws with `render(h)`; its `Mime` mixin supplies
  * `filename`, `basename`, `active` and `doneLoading()`. The Viewer also mounts
  * the previous and next files' components, hidden and inactive, so the view is
- * built only once this one is the file shown.
+ * built only once this one is the file shown, and is kept: a hidden one is inert,
+ * so its active tab leaves the focus order.
  */
 import { createDiagramView } from './viewer/diagram-view.js'
 
@@ -18,6 +19,7 @@ export default {
 
   watch: {
     active(now) {
+      this.$el.toggleAttribute('inert', !now)
       if (now) {
         this.build()
       }
@@ -25,6 +27,7 @@ export default {
   },
 
   mounted() {
+    this.$el.toggleAttribute('inert', !this.active)
     if (this.active) {
       this.build()
     }

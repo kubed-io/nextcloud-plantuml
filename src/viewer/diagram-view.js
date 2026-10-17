@@ -14,7 +14,10 @@ import { label, scan } from '../editor/blocks.js'
 import { createTabs } from '../editor/tabs.js'
 import { createSheets } from './sheets.js'
 
-const STAGE_ID = 'plantuml-viewer-stage'
+// The Viewer keeps the file before mounted, hidden, beside the one shown: each
+// view numbers its ids, so a tab's aria-controls and a diagram's url(#…) find
+// their own view.
+let views = 0
 
 // The Viewer (NcModal) takes ←/→ for the previous and next file and Escape for
 // closing. Keys a tab strip or an open menu of ours uses stop at the root: the
@@ -33,6 +36,8 @@ function element(tag, className) {
  * @return {{ destroy: () => void }}
  */
 export function createDiagramView(root, { path, basename, onReady }) {
+  const prefix = `plantuml-viewer-${++views}-`
+  const stageId = `${prefix}stage`
   const state = { active: 0 }
   let diagrams = []
   let sheets = null
@@ -49,14 +54,14 @@ export function createDiagramView(root, { path, basename, onReady }) {
   const tabBar = element('div', 'plantuml-viewer__tabbar')
   tabBar.hidden = true
   const stage = element('div', 'plantuml-viewer__stage')
-  stage.id = STAGE_ID
+  stage.id = stageId
   stage.setAttribute('aria-label', basename)
   const tabs = createTabs({
     onActivate: (index) => {
       state.active = index
       show()
     },
-    controls: STAGE_ID,
+    controls: stageId,
   })
   tabBar.append(tabs.element)
   head.append(tabBar)
@@ -82,7 +87,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     }
     // CodeMirror reads any line ending for the editor; scan() splits on \n alone.
     diagrams = scan(content.replace(/\r\n?/g, '\n'))
-    sheets = createSheets(path, { labelOf: (position) => label(diagrams[position - 1]) })
+    sheets = createSheets(path, { labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
     sheets.sheet(1).addEventListener('plantuml-viewer:settled', settle, { once: true })
     show()
   }, () => {

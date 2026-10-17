@@ -24,10 +24,11 @@ function jsonProblem(body) {
 
 /**
  * @param {string} path the file, in the user's folder
- * @param {{ parallel?: number, labelOf: (position: number) => string }} options
+ * @param {{ parallel?: number, labelOf: (position: number) => string, idPrefix?: string }} options
+ *   `idPrefix` is the view's own, so no two views on a page share an SVG id
  * @return {{ sheet: (position: number) => HTMLElement, destroy: () => void }}
  */
-export function createSheets(path, { parallel = 3, labelOf }) {
+export function createSheets(path, { parallel = 3, labelOf, idPrefix = 'plantuml-viewer-' }) {
   const sheets = new Map()
   const queue = []
   const stop = new AbortController()
@@ -39,7 +40,7 @@ export function createSheets(path, { parallel = 3, labelOf }) {
     try {
       const res = await fetch(renderUrl(path, { index: position - 1 }), { credentials: 'same-origin', signal: stop.signal })
       const body = await res.text()
-      const svg = res.ok ? toInlineSvg(body, { idPrefix: `plantuml-viewer-${position}-` }) : null
+      const svg = res.ok ? toInlineSvg(body, { idPrefix: `${idPrefix}${position}-` }) : null
       if (svg) {
         sheet.replaceChildren(svg)
       } else {

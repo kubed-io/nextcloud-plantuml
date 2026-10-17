@@ -63,3 +63,9 @@ export const plantumlLint = [
   linter((view) => [...rules, ...view.state.facet(profileRules)].flatMap((rule) => rule(view.state)), { needsRefresh, tooltipFilter }),
   lintGutter(),
 ]
+
+/** A style file's lint (R12): the style profile's rules alone, none of `rules`. */
+export const sheetLint = [
+  linter((view) => view.state.facet(profileRules).flatMap((rule) => rule(view.state)), { needsRefresh, tooltipFilter }),
+  lintGutter(),
+]

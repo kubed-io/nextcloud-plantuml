@@ -36,7 +36,7 @@ import { APP_ID } from '../../files-helpers.js'
 import { diagramsOf } from '../blocks.js'
 import { lex } from '../lexicon/index.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
-import { styleRegions } from '../regions.js'
+import { sheetRegions, styleRegions } from '../regions.js'
 import { SUB_OPEN, subDiagramsOf } from '../sub-diagrams.js'
 import { profileRules } from '../lint/index.js'
 import { replaceAction } from '../lint/actions.js'
@@ -138,6 +138,26 @@ export function loadProfile(type) {
       }))
   }
   return loading.get(type)
+}
+
+let sheetProfile = null
+
+/**
+ * The style profile reading the whole document as one body (R12), imported once for the page; not
+ * in `PROFILES`, so no file's scan asks for it. One that will not load is logged, gives null and is
+ * tried again on the next call.
+ *
+ * @return {Promise<Profile|null>}
+ */
+export function loadSheetProfile() {
+  sheetProfile ??= PROFILES.style()
+    .then((module) => module.default({ ...core, styleBlocks: sheetRegions }))
+    .catch((e) => {
+      console.error(`[${APP_ID}] could not load the style profile`, e)
+      sheetProfile = null
+      return null
+    })
+  return sheetProfile
 }
 
 /** Forgets the profiles that failed, for the next open to try again. */

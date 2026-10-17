@@ -287,9 +287,11 @@ export const MAX_LINE = 10000
 /**
  * PlantUML, with each `@start<type>` … `@end` block of a type in `inner` read
  * by that type's stream mode. A fresh language on every call, so a profile
- * arriving swaps it in a Compartment and the document is read again.
+ * arriving swaps it in a Compartment and the document is read again. With
+ * `sheet`, a style file (R12): one style body from the first line, which no
+ * `</style>` or `@end` closes.
  */
-export function plantumlLanguage(profiles = {}) {
+export function plantumlLanguage(profiles = {}, { sheet = false } = {}) {
   // A profile's mode of the same type overrides a built-in one.
   const inner = { ...builtIn, ...profiles }
   const modeOf = (block) => inner[block.type]
@@ -390,16 +392,16 @@ export function plantumlLanguage(profiles = {}) {
     return latex.token(stream, state.latex.state)
   }
 
-  /** A line of a style block. PlantUML reads a block to its diagram's end at most. */
+  /** A line of a style block. PlantUML reads a block to its diagram's end at most; a style file's never closes. */
   function styleBody(stream, state) {
     if (state.style.until !== null) return styleMiddle(stream, state)
     if (stream.sol()) {
       const close = stream.match(styleClose, false)
-      if (close) {
+      if (close && !state.style.sheet) {
         state.style = null
         return emit(stream, state, [[close[1], null], [close[2], 'tagName'], [close[3], null]])
       }
-      if (stream.match(/^[ \t]*@end/, false)) {
+      if (!state.style.sheet && stream.match(/^[ \t]*@end/, false)) {
         state.style = null
         return null
       }
@@ -445,15 +447,16 @@ export function plantumlLanguage(profiles = {}) {
 
   const { subToken, subEnds, subStart } = subReader({ base, subMode, umlSub, emit, styleBody, styleStart, innerToken, bangStates })
 
-  function startState() {
-    return { ...base.startState(), inner: null, style: null, math: null, latex: null, sub: null, nested: false }
+  function startState(indentUnit) {
+    const body = sheet ? { state: style?.startState ? style.startState(indentUnit) : {}, until: null, sheet: true } : null
+    return { ...base.startState(), inner: null, style: body, math: null, latex: null, sub: null, nested: false }
   }
 
   function copyState(state) {
     const copy = base.copyState(state)
     const block = state.inner
     copy.inner = block && { type: block.type, state: copyIn(modeOf(block), block.state), from: block.from }
-    copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until }
+    copy.style = state.style && { state: copyIn(style, state.style.state), until: state.style.until, sheet: state.style.sheet }
     copy.math = state.math && { state: copyIn(math, state.math.state), until: state.math.until }
     copy.latex = state.latex && { state: copyIn(latex, state.latex.state), until: state.latex.until }
     const sub = state.sub

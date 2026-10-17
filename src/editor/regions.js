@@ -5,8 +5,9 @@
  * Where a document's style blocks are, read once per version (F3): the core completion sources
  * ask `inStyleBody` to leave a block's body to the style profile, which is handed the same
  * regions as `core.styleBlocks`. A line starting `'` or `!` in a block is PlantUML's, never the
- * body (U5).
+ * body (U5). A style file (R12) is one block, the whole document its body: `sheetRegions`.
  */
+import { Facet } from '@codemirror/state'
 
 // PlantUML's own style lines: a block opens on a line that is `<style>` and
 // closes on one that is `</style>`, or at the next `@end`; a one-line block (its
@@ -75,15 +76,40 @@ export function styleRegions(doc) {
   return regionsOf(doc).blocks
 }
 
+/** A style file (R12): the whole document is one style body. */
+export const styleSheet = Facet.define({ combine: (values) => values.some(Boolean) })
+
+const sheets = new WeakMap() // Text → [StyleBlock]
+
+/**
+ * A style file's one block: every line but PlantUML's own `'` and `!` lines, read once per version.
+ *
+ * @param {import('@codemirror/state').Text} doc
+ * @returns {StyleBlock[]}
+ */
+export function sheetRegions(doc) {
+  if (!sheets.has(doc)) {
+    const body = []
+    let line = 0
+    for (const text of doc.iterLines()) {
+      line++
+      if (!OWN.test(text)) body.push({ line, text, from: 0 })
+    }
+    sheets.set(doc, [{ open: 0, closed: true, body }])
+  }
+  return sheets.get(doc)
+}
+
 /**
  * Whether `pos` is in a style block's body: a line of one that is neither a tag line nor
- * PlantUML's `'` or `!` line, or the middle of a one-line block. The core completion sources
- * leave such a place to the style profile's.
+ * PlantUML's `'` or `!` line, or the middle of a one-line block; in a style file, any line but
+ * those. The core completion sources leave such a place to the style profile's.
  *
  * @param {import('@codemirror/state').EditorState} state
  * @param {number} pos
  */
 export function inStyleBody(state, pos) {
+  if (state.facet(styleSheet)) return !OWN.test(state.doc.lineAt(pos).text)
   const line = state.doc.lineAt(pos)
   const one = styleOneLine.exec(line.text)
   if (one) {

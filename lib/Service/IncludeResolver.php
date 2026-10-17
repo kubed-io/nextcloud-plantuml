@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\PlantUml\Service;
 
 use OCA\Files_Sharing\SharedStorage;
+use OCP\Constants;
 use OCP\Files\ConnectionLostException;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -80,7 +81,7 @@ final class IncludeResolver {
 	private array $imports = [];
 	/** @var array<string, File|null|false> what each path asked of the user's files gave, so it is asked once */
 	private array $nodes = [];
-	/** The share the diagram is on, as `shareOf()` names it; its own files stay readable to it. */
+	/** The read-only share the diagram is on, as `shareOf()` names it; its own files stay readable to it. */
 	private ?string $ownShare = null;
 	private int $files = 0;
 	private int $lookups = 0;
@@ -103,7 +104,7 @@ final class IncludeResolver {
 		if ($own !== null && $own !== []) {
 			$run->stack[] = 'files:' . implode('/', $own);
 		}
-		$run->ownShare = $self === null ? null : self::shareOf($self);
+		$run->ownShare = $self === null ? null : self::readOnlyShareOf($self);
 		try {
 			$run->walk(explode("\n", $source), ['dir' => $run->baseDir, 'zip' => null, 'zipDir' => []], 0, null, null);
 		} finally {
@@ -725,15 +726,15 @@ final class IncludeResolver {
 
 	/**
 	 * A file on a share whose owner forbids download, which a picture of its
-	 * text would get around, unless the diagram is on that same share;
-	 * decided as files_sharing's ViewOnly decides it.
+	 * text would get around, unless the diagram is on that same share and
+	 * may not write to it; decided as files_sharing's ViewOnly decides it.
 	 */
 	private function viewOnly(File $file): bool {
 		try {
 			$storage = $file->getStorage();
 			return $storage->instanceOfStorage(SharedStorage::class)
 				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false
-				&& self::shareOf($file) !== $this->ownShare;
+				&& ($this->ownShare === null || self::shareOf($file) !== $this->ownShare);
 		} catch (\Exception) {
 			// Core throws a bare Exception for a node without storage; unreadable, as a refusal is.
 			return true;
@@ -748,9 +749,26 @@ final class IncludeResolver {
 		try {
 			$storage = $file->getStorage();
 			return $storage->instanceOfStorage(SharedStorage::class) ? $storage->getId() . '#' . $storage->getShare()->getId() : null;
-		} catch (\Exception) {
+		} catch (\Throwable) {
 			return null;
 		}
+	}
+
+	/**
+	 * The diagram's share, when it may not write to it: one it may write to
+	 * could take a diagram of the viewer's own, saved there to read the rest.
+	 */
+	private static function readOnlyShareOf(File $self): ?string {
+		try {
+			$storage = $self->getStorage();
+			if (!$storage->instanceOfStorage(SharedStorage::class)
+				|| ($storage->getShare()->getPermissions() & (Constants::PERMISSION_CREATE | Constants::PERMISSION_UPDATE)) !== 0) {
+				return null;
+			}
+		} catch (\Throwable) {
+			return null;
+		}
+		return self::shareOf($self);
 	}
 
 	private static function fileSize(File $file): ?int {

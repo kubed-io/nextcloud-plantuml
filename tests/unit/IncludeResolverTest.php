@@ -11,6 +11,7 @@ namespace OCA\PlantUml\Tests\Unit;
 
 use OCA\PlantUml\Service\Expanded;
 use OCA\PlantUml\Service\IncludeResolver;
+use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\ForbiddenException;
@@ -79,18 +80,28 @@ final class IncludeResolverTest extends TestCase {
 
 	/**
 	 * Share `$id` from another user, mounted at `/$id`, its `download`
-	 * attribute as given (null: the share sets none).
+	 * attribute as given (null: the share sets none). `$broken` names the id
+	 * that throws when asked for: `share` or `storage`.
 	 */
-	private function shareStorage(?bool $download, string $id = 'S'): ISharedStorage {
+	private function shareStorage(?bool $download, string $id = 'S', int $permissions = Constants::PERMISSION_READ, string $broken = ''): ISharedStorage {
 		$attributes = $this->createStub(IAttributes::class);
 		$attributes->method('getAttribute')->willReturnCallback(static fn (string $scope, string $key): ?bool => [$scope, $key] === ['permissions', 'download'] ? $download : null);
 		$share = $this->createStub(IShare::class);
 		$share->method('getAttributes')->willReturn($attributes);
-		$share->method('getId')->willReturn($id);
+		$share->method('getPermissions')->willReturn($permissions);
+		if ($broken === 'share') {
+			$share->method('getId')->willThrowException(new \RuntimeException('no id'));
+		} else {
+			$share->method('getId')->willReturn($id);
+		}
 		$storage = $this->createStub(ISharedStorage::class);
 		$storage->method('instanceOfStorage')->willReturnCallback(static fn (string $class): bool => $class === 'OCA\Files_Sharing\SharedStorage');
 		$storage->method('getShare')->willReturn($share);
-		$storage->method('getId')->willReturn("shared::/$id");
+		if ($broken === 'storage') {
+			$storage->method('getId')->willThrowException(new \RuntimeException('no id'));
+		} else {
+			$storage->method('getId')->willReturn("shared::/$id");
+		}
 		return $storage;
 	}
 
@@ -943,18 +954,55 @@ final class IncludeResolverTest extends TestCase {
 		self::assertStringEndsWith("!includesub V1.2\n", $expanded->source);
 	}
 
-	/** Viewing a shared diagram is unchanged, and so are the files beside it in that share. */
-	public function testADiagramInAViewOnlyShareReadsItsOwnShare(): void {
-		$files = [
-			'Shared/a.puml' => "!include b.puml\n",
-			'Shared/b.puml' => $this->file('Shared/b.puml', "beside\n", null, $this->shareStorage(false)),
-		];
+	/**
+	 * A diagram on share `S` with `$permissions` and what `!include b.puml`
+	 * beside it gives, the sibling on `$sibling` (share S, read-only, by default).
+	 */
+	private function drawnInShare(int $permissions, ?ISharedStorage $sibling = null): Expanded {
+		$files = ['Shared/b.puml' => $this->file('Shared/b.puml', "beside\n", null, $sibling ?? $this->shareStorage(false))];
 		[$folder, $root] = $this->tree($files, 'Shared');
-		$self = $this->file('Shared/a.puml', $files['Shared/a.puml'], null, $this->shareStorage(false));
-		$expanded = (new IncludeResolver())->expand("!include b.puml\n", $folder, $root, $self);
+		$self = $this->file('Shared/a.puml', "!include b.puml\n", null, $this->shareStorage(false, 'S', $permissions));
+		return (new IncludeResolver())->expand("!include b.puml\n", $folder, $root, $self);
+	}
+
+	/** Viewing a shared diagram is unchanged, and so are the files beside it in that share. */
+	public function testADiagramInAReadOnlyViewOnlyShareReadsItsOwnShare(): void {
+		$expanded = $this->drawnInShare(Constants::PERMISSION_READ);
 
 		self::assertSame("beside\n", $expanded->source);
 		self::assertSame([], $expanded->mistakes);
+	}
+
+	/** @return iterable<string, array{int}> */
+	public static function writableShares(): iterable {
+		yield 'create' => [Constants::PERMISSION_READ | Constants::PERMISSION_CREATE];
+		yield 'update' => [Constants::PERMISSION_READ | Constants::PERMISSION_UPDATE];
+	}
+
+	/** Else a diagram of one's own, saved into the share, reads everything beside it. */
+	#[DataProvider('writableShares')]
+	public function testADiagramInAViewOnlyShareItMayWriteToCannotReadIt(int $permissions): void {
+		$expanded = $this->drawnInShare($permissions, $this->shareStorage(false, 'S', $permissions));
+
+		self::assertSame([['line' => 0, 'message' => 'Cannot read b.puml']], $expanded->mistakes);
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function brokenIds(): iterable {
+		yield 'share id' => ['share'];
+		yield 'storage id' => ['storage'];
+	}
+
+	/** A share that cannot say which it is is no diagram's own: refused, wherever the diagram is. */
+	#[DataProvider('brokenIds')]
+	public function testAViewOnlyFileWhoseShareCannotBeNamedIsRefused(string $broken): void {
+		$sibling = $this->shareStorage(false, 'S', Constants::PERMISSION_READ, $broken);
+		$inShare = $this->drawnInShare(Constants::PERMISSION_READ, $sibling);
+		[$folder, $root] = $this->tree(['Shared/b.puml' => $this->file('Shared/b.puml', "beside\n", null, $sibling)], 'Shared');
+		$own = (new IncludeResolver())->expand("!include b.puml\n", $folder, $root, $this->file('Shared/a.puml', '', null, $this->ownStorage()));
+
+		self::assertSame([['line' => 0, 'message' => 'Cannot read b.puml']], $inShare->mistakes);
+		self::assertSame([['line' => 0, 'message' => 'Cannot read b.puml']], $own->mistakes);
 	}
 
 	/** @return iterable<string, array{string}> */

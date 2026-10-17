@@ -5,6 +5,7 @@
 // The overlay driven through window.OCA.PlantUml.openEditor, with save.js and
 // preview.js mocked at their seams: what is asserted is what the user sees
 // and what would be written.
+import { readFileSync } from 'node:fs'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorView } from '@codemirror/view'
 import { completionStatus, startCompletion } from '@codemirror/autocomplete'
@@ -1644,6 +1645,58 @@ describe('the editor as a key boundary', () => {
     await settle()
 
     expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  // jsdom moves no focus on a press. A browser gives it to the press's nearest
+  // focusable ancestor, or to the body when there is none, unless the mousedown
+  // was cancelled (CodeMirror's is, and it focuses itself).
+  const pressOn = (target) => {
+    if (target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))) {
+      const focusable = target.closest('button, a[href], input, [contenteditable="true"], [tabindex]')
+      if (focusable) {
+        focusable.focus()
+      } else {
+        document.activeElement?.blur()
+      }
+    }
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  }
+
+  it.each([
+    ['a blank part of the bar', () => q('.plantuml-editor__bar')],
+    ['the drawing pane', () => q('.plantuml-editor__image')],
+  ])('keeps the focus in the editor after a press on %s, so Delete never reaches Files and Escape still closes it', async (_where, target) => {
+    await open()
+
+    pressOn(target())
+    expect(document.activeElement).toBe(q('.plantuml-editor'))
+    press(document.activeElement, 'Delete')
+    expect(seen()).toEqual([])
+
+    // Without the stand-ins: the one on document would cancel Escape before the editor's own handler.
+    window.removeEventListener('keydown', onWindow)
+    document.removeEventListener('keydown', onDocument)
+    press(document.activeElement, 'Escape')
+    await settle()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('leaves the focus on the source or a button pressed', async () => {
+    await open()
+    q('.cm-content').focus()
+    pressOn(q('.cm-line'))
+    expect(document.activeElement).toBe(q('.cm-content'))
+
+    pressOn(q('.plantuml-editor__refresh'))
+    expect(document.activeElement).toBe(q('.plantuml-editor__refresh'))
+  })
+
+  it('shows no ring on the overlay itself, which takes the focus only to keep it', () => {
+    // Read from disk: vitest hands a stylesheet import back empty, ?raw too.
+    const css = readFileSync('css/editor.css', 'utf8')
+    expect(css).toMatch(/^\.plantuml-editor:focus \{\n\toutline: none;\n\}/m)
+    // The root only: no control of the editor loses its ring.
+    expect(css).not.toMatch(/^\.plantuml-editor :focus|^\.plantuml-editor \*:focus/m)
   })
 
   it('still marks the source while Ctrl is held in it, for its links', async () => {

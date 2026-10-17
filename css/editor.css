@@ -14,6 +14,11 @@
 	color: var(--color-main-text);
 }
 
+/* It takes the focus only to keep a press's off the page (editor.js); its controls keep their rings. */
+.plantuml-editor:focus {
+	outline: none;
+}
+
 .plantuml-editor__bar {
 	display: flex;
 	align-items: center;

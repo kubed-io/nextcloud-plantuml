@@ -101,7 +101,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
   const panes = crelt('div', { class: 'plantuml-editor__panes' })
   panes.append(source, createSplitter(panes, source), diagram)
 
-  const overlay = crelt('div', { class: 'plantuml-editor', role: 'dialog', 'aria-modal': 'true', 'aria-label': name })
+  // tabindex: a press on a blank part focuses the overlay, not the body, so its keys stop here too.
+  const overlay = crelt('div', { class: 'plantuml-editor', role: 'dialog', 'aria-modal': 'true', 'aria-label': name, tabindex: '-1' })
   overlay.append(bar, panes)
 
   // aria-modal only tells a screen reader; inert keeps Tab and clicks out of

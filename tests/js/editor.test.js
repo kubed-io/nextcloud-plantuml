@@ -1622,6 +1622,32 @@ describe('the focus in the bar (L9)', () => {
     held.resolve({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
   })
 
+  it('leaves the focus in the source when the bar redraws on an autosave status change', async () => {
+    await open()
+    q('.cm-content').focus()
+    type("' mine\n")
+    seams.saveFile.mockResolvedValue('"put"')
+
+    saveButton().click()
+    await settle()
+
+    expect(inSource()).toBe(true)
+  })
+
+  it('leaves the focus on the open Add menu when the bar redraws', async () => {
+    await open()
+    const menuButton = q('.plantuml-editor__add-type')
+    expect(menuButton).not.toBeNull()
+    menuButton.focus()
+    type("' mine\n")
+    seams.saveFile.mockResolvedValue('"put"')
+
+    saveButton().click()
+    await settle()
+
+    expect(document.activeElement).toBe(menuButton)
+  })
+
   it('leaves the focus on a button that stays usable', async () => {
     await open()
     type("' mine\n")
@@ -2727,6 +2753,7 @@ describe('Add diagram', () => {
       typeButton().click()
 
       await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())
+      expect(status()).toBe('')
     } finally {
       vi.doUnmock('../../src/editor/add/index.js')
     }

@@ -149,6 +149,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
     },
   })
 
+  const ADD_FAILED = t(APP_ID, 'Could not open Add diagram')
+
   /** A failed load is forgotten, so the next click tries again. */
   function withAdd(use) {
     adding ??= import('./editor/add/index.js').then(
@@ -160,9 +162,15 @@ export function openEditor(node, { diagram: openAt } = {}) {
       },
     )
     // The chunk can arrive after the editor closed, or a linked file opened.
-    adding.then((add) => { if (!closed && !linkedMode.isOpen()) use(add) }, (e) => {
+    adding.then((add) => {
+      // A later load that works takes the failure line down, if it is still the one shown.
+      if (main?.session.status().line === ADD_FAILED) {
+        main.session.say('')
+      }
+      if (!closed && !linkedMode.isOpen()) use(add)
+    }, (e) => {
       console.error(`[${APP_ID}] could not load Add diagram`, e)
-      main?.session.say(t(APP_ID, 'Could not open Add diagram'))
+      main?.session.say(ADD_FAILED)
     })
   }
 

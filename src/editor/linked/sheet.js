@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * A `<style file=…>` target in the source pane (R12): the style grammar, its
- * completion, its lint and its values, and nothing of `@start` blocks. The
+ * completion, its lint, its values and its hover cards, and nothing of `@start` blocks. The
  * editor's own chrome is added beside it (extensions.js).
  */
 import { autocompletion } from '@codemirror/autocomplete'
@@ -12,6 +12,7 @@ import { plantumlLanguage } from '../plantuml-mode.js'
 import { styleSheet } from '../regions.js'
 import { colors, swatchOption } from '../completion/colors.js'
 import { withDocs } from '../completion/docs.js'
+import { plantumlDocs } from '../docs/hover.js'
 import { profileRules, sheetLint } from '../lint/index.js'
 import { serverError } from '../lint/state.js'
 import { valuesFacet } from '../values/index.js'
@@ -25,6 +26,8 @@ export function sheetExtension(profile) {
     ...base,
     ...[...profile.completions, colors].map((source) => EditorState.languageData.of(() => [{ autocomplete: withDocs(source) }])),
     autocompletion({ addToOptions: [swatchOption] }),
+    // After the completion, whose Escape closes its list first, as in a diagram.
+    plantumlDocs,
     profileRules.of(profile.lints),
     sheetLint,
     valuesFacet.of(profile.values ?? []),

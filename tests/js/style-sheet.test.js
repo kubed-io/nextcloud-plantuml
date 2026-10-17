@@ -12,6 +12,8 @@ import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { loadSheetProfile } from '../../src/editor/profiles/index.js'
 import { sheetExtension } from '../../src/editor/linked/sheet.js'
+import { docSource } from '../../src/editor/docs/hover.js'
+import { loadDocs } from '../../src/editor/docs/index.js'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { unnamedStart } from '../../src/editor/lint/unnamed-start.js'
@@ -55,6 +57,19 @@ function spans(state) {
 }
 
 describe('a style file', () => {
+  it('opens the hover cards the same lines open inside <style>: its selectors and properties', async () => {
+    const view = new EditorView({ parent: document.body, state: await sheet(SHEET) })
+    // The view asks for the docs as it opens; they are in once loadDocs answers.
+    await loadDocs()
+    const at = (word) => SHEET.indexOf(word)
+    try {
+      expect(docSource(view, at('participant') + 1, 1)).toMatchObject({ pos: 0, end: 'participant'.length })
+      expect(docSource(view, at('BackgroundColor') + 1, 1)).toMatchObject({ pos: at('BackgroundColor'), end: at('BackgroundColor') + 'BackgroundColor'.length })
+    } finally {
+      view.destroy()
+    }
+  })
+
   it('is highlighted as the same lines inside <style> are', async () => {
     const { mode } = await loadSheetProfile()
     const lines = SHEET.split('\n')

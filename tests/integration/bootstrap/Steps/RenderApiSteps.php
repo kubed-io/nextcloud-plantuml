@@ -60,7 +60,7 @@ trait RenderApiSteps {
 
 	/** @When the diagram is drawn */
 	public function theDiagramIsDrawn(): void {
-		$this->renderResponse = $this->renderByPath($this->bigDiagramPath);
+		$this->renderResponse = $this->renderByPath($this->diagramPath);
 	}
 
 	/** @Then the answer says the diagram is too large to draw */

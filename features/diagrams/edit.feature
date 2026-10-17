@@ -73,3 +73,13 @@ Feature: Editing a diagram file
     Given "Diagrams/Screens.puml" holds the diagrams "nodes" and "login"
     When I draw the diagram "login" of "Diagrams/Screens.puml"
     Then I receive the diagram "login"
+
+    # ── RULE: an include reads only what may be downloaded ────────────────────
+
+  @api
+  Scenario: A view-only share cannot be read through a diagram
+    Given a colleague shared a text file with me that may be viewed but not downloaded
+    And I have a diagram that includes that file
+    When the diagram is drawn
+    Then the drawing names the include as one it cannot read
+    And none of the shared file's text is in it

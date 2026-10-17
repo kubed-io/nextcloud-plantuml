@@ -16,12 +16,22 @@ use OCP\Files\Folder;
 use OCP\Files\ForbiddenException;
 use OCP\Files\InvalidPathException;
 use OCP\Files\NotFoundException;
+use OCP\Files\Storage\ISharedStorage;
+use OCP\Files\Storage\IStorage;
 use OCP\Files\StorageNotAvailableException;
+use OCP\Share\IAttributes;
+use OCP\Share\IShare;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
+
+require_once __DIR__ . '/register-shutdown-function.php';
 
 final class IncludeResolverTest extends TestCase {
 	private const USER_ROOT = '/drk/files';
+
+	/** @var list<callable> what the resolver left to PHP's shutdown, see register-shutdown-function.php */
+	public static array $atShutdown = [];
 
 	/** @var list<string> every path the user's root was asked for */
 	private array $asked = [];
@@ -49,13 +59,43 @@ final class IncludeResolverTest extends TestCase {
 		return [$folder, $root];
 	}
 
-	private function file(string $path, string $content, ?int $size = null): File {
+	private function file(string $path, string $content, ?int $size = null, ?IStorage $storage = null): File {
 		$file = $this->createStub(File::class);
 		$file->method('getContent')->willReturn($content);
 		$file->method('fopen')->willReturnCallback(static fn () => self::stream($content));
 		$file->method('getSize')->willReturn($size ?? strlen($content));
 		$file->method('getEtag')->willReturn('etag:' . $path);
 		$file->method('getPath')->willReturn(self::USER_ROOT . '/' . $path);
+		$file->method('getStorage')->willReturn($storage ?? $this->ownStorage());
+		return $file;
+	}
+
+	/** The user's own storage, no share. */
+	private function ownStorage(): IStorage {
+		$storage = $this->createStub(IStorage::class);
+		$storage->method('instanceOfStorage')->willReturn(false);
+		return $storage;
+	}
+
+	/** A share from another user, its `download` attribute as given (null: the share sets none). */
+	private function shareStorage(?bool $download): ISharedStorage {
+		$attributes = $this->createStub(IAttributes::class);
+		$attributes->method('getAttribute')->willReturnCallback(static fn (string $scope, string $key): ?bool => [$scope, $key] === ['permissions', 'download'] ? $download : null);
+		$share = $this->createStub(IShare::class);
+		$share->method('getAttributes')->willReturn($attributes);
+		$storage = $this->createStub(ISharedStorage::class);
+		$storage->method('instanceOfStorage')->willReturnCallback(static fn (string $class): bool => $class === 'OCA\Files_Sharing\SharedStorage');
+		$storage->method('getShare')->willReturn($share);
+		return $storage;
+	}
+
+	/** A file on a share that forbids download, which fails the test if any of it is read. */
+	private function viewOnly(): File {
+		$file = $this->createMock(File::class);
+		$file->method('getStorage')->willReturn($this->shareStorage(false));
+		$file->expects(self::never())->method('fopen');
+		$file->expects(self::never())->method('getContent');
+		$file->expects(self::never())->method('getSize');
 		return $file;
 	}
 
@@ -515,6 +555,7 @@ final class IncludeResolverTest extends TestCase {
 		$file = $this->createMock(File::class);
 		$file->method('getSize')->willReturn(10);
 		$file->method('fopen')->willReturnCallback(static fn () => self::stream($content));
+		$file->method('getStorage')->willReturn($this->ownStorage());
 		$file->expects(self::never())->method('getContent');
 		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $file]);
 
@@ -601,6 +642,7 @@ final class IncludeResolverTest extends TestCase {
 		$file->method('getSize')->willReturn(10);
 		$file->method('getEtag')->willThrowException($refusal);
 		$file->method('fopen')->willThrowException($refusal);
+		$file->method('getStorage')->willReturn($this->ownStorage());
 		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $file]);
 
 		self::assertSame("!include a.puml\n", $expanded->source);
@@ -612,6 +654,7 @@ final class IncludeResolverTest extends TestCase {
 		$file = $this->createMock(File::class);
 		$file->method('getSize')->willReturn(10);
 		$file->method('fopen')->willReturn(false);
+		$file->method('getStorage')->willReturn($this->ownStorage());
 		$file->expects(self::never())->method('getContent');
 		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $file]);
 
@@ -657,5 +700,160 @@ final class IncludeResolverTest extends TestCase {
 		]);
 
 		self::assertSame("Alice -> Bob\n<style>\nnode { }\n</style>\n", $expanded->source);
+	}
+
+	public function testLookupsStopAt256(): void {
+		$source = '';
+		for ($n = 1; $n <= 300; $n++) {
+			$source .= "!include missing$n.puml\n";
+		}
+		$expanded = $this->expand($source, []);
+
+		self::assertCount(256, $this->asked);
+		self::assertSame($source, $expanded->source);
+		self::assertCount(300, $expanded->mistakes);
+		self::assertSame(['line' => 255, 'message' => 'Cannot find missing256.puml'], $expanded->mistakes[255]);
+		self::assertSame(['line' => 256, 'message' => 'missing257.puml is past the limit of 256 lookups'], $expanded->mistakes[256]);
+		self::assertSame(['line' => 299, 'message' => 'missing300.puml is past the limit of 256 lookups'], $expanded->mistakes[299]);
+	}
+
+	public function testNothingIsLookedUpOnce64FilesAreRead(): void {
+		$files = ['docs/more.puml' => "more\n", 'docs/s.css' => "s\n", 'docs/l.zip' => self::zip(['a.puml' => "a\n"]), 'docs/parts.puml' => "!startsub A\n!endsub\n"];
+		$source = '';
+		for ($n = 1; $n <= 64; $n++) {
+			$files["docs/f$n.puml"] = "file $n\n";
+			$source .= "!include f$n.puml\n";
+		}
+		$expanded = $this->expand($source . "!include more.puml\n<style file=s.css>\n!import l.zip\n!includesub parts.puml\n", $files);
+
+		self::assertCount(64, $this->asked);
+		self::assertSame([
+			['line' => 64, 'message' => 'more.puml is past the limit of 64 files'],
+			['line' => 65, 'message' => 's.css is past the limit of 64 files'],
+			['line' => 66, 'message' => 'l.zip is past the limit of 64 files'],
+			['line' => 67, 'message' => 'parts.puml is past the limit of 64 files'],
+		], $expanded->mistakes);
+	}
+
+	/** @return iterable<string, array{string, string}> */
+	public static function viewOnlyLines(): iterable {
+		yield 'include' => ['!include /Shared/notes.txt', '/Shared/notes.txt'];
+		yield 'include_many' => ['!include_many ../Shared/notes.txt', '../Shared/notes.txt'];
+		yield 'includesub' => ['!includesub /Shared/notes.txt!A', '/Shared/notes.txt'];
+		yield 'style' => ['<style file=/Shared/notes.txt>', '/Shared/notes.txt'];
+		yield 'import' => ['!import /Shared/notes.txt', '/Shared/notes.txt'];
+	}
+
+	/** Its size would say something about it too, so not even that is asked. */
+	#[DataProvider('viewOnlyLines')]
+	public function testAFileSharedViewOnlyIsNeverRead(string $line, string $written): void {
+		$expanded = $this->expand("$line\n", ['Shared/notes.txt' => $this->viewOnly()]);
+
+		self::assertSame("$line\n", $expanded->source);
+		self::assertSame([['line' => 0, 'message' => "Cannot read $written"]], $expanded->mistakes);
+	}
+
+	public function testAZipSharedViewOnlyIsNeverOpened(): void {
+		$expanded = $this->expand("!import lib.zip\n!include inner.puml\n", ['docs/lib.zip' => $this->viewOnly()]);
+
+		self::assertSame("!import lib.zip\n!include inner.puml\n", $expanded->source);
+		self::assertSame([
+			['line' => 0, 'message' => 'Cannot read lib.zip'],
+			['line' => 1, 'message' => 'Cannot find inner.puml'],
+		], $expanded->mistakes);
+	}
+
+	/** @return iterable<string, array{bool|null}> */
+	public static function downloadAllowed(): iterable {
+		yield 'download allowed' => [true];
+		yield 'no download attribute' => [null];
+	}
+
+	#[DataProvider('downloadAllowed')]
+	public function testAFileSharedForDownloadIsRead(?bool $download): void {
+		$expanded = $this->expand("!include /Shared/notes.puml\n", ['Shared/notes.puml' => $this->file('Shared/notes.puml', "shared\n", null, $this->shareStorage($download))]);
+
+		self::assertSame("shared\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	public function testAFileInTheUsersOwnStorageIsRead(): void {
+		$storage = $this->createMock(IStorage::class);
+		$storage->expects(self::once())->method('instanceOfStorage')->with('OCA\Files_Sharing\SharedStorage')->willReturn(false);
+		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $this->file('docs/a.puml', "mine\n", null, $storage)]);
+
+		self::assertSame("mine\n", $expanded->source);
+	}
+
+	/** A federated share's storage has no share to ask; files_sharing's ViewOnly does not ask it either. */
+	public function testAShareFromAnotherServerIsRead(): void {
+		$storage = $this->createMock(ISharedStorage::class);
+		$storage->method('instanceOfStorage')->willReturn(false);
+		$storage->expects(self::never())->method('getShare');
+		$expanded = $this->expand("!include /Remote/a.puml\n", ['Remote/a.puml' => $this->file('Remote/a.puml', "remote\n", null, $storage)]);
+
+		self::assertSame("remote\n", $expanded->source);
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function otherLeadingWhitespace(): iterable {
+		yield 'vertical tab' => ["\v!include a.puml"];
+		yield 'form feed' => ["\f!include a.puml"];
+		yield 'carriage return' => ["\r!include a.puml"];
+		yield 'style after a form feed' => ["\f<style file=a.css>"];
+	}
+
+	/** As the render route's own check reads a line, so the two agree on every line. */
+	#[DataProvider('otherLeadingWhitespace')]
+	public function testOnlySpacesAndTabsLeadALineThatNamesAFile(string $line): void {
+		$expanded = (new IncludeResolver())->expand("$line\n", $this->untouchable(self::USER_ROOT . '/docs'), $this->untouchable(self::USER_ROOT));
+
+		self::assertSame("$line\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	public function testSpacesAndTabsMayLeadALineThatNamesAFile(): void {
+		$expanded = $this->expand(" \t!include a.puml\n\t <style file=s.css>\n", ['docs/a.puml' => "a\n", 'docs/s.css' => "s\n"]);
+
+		self::assertSame("a\n<style>\ns\n</style>\n", $expanded->source);
+	}
+
+	/** In a process of its own, so no pattern is already compiled with the JIT. */
+	#[RunInSeparateProcess]
+	public function testAMegabyteOfNewlinesIsQuickWithoutTheJit(): void {
+		ini_set('pcre.jit', '0');
+		self::assertSame('0', ini_get('pcre.jit'));
+		$source = str_repeat("\n", 1048576);
+		$start = hrtime(true);
+		$expanded = (new IncludeResolver())->expand($source, $this->untouchable(self::USER_ROOT . '/docs'), $this->untouchable(self::USER_ROOT));
+
+		self::assertLessThan(1.0, (hrtime(true) - $start) / 1e9);
+		self::assertSame($source, $expanded->source);
+	}
+
+	/** `finally` does not run on a fatal error, so the copy is left to shutdown as well. */
+	public function testAZipCopyIsRemovedAtShutdownToo(): void {
+		self::$atShutdown = [];
+		$temp = static fn (): array => glob(sys_get_temp_dir() . '/plantuml-*') ?: [];
+		$before = $temp();
+		$copies = [];
+		$left = [];
+		$last = $this->createStub(File::class);
+		$last->method('getSize')->willReturn(2);
+		$last->method('getStorage')->willReturn($this->ownStorage());
+		// Mid-expansion, where a fatal error would stop it.
+		$last->method('fopen')->willReturnCallback(static function () use ($temp, $before, &$copies, &$left) {
+			$copies = array_values(array_diff($temp(), $before));
+			foreach (self::$atShutdown as $cleanup) {
+				$cleanup();
+			}
+			$left = array_values(array_filter($copies, 'file_exists'));
+			return self::stream("x\n");
+		});
+		$expanded = $this->expand("!import lib.zip\n!include last.puml\n", ['docs/lib.zip' => self::zip(['a.puml' => "a\n"]), 'docs/last.puml' => $last]);
+
+		self::assertSame("x\n", $expanded->source);
+		self::assertCount(1, $copies);
+		self::assertSame([], $left);
 	}
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\PlantUml\Service;
 
+use OCA\Files_Sharing\SharedStorage;
 use OCP\Files\ConnectionLostException;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -38,6 +39,8 @@ use OCP\Lock\LockedException;
  * @psalm-type Found = array{id: string, display: string, context: Context, file: File|null, zip: int|null, entry: int}
  */
 final class IncludeResolver {
+	/** Asking the filesystem costs even when nothing is there, so a diagram of missing files is capped too. */
+	public const MAX_LOOKUPS = 256;
 	private const MAX_DEPTH = 8;
 	private const MAX_FILES = 64;
 	private const MAX_BYTES = 1048576;
@@ -48,8 +51,9 @@ final class IncludeResolver {
 	private const MAX_PATH = 1024;
 	private const MAX_SHOWN = 100;
 
-	private const DIRECTIVE = '/^\s*!(include|include_many|include_once|includesub|import)\s+(\S.*?)\s*$/';
-	private const STYLE = '/^\s*<style\s+[\w-]+\s*=\s*(?:"([^"]*)"|([^\s">]+))\s*>\s*$/i';
+	/** `[ \t]*`, as the render route's check reads a line, so the two agree on every line. */
+	private const DIRECTIVE = '/^[ \t]*!(include|include_many|include_once|includesub|import)\s+(\S.*?)\s*$/';
+	private const STYLE = '/^[ \t]*<style\s+[\w-]+\s*=\s*(?:"([^"]*)"|([^\s">]+))\s*>\s*$/i';
 
 	private ?Folder $root = null;
 	/** @var list<string>|null the diagram's folder from the user's root; null when it is outside it */
@@ -75,6 +79,7 @@ final class IncludeResolver {
 	/** @var list<array{zip: \ZipArchive, tmp: string, id: string, display: string, dir: list<string>|null}> */
 	private array $imports = [];
 	private int $files = 0;
+	private int $lookups = 0;
 	private int $bytes = 0;
 	private int $libraryBytes = 0;
 
@@ -157,6 +162,8 @@ final class IncludeResolver {
 		if ($kind === 'includesub' && $selector === null) {
 			if (!str_contains($path, '/') && !str_contains($path, '.')) {
 				$this->keep($at, null);
+			} elseif (!$this->withinLimits($path, $at)) {
+				return;
 			} elseif (!str_contains($path, '/') && !is_array($this->find($path, $context, true))) {
 				// Missing, so a file of that name made later draws the diagram anew.
 				$this->missing[] = $path;
@@ -196,7 +203,7 @@ final class IncludeResolver {
 				: "Cannot find $shown!" . self::shown((string)$selector));
 			return;
 		}
-		$this->take($found);
+		$this->take();
 		$this->taken[$key] = true;
 		$this->stack[] = $found['id'];
 		$this->walk($picked, $found['context'], $depth + 1, $at['top'], $found['display']);
@@ -218,7 +225,7 @@ final class IncludeResolver {
 		}
 		$names = [];
 		foreach (self::lines($content) as $line) {
-			if (preg_match('/^\s*!startsub\s+(\S+)/', $line, $m) === 1) {
+			if (preg_match('/^[ \t]*!startsub\s+(\S+)/', $line, $m) === 1) {
 				$names[$m[1]] = '!' . $m[1];
 			}
 		}
@@ -245,7 +252,7 @@ final class IncludeResolver {
 		if ($content === null) {
 			return;
 		}
-		$this->take($found);
+		$this->take();
 		$this->emit('<style>', $at['top'], $found['display'], null);
 		foreach (self::lines($content) as $i => $line) {
 			$this->emit($line, $at['top'], $found['display'], $i);
@@ -269,10 +276,6 @@ final class IncludeResolver {
 			if ($import['id'] === $found['id']) {
 				return;
 			}
-		}
-		if ($this->files >= self::MAX_FILES) {
-			$this->keep($at, "$shown is past the limit of " . self::MAX_FILES . ' files');
-			return;
 		}
 		$size = self::fileSize($found['file']);
 		if ($size !== null && $size > self::MAX_LIBRARY_BYTES) {
@@ -300,7 +303,7 @@ final class IncludeResolver {
 		}
 		$this->libraryBytes += strlen((string)$content);
 		$this->imports[] = ['zip' => $zip[0], 'tmp' => $zip[1], 'id' => $found['id'], 'display' => $found['display'], 'dir' => $found['context']['dir']];
-		$this->take($found);
+		$this->take();
 	}
 
 	/**
@@ -312,10 +315,6 @@ final class IncludeResolver {
 	private function read(array $found, string $path, array $at, int $depth): ?string {
 		if ($depth + 1 > self::MAX_DEPTH) {
 			$this->keep($at, "$path is more than " . self::MAX_DEPTH . ' levels deep');
-			return null;
-		}
-		if ($this->files >= self::MAX_FILES) {
-			$this->keep($at, "$path is past the limit of " . self::MAX_FILES . ' files');
 			return null;
 		}
 		$remaining = self::MAX_BYTES - $this->bytes;
@@ -339,9 +338,26 @@ final class IncludeResolver {
 		return $content;
 	}
 
-	/** @param Found $found */
-	private function take(array $found): void {
+	private function take(): void {
 		$this->files++;
+	}
+
+	/**
+	 * Whether a file may still be looked up; past a limit the line is kept as
+	 * a mistake without asking the filesystem.
+	 *
+	 * @param At $at
+	 */
+	private function withinLimits(string $path, array $at): bool {
+		if ($this->files >= self::MAX_FILES) {
+			$this->keep($at, self::shown($path) . ' is past the limit of ' . self::MAX_FILES . ' files');
+			return false;
+		}
+		if ($this->lookups >= self::MAX_LOOKUPS) {
+			$this->keep($at, self::shown($path) . ' is past the limit of ' . self::MAX_LOOKUPS . ' lookups');
+			return false;
+		}
+		return true;
 	}
 
 	/**
@@ -353,6 +369,9 @@ final class IncludeResolver {
 	 * @return Found|null
 	 */
 	private function located(string $path, array $context, bool $zips, array $at): ?array {
+		if (!$this->withinLimits($path, $at)) {
+			return null;
+		}
 		$found = $this->find($path, $context, $zips);
 		if (is_array($found)) {
 			$this->note($found);
@@ -382,7 +401,8 @@ final class IncludeResolver {
 
 	/**
 	 * Where a path leads: inside the zip the line is in, then each imported
-	 * zip, then the user's files. False when the storage refuses to say.
+	 * zip, then the user's files. False when the storage refuses to say, or
+	 * the file's share forbids download.
 	 *
 	 * @param Context $context
 	 * @return Found|null|false
@@ -415,6 +435,7 @@ final class IncludeResolver {
 		if ($segments === null || $segments === [] || strlen(implode('/', $segments)) > self::MAX_PATH) {
 			return null;
 		}
+		$this->lookups++;
 		try {
 			$node = $this->root->get(implode('/', $segments));
 		} catch (NotFoundException|NotPermittedException|InvalidPathException) {
@@ -424,6 +445,9 @@ final class IncludeResolver {
 		}
 		if (!$node instanceof File) {
 			return null;
+		}
+		if (self::viewOnly($node)) {
+			return false;
 		}
 		return [
 			'id' => 'files:' . implode('/', $segments),
@@ -605,7 +629,7 @@ final class IncludeResolver {
 		$id = '';
 		$name = '';
 		foreach ($lines as $i => $line) {
-			if (preg_match('/^\s*@start\w+(.*)$/', $line, $m) === 1) {
+			if (preg_match('/^[ \t]*@start\w+(.*)$/', $line, $m) === 1) {
 				if ($current !== null) {
 					$blocks[] = ['id' => $id, 'name' => $name, 'lines' => $current];
 				}
@@ -623,7 +647,7 @@ final class IncludeResolver {
 			if ($current === null) {
 				continue;
 			}
-			if (preg_match('/^\s*@end\w*/', $line) === 1) {
+			if (preg_match('/^[ \t]*@end\w*/', $line) === 1) {
 				$blocks[] = ['id' => $id, 'name' => $name, 'lines' => $current];
 				$current = null;
 				continue;
@@ -664,16 +688,32 @@ final class IncludeResolver {
 		$open = [];
 		$found = false;
 		foreach ($lines as $i => $line) {
-			if (preg_match('/^\s*!startsub\s+(\S+)/', $line, $m) === 1) {
+			if (preg_match('/^[ \t]*!startsub\s+(\S+)/', $line, $m) === 1) {
 				$open[] = $m[1];
 				$found = $found || $m[1] === $name;
-			} elseif (preg_match('/^\s*!endsub\b/', $line) === 1) {
+			} elseif (preg_match('/^[ \t]*!endsub\b/', $line) === 1) {
 				array_pop($open);
 			} elseif (in_array($name, $open, true)) {
 				$picked[$i] = $line;
 			}
 		}
 		return $found ? $picked : null;
+	}
+
+	/**
+	 * A file on a share whose owner forbids download, which a picture of its
+	 * text would get around; decided as files_sharing's ViewOnly decides it.
+	 * The class is only named, so the app needs no files_sharing.
+	 */
+	private static function viewOnly(File $file): bool {
+		try {
+			$storage = $file->getStorage();
+			return $storage->instanceOfStorage(SharedStorage::class)
+				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false;
+		} catch (\Exception) {
+			// Core throws a bare Exception for a node without storage; unreadable, as a refusal is.
+			return true;
+		}
 	}
 
 	private static function fileSize(File $file): ?int {
@@ -707,7 +747,8 @@ final class IncludeResolver {
 
 	/**
 	 * ZipArchive reads only from a path, so the zip goes to a temporary file
-	 * that is removed when the expansion ends.
+	 * that is removed when the expansion ends, or at shutdown when a fatal
+	 * error (memory, time) skips the `finally`.
 	 *
 	 * @return array{0: \ZipArchive, 1: string}|null
 	 */
@@ -719,6 +760,7 @@ final class IncludeResolver {
 		if ($tmp === false) {
 			return null;
 		}
+		register_shutdown_function(static fn (): bool => @unlink($tmp));
 		$zip = new \ZipArchive();
 		if (file_put_contents($tmp, $content) === false || $zip->open($tmp, \ZipArchive::RDONLY) !== true) {
 			@unlink($tmp);

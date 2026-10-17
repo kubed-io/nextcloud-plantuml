@@ -16,7 +16,8 @@ trait DiagramFileSteps {
 	/** @var list<string> what this scenario PUT, removed after it */
 	private array $putFiles = [];
 
-	private string $bigDiagramPath = '';
+	/** The diagram `the diagram is drawn` draws. */
+	private string $diagramPath = '';
 
 	/** @Given /^a diagram file "([^"]*)" in "([^"]*)"$/ */
 	public function aDiagramFileIn(string $name, string $folder): void {
@@ -30,7 +31,7 @@ trait DiagramFileSteps {
 
 	/** @Given I have a diagram file of more than a megabyte */
 	public function iHaveADiagramFileOfMoreThanAMegabyte(): void {
-		$this->bigDiagramPath = 'Diagrams/Too big.puml';
+		$this->diagramPath = 'Diagrams/Too big.puml';
 		$this->putFile('Diagrams', 'Too big.puml', "@startuml\n" . str_repeat("' padding padding padding padding\n", 31000) . "@enduml\n");
 	}
 

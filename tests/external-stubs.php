@@ -35,6 +35,16 @@ namespace OCA\Files\Event {
 	}
 }
 
+namespace OCA\Files_Sharing {
+	// The storage of a file another user shared, which IncludeResolver names (and
+	// never loads) to ask the share's download attribute, as files_sharing's own
+	// ViewOnly does. Abstract: the real one extends core's Jail, in no package.
+	if (!class_exists(SharedStorage::class, false)) {
+		abstract class SharedStorage implements \OCP\Files\Storage\ISharedStorage {
+		}
+	}
+}
+
 namespace OCA\Files_Trashbin\Events {
 	// Dispatched by the bundled Files_Trashbin app once a file is back out of the
 	// trash — the only typed signal on that side of the line, and the opposite

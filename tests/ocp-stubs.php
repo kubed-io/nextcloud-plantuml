@@ -589,6 +589,15 @@ namespace OCP\Files\Storage {
 	if (!interface_exists(IStorage::class, false)) {
 		interface IStorage {
 			public function getCache(string $path = '', ?IStorage $storage = null): \OCP\Files\Cache\ICache;
+
+			// IncludeResolver asks it whether a file is on a share, as files_sharing's ViewOnly does.
+			public function instanceOfStorage(string $class): bool;
+		}
+	}
+	// A share's storage, which IncludeResolver asks for the share's download attribute.
+	if (!interface_exists(ISharedStorage::class, false)) {
+		interface ISharedStorage extends IStorage {
+			public function getShare(): \OCP\Share\IShare;
 		}
 	}
 }

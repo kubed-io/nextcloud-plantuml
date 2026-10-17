@@ -47,6 +47,7 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
   let conflict = false // a save met someone else's change; lasts until resolved
   let failure = '' // what went wrong last; lasts until the next change
   let notice = '' // their version was taken in; lasts until the next change
+  let said = 0 // how often the line was set, so the same line said again is read out again
   let running = null // the file operation in flight
   let quiet = false // that operation is a check, which the buttons do not show
   let watcher = null
@@ -78,17 +79,20 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
       conflict,
       title: state === 'saved' ? savedTitle() : t(APP_ID, 'Unsaved changes'),
       line: failure || (conflict ? t(APP_ID, 'Someone else changed this file') : notice),
+      said,
     }
   }
 
   function fail(message) {
     failure = message
+    said++
     onChange()
   }
 
   /** A line about something else than this file (a linked file that would not open): it blocks nothing, and lasts until the next change. */
   function say(line) {
     notice = line
+    said++
     onChange()
   }
 
@@ -108,6 +112,7 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
   function enterConflict() {
     conflict = true
     failure = ''
+    said++
     autosave.cancel()
     onChange()
   }
@@ -234,6 +239,7 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
       markSaved(doc(), { wrote: false })
       if (changed) {
         notice = t(APP_ID, 'Updated from the file')
+        said++
         onChange()
       }
     }, { check: true })

@@ -144,15 +144,21 @@ export function openEditor(node, { diagram: openAt } = {}) {
     reloadButton.disabled = copyButton.disabled = refreshButton.disabled = shown.busy
   }
 
+  let lastSaid = { session: null, said: 0 } // the line last written, by whom and at which saying
+
   function showState() {
-    const shown = openSession()?.status()
+    const session = openSession()
+    const shown = session?.status()
     if (!shown) {
       return
     }
-    // The session redraws on every file operation too: a live region rewritten with the same line may be read out again.
-    if (status.textContent !== shown.line) {
+    // The session redraws on every file operation too: a live region rewritten with the same line
+    // is read out again, so only a new line, or the same one said again, is written.
+    const again = lastSaid.session === session && lastSaid.said !== shown.said
+    if (status.textContent !== shown.line || again) {
       status.textContent = shown.line
     }
+    lastSaid = { session, said: shown.said }
     showButtons()
   }
 

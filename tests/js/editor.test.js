@@ -1740,6 +1740,24 @@ describe('a linked file', () => {
     expect(error).toHaveBeenCalledWith('[plantuml] could not open /Diagrams/UML_Fun.css', expect.any(Error))
   })
 
+  it('says a second "Could not open the file" again', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await open()
+    await settle()
+    delete files['/Diagrams/UML_Fun.css']
+    await pressChip('UML_Fun.css')
+    const rewrites = []
+    const observer = new MutationObserver((records) => rewrites.push(...records))
+    observer.observe(q('.plantuml-editor__status'), { childList: true, characterData: true, subtree: true })
+
+    await pressChip('UML_Fun.css')
+    await settle()
+    observer.disconnect()
+
+    expect(status()).toBe('Could not open the file')
+    expect(rewrites).not.toHaveLength(0)
+  })
+
   it('still saves the main file on closing after a linked file could not be opened', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)

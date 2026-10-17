@@ -16,7 +16,7 @@ vi.mock('@nextcloud/files/dav', () => ({
 
 import { resetOnce } from '../../src/editor/once.js'
 
-const { ConflictError, canDownload, currentEtag, listFolder, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
+const { ConflictError, canDownload, fileAccess, currentEtag, listFolder, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
 
 /** webdav's handleResponseCode: an Error carrying the status. */
 function davError(status) {
@@ -90,7 +90,7 @@ describe('canDownload', () => {
     await expect(canDownload('/Shared/S.puml')).resolves.toBe(allowed)
   })
 
-  it('asks for the share attributes alone, of the file and nothing under it', async () => {
+  it('asks for the file and nothing under it, naming the share attributes', async () => {
     answering('[]')
     await canDownload('/Shared/S.puml')
 
@@ -99,12 +99,46 @@ describe('canDownload', () => {
     expect(davPath).toBe('/files/drk/Shared/S.puml')
     expect(options.details).toBe(true)
     expect(options.data).toMatch(/xmlns:nc="http:\/\/nextcloud.org\/ns"/)
-    expect(options.data.match(/<d:prop>(.*)<\/d:prop>/s)[1].replace(/\s/g, '')).toBe('<nc:share-attributes/>')
+    expect(options.data).toContain('<nc:share-attributes/>')
   })
 
   it('passes a failed look on to its caller', async () => {
     client.stat.mockRejectedValue(davError(500))
     await expect(canDownload('/Shared/S.puml')).rejects.toThrow()
+  })
+})
+
+describe('fileAccess', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('says a file is there and whether it may be written', async () => {
+    client.stat.mockResolvedValueOnce({ data: { type: 'file', props: { permissions: 'RGDNVW' } } })
+      .mockResolvedValueOnce({ data: { type: 'file', props: { permissions: 'SG' } } })
+
+    await expect(fileAccess('/Diagrams/UML_Fun.css')).resolves.toEqual({ writable: true })
+    await expect(fileAccess('/Shared/UML_Fun.css')).resolves.toEqual({ writable: false })
+    expect(client.stat.mock.calls[0][0]).toBe('/files/drk/Diagrams/UML_Fun.css')
+    expect(client.stat.mock.calls[0][1].data).toContain('<oc:permissions/>')
+    expect(client.stat.mock.calls[0][1].data).toContain('<d:resourcetype/>')
+    expect(client.stat.mock.calls[0][1].data).toContain('<nc:share-attributes/>')
+  })
+
+  it('answers null for a file whose share forbids download', async () => {
+    client.stat.mockResolvedValue({ data: { type: 'file', props: { permissions: 'SG', 'share-attributes': '[{"scope":"permissions","key":"download","value":false}]' } } })
+
+    await expect(fileAccess('/Shared/UML_Fun.css')).resolves.toBeNull()
+  })
+
+  it.each([403, 404])('answers null for a %s', async (status) => {
+    client.stat.mockRejectedValue(davError(status))
+
+    await expect(fileAccess('/Diagrams/missing.css')).resolves.toBeNull()
+  })
+
+  it('answers null for a folder', async () => {
+    client.stat.mockResolvedValue({ data: { type: 'directory', props: { permissions: 'RGDNVCK' } } })
+
+    await expect(fileAccess('/Diagrams')).resolves.toBeNull()
   })
 })
 

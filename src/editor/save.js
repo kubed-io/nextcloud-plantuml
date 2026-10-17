@@ -55,30 +55,64 @@ export async function currentEtag(path) {
   return `"${stat.etag}"`
 }
 
-const SHARE_PROPFIND = `<?xml version="1.0"?>
-<d:propfind xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns"><d:prop><nc:share-attributes/></d:prop></d:propfind>`
+const ACCESS_PROPFIND = `<?xml version="1.0"?>
+<d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns" xmlns:nc="http://nextcloud.org/ns"><d:prop><d:resourcetype/><oc:permissions/><nc:share-attributes/></d:prop></d:propfind>`
+
+/**
+ * Whether a share's attributes (`nc:share-attributes`, JSON text as Sabre sends
+ * it, or already parsed) forbid download. Unreadable ones forbid nothing: the
+ * server stays the authority (IncludeResolver::forbidsDownload).
+ *
+ * @param {string|Array|undefined} attributes
+ * @return {boolean}
+ */
+export function downloadForbidden(attributes) {
+  let list = attributes
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list)
+    } catch {
+      return false
+    }
+  }
+  return Array.isArray(list)
+    && list.some((a) => a?.scope === 'permissions' && a?.key === 'download' && a?.value === false)
+}
 
 /**
  * Whether the file may be downloaded: false when it is on a share whose owner
- * forbids it, which Nextcloud tells as `nc:share-attributes` (the share's
- * attributes as JSON). The server refuses the same files
- * (IncludeResolver::forbidsDownload). A failed look rejects; the caller decides.
+ * forbids it. A failed look rejects; the caller decides.
  *
  * @param {string} path
  * @return {Promise<boolean>}
  */
 export async function canDownload(path) {
-  const { data } = await getClient().stat(getRootPath() + path, { details: true, data: SHARE_PROPFIND })
-  let attributes = data?.props?.['share-attributes']
-  if (typeof attributes === 'string') {
-    try {
-      attributes = JSON.parse(attributes)
-    } catch {
-      attributes = []
+  const { data } = await getClient().stat(getRootPath() + path, { details: true, data: ACCESS_PROPFIND })
+  return !downloadForbidden(data?.props?.['share-attributes'])
+}
+
+/**
+ * Whether a file is there to open beside the diagram, and whether the caller
+ * may write it.
+ *
+ * @param {string} path
+ * @return {Promise<{writable: boolean}|null>} null when it is missing, a folder, refused (403, 404), or on a share that forbids download
+ */
+export async function fileAccess(path) {
+  let stat
+  try {
+    stat = await getClient().stat(getRootPath() + path, { details: true, data: ACCESS_PROPFIND })
+  } catch (e) {
+    if (e?.status === 403 || e?.status === 404) {
+      return null
     }
+    throw e
   }
-  return !(Array.isArray(attributes)
-    && attributes.some((a) => a?.scope === 'permissions' && a?.key === 'download' && a?.value === false))
+  const { type, props = {} } = stat.data ?? {}
+  if (type === 'directory' || downloadForbidden(props['share-attributes'])) {
+    return null
+  }
+  return { writable: String(props.permissions ?? '').includes('W') }
 }
 
 /**

@@ -14,6 +14,7 @@
  * because PlantUML takes a block by id or index and never by a bare name. Each file is read once per page.
  */
 import { once } from '../once.js'
+import { folderOf } from '../paths.js'
 import { WEB_SCHEMES, reopen, reopenPlain } from './apply.js'
 import { listFolder, loadFile } from '../save.js'
 import { filePath } from '../lint/state.js'
@@ -98,26 +99,6 @@ const fixed = [
   { label: '<', detail: 'standard library', type: 'text', boost: 3, apply: reopenPlain },
   ...WEB_SCHEMES,
 ]
-
-/**
- * The folder `typed` names, as a path in the user's files, or null above the root.
- *
- * @param {string} file the edited file's path
- * @param {string} dir the typed path up to its last `/`
- */
-function folderOf(file, dir) {
-  const parts = dir.startsWith('/') ? [] : file.split('/').slice(1, -1)
-  for (const part of dir.split('/')) {
-    if (part === '..') {
-      if (parts.pop() === undefined) {
-        return null
-      }
-    } else if (part !== '' && part !== '.') {
-      parts.push(part)
-    }
-  }
-  return '/' + parts.join('/')
-}
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export async function localFiles(context) {

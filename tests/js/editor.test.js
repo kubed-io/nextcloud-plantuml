@@ -22,6 +22,7 @@ const seams = vi.hoisted(() => {
     currentEtag: vi.fn(),
     saveFile: vi.fn(),
     saveCopy: vi.fn(),
+    fileAccess: vi.fn(),
     debouncedRender: vi.fn(),
     cancel: vi.fn(),
     emit: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock('../../src/editor/save.js', () => ({
   currentEtag: seams.currentEtag,
   saveFile: seams.saveFile,
   saveCopy: seams.saveCopy,
+  fileAccess: seams.fileAccess,
 }))
 vi.mock('@nextcloud/event-bus', () => ({ emit: seams.emit }))
 vi.mock('@nextcloud/notify_push', () => ({ listen: seams.listen }))
@@ -72,6 +74,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  seams.fileAccess.mockResolvedValue(null)
   URL.createObjectURL = vi.fn(() => 'blob:diagram')
   seams.answer = { error: null, svg: diagram() }
   // The answer never lands inside the change that asked for it.

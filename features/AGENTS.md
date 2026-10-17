@@ -245,6 +245,17 @@ set, since its right pane would have nothing to draw; "Open with text editor"
 needs no server and stays. The editor's code is fetched the first time either
 the entry or + New opens it, not with every Files page.
 
+AN INCLUDE READS ONLY WHAT MAY BE DOWNLOADED. A view-only share answers "Cannot
+read" on its include line, whether the diagram is the user's own beside the share
+or inside it, and no word of the shared text reaches the drawing or its headers.
+A drawing of a file inside such a share is still allowed: the user may see that
+file, so its own text and the files it names may be drawn.
+
+AN OPEN LINKED FILE IS DRAWN BEFORE IT IS SAVED (editor spec R13). The render
+takes the open file's text in place of the saved one, but only for a file the
+user may already read: it cannot stand in for a missing file, and it cannot turn
+a view-only share into a readable one.
+
 ## diagrams/create
 
 `features/diagrams/create.feature`

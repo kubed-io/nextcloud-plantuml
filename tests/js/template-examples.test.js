@@ -23,6 +23,18 @@ describe('template-examples', () => {
       'diagram:def': { example: '@startdef\n!define A\n@enddef' },
       'keyword:as': { example: 'A as B' },
     }
-    expect(sources({}, own, [{ type: 'gantt' }, { type: 'git' }])).toEqual([{ key: 'example:gantt', source: '@startgantt\n[A] lasts 1 day\n@endgantt' }])
+    expect(sources({}, own, [{ type: 'gantt' }])).toEqual([{ key: 'example:gantt', type: 'gantt', source: '@startgantt\n[A] lasts 1 day\n@endgantt' }])
+  })
+
+  it('keeps a type with no Example, without a source, so the run can fail on it', () => {
+    expect(sources({}, {}, [{ type: 'git' }])).toEqual([{ key: 'example:git', type: 'git', source: undefined }])
+  })
+
+  it('draws the 9 built-ins and the 27 Examples, every one with a source', async () => {
+    const { readData } = await import('../../scripts/lib.mjs')
+    const { TYPES } = await import('../../src/editor/add/types.js')
+    const list = sources(await readData('data/templates.json'), await readData('data/docs/own.json'), TYPES)
+    expect(list).toHaveLength(36)
+    expect(list.filter(({ source }) => !source)).toEqual([])
   })
 })

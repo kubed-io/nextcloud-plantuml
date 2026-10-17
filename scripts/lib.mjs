@@ -44,8 +44,14 @@ export async function writeData(path, data) {
 
 /** The reason the PlantUML server at `server` gives for refusing `source`, or '' when it draws. */
 export async function drawProblem(server, source) {
-  const response = await fetch(`${server}/svg`, { method: 'POST', body: source })
-  const text = await response.text()
+  let response
+  let text
+  try {
+    response = await fetch(`${server}/svg`, { method: 'POST', body: source, signal: AbortSignal.timeout(30000) })
+    text = await response.text()
+  } catch (error) {
+    return `could not reach server: ${error.cause?.code ?? error.message}`
+  }
   const error = response.headers.get('X-PlantUML-Diagram-Error')
   if (error) {
     return `line ${Number(response.headers.get('X-PlantUML-Diagram-Error-Line')) + 1}: ${error}`

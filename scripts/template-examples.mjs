@@ -11,18 +11,24 @@ import { drawProblem, isMain, readData } from './lib.mjs'
 
 const server = process.env.PLANTUML_URL ?? 'http://plantuml.flow.svc'
 
-/** Each built-in as `<type>:<title>`, and each listed type's Example as `example:<type>`, with the text it adds. */
+/**
+ * Each built-in as `<type>:<title>`, and each listed type's Example as `example:<type>`, with the text it
+ * adds. A type with no Example has no `source` and is reported, not dropped.
+ */
 export function sources(templates, own, types) {
   const builtIn = Object.entries(templates).flatMap(([type, list]) => list.map(({ title, text }) => ({ key: `${type}:${title}`, source: text })))
-  const examples = types
-    .map(({ type }) => ({ key: `example:${type}`, source: own[`diagram:${type}`]?.example }))
-    .filter(({ source }) => source)
+  const examples = types.map(({ type }) => ({ key: `example:${type}`, type, source: own[`diagram:${type}`]?.example }))
   return [...builtIn, ...examples]
 }
 
 async function main() {
   let failed = 0
-  for (const { key, source } of sources(await readData('data/templates.json'), await readData('data/docs/own.json'), TYPES)) {
+  for (const { key, type, source } of sources(await readData('data/templates.json'), await readData('data/docs/own.json'), TYPES)) {
+    if (!source) {
+      failed++
+      console.info(`${type}: no Example`)
+      continue
+    }
     const reason = await drawProblem(server, source)
     if (reason) {
       failed++

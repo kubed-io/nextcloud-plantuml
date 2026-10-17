@@ -45,4 +45,26 @@ describe('drawProblem', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('<svg/>', { status: 200 })))
     expect(await drawProblem('http://plantuml', '@startuml\n@enduml')).toBe('')
   })
+
+  it('names a refusal that carries no header by its status', async () => {
+    const { drawProblem } = await import('../../scripts/lib.mjs')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })))
+    expect(await drawProblem('http://plantuml', 'x')).toBe('status 503')
+  })
+
+  it('returns the reason when the request itself fails', async () => {
+    const { drawProblem } = await import('../../scripts/lib.mjs')
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } })
+    }))
+    expect(await drawProblem('http://plantuml', 'x')).toBe('could not reach server: ECONNREFUSED')
+  })
+
+  it('gives every request a timeout', async () => {
+    const { drawProblem } = await import('../../scripts/lib.mjs')
+    const spy = vi.fn(async () => new Response('<svg/>', { status: 200 }))
+    vi.stubGlobal('fetch', spy)
+    await drawProblem('http://plantuml', 'x')
+    expect(spy.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
+  })
 })

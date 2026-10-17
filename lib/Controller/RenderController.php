@@ -24,8 +24,9 @@ use OCP\AppFramework\Http\EmptyContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\Files\File;
-use OCP\Files\GenericFileException;
 use OCP\Files\Folder;
+use OCP\Files\ForbiddenException;
+use OCP\Files\GenericFileException;
 use OCP\Files\InvalidPathException;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
@@ -89,7 +90,8 @@ final class RenderController extends Controller {
 			$content = self::content($node);
 		} catch (LockedException) {
 			return new Response(Http::STATUS_LOCKED);
-		} catch (NotPermittedException|NotFoundException|InvalidPathException|GenericFileException) {
+		} catch (NotPermittedException|NotFoundException|InvalidPathException|GenericFileException|ForbiddenException) {
+			// Forbidden is an access rule's refusal (files_accesscontrol).
 			return new Response(Http::STATUS_NOT_FOUND);
 		}
 		if ($content === null) {
@@ -285,7 +287,10 @@ final class RenderController extends Controller {
 		} finally {
 			fclose($handle);
 		}
-		return $content === false || strlen($content) > self::MAX_SOURCE ? null : $content;
+		if ($content === false) {
+			throw new GenericFileException('The stream could not be read');
+		}
+		return strlen($content) > self::MAX_SOURCE ? null : $content;
 	}
 
 	/**

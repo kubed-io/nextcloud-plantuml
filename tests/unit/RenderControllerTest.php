@@ -20,6 +20,7 @@ use OCP\AppFramework\Http\Response;
 use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\Folder;
+use OCP\Files\ForbiddenException;
 use OCP\Files\InvalidPathException;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
@@ -35,7 +36,12 @@ use OCP\Share\IShare;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/stream-get-contents.php';
+
 final class RenderControllerTest extends TestCase {
+	/** Whether the controller's stream_get_contents fails, see stream-get-contents.php. */
+	public static bool $unreadable = false;
+
 	private const SOURCE = "@startuml\nCustomer -> Shop : place order\n@enduml\n";
 	private const SVG = '<svg xmlns="http://www.w3.org/2000/svg"><text>Customer</text></svg>';
 
@@ -112,6 +118,10 @@ final class RenderControllerTest extends TestCase {
 		$render = $this->createStub(RenderService::class);
 		$render->method('render')->willReturn(new Rendered($svg, 'image/svg+xml'));
 		return $render;
+	}
+
+	protected function tearDown(): void {
+		self::$unreadable = false;
 	}
 
 	/** getHeaders() asks the server container for the request id; read the set headers directly. */
@@ -191,6 +201,27 @@ final class RenderControllerTest extends TestCase {
 		$file->method('fopen')->willThrowException(new NotPermittedException('no'));
 
 		$response = $this->controller($this->renderingNothing(), $file)->byPath('Diagrams/x.puml');
+
+		self::assertSame(404, $response->getStatus());
+	}
+
+	/** Z7: an access rule (files_accesscontrol) refuses as core does, never a 500. */
+	public function testByPathOfAFileAnAccessRuleForbidsIs404(): void {
+		$file = $this->createStub(File::class);
+		$file->method('getMimetype')->willReturn('text/x-plantuml');
+		$file->method('getSize')->willReturn(10);
+		$file->method('fopen')->willThrowException(new ForbiddenException('Access denied', false));
+
+		$response = $this->controller($this->renderingNothing(), $file)->byPath('Diagrams/x.puml');
+
+		self::assertSame(404, $response->getStatus());
+	}
+
+	/** A stream that cannot be read is no file to draw, not one too large. */
+	public function testByPathOfAStreamThatCannotBeReadIs404(): void {
+		self::$unreadable = true;
+
+		$response = $this->controller($this->renderingNothing(), $this->diagram())->byPath('Diagrams/Order flow.puml');
 
 		self::assertSame(404, $response->getStatus());
 	}

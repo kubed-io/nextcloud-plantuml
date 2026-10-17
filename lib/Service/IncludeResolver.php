@@ -78,10 +78,18 @@ final class IncludeResolver {
 	private array $contents = [];
 	/** @var list<array{zip: \ZipArchive, tmp: string, id: string, display: string, dir: list<string>|null}> */
 	private array $imports = [];
+	/** @var array<string, File|null|false> what each path asked of the user's files gave, so it is asked once */
+	private array $nodes = [];
+	/** The share the diagram is on, as `shareOf()` names it; its own files stay readable to it. */
+	private ?string $ownShare = null;
 	private int $files = 0;
 	private int $lookups = 0;
 	private int $bytes = 0;
 	private int $libraryBytes = 0;
+
+	/** @var array<string, true> zip copies not yet removed, all left to one shutdown hook */
+	private static array $copies = [];
+	private static bool $hooked = false;
 
 	/**
 	 * @param File|null $self the diagram's own file, so including it is a cycle from the start
@@ -95,12 +103,14 @@ final class IncludeResolver {
 		if ($own !== null && $own !== []) {
 			$run->stack[] = 'files:' . implode('/', $own);
 		}
+		$run->ownShare = $self === null ? null : self::shareOf($self);
 		try {
 			$run->walk(explode("\n", $source), ['dir' => $run->baseDir, 'zip' => null, 'zipDir' => []], 0, null, null);
 		} finally {
 			foreach ($run->imports as $import) {
 				$import['zip']->close();
 				@unlink($import['tmp']);
+				unset(self::$copies[$import['tmp']]);
 			}
 		}
 		return new Expanded(implode("\n", $run->sent), $run->lineMap, $run->origins, $run->mistakes, array_values($run->etags), $run->missing);
@@ -160,16 +170,21 @@ final class IncludeResolver {
 		// (`V1.2` included); a path, or a file that is there, is a file missing its
 		// section, said plainly.
 		if ($kind === 'includesub' && $selector === null) {
-			if (!str_contains($path, '/') && !str_contains($path, '.')) {
+			$bare = !str_contains($path, '/');
+			if ($bare && !str_contains($path, '.')) {
 				$this->keep($at, null);
-			} elseif (!$this->withinLimits($path, $at)) {
 				return;
-			} elseif (!str_contains($path, '/') && !is_array($this->find($path, $context, true))) {
+			}
+			$found = $bare ? $this->find($path, $context, true) : null;
+			if (!$bare || is_array($found)) {
+				$this->sectionsOf($path, $at, $context, $depth);
+			} elseif (is_string($found)) {
+				// Past a limit nothing is asked, so it may yet be a section.
+				$this->keep($at, null);
+			} else {
 				// Missing, so a file of that name made later draws the diagram anew.
 				$this->missing[] = $path;
 				$this->keep($at, null);
-			} else {
-				$this->sectionsOf($path, $at, $context, $depth);
 			}
 			return;
 		}
@@ -277,6 +292,10 @@ final class IncludeResolver {
 				return;
 			}
 		}
+		if ($this->files >= self::MAX_FILES) {
+			$this->keep($at, "$shown is past the limit of " . self::MAX_FILES . ' files');
+			return;
+		}
 		$size = self::fileSize($found['file']);
 		if ($size !== null && $size > self::MAX_LIBRARY_BYTES) {
 			$this->keep($at, "$shown is past the limit of 8 MB for a library");
@@ -317,6 +336,10 @@ final class IncludeResolver {
 			$this->keep($at, "$path is more than " . self::MAX_DEPTH . ' levels deep');
 			return null;
 		}
+		if ($this->files >= self::MAX_FILES) {
+			$this->keep($at, "$path is past the limit of " . self::MAX_FILES . ' files');
+			return null;
+		}
 		$remaining = self::MAX_BYTES - $this->bytes;
 		$content = $this->contents[$found['id']] ?? null;
 		$size = $content === null ? $this->size($found) : strlen($content);
@@ -343,24 +366,6 @@ final class IncludeResolver {
 	}
 
 	/**
-	 * Whether a file may still be looked up; past a limit the line is kept as
-	 * a mistake without asking the filesystem.
-	 *
-	 * @param At $at
-	 */
-	private function withinLimits(string $path, array $at): bool {
-		if ($this->files >= self::MAX_FILES) {
-			$this->keep($at, self::shown($path) . ' is past the limit of ' . self::MAX_FILES . ' files');
-			return false;
-		}
-		if ($this->lookups >= self::MAX_LOOKUPS) {
-			$this->keep($at, self::shown($path) . ' is past the limit of ' . self::MAX_LOOKUPS . ' lookups');
-			return false;
-		}
-		return true;
-	}
-
-	/**
 	 * What `find()` gives, its ETag noted; a path that leads nowhere is kept
 	 * as a mistake, listed as missing, and gives null.
 	 *
@@ -369,13 +374,14 @@ final class IncludeResolver {
 	 * @return Found|null
 	 */
 	private function located(string $path, array $context, bool $zips, array $at): ?array {
-		if (!$this->withinLimits($path, $at)) {
-			return null;
-		}
 		$found = $this->find($path, $context, $zips);
 		if (is_array($found)) {
 			$this->note($found);
 			return $found;
+		}
+		if (is_string($found)) {
+			$this->keep($at, self::shown($path) . " is past the limit of $found");
+			return null;
 		}
 		$this->missing[] = $path;
 		$this->keep($at, ($found === false ? 'Cannot read ' : 'Cannot find ') . self::shown($path));
@@ -402,12 +408,13 @@ final class IncludeResolver {
 	/**
 	 * Where a path leads: inside the zip the line is in, then each imported
 	 * zip, then the user's files. False when the storage refuses to say, or
-	 * the file's share forbids download.
+	 * the file's share forbids download. A path new to this diagram past a
+	 * limit is not asked for: the limit is given instead (`64 files`).
 	 *
 	 * @param Context $context
-	 * @return Found|null|false
+	 * @return Found|string|null|false
 	 */
-	private function find(string $path, array $context, bool $zips): array|null|false {
+	private function find(string $path, array $context, bool $zips): array|string|null|false {
 		// Nextcloud reads `\` as `/`, so it is worked out here too, before any file is asked for.
 		$path = str_replace('\\', '/', $path);
 		if (preg_match('/[\x00-\x1f]/', $path) === 1) {
@@ -435,19 +442,19 @@ final class IncludeResolver {
 		if ($segments === null || $segments === [] || strlen(implode('/', $segments)) > self::MAX_PATH) {
 			return null;
 		}
-		$this->lookups++;
-		try {
-			$node = $this->root->get(implode('/', $segments));
-		} catch (NotFoundException|NotPermittedException|InvalidPathException) {
-			return null;
-		} catch (StorageNotAvailableException|StorageInvalidException|ForbiddenException|LockedException) {
-			return false;
+		$name = implode('/', $segments);
+		if (!array_key_exists($name, $this->nodes)) {
+			if ($this->files >= self::MAX_FILES) {
+				return self::MAX_FILES . ' files';
+			}
+			if ($this->lookups >= self::MAX_LOOKUPS) {
+				return self::MAX_LOOKUPS . ' lookups';
+			}
+			$this->nodes[$name] = $this->lookUp($name);
 		}
+		$node = $this->nodes[$name];
 		if (!$node instanceof File) {
-			return null;
-		}
-		if (self::viewOnly($node)) {
-			return false;
+			return $node;
 		}
 		return [
 			'id' => 'files:' . implode('/', $segments),
@@ -457,6 +464,22 @@ final class IncludeResolver {
 			'zip' => null,
 			'entry' => 0,
 		];
+	}
+
+	/** The one place the user's files are asked; false as for `find()`. */
+	private function lookUp(string $name): File|null|false {
+		$this->lookups++;
+		try {
+			$node = $this->root?->get($name);
+		} catch (NotFoundException|NotPermittedException|InvalidPathException) {
+			return null;
+		} catch (StorageNotAvailableException|StorageInvalidException|ForbiddenException|LockedException) {
+			return false;
+		}
+		if (!$node instanceof File) {
+			return null;
+		}
+		return $this->viewOnly($node) ? false : $node;
 	}
 
 	/**
@@ -702,17 +725,31 @@ final class IncludeResolver {
 
 	/**
 	 * A file on a share whose owner forbids download, which a picture of its
-	 * text would get around; decided as files_sharing's ViewOnly decides it.
-	 * The class is only named, so the app needs no files_sharing.
+	 * text would get around, unless the diagram is on that same share;
+	 * decided as files_sharing's ViewOnly decides it.
 	 */
-	private static function viewOnly(File $file): bool {
+	private function viewOnly(File $file): bool {
 		try {
 			$storage = $file->getStorage();
 			return $storage->instanceOfStorage(SharedStorage::class)
-				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false;
+				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false
+				&& self::shareOf($file) !== $this->ownShare;
 		} catch (\Exception) {
 			// Core throws a bare Exception for a node without storage; unreadable, as a refusal is.
 			return true;
+		}
+	}
+
+	/**
+	 * The storage and share a file is on, when it is on a share. The class is
+	 * only named, never loaded, so the app needs no files_sharing.
+	 */
+	private static function shareOf(File $file): ?string {
+		try {
+			$storage = $file->getStorage();
+			return $storage->instanceOfStorage(SharedStorage::class) ? $storage->getId() . '#' . $storage->getShare()->getId() : null;
+		} catch (\Exception) {
+			return null;
 		}
 	}
 
@@ -760,10 +797,20 @@ final class IncludeResolver {
 		if ($tmp === false) {
 			return null;
 		}
-		register_shutdown_function(static fn (): bool => @unlink($tmp));
+		self::$copies[$tmp] = true;
+		if (!self::$hooked) {
+			register_shutdown_function(static function (): void {
+				foreach (array_keys(self::$copies) as $copy) {
+					@unlink($copy);
+				}
+				self::$copies = [];
+			});
+			self::$hooked = true;
+		}
 		$zip = new \ZipArchive();
 		if (file_put_contents($tmp, $content) === false || $zip->open($tmp, \ZipArchive::RDONLY) !== true) {
 			@unlink($tmp);
+			unset(self::$copies[$tmp]);
 			return null;
 		}
 		return [$zip, $tmp];

@@ -77,22 +77,27 @@ final class IncludeResolverTest extends TestCase {
 		return $storage;
 	}
 
-	/** A share from another user, its `download` attribute as given (null: the share sets none). */
-	private function shareStorage(?bool $download): ISharedStorage {
+	/**
+	 * Share `$id` from another user, mounted at `/$id`, its `download`
+	 * attribute as given (null: the share sets none).
+	 */
+	private function shareStorage(?bool $download, string $id = 'S'): ISharedStorage {
 		$attributes = $this->createStub(IAttributes::class);
 		$attributes->method('getAttribute')->willReturnCallback(static fn (string $scope, string $key): ?bool => [$scope, $key] === ['permissions', 'download'] ? $download : null);
 		$share = $this->createStub(IShare::class);
 		$share->method('getAttributes')->willReturn($attributes);
+		$share->method('getId')->willReturn($id);
 		$storage = $this->createStub(ISharedStorage::class);
 		$storage->method('instanceOfStorage')->willReturnCallback(static fn (string $class): bool => $class === 'OCA\Files_Sharing\SharedStorage');
 		$storage->method('getShare')->willReturn($share);
+		$storage->method('getId')->willReturn("shared::/$id");
 		return $storage;
 	}
 
 	/** A file on a share that forbids download, which fails the test if any of it is read. */
-	private function viewOnly(): File {
+	private function viewOnly(string $share = 'S'): File {
 		$file = $this->createMock(File::class);
-		$file->method('getStorage')->willReturn($this->shareStorage(false));
+		$file->method('getStorage')->willReturn($this->shareStorage(false, $share));
 		$file->expects(self::never())->method('fopen');
 		$file->expects(self::never())->method('getContent');
 		$file->expects(self::never())->method('getSize');
@@ -731,7 +736,6 @@ final class IncludeResolverTest extends TestCase {
 			['line' => 64, 'message' => 'more.puml is past the limit of 64 files'],
 			['line' => 65, 'message' => 's.css is past the limit of 64 files'],
 			['line' => 66, 'message' => 'l.zip is past the limit of 64 files'],
-			['line' => 67, 'message' => 'parts.puml is past the limit of 64 files'],
 		], $expanded->mistakes);
 	}
 
@@ -831,22 +835,29 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame($source, $expanded->source);
 	}
 
+	/** The zip copies on disk now, from a list taken before. */
+	private static function copiesSince(array $before): array {
+		return array_values(array_diff(glob(sys_get_temp_dir() . '/plantuml-*') ?: [], $before));
+	}
+
+	private static function shutdown(): void {
+		foreach (self::$atShutdown as $cleanup) {
+			$cleanup();
+		}
+	}
+
 	/** `finally` does not run on a fatal error, so the copy is left to shutdown as well. */
 	public function testAZipCopyIsRemovedAtShutdownToo(): void {
-		self::$atShutdown = [];
-		$temp = static fn (): array => glob(sys_get_temp_dir() . '/plantuml-*') ?: [];
-		$before = $temp();
+		$before = glob(sys_get_temp_dir() . '/plantuml-*') ?: [];
 		$copies = [];
 		$left = [];
 		$last = $this->createStub(File::class);
 		$last->method('getSize')->willReturn(2);
 		$last->method('getStorage')->willReturn($this->ownStorage());
 		// Mid-expansion, where a fatal error would stop it.
-		$last->method('fopen')->willReturnCallback(static function () use ($temp, $before, &$copies, &$left) {
-			$copies = array_values(array_diff($temp(), $before));
-			foreach (self::$atShutdown as $cleanup) {
-				$cleanup();
-			}
+		$last->method('fopen')->willReturnCallback(static function () use ($before, &$copies, &$left) {
+			$copies = self::copiesSince($before);
+			self::shutdown();
 			$left = array_values(array_filter($copies, 'file_exists'));
 			return self::stream("x\n");
 		});
@@ -855,5 +866,109 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame("x\n", $expanded->source);
 		self::assertCount(1, $copies);
 		self::assertSame([], $left);
+	}
+
+	/** One hook for every copy, and a path another process has since been given is not its to remove. */
+	public function testShutdownLeavesAFinishedCopysPathAlone(): void {
+		$before = glob(sys_get_temp_dir() . '/plantuml-*') ?: [];
+		$copies = [];
+		$last = $this->createStub(File::class);
+		$last->method('getSize')->willReturn(2);
+		$last->method('getStorage')->willReturn($this->ownStorage());
+		$last->method('fopen')->willReturnCallback(static function () use ($before, &$copies) {
+			$copies = self::copiesSince($before);
+			return self::stream("x\n");
+		});
+		$this->expand("!import a.zip\n!import b.zip\n!include last.puml\n", ['docs/a.zip' => self::zip(['a.puml' => "a\n"]), 'docs/b.zip' => self::zip(['b.puml' => "b\n"]), 'docs/last.puml' => $last]);
+		self::assertCount(2, $copies);
+		foreach ($copies as $path) {
+			self::assertFileDoesNotExist($path);
+			touch($path);
+		}
+		self::shutdown();
+		$kept = array_values(array_filter($copies, 'file_exists'));
+		array_map('unlink', $kept);
+
+		self::assertSame($copies, $kept);
+		self::assertCount(1, self::$atShutdown);
+	}
+
+	/** @return iterable<string, array{string, int}> */
+	public static function repeats(): iterable {
+		yield 'include, dropped' => ['include', 0];
+		yield 'include_many, each one more file' => ['include_many', 257 - 64];
+	}
+
+	/** A file already found is not looked up again, however often it is named. */
+	#[DataProvider('repeats')]
+	public function testRepeatsOfOneFileAreLookedUpOnce(string $kind, int $pastTheFileLimit): void {
+		$expanded = $this->expand(str_repeat("!$kind ./c.puml\n!$kind c.puml\n", 128) . "!$kind c.puml\n", ['docs/c.puml' => "c\n"]);
+
+		self::assertSame(['docs/c.puml'], $this->asked);
+		self::assertCount($pastTheFileLimit, $expanded->mistakes);
+		foreach ($expanded->mistakes as $mistake) {
+			self::assertStringEndsWith('c.puml is past the limit of 64 files', $mistake['message']);
+		}
+	}
+
+	public function testAFileIncludedAgainAt64FilesIsFree(): void {
+		$files = ['docs/common.puml' => "common\n", 'docs/lib.zip' => self::zip(['z.puml' => "z\n"])];
+		$source = "!import lib.zip\n!include common.puml\n";
+		for ($n = 1; $n <= 62; $n++) {
+			$files["docs/f$n.puml"] = "file $n\n";
+			$source .= "!include f$n.puml\n";
+		}
+		$expanded = $this->expand($source . "!include common.puml\n!import lib.zip\n", $files);
+
+		self::assertSame([], $expanded->mistakes);
+		self::assertCount(64, $this->asked);
+		self::assertCount(64, array_unique($this->asked));
+	}
+
+	public function testIncludesubWithoutANameLooksTheFileUpOnce(): void {
+		$this->expand("!includesub parts.puml\n", ['docs/parts.puml' => "!startsub A\n!endsub\n"]);
+
+		self::assertSame(['docs/parts.puml'], $this->asked);
+	}
+
+	public function testPastALimitADottedSectionIsLeftToTheServer(): void {
+		$source = '';
+		for ($n = 1; $n <= 256; $n++) {
+			$source .= "!include missing$n.puml\n";
+		}
+		$expanded = $this->expand($source . "!includesub V1.2\n", []);
+
+		self::assertCount(256, $this->asked);
+		self::assertCount(256, $expanded->mistakes);
+		self::assertStringEndsWith("!includesub V1.2\n", $expanded->source);
+	}
+
+	/** Viewing a shared diagram is unchanged, and so are the files beside it in that share. */
+	public function testADiagramInAViewOnlyShareReadsItsOwnShare(): void {
+		$files = [
+			'Shared/a.puml' => "!include b.puml\n",
+			'Shared/b.puml' => $this->file('Shared/b.puml', "beside\n", null, $this->shareStorage(false)),
+		];
+		[$folder, $root] = $this->tree($files, 'Shared');
+		$self = $this->file('Shared/a.puml', $files['Shared/a.puml'], null, $this->shareStorage(false));
+		$expanded = (new IncludeResolver())->expand("!include b.puml\n", $folder, $root, $self);
+
+		self::assertSame("beside\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function otherShares(): iterable {
+		yield 'own storage' => [''];
+		yield 'another view-only share' => ['T'];
+	}
+
+	#[DataProvider('otherShares')]
+	public function testADiagramOutsideAViewOnlyShareCannotReadIt(string $own): void {
+		[$folder, $root] = $this->tree(['S/notes.txt' => $this->viewOnly('S')], '');
+		$self = $this->file('mine.puml', '', null, $own === '' ? $this->ownStorage() : $this->shareStorage(false, $own));
+		$expanded = (new IncludeResolver())->expand("!include /S/notes.txt\n", $folder, $root, $self);
+
+		self::assertSame([['line' => 0, 'message' => 'Cannot read /S/notes.txt']], $expanded->mistakes);
 	}
 }

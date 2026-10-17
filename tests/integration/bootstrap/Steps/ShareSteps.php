@@ -71,7 +71,7 @@ trait ShareSteps {
 	/** @Given I have a diagram that includes that file */
 	public function iHaveADiagramThatIncludesThatFile(): void {
 		$this->diagramPath = 'Diagrams/Figures.puml';
-		$this->putFile('Diagrams', 'Figures.puml', "@startuml\nlegend\n!include {$this->sharedPath}\nendlegend\n@enduml\n");
+		$this->putFile('Diagrams', 'Figures.puml', "@startuml\nlegend\n!include \"{$this->sharedPath}\"\nendlegend\n@enduml\n");
 	}
 
 	/** @Then the drawing names the include as one it cannot read */

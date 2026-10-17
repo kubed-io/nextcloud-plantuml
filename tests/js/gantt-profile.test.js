@@ -270,7 +270,7 @@ describe('the gantt separator', () => {
     expect(performance.now() - started).toBeLessThan(50)
   })
 
-  it.each(['--', '-- Phase 2 --', '--  Phase 2  --  ', '-- a-b --', '--x--', '-- x'.replace('x', 'x --')])('still matches %j', (line) => {
+  it.each(['--', '-- Phase 2 --', '--  Phase 2  --  ', '-- a-b --', '--x--', '-- a -- b --', '-- a --- b --', '-- -x --', '-- x'.replace('x', 'x --')])('still matches %j', (line) => {
     expect(SEPARATOR.test(line)).toBe(true)
   })
 })

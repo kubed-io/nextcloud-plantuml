@@ -1646,8 +1646,26 @@ describe('a hostile line', () => {
     expect(hostile.filter(([text]) => text === 'alt' || text === 'end')).toEqual([['alt', 'keyword'], ['end', 'keyword']])
   })
 
-  it('keeps a nested mode in step across it', () => {
-    const gap = spans(['@startuml', 'note left', 'x'.repeat(20000), 'end note', '@enduml'])
-    expect(gap.filter(([text]) => text === 'note' || text === 'end note').length).toBeGreaterThan(0)
+  const LONG = 'x'.repeat(20000)
+  const without = (lines) => spans(lines.filter((l) => l !== LONG))
+
+  it.each([
+    ['a note', ['@startuml', 'note left', LONG, 'end note', 'alt x', 'end', '@enduml']],
+    ['a sub-diagram', ['@startuml', 'note left', '{{', 'Alice -> Bob', LONG, '}}', 'end note', 'alt x', 'end', '@enduml']],
+    ['a style block', ['@startuml', '<style>', 'root {', LONG, 'color red', '}', '</style>', 'alt x', 'end', '@enduml']],
+    ['a comment', ['@startuml', "/' open", LONG, 'still inside', "'/", 'alt x', 'end', '@enduml']],
+  ])('keeps %s in step across it', (_name, lines) => {
+    const hostile = spans(lines)
+    const plain = without(lines)
+    // The long line adds no span, so the whole document reads as the same one without it.
+    expect(hostile).toEqual(plain)
+    expect(hostile.length).toBeGreaterThan(0)
+  })
+
+  it('ignores a closer on the long line, so the construct stays open', () => {
+    const closing = ["@startuml", "/' open", "'/" + ' '.repeat(20000), 'alt x', "'/", 'alt y', '@enduml']
+    expect(spans(closing)).toEqual(spans(["@startuml", "/' open", 'alt x', "'/", 'alt y', '@enduml']))
+    const note = ['@startuml', 'note left', 'end note' + ' '.repeat(20000), 'alt x', 'end note', 'alt y', '@enduml']
+    expect(spans(note)).toEqual(spans(['@startuml', 'note left', 'alt x', 'end note', 'alt y', '@enduml']))
   })
 })

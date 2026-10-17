@@ -1550,28 +1550,36 @@ describe('the Source toggle', () => {
   })
 })
 
-describe('Enter on the editor\'s buttons', () => {
-  // Files' file rows each hold useHotKey('Enter', …, { prevent, stop }) on window: it
-  // cancels the button's own Enter click and opens the active file in the Viewer
-  // underneath. This stand-in does the same, on document, which the key reaches first.
-  let files
-  const enter = (target) => {
-    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+describe('the editor as a key boundary', () => {
+  // Files' hotkeys are useHotKey on window: Enter on a row (the Viewer), Delete,
+  // F2, D, S, v, Alt+ArrowUp. Enter's cancels a button's own Enter click. These
+  // stand-ins listen where Files does and on document, which a key reaches first,
+  // and cancel what they get, as Files does.
+  const HOTKEYS = [['Delete'], ['F2'], ['d'], ['s'], ['v'], ['ArrowUp', { altKey: true }], ['Enter']]
+  let onWindow
+  let onDocument
+  const press = (target, k, init = {}) => {
+    const event = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init })
     target.dispatchEvent(event)
     return event
   }
+  const hotkeys = (target) => HOTKEYS.map(([k, init]) => press(target, k, init))
+  const seen = () => [...onWindow.mock.calls, ...onDocument.mock.calls].map(([event]) => event.key)
 
   beforeEach(() => {
-    files = vi.fn((event) => event.preventDefault())
-    document.addEventListener('keydown', files)
+    onWindow = vi.fn((event) => event.preventDefault())
+    onDocument = vi.fn((event) => event.preventDefault())
+    window.addEventListener('keydown', onWindow)
+    document.addEventListener('keydown', onDocument)
     seams.loadFile.mockResolvedValue({ content: '@startuml first\nA -> B\n@enduml\n@startuml second\nB -> C\n@enduml\n', etag: '"get"' })
   })
 
   afterEach(() => {
-    document.removeEventListener('keydown', files)
+    window.removeEventListener('keydown', onWindow)
+    document.removeEventListener('keydown', onDocument)
   })
 
-  it('never reaches Files from the bar, the tabs or their menu, the button\'s click left to the browser', async () => {
+  it('keeps Files\' hotkeys from every button of the bar, the tabs and their menu, a button\'s Enter click left to the browser', async () => {
     await open()
     const buttons = [...document.querySelectorAll('.plantuml-editor button')]
     for (const name of ['add-new', 'add-type', 'source-toggle', 'refresh', 'save', 'close', 'tab', 'more-button', 'menu-item']) {
@@ -1580,32 +1588,72 @@ describe('Enter on the editor\'s buttons', () => {
 
     for (const button of buttons) {
       // Not cancelled: the browser's own Enter click on a button is what does its action.
-      expect(enter(button).defaultPrevented).toBe(false)
+      expect(hotkeys(button).at(-1).defaultPrevented).toBe(false)
     }
-    expect(files).not.toHaveBeenCalled()
+    expect(seen()).toEqual([])
     expect(q('.plantuml-editor')).not.toBeNull()
   })
 
-  it('never reaches Files from the Add diagram modal\'s buttons', async () => {
+  it('keeps them from the type menu\'s rows', async () => {
+    await open()
+    q('.plantuml-editor__add-type').click()
+    await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())
+
+    hotkeys(q('.plantuml-add__menu-item'))
+
+    expect(seen()).toEqual([])
+  })
+
+  it('keeps them from the Add diagram modal', async () => {
     vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ files: [] }), { status: 200 }))
     await open()
     q('.plantuml-editor__add-new').click()
     await vi.waitFor(() => expect(q('.plantuml-add__dialog')).not.toBeNull())
 
-    enter(q('.plantuml-add__close'))
-    enter(q('.plantuml-add__type:not([aria-selected="true"])'))
+    for (const target of ['.plantuml-add__close', '.plantuml-add__search', '.plantuml-add__type:not([aria-selected="true"])', '.plantuml-add__template']) {
+      hotkeys(q(target))
+    }
 
-    expect(files).not.toHaveBeenCalled()
+    expect(seen()).toEqual([])
   })
 
-  it('still breaks a line in the source', async () => {
+  it('keeps them from the source, where Enter still breaks the line', async () => {
     await open()
     const view = EditorView.findFromDOM(q('.cm-editor'))
     view.dispatch({ selection: { anchor: '@startuml first'.length } })
 
-    expect(enter(q('.cm-content')).defaultPrevented).toBe(true)
-
+    expect(press(q('.cm-content'), 'Enter').defaultPrevented).toBe(true)
     expect(view.state.doc.toString()).toMatch(/^@startuml first\n\nA -> B\n/)
+    hotkeys(q('.cm-content'))
+
+    expect(seen()).toEqual([])
+  })
+
+  it('still closes on Escape from a bar button, and on Ctrl+S saves once', async () => {
+    // Without the stand-ins: the one on document would cancel the keys before the editor's own handler.
+    window.removeEventListener('keydown', onWindow)
+    document.removeEventListener('keydown', onDocument)
+    seams.saveFile.mockResolvedValue('"put"')
+    await open()
+    type("' edit\n")
+    press(q('.plantuml-editor__refresh'), 's', { ctrlKey: true })
+    await settle()
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+
+    press(q('.plantuml-editor__source-toggle'), 'Escape')
+    await settle()
+
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('still marks the source while Ctrl is held in it, for its links', async () => {
+    await open()
+    const editor = q('.cm-editor')
+
+    press(q('.cm-content'), 'Control', { ctrlKey: true })
+    expect(editor.classList.contains('cm-plantuml-ctrl')).toBe(true)
+    q('.cm-content').dispatchEvent(new KeyboardEvent('keyup', { key: 'Control', bubbles: true }))
+    expect(editor.classList.contains('cm-plantuml-ctrl')).toBe(false)
   })
 })
 
@@ -1722,6 +1770,8 @@ describe('a linked file', () => {
     ['the ×', () => q('.plantuml-editor__back').click()],
     ['the main crumb', () => q('.plantuml-editor__crumb').click()],
     ['Escape', () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))],
+    ['Escape in the source', () => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))],
+    ['Escape on the ×', () => q('.plantuml-editor__back').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))],
   ])('goes back on %s, the editor still open', async (_how, back) => {
     await openStyle()
 

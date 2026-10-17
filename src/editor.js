@@ -446,13 +446,14 @@ export function openEditor(node, { diagram: openAt } = {}) {
   sourceToggle.addEventListener('click', toggleSource)
   copyButton.addEventListener('click', () => openSession()?.saveAsCopy())
   closeButton.addEventListener('click', close)
-  // Files' rows hold an Enter hotkey on window that cancels a button's own Enter
-  // click and opens the active file in the Viewer underneath: Enter stays here,
-  // its default (the button's click, CodeMirror's line break) left alone.
+  // The overlay is a key boundary: Files' hotkeys on window (Enter opening the
+  // Viewer, Delete, F2 …) act on the file underneath, and Enter's cancels a
+  // button's own click. A key from inside is handled here, after the source,
+  // the menus and the modal, and stops; its default is left alone. The document
+  // still takes one from outside, as when a click left the focus on the body.
   overlay.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.stopPropagation()
-    }
+    onKeydown(event)
+    event.stopPropagation()
   })
   document.addEventListener('keydown', onKeydown)
   window.addEventListener('beforeunload', onBeforeUnload)

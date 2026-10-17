@@ -122,8 +122,9 @@ export function linkedChips(open) {
       this.view = view
       this.ctrl = (event) => view.dom.classList.toggle('cm-plantuml-ctrl', held(event))
       this.released = () => view.dom.classList.remove('cm-plantuml-ctrl')
-      document.addEventListener('keydown', this.ctrl)
-      document.addEventListener('keyup', this.ctrl)
+      // Captured: the overlay stops every key from inside it (editor.js).
+      document.addEventListener('keydown', this.ctrl, true)
+      document.addEventListener('keyup', this.ctrl, true)
       window.addEventListener('blur', this.released)
       if (live.size === 0) {
         window.addEventListener('focus', returned)
@@ -177,8 +178,8 @@ export function linkedChips(open) {
     }
 
     destroy() {
-      document.removeEventListener('keydown', this.ctrl)
-      document.removeEventListener('keyup', this.ctrl)
+      document.removeEventListener('keydown', this.ctrl, true)
+      document.removeEventListener('keyup', this.ctrl, true)
       window.removeEventListener('blur', this.released)
       live.delete(this)
       if (live.size === 0) {

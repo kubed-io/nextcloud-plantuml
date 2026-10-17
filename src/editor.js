@@ -32,6 +32,7 @@ import { colorSwatches } from './editor/swatches.js'
 import { plantumlLint, plantumlLintKeymap } from './editor/lint/index.js'
 import { plantumlDocs } from './editor/docs/hover.js'
 import { plantumlFolding } from './editor/folding.js'
+import { forgetLinkedFiles } from './editor/linked/chips.js'
 import { fileName, filePath, setServerError } from './editor/lint/state.js'
 import { loadFile } from './editor/save.js'
 import { createFileSession, fromFile } from './editor/file-session.js'
@@ -54,6 +55,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     return
   }
   resetProfiles()
+  forgetLinkedFiles()
   const name = node.basename
 
   const icon = crelt('span', { class: 'plantuml-editor__icon', 'aria-hidden': 'true' })

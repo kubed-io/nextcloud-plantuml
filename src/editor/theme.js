@@ -396,6 +396,16 @@ export const surfaceRules = {
   '.cm-plantuml-chooser, .cm-plantuml-stepper button': { color: 'var(--color-text-maxcontrast)' },
   '.cm-plantuml-chooser:hover, .cm-plantuml-stepper button:hover': { color: 'var(--color-main-text)' },
 
+  // R9: a linked file's chip, the chooser's size, 4 px after its path.
+  [buttonStates('.cm-plantuml-link-chip')]: { ...QUIET_BUTTON, display: 'inline-flex', width: '16px', height: '16px', marginLeft: '4px', verticalAlign: 'middle' },
+  '.cm-plantuml-link-chip svg': { width: '12px', height: '12px' },
+  '.cm-plantuml-link-chip': { color: 'var(--color-text-maxcontrast)' },
+  '.cm-plantuml-link-chip:hover': { color: 'var(--color-main-text)' },
+  // R10: the path under the pointer while Ctrl (Cmd) is held.
+  '&.cm-plantuml-ctrl .cm-plantuml-link:hover, &.cm-plantuml-ctrl .cm-plantuml-link:hover *': {
+    color: 'var(--color-primary-element)', textDecoration: 'underline', textDecorationColor: 'var(--color-primary-element)', cursor: 'pointer',
+  },
+
   // Diagnostics. The stock wavy underline is an SVG with its colour baked in, so
   // it is redrawn as a wavy text-decoration, whose colour can be a variable.
   '.cm-lintRange, .cm-lintRange-error, .cm-lintRange-warning, .cm-lintRange-info, .cm-lintRange-hint': {

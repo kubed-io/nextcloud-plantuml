@@ -2,8 +2,9 @@
   SPDX-FileCopyrightText: 2026 kubed-io
   SPDX-License-Identifier: AGPL-3.0-or-later
 
-  The editor's Source toggle, Material Design's code-tags as Nextcloud's own
-  bundles draw it. Themed via currentColor. Imported (?raw) by src/editor.js.
+  The editor's Source toggle and a linked file's chip, Material Design's
+  code-tags as Nextcloud's own bundles draw it. Themed via currentColor.
+  Imported (?raw) by src/editor.js and src/editor/linked/chips.js.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
   <path d="M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6Z"/>

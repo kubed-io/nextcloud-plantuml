@@ -206,6 +206,7 @@ describe('the editor surface', () => {
     ['snippet fields and a disabled popup', ['.cm-snippetField', '.cm-snippetFieldPosition', '.cm-tooltip-autocomplete-disabled']],
     ["the colour picker's swatch and its input", ['span[data-color]', 'span[data-color] input[type="color"]']],
     ["the value chooser and stepper, their hover included", ['.cm-plantuml-chooser', '.cm-plantuml-chooser:hover', '.cm-plantuml-stepper', '.cm-plantuml-stepper button:hover']],
+    ["a linked file's chip, and its path while Ctrl is held", ['.cm-plantuml-link-chip', '.cm-plantuml-link-chip:hover', '.cm-plantuml-link-chip svg', '&.cm-plantuml-ctrl .cm-plantuml-link:hover']],
     ['the diagnostics: underline, gutter mark, tooltip and panel', ['.cm-lintRange-error', '.cm-lintRange-warning', '.cm-lintRange-info', '.cm-lintPoint-warning', '.cm-lint-marker-error', '.cm-lint-marker-warning', '.cm-diagnostic-warning', '.cm-diagnosticAction', '.cm-panel-lint']],
   ])('styles %s', (_what, parts) => {
     const selectors = Object.keys(surfaceRules).join('\n')

@@ -52,8 +52,13 @@ final class IncludeResolver {
 	private const MAX_PATH = 1024;
 	private const MAX_SHOWN = 100;
 
-	/** `[ \t]*`, as the render route's check reads a line, so the two agree on every line. */
-	private const DIRECTIVE = '/^[ \t]*!(include|include_many|include_once|includesub|import)\s+(\S.*?)\s*$/';
+	/**
+	 * `[ \t]*`, as the render route's check reads a line, so the two agree on
+	 * every line. Matched against the line without its trailing `\s`
+	 * (TRAILING), so a long run of spaces costs no backtracking.
+	 */
+	private const DIRECTIVE = '/^[ \t]*!(include|include_many|include_once|includesub|import)\s+(\S.*)$/';
+	private const TRAILING = " \t\n\v\f\r";
 	private const STYLE = '/^[ \t]*<style\s+[\w-]+\s*=\s*(?:"([^"]*)"|([^\s">]+))\s*>\s*$/i';
 
 	private ?Folder $root = null;
@@ -132,7 +137,7 @@ final class IncludeResolver {
 	private function walk(array $lines, array $context, int $depth, ?int $top, ?string $display): void {
 		foreach ($lines as $i => $line) {
 			$at = ['text' => $line, 'inner' => $i, 'top' => $top ?? $i, 'display' => $display];
-			if (preg_match(self::DIRECTIVE, $line, $m) === 1) {
+			if (preg_match(self::DIRECTIVE, rtrim($line, self::TRAILING), $m) === 1) {
 				$this->directive($m[1], $m[2], $at, $context, $depth);
 			} elseif (preg_match(self::STYLE, $line, $m) === 1) {
 				$this->style(($m[2] ?? '') !== '' ? $m[2] : $m[1], $at, $context, $depth);
@@ -759,7 +764,7 @@ final class IncludeResolver {
 			return $storage->instanceOfStorage(SharedStorage::class)
 				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false
 				&& ($this->ownShare === null || self::shareOf($file) !== $this->ownShare);
-		} catch (\Exception) {
+		} catch (\Throwable) {
 			// Core throws a bare Exception for a node without storage; unreadable, as a refusal is.
 			return true;
 		}

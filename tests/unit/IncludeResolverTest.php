@@ -846,6 +846,38 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame($source, $expanded->source);
 	}
 
+	/** @return iterable<string, array{string, string, list<array{line: int, message: string}>}> */
+	public static function longWhitespace(): iterable {
+		yield 'a megabyte of trailing spaces' => ['!include a.puml' . str_repeat(' ', 1048576), "a\n", []];
+		yield 'trailing whitespace of every kind' => ["!include a.puml \t\f\v\r", "a\n", []];
+		$inner = 'a' . str_repeat(' ', 50000) . 'b';
+		yield 'a long run inside the path' => ["!include $inner", "!include $inner\n", [['line' => 0, 'message' => 'Cannot find a' . str_repeat(' ', 99) . '…']]];
+	}
+
+	/** In a process of its own, so no pattern is already compiled with the JIT. */
+	#[DataProvider('longWhitespace')]
+	#[RunInSeparateProcess]
+	public function testALongWhitespaceRunIsQuickWithoutTheJit(string $line, string $sent, array $mistakes): void {
+		ini_set('pcre.jit', '0');
+		$start = hrtime(true);
+		$expanded = $this->expand("$line\n", ['docs/a.puml' => "a\n"]);
+
+		self::assertLessThan(1.0, (hrtime(true) - $start) / 1e9);
+		self::assertSame($sent, $expanded->source);
+		self::assertSame($mistakes, $expanded->mistakes);
+	}
+
+	/** Core throws more than Exceptions; whatever a share throws, its file is unreadable. */
+	public function testAShareThatThrowsAnErrorIsRefused(): void {
+		$storage = $this->createStub(ISharedStorage::class);
+		$storage->method('instanceOfStorage')->willReturn(true);
+		$storage->method('getShare')->willThrowException(new \Error('no share'));
+		$expanded = $this->expand("!include /S/notes.txt\n", ['S/notes.txt' => $this->file('S/notes.txt', "secret\n", null, $storage)]);
+
+		self::assertSame("!include /S/notes.txt\n", $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'Cannot read /S/notes.txt']], $expanded->mistakes);
+	}
+
 	/** The zip copies on disk now, from a list taken before. */
 	private static function copiesSince(array $before): array {
 		return array_values(array_diff(glob(sys_get_temp_dir() . '/plantuml-*') ?: [], $before));

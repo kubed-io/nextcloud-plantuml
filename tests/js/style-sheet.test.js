@@ -10,6 +10,8 @@ import { ensureSyntaxTree } from '@codemirror/language'
 import { forEachDiagnostic, forceLinting } from '@codemirror/lint'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
+import { currentCompletions, selectedCompletion, startCompletion } from '@codemirror/autocomplete'
+import { valueWidgets } from '../../src/editor/values/widgets.js'
 import { loadSheetProfile } from '../../src/editor/profiles/index.js'
 import { sheetExtension } from '../../src/editor/linked/sheet.js'
 import { docSource } from '../../src/editor/docs/hover.js'
@@ -133,6 +135,41 @@ describe('a style file', () => {
     const state = await sheet('arrow {\n  BackGroundColor Re\n}')
 
     expect(await labels(state, 'arrow {\n  BackGroundColor Re'.length)).toContain('Red')
+  })
+
+  it('lists a property\'s values on an explicit request, as inside <style> (R12, W1)', async () => {
+    const doc = 'root {\n  FontStyle bold\n}'
+    const found = await labels(await sheet(doc), 'root {\n  FontStyle bo'.length)
+
+    for (const label of ['bold', 'plain', 'italic', 'underline', 'strike', 'wave']) expect(found).toContain(label)
+  })
+
+  it('opens the list from a value\'s pencil, the value selected (R12, W1)', async () => {
+    const profile = await loadSheetProfile()
+    const doc = 'root {\n  FontStyle bold\n}'
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ doc, selection: { anchor: 'root {\n  FontStyle bo'.length }, extensions: [sheetExtension(profile), valueWidgets] }),
+    })
+
+    view.dom.querySelector('.cm-plantuml-chooser').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))
+    await vi.waitFor(() => expect(currentCompletions(view.state).length).toBeGreaterThan(0))
+
+    expect(currentCompletions(view.state).map((option) => option.label).slice(0, 2)).toEqual(['bold', 'plain'])
+    expect(selectedCompletion(view.state).label).toBe('bold')
+    view.destroy()
+  })
+
+  it('opens the colour list on an explicit request after FontColor red (R12, W1)', async () => {
+    const doc = 'root {\n  FontColor red\n}'
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ doc, selection: { anchor: 'root {\n  FontColor re'.length }, extensions: [sheetExtension(await loadSheetProfile())] }),
+    })
+
+    startCompletion(view)
+    await vi.waitFor(() => expect(currentCompletions(view.state).length).toBeGreaterThan(0))
+    view.destroy()
   })
 
   it('runs the style lint, and no block lint', async () => {

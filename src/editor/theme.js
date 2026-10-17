@@ -403,10 +403,11 @@ export const surfaceRules = {
   '.cm-plantuml-link-chip svg': { width: '12px', height: '12px' },
   '.cm-plantuml-link-chip': { color: 'var(--color-text-maxcontrast)' },
   '.cm-plantuml-link-chip:hover': { color: 'var(--color-main-text)' },
-  // R10: the path under the pointer while Ctrl (Cmd) is held.
-  '&.cm-plantuml-ctrl .cm-plantuml-link:hover, &.cm-plantuml-ctrl .cm-plantuml-link:hover *': {
-    color: 'var(--color-primary-element)', textDecoration: 'underline', textDecorationColor: 'var(--color-primary-element)', cursor: 'pointer',
+  // R10: a linked path is always underlined like a hyperlink; the hand comes only while Ctrl (Cmd) is held.
+  '.cm-plantuml-link, .cm-plantuml-link *': {
+    color: 'var(--color-primary-element)', textDecoration: 'underline', textDecorationColor: 'var(--color-primary-element)',
   },
+  '&.cm-plantuml-ctrl .cm-plantuml-link:hover, &.cm-plantuml-ctrl .cm-plantuml-link:hover *': { cursor: 'pointer' },
 
   // Diagnostics. The stock wavy underline is an SVG with its colour baked in, so
   // it is redrawn as a wavy text-decoration, whose colour can be a variable.

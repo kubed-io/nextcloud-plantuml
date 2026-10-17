@@ -11,6 +11,7 @@ import { EditorState } from '@codemirror/state'
 import { plantumlLanguage } from '../plantuml-mode.js'
 import { styleSheet } from '../regions.js'
 import { colors, swatchOption } from '../completion/colors.js'
+import { values } from '../completion/values.js'
 import { withDocs } from '../completion/docs.js'
 import { plantumlDocs } from '../docs/hover.js'
 import { profileRules, sheetLint } from '../lint/index.js'
@@ -24,7 +25,7 @@ export function sheetExtension(profile) {
   if (!profile) return base
   return [
     ...base,
-    ...[...profile.completions, colors].map((source) => EditorState.languageData.of(() => [{ autocomplete: withDocs(source) }])),
+    ...[...profile.completions, colors, values].map((source) => EditorState.languageData.of(() => [{ autocomplete: withDocs(source) }])),
     autocompletion({ addToOptions: [swatchOption] }),
     // After the completion, whose Escape closes its list first, as in a diagram.
     plantumlDocs,

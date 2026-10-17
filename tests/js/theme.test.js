@@ -197,6 +197,16 @@ describe('the editor surface', () => {
   const declarations = Object.entries(surfaceRules)
     .flatMap(([selector, rule]) => Object.entries(rule).map(([property, value]) => [selector, property, value]))
 
+  it('underlines a linked path always, in the primary colour, and gives it the hand only while Ctrl is held (R10)', () => {
+    const link = surfaceRules['.cm-plantuml-link, .cm-plantuml-link *']
+
+    expect(link.color).toBe('var(--color-primary-element)')
+    expect(link.textDecorationColor).toBe('var(--color-primary-element)')
+    expect(link.textDecoration).toBe('underline')
+    expect(link).not.toHaveProperty('cursor')
+    expect(surfaceRules['&.cm-plantuml-ctrl .cm-plantuml-link:hover, &.cm-plantuml-ctrl .cm-plantuml-link:hover *']).toEqual({ cursor: 'pointer' })
+  })
+
   it.each([
     ['the completion popup, its selected option, kinds and info', ['.cm-tooltip-autocomplete', 'li[aria-selected]', '.cm-completionIcon-keyword', '.cm-completionInfo']],
     ['the active line and the matched bracket', ['.cm-activeLine', '.cm-activeLineGutter', '.cm-matchingBracket']],
@@ -206,7 +216,7 @@ describe('the editor surface', () => {
     ['snippet fields and a disabled popup', ['.cm-snippetField', '.cm-snippetFieldPosition', '.cm-tooltip-autocomplete-disabled']],
     ["the colour picker's swatch and its input", ['span[data-color]', 'span[data-color] input[type="color"]']],
     ["the value chooser and stepper, their hover included", ['.cm-plantuml-chooser', '.cm-plantuml-chooser:hover', '.cm-plantuml-stepper', '.cm-plantuml-stepper button:hover']],
-    ["a linked file's chip, and its path while Ctrl is held", ['.cm-plantuml-link-chip', '.cm-plantuml-link-chip:hover', '.cm-plantuml-link-chip svg', '&.cm-plantuml-ctrl .cm-plantuml-link:hover']],
+    ["a linked file's chip, its path, and the hand while Ctrl is held", ['.cm-plantuml-link-chip', '.cm-plantuml-link-chip:hover', '.cm-plantuml-link-chip svg', '.cm-plantuml-link, .cm-plantuml-link *', '&.cm-plantuml-ctrl .cm-plantuml-link:hover']],
     ['the diagnostics: underline, gutter mark, tooltip and panel', ['.cm-lintRange-error', '.cm-lintRange-warning', '.cm-lintRange-info', '.cm-lintPoint-warning', '.cm-lint-marker-error', '.cm-lint-marker-warning', '.cm-diagnostic-warning', '.cm-diagnosticAction', '.cm-panel-lint']],
   ])('styles %s', (_what, parts) => {
     const selectors = Object.keys(surfaceRules).join('\n')

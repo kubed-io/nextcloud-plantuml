@@ -104,6 +104,15 @@ describe('the linked-file chip', () => {
     expect(passed).not.toHaveBeenCalled()
   })
 
+  it('marks a linked path whether or not Ctrl is held (R10)', async () => {
+    await editor()
+
+    const path = view.contentDOM.querySelector('.cm-plantuml-link[data-linked-path="/Diagrams/UML_Fun.css"]')
+
+    expect(path.textContent).toContain('UML_Fun.css')
+    expect(view.dom.classList.contains('cm-plantuml-ctrl')).toBe(false)
+  })
+
   it('leaves a Ctrl+click anywhere else to CodeMirror', async () => {
     const open = await editor()
 

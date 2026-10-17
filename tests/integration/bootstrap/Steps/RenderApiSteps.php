@@ -24,6 +24,23 @@ trait RenderApiSteps {
 		$this->renderResponse = $this->renderByPath($path);
 	}
 
+	/** @When /^I request the image of the diagram "([^"]*)" of "([^"]*)"$/ */
+	public function iRequestTheImageOfTheDiagramOf(string $diagram, string $path): void {
+		$this->renderResponse = $this->httpClient()->get($this->baseUrl . '/index.php/apps/plantuml/render', [
+			'query' => ['path' => $path, 'diagram' => $diagram],
+		]);
+	}
+
+	/** @Then /^the answer says there is no diagram named "([^"]*)"$/ */
+	public function theAnswerSaysThereIsNoDiagramNamed(string $name): void {
+		$body = (string)$this->lastRenderResponse()->getBody();
+		$answer = json_decode($body, true);
+		$problem = is_array($answer) ? ($answer['problem'] ?? null) : null;
+		if ($problem !== "no diagram named {$name}") {
+			throw new \RuntimeException("expected the problem 'no diagram named {$name}', got: " . substr($body, 0, 300));
+		}
+	}
+
 	/**
 	 * As the editor draws the diagram its cursor is in: the file's source, and
 	 * the diagram's place among the file's `@start` lines.

@@ -35,11 +35,18 @@ export function canEditDiagram(nodes, serverConfigured) {
 /**
  * The render route for a diagram file, by its path in the user's folder.
  *
+ * `diagram` is a name or a number counted from 1; `index` is the 0-based place
+ * among the file's diagrams, and wins when both are given.
+ *
  * @param {string} path
+ * @param {{diagram?: number|string, index?: number}} [which]
  * @return {string}
  */
-export function renderUrl(path) {
-  return OC.generateUrl(`/apps/${APP_ID}/render`) + '?path=' + encodeURIComponent(path)
+export function renderUrl(path, { diagram, index } = {}) {
+  let url = OC.generateUrl(`/apps/${APP_ID}/render`) + '?path=' + encodeURIComponent(path)
+  if (diagram !== undefined) url += `&diagram=${encodeURIComponent(diagram)}`
+  if (index !== undefined) url += `&index=${index}`
+  return url
 }
 
 /**

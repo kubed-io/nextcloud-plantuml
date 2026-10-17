@@ -29,6 +29,20 @@ describe('renderUrl', () => {
     expect(renderUrl('Diagrams/Order flow.puml'))
       .toBe('/index.php/apps/plantuml/render?path=Diagrams%2FOrder%20flow.puml')
   })
+
+  it('names one diagram of the file', () => {
+    expect(renderUrl('/D/S.puml', { diagram: 2 })).toBe('/index.php/apps/plantuml/render?path=%2FD%2FS.puml&diagram=2')
+    expect(renderUrl('/D/S.puml', { diagram: 'Größe' })).toBe('/index.php/apps/plantuml/render?path=%2FD%2FS.puml&diagram=Gr%C3%B6%C3%9Fe')
+  })
+
+  it('names one diagram by its place, counted from 0', () => {
+    expect(renderUrl('/D/S.puml', { index: 0 })).toBe('/index.php/apps/plantuml/render?path=%2FD%2FS.puml&index=0')
+    expect(renderUrl('/D/S.puml', { index: 2 })).toBe('/index.php/apps/plantuml/render?path=%2FD%2FS.puml&index=2')
+  })
+
+  it('leaves the diagram out when none is named', () => {
+    expect(renderUrl('/D/S.puml')).toBe('/index.php/apps/plantuml/render?path=%2FD%2FS.puml')
+  })
 })
 
 describe('editorBundleUrl', () => {

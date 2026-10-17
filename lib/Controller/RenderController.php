@@ -13,6 +13,7 @@ use OCA\PlantUml\AppInfo\Application;
 use OCA\PlantUml\Exception\FileRefusal;
 use OCA\PlantUml\Exception\RenderException;
 use OCA\PlantUml\Service\DiagramFiles;
+use OCA\PlantUml\Service\Diagrams;
 use OCA\PlantUml\Service\Expanded;
 use OCA\PlantUml\Service\IncludeResolver;
 use OCA\PlantUml\Service\Rendered;
@@ -60,20 +61,42 @@ final class RenderController extends Controller {
 	 * No CSRF token on an `<img src>`; the path rule is what keeps this safe.
 	 * The files the diagram includes are read before the ETag is compared, since
 	 * the ETag covers them; a diagram that names none keeps its file's ETag.
+	 *
+	 * A file of several diagrams draws the one asked for: `index` (0-based, as
+	 * POST takes it, what the Viewer sends) or `diagram` (a name, else a number
+	 * counted from 1); `index` wins when both come. The place is found in the
+	 * file as stored, not in its includes, whose blocks are inlined without
+	 * their `@start` lines. One that is not there is a 404 naming it, never the
+	 * first diagram instead.
 	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
-	public function byPath(string $path = ''): Response {
+	public function byPath(string $path = '', string $diagram = '', mixed $index = null): Response {
+		if (is_string($index) && preg_match('/^\d{1,3}$/', $index) === 1) {
+			$index = (int)$index;
+		}
+		if ($index !== null && (!is_int($index) || $index < 0 || $index > 999)) {
+			return new Response(Http::STATUS_BAD_REQUEST);
+		}
 		try {
 			$file = $this->files->open($path);
 		} catch (FileRefusal $e) {
 			return $e->response;
 		}
+		$image = 0;
+		if ($index !== null || $diagram !== '') {
+			$diagrams = Diagrams::scan($file->text);
+			$found = $index !== null ? Diagrams::renderOf($diagrams, $index) : (Diagrams::find($diagrams, $diagram)['render'] ?? null);
+			if ($found === null) {
+				return new JSONResponse(['problem' => Diagrams::missing($index !== null ? (string)($index + 1) : $diagram)], Http::STATUS_NOT_FOUND);
+			}
+			$image = $found;
+		}
 		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $file->etag) {
 			return $this->revalidated(new Response(Http::STATUS_NOT_MODIFIED), $file->etag);
 		}
 		try {
-			return $this->revalidated($this->image($this->render->render($file->expanded?->source ?? $file->text), $file->expanded), $file->etag);
+			return $this->revalidated($this->image($this->render->render($file->expanded?->source ?? $file->text, $image), $file->expanded), $file->etag);
 		} catch (RenderException $e) {
 			return $this->problem($e);
 		}

@@ -126,6 +126,20 @@ PlantUML draws the error into the image. Only a server problem is not an image â
 
 Both scenarios are asked over HTTP as the admin.
 
+### Asking for one diagram of a file
+
+A FILE OF SEVERAL DIAGRAMS DRAWS THE ONE ASKED FOR, by name or by its place
+counted from 1, pages included, as the editor's tabs count them; a name wins over
+a number. The server splits the file as the tabs do (`lib/Service/Diagrams.php`,
+held to `src/editor/blocks.js` by one fixture), from the file as stored, never
+from its includes. A name or number the file does not hold is a 404 naming what
+was missing (`no diagram named signup`, `no diagram 9`), never the first diagram
+in its place: a wrong picture is worse than none. The Viewer draws each of its
+tabs this way, by `index` (the 0-based place), which decides when it comes with
+a `diagram`.
+
+Both scenarios are asked over HTTP as the admin.
+
 ## diagrams/edit
 
 `features/diagrams/edit.feature`

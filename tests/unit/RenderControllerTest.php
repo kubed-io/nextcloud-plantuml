@@ -70,6 +70,103 @@ final class RenderControllerTest extends TestCase {
 		return $render;
 	}
 
+	private const SCREENS = "@startuml nodes\nA -> B\n@enduml\n@startuml login\nC -> D\n@enduml\n";
+
+	/** Records the index each render was asked for. */
+	private function indexing(?int &$index): RenderService {
+		$render = $this->createStub(RenderService::class);
+		$render->method('render')->willReturnCallback(static function (string $source, int $i = 0) use (&$index): Rendered {
+			$index = $i;
+			return new Rendered(self::SVG, 'image/svg+xml');
+		});
+		return $render;
+	}
+
+	public function testDrawsTheDiagramNamed(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', 'login');
+		self::assertSame(1, $index);
+	}
+
+	public function testDrawsTheDiagramNumbered(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', '2');
+		self::assertSame(1, $index);
+	}
+
+	public function testCountsPages(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: "@startuml\nA\nnewpage\nB\nnewpage\nC\n@enduml\n"))->byPath('Diagrams/P.puml', '3');
+		self::assertSame(2, $index);
+	}
+
+	public function testWithoutADiagramDrawsTheFirst(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml');
+		self::assertSame(0, $index);
+	}
+
+	public function testNoDiagramNamedIs404(): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', 'signup');
+		self::assertInstanceOf(JSONResponse::class, $response);
+		self::assertSame(404, $response->getStatus());
+		self::assertSame(['problem' => 'no diagram named signup'], $response->getData());
+	}
+
+	public function testNoDiagramNumberedIs404(): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', '9');
+		self::assertInstanceOf(JSONResponse::class, $response);
+		self::assertSame(['problem' => 'no diagram 9'], $response->getData());
+	}
+
+	public function testAMissingDiagramIsNeverRevalidated(): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::SCREENS), '"abc123"')->byPath('Diagrams/Screens.puml', 'signup');
+		self::assertSame(404, $response->getStatus());
+	}
+
+	public function testTheIndexPicksTheDiagramByItsPlace(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', '', 1);
+		self::assertSame(1, $index);
+		$this->controller($this->indexing($index), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', '', '0');
+		self::assertSame(0, $index);
+	}
+
+	public function testTheIndexCountsPages(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: "@startuml\nA\nnewpage\nB\nnewpage\nC\n@enduml\n"))->byPath('Diagrams/P.puml', '', '2');
+		self::assertSame(2, $index);
+	}
+
+	public function testTheIndexDecidesWhenADiagramComesToo(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', 'nodes', 1);
+		self::assertSame(1, $index);
+	}
+
+	public function testTheIndexIsAPlaceEvenWhenADiagramIsNamedLikeANumber(): void {
+		// A diagram named `3` comes first: `diagram=3` finds it by name, `index=2` is the third.
+		$content = "@startuml 3\nA\n@enduml\n@startuml b\nB\n@enduml\n@startuml c\nC\n@enduml\n";
+		$this->controller($this->indexing($index), $this->diagram(content: $content))->byPath('Diagrams/N.puml', '3');
+		self::assertSame(0, $index);
+		$this->controller($this->indexing($index), $this->diagram(content: $content))->byPath('Diagrams/N.puml', '', 2);
+		self::assertSame(2, $index);
+	}
+
+	public function testAnIndexPastTheLastDiagramIs404(): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', '', 2);
+		self::assertInstanceOf(JSONResponse::class, $response);
+		self::assertSame(404, $response->getStatus());
+		self::assertSame(['problem' => 'no diagram 3'], $response->getData());
+	}
+
+	#[DataProvider('badIndexes')]
+	public function testByPathRefusesAnIndexOutsideZeroTo999(mixed $index): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::SCREENS))->byPath('Diagrams/Screens.puml', '', $index);
+		self::assertSame(400, $response->getStatus());
+	}
+
+	public function testTheIndexIsTheStoredTextsNotTheExpandedOnes(): void {
+		// The included block holds a newpage of its own; inlined, it adds a page the stored text lacks.
+		$base = $this->diagram(content: "@startuml a\n!include parts.puml\n@enduml\n@startuml b\n@enduml\n");
+		$parts = $this->diagram(content: "A\nnewpage\nB\n", etag: 'p1');
+		$this->controller($this->indexing($index), ['Diagrams/Order flow.puml' => $base, 'Diagrams/parts.puml' => $parts])->byPath('Diagrams/Order flow.puml', 'b');
+		self::assertSame(1, $index);
+	}
+
 	protected function tearDown(): void {
 		Streams::$unreadable = false;
 	}

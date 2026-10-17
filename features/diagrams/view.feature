@@ -31,14 +31,15 @@ Feature: Looking at a diagram file
     Then the answer says the diagram is too large to draw
 
     # ── RULE: a client can ask for one diagram of a file ──────────────────────
+    # notes: ../AGENTS.md#asking-for-one-diagram-of-a-file
 
-  @api @unbuilt
+  @api
   Scenario: Asking for one diagram of a file that holds several
     Given "Diagrams/Screens.puml" holds the diagrams "nodes" and "login"
     When I request the image of the diagram "login" of "Diagrams/Screens.puml"
     Then I receive the diagram "login"
 
-  @api @unbuilt
+  @api
   Scenario: Asking for a diagram a file does not hold is refused
     Given "Diagrams/Screens.puml" holds the diagrams "nodes" and "login"
     When I request the image of the diagram "signup" of "Diagrams/Screens.puml"

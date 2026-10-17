@@ -117,25 +117,25 @@ Feature: Editing a diagram file
 
     # ── RULE: templates come from the admin's folder and the user's own ───────
 
-  @api @unbuilt
+  @api
   Scenario: The admin's template folder is offered to everyone
     Given the admin's template folder holds a diagram file "Flows.puml"
     When "drk" asks for the templates to start from
     Then "drk" is offered "Flows.puml" as a shared template
 
-  @api @unbuilt
+  @api
   Scenario: A user's own Templates folder is offered to them alone
     Given "drk" keeps a diagram file "Retro.puml" in their Templates folder
     When "alice" asks for the templates to start from
     Then "alice" is not offered "Retro.puml"
 
-  @api @unbuilt
+  @api
   Scenario: A file shared view-only into the template folder is not offered
     Given someone shares "Secret.puml" view-only into the admin's template folder
     When "drk" asks for the templates to start from
     Then "drk" is not offered "Secret.puml"
 
-  @api @unbuilt
+  @api
   Scenario: Setting the template folder makes it
     Given the admin's files hold no folder "Diagrams/Templates"
     When the admin sets the template folder to "Diagrams/Templates"

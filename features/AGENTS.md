@@ -293,6 +293,15 @@ user may already read: it cannot stand in for a missing file, and it cannot turn
 a view-only share into a readable one. The open file itself still reads, since
 the user may view it; only what its new text reaches loses the owner's rights.
 
+TEMPLATES COME FROM THE ADMIN'S FOLDER AND THE USER'S OWN (app spec TP1–TP4).
+The admin's folder is read as its owner, so every user is offered its files
+without a share; a user's own Templates folder is offered to them alone. A file
+shared view-only into the admin's folder is never offered, as an include of it
+is never drawn: its text would reach every user. Setting the folder makes it.
+The steps ask `GET /templates` as each user and set the folder through core's
+declarative settings API, as the admin card does; the users they make (`drk`,
+`alice`, `plantuml-sharer`) go after each scenario with everything they own.
+
 ## diagrams/create
 
 `features/diagrams/create.feature`

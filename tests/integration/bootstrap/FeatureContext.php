@@ -21,6 +21,7 @@ use OCA\PlantUml\Tests\Integration\Steps\ReadmeSteps;
 use OCA\PlantUml\Tests\Integration\Steps\RenderApiSteps;
 use OCA\PlantUml\Tests\Integration\Steps\ServerKnowledgeSteps;
 use OCA\PlantUml\Tests\Integration\Steps\ShareSteps;
+use OCA\PlantUml\Tests\Integration\Steps\TemplateSteps;
 use OCA\PlantUml\Tests\Integration\Support\OccTrait;
 use OCA\PlantUml\Tests\Integration\Support\WebDavTrait;
 
@@ -43,6 +44,7 @@ final class FeatureContext implements Context {
 	use RenderApiSteps;
 	use ServerKnowledgeSteps;
 	use ShareSteps;
+	use TemplateSteps;
 	use WebDavTrait;
 
 	public const APP_ID = 'plantuml';

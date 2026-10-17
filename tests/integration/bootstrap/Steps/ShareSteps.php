@@ -136,7 +136,12 @@ trait ShareSteps {
 
 	/** Shares the colleague's `$path` with me, read only and no download; where it is in my files. */
 	private function shareWithMeViewOnly(string $path): string {
-		$share = $this->ocsAs(self::COLLEAGUE, $this->colleaguePass, 'POST', 'apps/files_sharing/api/v1/shares', [
+		return $this->shareViewOnlyWithMe(self::COLLEAGUE, $this->colleaguePass, $path);
+	}
+
+	/** Shares `$owner`'s `$path` with me, read only and no download; where it is in my files, accepted first when the server holds it as pending. */
+	private function shareViewOnlyWithMe(string $owner, string $password, string $path): string {
+		$share = $this->ocsAs($owner, $password, 'POST', 'apps/files_sharing/api/v1/shares', [
 			'path' => $path,
 			'shareType' => 0,
 			'shareWith' => $this->adminUser,
@@ -160,8 +165,13 @@ trait ShareSteps {
 
 	/** Their shares and files go with them. */
 	private function removeTheColleague(): void {
+		$this->removeUser(self::COLLEAGUE);
+	}
+
+	/** Their shares and files go with them. */
+	private function removeUser(string $uid): void {
 		(new Client(['auth' => [$this->adminUser, $this->adminPass], 'http_errors' => false]))
-			->delete($this->baseUrl . '/ocs/v2.php/cloud/users/' . self::COLLEAGUE, ['headers' => ['OCS-APIRequest' => 'true']]);
+			->delete($this->baseUrl . '/ocs/v2.php/cloud/users/' . rawurlencode($uid), ['headers' => ['OCS-APIRequest' => 'true']]);
 	}
 
 	/**

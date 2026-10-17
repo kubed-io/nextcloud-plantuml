@@ -71,6 +71,29 @@ Each as `Ruling: <what> — <why> — <cost if wrong>`.
 
 ---
 
+## Live verification (required, however long it takes)
+
+A green suite proves the repo, not the instance. This round is finished only when an agent has deployed it to the live Nextcloud and checked every user-visible behaviour of this round in a real browser. If the browser, the Grid or a sign-in is unavailable, the live check is recorded as outstanding in the ledger and the final report, never skipped; any later agent can pick it up from this section alone.
+
+1. **Deploy.** As AGENTS.md "Trying it on the live instance" says: `P=$(kubectl -n cloud get pod -l app.kubernetes.io/name=nextcloud -o name | head -1)`, then `tar -C . --exclude=node_modules --exclude=vendor --exclude=.git --exclude=.superpowers --exclude=.signing --exclude='*.map' --exclude=./docs -cf - . | kubectl -n cloud exec -i $P -c nextcloud -- tar -C /var/www/html/custom_apps/plantuml -xf -`, then `chown -R www-data:www-data` on the app folder. Compare the md5 sums of this build's `dist/plantuml-*.js dist/chunks/*.js` only (the pod keeps stale hashed chunks; maps are excluded). In the pod: `php -l` on new PHP files and `occ` commands only; never Behat, psalm or cs-fixer.
+2. **Drive the browser with selenium-flow's own skills.** Read them from the selenium-flow MCP server before the first call, and follow them:
+   - `skill://selenium-flow/SKILL.md`: workspaces, the five rules, every tool;
+   - `skill://selenium-flow/references/SECRETS.md`: typing a password you never see;
+   - `skill://selenium-flow/references/SITE_DATA.md`: staying signed in across browsers;
+   - `skill://selenium-flow/references/INTERACTION.md`: clicks, hovers, keys, dialogs;
+   - `skill://selenium-flow/references/READING_PAGES.md`: `extract` and `outline` before screenshots;
+   - `skill://selenium-flow/references/TROUBLESHOOTING.md`: a timeout, an empty screenshot, a click that did nothing;
+   - `skill://selenium-flow/references/WORKSPACES.md`: the shared workspace.
+3. **Sign in with the `grafana` secret.** selenium-flow's secret `grafana` (keys `username`, `password`) is the `selenium` LDAP service account, which is a Nextcloud user too: the secret allows the Nextcloud site as well as Grafana (`secret://secrets` lists its allowed URLs, which is where the instance's address comes from; never write the address into a file). Open the Nextcloud login page, `write` the `username` and `password` keys of `grafana` into `#user` and `#password` (`submit: true` on the password), confirm the Dashboard loaded, then `save_site_data()`. Never put a password in `text`, and never read the secret any other way.
+4. **What the account can and cannot do.** `selenium` is a plain user, not an admin. Check admin-only behaviour through `occ` in the pod, or note it for Dr K. A share with download forbidden must come from another account (Dr K's); without one, that check is outstanding, not skipped.
+5. **Known quirks** from earlier rounds:
+   - The `claudecode` workspace is one browser shared by every Claude session; take it only for this check, and `end_browser()` when done, failures included.
+   - `press_key` without a selector types into the page body, not the editor: aim keys at `{"css": ".cm-content"}` after clicking into a line's text.
+   - A hover card or a completion list needs a moment (the hover delay is 500 ms): check with `execute_script` for `.cm-tooltip-hover` / `.cm-tooltip-autocomplete` rather than an early screenshot.
+   - The dark theme: `PUT /ocs/v2.php/apps/theming/api/v1/theme/dark/enable` from the page (with `requesttoken` and `OCS-APIREQUEST`), and `DELETE …/theme/dark` afterwards to restore it.
+   - Work in a scratch folder of the `selenium` user's own files (made over WebDAV from the page), and delete it afterwards.
+6. **Record it.** Screenshots go to `workspace://files/screenshots`; the report lists each behaviour checked with pass or fail, the screenshot links, anything outstanding and why.
+
 ## File Structure
 
 | File | Responsibility |
@@ -3980,6 +4003,8 @@ git commit -m "Files: the + New entry reads New puml File"
 ```
 
 ### Task 11: Build, live check and docs
+
+The deploy and the browser check follow **Live verification** at the top of this plan, step by step: selenium-flow's skills from `skill://selenium-flow/SKILL.md` and its references, sign-in with its `grafana` secret (valid for Nextcloud). The check is not done until every behaviour below is passed or recorded as outstanding with its reason.
 
 **Files:**
 - Modify: `CHANGELOG.md` (`## [Unreleased]`), `AGENTS.md` (repo map and routes row), `README.md` (one line), `docs/design/README.md`, `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md` (status flips and the round's rulings)

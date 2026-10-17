@@ -8,6 +8,7 @@ vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile, canDow
 vi.mock('../../../src/open-editor.js', () => ({ openEditor: seams.openEditor }))
 vi.mock('@nextcloud/initial-state', () => ({ loadState: () => seams.serverConfigured }))
 const { createDiagramView } = await import('../../../src/viewer/diagram-view.js')
+const { pageCache } = await import('../../../src/viewer/page-cache.js')
 
 const SCREENS = '@startuml nodes\nA -> B\n@enduml\n@startuml login\nC -> D\n@enduml\n'
 const THREE = SCREENS + '@startuml p3\nE -> F\n@enduml\n'
@@ -20,11 +21,13 @@ const asked = (fetch) => fetch.mock.calls.map(([url]) => new URL(url, 'https://x
 let root
 let fetch
 beforeEach(() => {
+  // Drawings are kept for the page: each test starts with none.
+  pageCache.clear()
   vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-  // Each index answers the drawing of its own name, as the route would.
+  // Each index answers the drawing of its own name, with its ETag, as the route would.
   fetch = vi.fn(async (url) => {
     const index = Number(new URL(url, 'https://x').searchParams.get('index'))
-    return new Response(svg(['nodes', 'login', 'p3'][index]), { status: 200 })
+    return new Response(svg(['nodes', 'login', 'p3'][index]), { status: 200, headers: { ETag: '"srv"' } })
   })
   vi.stubGlobal('fetch', fetch)
   seams.canDownload.mockResolvedValue(true)
@@ -40,10 +43,12 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-const open = async (content) => {
-  seams.loadFile.mockResolvedValue({ content, etag: '"e"' })
-  createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+/** A view of /D/S.puml, its file read and its first sheet asked for. */
+const open = async (content, { etag = '"e"', onReady = vi.fn() } = {}) => {
+  seams.loadFile.mockResolvedValue({ content, etag })
+  const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady })
   await settle()
+  return view
 }
 const mode = (name) => root.querySelector(`.plantuml-viewer__toolbar [aria-label="${name}"]`).click()
 const cards = () => [...root.querySelectorAll('.plantuml-viewer__card')]
@@ -231,6 +236,43 @@ describe('the Viewer, in Tabs', () => {
     } finally {
       window.removeEventListener('keydown', seen)
     }
+  })
+})
+
+describe('drawings kept for the page (VW11)', () => {
+  const ifNoneMatch = (call) => new Headers(fetch.mock.calls[call][1].headers).get('If-None-Match')
+
+  it('draws a file opened again from memory at once, then checks it with the server', async () => {
+    (await open(SCREENS)).destroy()
+    // The check never answers: the drawing does not wait for it.
+    fetch.mockImplementation(() => new Promise(() => {}))
+    const onReady = vi.fn()
+    await open(SCREENS, { onReady })
+
+    expect(shown(root)).toEqual(['nodes'])
+    expect(onReady).toHaveBeenCalledOnce()
+    expect(asked(fetch)).toEqual(['0', '0'])
+    expect(ifNoneMatch(1)).toBe('"srv"')
+  })
+
+  it('asks again for a file changed since, its ETag new', async () => {
+    (await open(SCREENS)).destroy()
+    await open(SCREENS, { etag: '"f"' })
+
+    expect(asked(fetch)).toEqual(['0', '0'])
+    expect(ifNoneMatch(1)).toBeNull()
+  })
+
+  it('switches modes with no request for a sheet already drawn', async () => {
+    await open(THREE)
+    mode('Stack')
+    await settle()
+    mode('Tabs')
+    root.querySelectorAll('[role="tab"]')[2].click()
+    await settle()
+
+    expect(asked(fetch)).toEqual(['0', '1', '2'])
+    expect(shown(root)).toEqual(['p3'])
   })
 })
 

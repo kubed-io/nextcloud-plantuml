@@ -2,12 +2,13 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * The Viewer's drawings, kept for the life of the Files page (VW11): switching
- * modes, reopening a file or arrowing back to it draws from memory, with no
- * request. Kept by the file's path, the file's ETag the Viewer read it with and the
- * diagram's 0-based place, so a changed file, with its new ETag, never meets an
- * old drawing. Only drawings are kept, never a failure. Past `max` drawings or
- * `maxChars` characters of SVG, the least recently used go first.
+ * The Viewer's drawings, kept for the life of the Files page (VW11): reopening a
+ * file or arrowing back to it draws from memory at once, then checks the drawing
+ * with the server (sheets.js). Kept by the file's path, the file's ETag the Viewer
+ * read it with and the diagram's 0-based place, so a changed file, with its new
+ * ETag, never meets an old drawing. Only drawings are kept, never a failure. Past
+ * `max` drawings or `maxChars` characters of SVG, the least recently used go first;
+ * one longer than `maxChars` alone is not kept.
  *
  * What is kept is the server's SVG text, not an element: each sheet makes its
  * own through toInlineSvg, with its own view's id prefix.
@@ -54,6 +55,9 @@ export function createPageCache({ max = 200, maxChars = 32 * 1024 * 1024 } = {})
     set(key, drawing) {
       if (drawings.has(key)) {
         drop(key)
+      }
+      if (typeof drawing.svg !== 'string' || drawing.svg.length > maxChars) {
+        return
       }
       drawings.set(key, drawing)
       chars += drawing.svg.length

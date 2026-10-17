@@ -108,6 +108,24 @@ describe('the page cache', () => {
     expect([svgOf(cache, 'a'), svgOf(cache, 'b'), svgOf(cache, 'c')]).toEqual(['1b', null, '3'])
   })
 
+  it('keeps nothing that is not SVG text, and lets go what it had under that key', () => {
+    const cache = createPageCache()
+    cache.set('a', drawing('1'))
+    cache.set('a', drawing(null))
+
+    expect(cache.get('a')).toBeNull()
+    expect(cache.size).toBe(0)
+  })
+
+  it('keeps no drawing longer than its size in characters, nor lets others go for it', () => {
+    const cache = createPageCache({ maxChars: 5 })
+    cache.set('a', drawing('xx'))
+    cache.set('b', drawing('yy'))
+    cache.set('a', drawing('zzzzzz'))
+
+    expect([svgOf(cache, 'a'), svgOf(cache, 'b')]).toEqual([null, 'yy'])
+  })
+
   it('forgets everything on clear', () => {
     const cache = createPageCache({ maxChars: 10 })
     cache.set('a', drawing('xxxxxx'))

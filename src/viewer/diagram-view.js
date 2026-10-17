@@ -220,8 +220,10 @@ export function createDiagramView(root, { path, basename, onReady }) {
     if (state.mode === 'tabs') {
       tabs.update(diagrams, state.active)
       stage.replaceChildren(sheets.sheet(state.active + 1))
+      sheets.request(state.active + 1)
     } else {
       stage.replaceChildren(...diagrams.map((_diagram, index) => card(index)))
+      diagrams.forEach((_diagram, index) => sheets.request(index + 1))
     }
     afterCheck()
   }
@@ -250,14 +252,15 @@ export function createDiagramView(root, { path, basename, onReady }) {
       waited = setTimeout(() => resolve(true), SHARE_WAIT)
     }),
   ]).finally(() => clearTimeout(waited))
-  Promise.all([loadFile(path), downloadable]).then(([{ content }, exportable]) => {
+  Promise.all([loadFile(path), downloadable]).then(([{ content, etag }, exportable]) => {
     if (destroyed) {
       return
     }
     // CodeMirror reads any line ending for the editor; scan() splits on \n alone.
     diagrams = scan(content.replace(/\r\n?/g, '\n'))
-    sheets = createSheets(path, { labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
+    sheets = createSheets(path, { etag, labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
     build({ exportable })
+    // Before show(): a drawing kept for the page settles the sheet as soon as it is asked for.
     sheets.sheet(1).addEventListener('plantuml-viewer:settled', settle, { once: true })
     show()
   }, () => {

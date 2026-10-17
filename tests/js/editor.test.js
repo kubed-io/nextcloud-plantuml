@@ -1651,6 +1651,7 @@ describe('a linked file', () => {
     await openStyle()
 
     expect(q('.cm-lineNumbers')).not.toBeNull()
+    expect([...document.querySelectorAll('.cm-content span[data-color] input[type=color]')].map((swatch) => swatch.dataset.colorraw)).toContain('#FFE08A')
     view().dispatch({ changes: { from: 0, insert: "' x\n" } })
     undo(view())
     expect(source()).toBe(STYLE)
@@ -1735,6 +1736,47 @@ describe('a linked file', () => {
     expect(source()).toBe(MAIN)
     expect(status()).toBe('Could not open the file')
     expect(error).toHaveBeenCalledWith('[plantuml] could not open /Diagrams/UML_Fun.css', expect.any(Error))
+  })
+
+  it('still saves the main file on closing after a linked file could not be opened', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    seams.saveFile.mockResolvedValue('"m2"')
+    await open()
+    await settle()
+    view().dispatch({ changes: { from: 0, insert: "' mine\n" } })
+    delete files['/Diagrams/UML_Fun.css']
+    await pressChip('UML_Fun.css')
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/Order flow.puml', "' mine\n" + MAIN, '"m1"')
+    expect(confirm).not.toHaveBeenCalled()
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('catches the tabs and the drawing up on going back, when the main file changed elsewhere while parked', async () => {
+    const theirs = MAIN.replace('@startuml nodes', '@startuml servers')
+    const looking = deferred()
+    await open()
+    await settle()
+    seams.currentEtag.mockReturnValueOnce(looking.promise)
+    window.dispatchEvent(new Event('focus'))
+    await settle()
+    await settle()
+    await pressChip('UML_Fun.css')
+    files['/Diagrams/Order flow.puml'] = { content: theirs, etag: '"m2"' }
+    looking.resolve('"m2"')
+    await settle()
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(source()).toBe(theirs)
+    expect([...document.querySelectorAll('.plantuml-editor__tab')].map((tab) => tab.textContent)).toContain('servers')
+    expect(seams.debouncedRender.mock.calls.at(-1)[0]).toBe(theirs)
   })
 
   it('closes from the main file on the next Escape', async () => {

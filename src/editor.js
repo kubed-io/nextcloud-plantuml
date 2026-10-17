@@ -103,7 +103,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   // The main file, once read: its name and its session. Its state is parked,
   // with its scroll, while a linked file is shown in the view (R11).
   let main = null
-  let parked = null // { state, scrollTop }
+  let parked = null // { state, doc, scrollTop }: doc is the text it was parked with
   let linked = null // { link, name, readOnly, session, wantProfiles } while a linked file is open
   let opening = false // a linked file is being read
   let closing = false
@@ -371,8 +371,9 @@ export function openEditor(node, { diagram: openAt } = {}) {
       }
     } catch (e) {
       console.error(`[${APP_ID}] could not open ${link.path}`, e)
+      // Said, not failed: the main file's own saving goes on as before.
       if (!closed) {
-        main.session.fail(t(APP_ID, 'Could not open the file'))
+        main.session.say(t(APP_ID, 'Could not open the file'))
       }
       return
     } finally {
@@ -413,7 +414,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
       selection: { anchor: landing(text, link) },
       extensions: readOnly ? [...extensions, readOnlyFile] : extensions,
     })
-    parked = { state: view.state, scrollTop: view.scrollDOM.scrollTop }
+    parked = { state: view.state, doc: view.state.doc, scrollTop: view.scrollDOM.scrollTop }
     main.session.pause()
     view.setState(state)
     // Made once the view shows the file: a session reads its text as saved when it starts.
@@ -452,10 +453,17 @@ export function openEditor(node, { diagram: openAt } = {}) {
     // Task 8 puts the save-before-leaving checks here.
     linked.session.stop()
     linked = null
-    const { state, scrollTop } = parked
+    const { state, doc, scrollTop } = parked
     parked = null
     view.setState(state)
     view.requestMeasure({ read: () => null, write: () => { view.scrollDOM.scrollTop = scrollTop } })
+    // A change landed while parked (a check that was under way) ran no update listener: the tabs and drawing catch up.
+    if (!state.doc.eq(doc)) {
+      const text = state.doc.toString()
+      diagrams = diagramsOf(state.doc, text)
+      follow(state, true)
+      wantProfiles(diagrams, text)
+    }
     showCrumbs()
     showState()
     view.focus()

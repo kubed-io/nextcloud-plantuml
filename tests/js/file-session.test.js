@@ -132,6 +132,17 @@ describe('a file session', () => {
     expect(s.status()).toMatchObject({ state: 'saved', conflict: false, line: '' })
   })
 
+  it('says a line that blocks nothing, until the next change', () => {
+    const { s, type } = session()
+
+    s.say('Could not open the file')
+    expect(s.status().line).toBe('Could not open the file')
+    expect(s.blocked()).toBe(false)
+
+    type('a {}')
+    expect(s.status().line).toBe('')
+  })
+
   it('never writes a read-only file', async () => {
     const { s, type } = session({ readOnly: true })
     type('a {}')

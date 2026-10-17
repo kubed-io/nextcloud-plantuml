@@ -86,6 +86,12 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
     onChange()
   }
 
+  /** A line about something else than this file (a linked file that would not open): it blocks nothing, and lasts until the next change. */
+  function say(line) {
+    notice = line
+    onChange()
+  }
+
   /** `text` is what the file now holds, at `etag`. */
   /** `wrote` is false when the file came to us, so "Saved …" keeps our last save. */
   function markSaved(text, { wrote = true } = {}) {
@@ -309,6 +315,7 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
     isDirty,
     blocked,
     fail,
+    say,
     status,
     edited,
     save,

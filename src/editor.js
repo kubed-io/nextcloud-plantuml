@@ -317,7 +317,12 @@ export function openEditor(node, { diagram: openAt } = {}) {
       annotations: isolateHistory.of('full'),
       userEvent: 'input.add',
     })
-    view.focus()
+    // As B4: with the source hidden (L8) the focus goes to the new diagram's tab, not the hidden view.
+    if (overlay.classList.contains('plantuml-editor--diagram-only')) {
+      ;(tabs.list.querySelector('[aria-selected="true"]') ?? addButton.menuButton).focus()
+    } else {
+      view.focus()
+    }
   }
 
   /** Where the focus goes from an activated tab: the one place to keep it on the tab instead. */

@@ -2243,6 +2243,14 @@ describe('Add diagram', () => {
     expect(source()).toBe("@startuml\nA -> B\n@enduml\n' x")
   })
 
+  it('leaves the focus on the new diagram\'s tab with the source hidden, as B4 does', async () => {
+    await open()
+    toggle().click()
+    await pickType('Gantt')
+    expect(document.activeElement).toBe(q('.plantuml-editor__tab[aria-selected="true"]'))
+    expect(document.activeElement.textContent).toBe('gantt')
+  })
+
   it('is saved as any change is', async () => {
     seams.saveFile.mockResolvedValue('"put"')
     await open()

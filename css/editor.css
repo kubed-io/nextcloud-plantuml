@@ -277,8 +277,12 @@
 	background: var(--color-primary-element-light);
 }
 
-.plantuml-editor__add button:focus-visible {
-	outline: none;
+/* Core's button:focus-visible ring is !important at (0,4,1); the pill's own ring
+ * (A1, L1's primary outline) stands for both halves, so this one is (0,5,1). */
+.plantuml-editor .plantuml-editor__add button.plantuml-editor__add-new:not(:disabled):focus-visible,
+.plantuml-editor .plantuml-editor__add button.plantuml-editor__add-type:not(:disabled):focus-visible {
+	outline: none !important;
+	box-shadow: none !important;
 }
 
 .plantuml-editor__add-new svg {
@@ -511,6 +515,7 @@
 
 /* A2: the type menu (board overlay / type-menu). */
 .plantuml-editor__menu.plantuml-add__menu {
+	box-sizing: border-box;
 	width: 260px;
 	max-width: none;
 	padding: 4px 0;

@@ -13,7 +13,8 @@
  * the other includes: the ids first, then each block's index, with its name (else its type) beside it,
  * because PlantUML takes a block by id or index and never by a bare name. Each file is read once per page.
  */
-import { pickedCompletion, startCompletion } from '@codemirror/autocomplete'
+import { once } from '../once.js'
+import { WEB_SCHEMES, reopen } from './apply.js'
 import { listFolder, loadFile } from '../save.js'
 import { filePath } from '../lint/state.js'
 import { blocksOf, scan } from '../blocks.js'
@@ -26,19 +27,9 @@ const STYLE = /<style file=([^\s>]*)$/
 const INCLUDE_FILES = /\.(?:puml|iuml|plantuml|pu|txt)$/i
 const STYLE_FILES = /\.(?:css|txt)$/i
 
-export function reopen(view, completion, from, to, suffix = '') {
-  const insert = completion.label + suffix
-  view.dispatch({
-    changes: { from, to, insert },
-    selection: { anchor: from + insert.length },
-    userEvent: 'input.complete',
-    annotations: pickedCompletion.of(completion),
-  })
-  startCompletion(view)
-}
-
 /** A file picked after `!includesub` gets the `!` and opens its section names. */
-const reopenWithBang = (view, completion, from, to) => reopen(view, completion, from, to, '!')
+const reopenWithBang = reopen('!')
+const reopenPlain = reopen()
 
 /** Files read this page, by path: a second completion does not read again. */
 const reads = new Map()
@@ -55,12 +46,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 }
 
 function readOnce(path) {
-  if (!reads.has(path)) {
-    const read = loadFile(path).then((file) => file.content)
-    read.catch(() => reads.delete(path))
-    reads.set(path, read)
-  }
-  return reads.get(path)
+  return once(reads, path, () => loadFile(path).then((file) => file.content))
 }
 
 /** Every first group (or the second, when the first is empty) of `pattern` in `text`, once each. */
@@ -110,9 +96,8 @@ async function namesOf(context, file, kind, name, typed) {
 }
 
 const fixed = [
-  { label: '<', detail: 'standard library', type: 'text', boost: 3, apply: reopen },
-  { label: 'https://', detail: 'web address', type: 'text', boost: 2 },
-  { label: 'http://', detail: 'web address', type: 'text', boost: 2 },
+  { label: '<', detail: 'standard library', type: 'text', boost: 3, apply: reopenPlain },
+  ...WEB_SCHEMES,
 ]
 
 /**
@@ -172,10 +157,10 @@ export async function localFiles(context) {
   const options = entries
     .filter((entry) => entry.folder || wanted.test(entry.name))
     .map((entry) => (entry.folder
-      ? { label: `${entry.name}/`, type: 'namespace', boost: 1, apply: reopen }
+      ? { label: `${entry.name}/`, type: 'namespace', boost: 1, apply: reopenPlain }
       : { label: entry.name, type: 'file', ...(sub && { apply: reopenWithBang }) }))
   if (folder !== '/') {
-    options.unshift({ label: '../', type: 'namespace', boost: 1, apply: reopen })
+    options.unshift({ label: '../', type: 'namespace', boost: 1, apply: reopenPlain })
   }
   if (include && typed === '') {
     options.unshift(...fixed)

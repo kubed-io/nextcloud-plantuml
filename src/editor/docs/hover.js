@@ -11,6 +11,7 @@
  * box neither moves nor changes size. Pinned, the pointer no longer closes it:
  * Escape, the ×, a click outside it, a moved caret or an edit does.
  */
+import crelt from 'crelt'
 import { Prec, StateEffect, StateField } from '@codemirror/state'
 import { ViewPlugin, activateHover, closeHoverTooltips, hoverTooltip, keymap } from '@codemirror/view'
 import { ensureSyntaxTree } from '@codemirror/language'
@@ -101,28 +102,20 @@ function diagnosticsIn(state, from, to, keep = () => true) {
 /** Each drawn action button's message and action name, which a redraw finds it again by. */
 const actionOf = new WeakMap()
 
-/** The element `tag` with `className` and, if given, `text`. */
-function el(tag, className, text) {
-  const node = document.createElement(tag)
-  node.className = className
-  if (text !== undefined) {
-    node.textContent = text
-  }
-  return node
-}
-
 /** Lint messages as `@codemirror/lint` draws them in its tooltip, each action applied where its message is now. */
 function lintSection(view, found) {
-  const list = el('ul', 'cm-tooltip-lint')
+  const list = crelt('ul', { class: 'cm-tooltip-lint' })
   for (const { diagnostic } of found) {
-    const item = el('li', `cm-diagnostic cm-diagnostic-${diagnostic.severity}`)
-    const text = el('span', 'cm-diagnosticText')
+    const item = crelt('li', { class: `cm-diagnostic cm-diagnostic-${diagnostic.severity}` })
+    const text = crelt('span', { class: 'cm-diagnosticText' })
     text.append(diagnostic.renderMessage ? diagnostic.renderMessage(view) : diagnostic.message)
     item.append(text)
     for (const action of diagnostic.actions ?? []) {
-      const button = el('button', `cm-diagnosticAction${action.markClass ? ` ${action.markClass}` : ''}`, action.name)
-      button.type = 'button'
-      button.setAttribute('aria-label', ` Action: ${action.name}.`)
+      const button = crelt('button', {
+        class: `cm-diagnosticAction${action.markClass ? ` ${action.markClass}` : ''}`,
+        type: 'button',
+        'aria-label': ` Action: ${action.name}.`,
+      }, action.name)
       actionOf.set(button, { message: diagnostic.message, name: action.name })
       let fired = false
       const run = (event) => {
@@ -141,7 +134,7 @@ function lintSection(view, found) {
       item.append(button)
     }
     if (diagnostic.source) {
-      item.append(el('div', 'cm-diagnosticSource', diagnostic.source))
+      item.append(crelt('div', { class: 'cm-diagnosticSource' }, diagnostic.source))
     }
     list.append(item)
   }
@@ -285,7 +278,7 @@ function docAtCaret(view) {
  */
 function cardView(view, entry, memo) {
   const card = renderDoc(entry)
-  const dom = el('div', 'cm-doc-box')
+  const dom = crelt('div', { class: 'cm-doc-box' })
   const { from, to } = memo.element
   let lint = null
   const drawLint = (state) => {

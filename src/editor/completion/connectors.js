@@ -10,8 +10,8 @@
  * registry has a value, in a style block, or after `colors` or `help`, no
  * connector is due.
  */
-import { insertCompletionText, startCompletion } from '@codemirror/autocomplete'
 import { HELPER_HEADS, KEYWORDS } from './keywords.js'
+import { reopen } from './apply.js'
 import { valueAt } from '../values/index.js'
 import { inStyleBody } from '../regions.js'
 
@@ -38,10 +38,7 @@ export const CONNECTORS = [
   '-[hidden]-',
 ]
 
-function apply(view, completion, from, to) {
-  view.dispatch(insertCompletionText(view.state, `${completion.label} `, from, to))
-  startCompletion(view)
-}
+const apply = reopen(' ')
 
 const options = CONNECTORS.map((label, i) => ({ label, docKey: `connector:${label}`, type: 'operator', boost: -i, apply }))
 

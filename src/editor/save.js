@@ -8,6 +8,7 @@
  * Paths are in the user's folder, as a Files node's `path` is.
  */
 import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextcloud/files/dav'
+import { once } from './once.js'
 
 const COPY_ATTEMPTS = 9
 
@@ -116,15 +117,12 @@ export async function saveCopy(path, content) {
  * @return {Promise<Array<{name: string, folder: boolean}>>}
  */
 export function listFolder(path) {
-  if (!listings.has(path)) {
+  return once(listings, path, () => {
     const davPath = getRootPath() + path
-    const listing = getClient().getDirectoryContents(davPath).then((entries) => entries
+    return getClient().getDirectoryContents(davPath).then((entries) => entries
       .filter((entry) => entry.filename.replace(/\/+$/, '') !== davPath.replace(/\/+$/, ''))
       .map((entry) => ({ name: entry.basename, folder: entry.type === 'directory' })))
-    listing.catch(() => listings.delete(path))
-    listings.set(path, listing)
-  }
-  return listings.get(path)
+  })
 }
 
 function copyPath(path, n) {

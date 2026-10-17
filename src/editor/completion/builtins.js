@@ -6,7 +6,9 @@
  * comment (the docs index gives each its detail and card). The list is its own chunk, loaded the first time a `%` is typed
  * (a dynamic import: the entry must never import a chunk statically).
  */
-let loaded = null
+import { once } from '../once.js'
+
+const loaded = new Map()
 
 function option({ name }) {
   return {
@@ -22,13 +24,7 @@ function option({ name }) {
 
 /** The list, loaded once; a failed load is forgotten, so the next `%` tries again. */
 function options() {
-  loaded ??= import('../data/builtins.json')
-    .then(({ default: list }) => list.map(option))
-    .catch((error) => {
-      loaded = null
-      throw error
-    })
-  return loaded
+  return once(loaded, 'list', () => import('../data/builtins.json').then(({ default: list }) => list.map(option)))
 }
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */

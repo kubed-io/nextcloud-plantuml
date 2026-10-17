@@ -9,7 +9,7 @@
  * `name=` and opens the value's completion. Not on a `!` line, in a comment or
  * a style block, or inside a quoted value.
  */
-import { reopen } from './local-files.js'
+import { reopen } from './apply.js'
 import { inStyleBody } from '../regions.js'
 
 const FONT = ['size', 'color']
@@ -56,7 +56,7 @@ export function tagAttributes(context) {
   const written = new Set([...open.written.matchAll(TAKEN)].map((m) => m[1]))
   const options = open.names
     .filter((name) => !written.has(name))
-    .map((name) => ({ label: `${name}=`, type: 'property', apply: reopen }))
+    .map((name) => ({ label: `${name}=`, type: 'property', apply: reopen() }))
   if (options.length === 0) {
     return null
   }

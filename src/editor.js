@@ -14,6 +14,7 @@
  * "Edit diagram" or + New needs it, then calls the window.OCA.PlantUml.openEditor
  * it defines. Each diagram type's profile is imported only when a file holds it.
  */
+import crelt from 'crelt'
 import { Compartment, EditorState, Transaction } from '@codemirror/state'
 import {
   EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers,
@@ -54,15 +55,6 @@ const MAX_WAIT_MS = 30000
 const MINUTE = 60000
 const CLOSE_WAIT_MS = 10000
 
-function el(tag, className, attrs = {}) {
-  const node = document.createElement(tag)
-  node.className = className
-  for (const [name, value] of Object.entries(attrs)) {
-    node.setAttribute(name, value)
-  }
-  return node
-}
-
 /** Opens the editor on a Files node; a second call while one is open does nothing. */
 export function openEditor(node) {
   if (document.querySelector('.plantuml-editor')) {
@@ -74,42 +66,44 @@ export function openEditor(node) {
   let currentPath = node.path
   const name = node.basename
 
-  const icon = el('span', 'plantuml-editor__icon', { 'aria-hidden': 'true' })
+  const icon = crelt('span', { class: 'plantuml-editor__icon', 'aria-hidden': 'true' })
   icon.innerHTML = fileIcon
-  const title = el('h2', 'plantuml-editor__name')
+  const title = crelt('h2', { class: 'plantuml-editor__name' })
   title.textContent = name
-  const status = el('span', 'plantuml-editor__status', { role: 'status' })
-  const reloadButton = el('button', 'plantuml-editor__reload', { type: 'button', hidden: '' })
+  const status = crelt('span', { class: 'plantuml-editor__status', role: 'status' })
+  const reloadButton = crelt('button', { class: 'plantuml-editor__reload', type: 'button', hidden: '' })
   reloadButton.textContent = t(APP_ID, 'Reload')
-  const copyButton = el('button', 'plantuml-editor__copy', { type: 'button', hidden: '' })
+  const copyButton = crelt('button', { class: 'plantuml-editor__copy', type: 'button', hidden: '' })
   copyButton.textContent = t(APP_ID, 'Save as copy')
-  const refreshButton = el('button', 'plantuml-editor__refresh', {
+  const refreshButton = crelt('button', {
+    class: 'plantuml-editor__refresh',
     type: 'button', 'aria-label': t(APP_ID, 'Reload from the file'), title: t(APP_ID, 'Reload from the file'), hidden: '',
   })
   refreshButton.innerHTML = refreshIcon
-  const sourceToggle = el('button', 'plantuml-editor__source-toggle', {
+  const sourceToggle = crelt('button', {
+    class: 'plantuml-editor__source-toggle',
     type: 'button', 'aria-label': t(APP_ID, 'Source'), title: t(APP_ID, 'Source'), 'aria-pressed': 'true', 'aria-controls': 'plantuml-editor-source', hidden: '',
   })
   sourceToggle.innerHTML = sourceIcon
   // Text's indicator: a check when saved, a dot on it while not, a spinner while saving.
-  const saveButton = el('button', 'plantuml-editor__save', { type: 'button', 'aria-label': t(APP_ID, 'Save'), hidden: '' })
+  const saveButton = crelt('button', { class: 'plantuml-editor__save', type: 'button', 'aria-label': t(APP_ID, 'Save'), hidden: '' })
   saveButton.innerHTML = checkIcon
-  const closeButton = el('button', 'plantuml-editor__close', { type: 'button', 'aria-label': t(APP_ID, 'Close') })
+  const closeButton = crelt('button', { class: 'plantuml-editor__close', type: 'button', 'aria-label': t(APP_ID, 'Close') })
   closeButton.innerHTML = closeIcon
-  const bar = el('header', 'plantuml-editor__bar')
+  const bar = crelt('header', { class: 'plantuml-editor__bar' })
   bar.append(icon, title, status, reloadButton, copyButton, sourceToggle, refreshButton, saveButton, closeButton)
 
-  const source = el('div', 'plantuml-editor__source', { id: 'plantuml-editor-source' })
+  const source = crelt('div', { class: 'plantuml-editor__source', id: 'plantuml-editor-source' })
   // The diagram is drawn inline, so its links work; to a screen reader it is one picture.
-  const image = el('div', 'plantuml-editor__image', { id: 'plantuml-editor-image', role: 'img', 'aria-label': name, hidden: '' })
-  const problem = el('p', 'plantuml-editor__problem', { role: 'status', hidden: '' })
+  const image = crelt('div', { class: 'plantuml-editor__image', id: 'plantuml-editor-image', role: 'img', 'aria-label': name, hidden: '' })
+  const problem = crelt('p', { class: 'plantuml-editor__problem', role: 'status', hidden: '' })
   const tabs = createTabs({ onActivate: showDiagram, controls: image.id })
-  const diagram = el('div', 'plantuml-editor__diagram')
+  const diagram = crelt('div', { class: 'plantuml-editor__diagram' })
   diagram.append(tabs.element, image, problem)
-  const panes = el('div', 'plantuml-editor__panes')
+  const panes = crelt('div', { class: 'plantuml-editor__panes' })
   panes.append(source, createSplitter(panes, source), diagram)
 
-  const overlay = el('div', 'plantuml-editor', { role: 'dialog', 'aria-modal': 'true', 'aria-label': name })
+  const overlay = crelt('div', { class: 'plantuml-editor', role: 'dialog', 'aria-modal': 'true', 'aria-label': name })
   overlay.append(bar, panes)
 
   // aria-modal only tells a screen reader; inert keeps Tab and clicks out of

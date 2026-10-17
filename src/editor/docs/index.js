@@ -10,6 +10,7 @@
  * the editor has opened (a dynamic import: the entry must never import a chunk
  * statically).
  */
+import { once } from '../once.js'
 
 /** The label each kind shows on its card. */
 const KINDS = {
@@ -155,29 +156,23 @@ export function buildDocs(data) {
   }
 }
 
-let loaded = null
+const loaded = new Map()
 
 /** The index, loaded once; a failed load is forgotten, so the next call tries again. */
 export function loadDocs() {
-  loaded ??= Promise.all([
+  return once(loaded, 'index', () => Promise.all([
     import('../data/docs/own.json'),
     import('../data/docs/links.json'),
     import('../data/docs/source.json'),
     import('../data/builtins.json'),
     import('../data/language.json'),
     import('../data/vocabulary.json'),
-  ])
-    .then(([own, links, source, builtins, language, vocabulary]) => buildDocs({
-      own: own.default,
-      links: links.default,
-      source: source.default,
-      builtins: builtins.default,
-      language: language.default,
-      vocabulary: vocabulary.default,
-    }))
-    .catch((error) => {
-      loaded = null
-      throw error
-    })
-  return loaded
+  ]).then(([own, links, source, builtins, language, vocabulary]) => buildDocs({
+    own: own.default,
+    links: links.default,
+    source: source.default,
+    builtins: builtins.default,
+    language: language.default,
+    vocabulary: vocabulary.default,
+  })))
 }

@@ -12,13 +12,13 @@
  * swatch. Not after a `#` that starts a line (`#highlight`, a Creole list), in
  * a style part (`#line.dashed`), a comment, a string, a label or a note's text.
  */
-import { PARTICIPANTS, STRUCTURES, inUml } from './keywords.js'
+import { inUml } from './keywords.js'
+import { ELEMENT_KINDS } from './apply.js'
 import { serverColors } from './server-list.js'
 import { inStyleBody } from '../regions.js'
 import { inSkinparamBlock, valueAt } from '../values/index.js'
 
-const KINDS = [...PARTICIPANTS, ...STRUCTURES, 'agent', 'archimate', 'artifact', 'box', 'card', 'circle', 'diamond', 'file', 'hexagon', 'label', 'legend', 'map', 'note', 'person', 'stack', 'storage']
-  .map((kind) => (kind === 'abstract' ? 'abstract(?:[ \\t]+class)?' : kind))
+const KINDS = [...ELEMENT_KINDS, 'agent', 'archimate', 'artifact', 'box', 'card', 'circle', 'diamond', 'file', 'hexagon', 'label', 'legend', 'map', 'note', 'person', 'stack', 'storage']
 
 // Each ends at the name being typed, the group after the `#`.
 const PLACES = [

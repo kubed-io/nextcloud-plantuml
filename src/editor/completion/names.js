@@ -10,11 +10,10 @@
  */
 import { arrow } from '../plantuml-mode.js'
 import { inStyleBody } from '../regions.js'
-import { PARTICIPANTS, STRUCTURES } from './keywords.js'
+import { ELEMENT_KINDS } from './apply.js'
 
-const kinds = [...PARTICIPANTS, ...STRUCTURES].map((kind) => (kind === 'abstract' ? 'abstract(?:[ \\t]+class)?' : kind))
 // `d` for each name's offset, so the word being typed can be told apart.
-const DECLARATION = new RegExp(`^[ \\t]*(?:${kinds.join('|')})[ \\t]+(?:"[^"]*"|(\\w+))(?:[ \\t]+as[ \\t]+(\\w+))?`, 'gmd')
+const DECLARATION = new RegExp(`^[ \\t]*(?:${ELEMENT_KINDS.join('|')})[ \\t]+(?:"[^"]*"|(\\w+))(?:[ \\t]+as[ \\t]+(\\w+))?`, 'gmd')
 const ARROW = new RegExp(`^[ \\t]*(\\w+)[ \\t]*${arrow.source}[ \\t]*(\\w+)?`, 'gmd')
 const MESSAGE = new RegExp(`${arrow.source}[^:]*:`)
 

@@ -11,7 +11,8 @@
  * another is read as that one. A folder inserts `name/` and opens the next
  * level; a file its path and the closing `>`.
  */
-import { reopen } from './local-files.js'
+import { once } from '../once.js'
+import { reopen } from './apply.js'
 import { serverStdlib } from './server-list.js'
 
 const INCLUDE = /^\s*!include(?:_many|_once|sub)?[ \t]+<([^>\s]*)$/
@@ -51,17 +52,11 @@ async function load(folder) {
 }
 
 function files(folder) {
-  if (!loaded.has(folder)) {
-    loaded.set(folder, load(folder)
-      .catch((error) => {
-        loaded.delete(folder)
-        throw error
-      }))
-  }
-  return loaded.get(folder)
+  return once(loaded, folder, () => load(folder))
 }
 
-const openLibrary = (view, completion, from, to) => reopen(view, completion, from, to, '/')
+const openLibrary = reopen('/')
+const reopenPlain = reopen()
 
 /** The folders and files directly under `dir` (`''` or `a/b/`) among a library's paths. */
 function level(paths, dir) {
@@ -77,7 +72,7 @@ function level(paths, dir) {
       options.push({ label: rest, type: 'file', apply: `${rest}>` })
     } else if (!seen.has(rest.slice(0, slash))) {
       seen.add(rest.slice(0, slash))
-      options.push({ label: rest.slice(0, slash + 1), type: 'namespace', boost: 1, apply: reopen })
+      options.push({ label: rest.slice(0, slash + 1), type: 'namespace', boost: 1, apply: reopenPlain })
     }
   }
   return options

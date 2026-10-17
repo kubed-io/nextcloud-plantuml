@@ -9,16 +9,13 @@
  * start of `file://` is typed after `@startuml`, nor in a comment.
  */
 import { ensureSyntaxTree } from '@codemirror/language'
+import { WEB_SCHEMES } from './apply.js'
 
 const START = /^[ \t]*@start[^\s{}"“”(]+(?:\([^)]*\))?[ \t]+([a-z:/]*)$/
 const FILE = 'file://'
 const WEB = /(?:\[\[|<img:|<img\s(?:[^>]*\s)?src=)([a-z+.-]*)$/i
 
 const file = [{ label: FILE, detail: 'file path', type: 'text' }]
-const web = [
-  { label: 'https://', detail: 'web address', type: 'text', boost: 2 },
-  { label: 'http://', detail: 'web address', type: 'text', boost: 2 },
-]
 
 /** @param {import('@codemirror/autocomplete').CompletionContext} context */
 export function protocols(context) {
@@ -37,5 +34,5 @@ export function protocols(context) {
   if (!typed) {
     return null
   }
-  return { from: context.pos - typed[1].length, options: web, validFor: /^[a-z+.-]*$/i }
+  return { from: context.pos - typed[1].length, options: WEB_SCHEMES, validFor: /^[a-z+.-]*$/i }
 }

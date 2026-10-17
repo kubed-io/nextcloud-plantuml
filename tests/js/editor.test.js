@@ -1542,3 +1542,39 @@ describe('the Source toggle', () => {
     expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(false)
   })
 })
+
+const selectedTab = () => q('.plantuml-editor__tab[aria-selected="true"]').textContent
+const view = () => EditorView.findFromDOM(q('.cm-editor'))
+const cursorLine = () => view().state.doc.lineAt(view().state.selection.main.head)
+
+describe('opening at a diagram', () => {
+  beforeEach(() => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n@enduml\n', etag: '"get"' })
+  })
+
+  it('opens on the diagram asked for, the cursor at the end of its @start line', async () => {
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Screens.puml', basename: 'Screens.puml' }, { diagram: 1 })
+    await settle()
+
+    expect(selectedTab()).toBe('b')
+    expect(cursorLine().number).toBe(4)
+    expect(view().state.selection.main.head).toBe(cursorLine().to)
+  })
+
+  it("puts the cursor on the first diagram's @start line when that one is asked for", async () => {
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Screens.puml', basename: 'Screens.puml' }, { diagram: 0 })
+    await settle()
+
+    expect(selectedTab()).toBe('a')
+    expect(cursorLine().number).toBe(1)
+    expect(view().state.selection.main.head).toBe(cursorLine().to)
+  })
+
+  it('opens on the first diagram, cursor at the top, when the one asked for is past the end', async () => {
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Screens.puml', basename: 'Screens.puml' }, { diagram: 9 })
+    await settle()
+
+    expect(selectedTab()).toBe('a')
+    expect(view().state.selection.main.head).toBe(0)
+  })
+})

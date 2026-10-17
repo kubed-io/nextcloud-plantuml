@@ -55,8 +55,8 @@ const MAX_WAIT_MS = 30000
 const MINUTE = 60000
 const CLOSE_WAIT_MS = 10000
 
-/** Opens the editor on a Files node; a second call while one is open does nothing. */
-export function openEditor(node) {
+/** Opens the editor on a Files node, at the diagram index asked for; a second call while one is open does nothing. */
+export function openEditor(node, { diagram: openAt } = {}) {
   if (document.querySelector('.plantuml-editor')) {
     return
   }
@@ -615,6 +615,10 @@ export function openEditor(node) {
     const text = view.state.doc.toString()
     diagrams = diagramsOf(view.state.doc, text)
     follow(view.state, true)
+    // Opened from the Viewer at one of its diagrams (VW7): the cursor goes where its tab would put it.
+    if (Number.isInteger(openAt) && openAt >= 0 && openAt < diagrams.length) {
+      showDiagram(openAt)
+    }
     wantProfiles(diagrams, text)
   }, (e) => {
     console.error(`[${APP_ID}] could not open ${currentPath}`, e)

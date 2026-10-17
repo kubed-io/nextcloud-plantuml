@@ -15,17 +15,20 @@ import downloadIcon from '../../img/icons/download.svg?raw'
  * @param {() => string} options.heading read each time it opens
  * @param {{ label: string, value: string }[]} options.items
  * @param {(value: string) => void} options.onPick
+ * @param {string} [options.idPrefix] the view's own, for the heading's id
  * @return {{ open: () => void, close: () => void, destroy: () => void }}
  */
-export function createMenu({ anchor, heading, items, onPick }) {
+export function createMenu({ anchor, heading, items, onPick, idPrefix = 'plantuml-viewer-' }) {
   const element = document.createElement('div')
   element.className = 'plantuml-viewer__menu'
   element.setAttribute('role', 'menu')
   element.hidden = true
+  // The heading names the menu and is no item of it; not focusable, or `none` would be ignored.
   const title = document.createElement('div')
   title.className = 'plantuml-viewer__menu-heading'
-  title.setAttribute('role', 'presentation')
-  title.tabIndex = -1
+  title.id = `${idPrefix}export-heading`
+  title.setAttribute('role', 'none')
+  element.setAttribute('aria-labelledby', title.id)
   const buttons = items.map(({ label, value }) => {
     const item = document.createElement('button')
     item.type = 'button'

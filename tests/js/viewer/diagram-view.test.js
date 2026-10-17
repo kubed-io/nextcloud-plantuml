@@ -380,6 +380,25 @@ describe('Export', () => {
 
     expect(exportsAsked()).toEqual([[['path', '/D/S.puml'], ['format', 'png'], ['index[]', '1']]])
     expect(saved).toEqual([{ href: 'blob:export', name: 'S - login.png' }])
+    await settle()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:export')
+  })
+
+  it('lets the blob: URL go only on a later task than the click that saves it', async () => {
+    // A microtask queued by the click runs after that task's own code, a revoke in the same tick included.
+    let revokedByThen = null
+    HTMLAnchorElement.prototype.click.mockImplementation(() => {
+      queueMicrotask(() => {
+        revokedByThen = URL.revokeObjectURL.mock.calls.length
+      })
+    })
+    await open(THREE)
+    exportButton().click()
+    pick('png')
+    await settle()
+    await settle()
+
+    expect(revokedByThen).toBe(0)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:export')
   })
 
@@ -474,6 +493,14 @@ describe('Export', () => {
     expect(notice().textContent).toBe('The export is too large')
   })
 
+  it('has its status region in place, empty, before a failure is said into it', async () => {
+    await open(THREE)
+    // A live region added or shown with its text is often not read out; this one is there from the start.
+    expect(notice().getAttribute('role')).toBe('status')
+    expect(notice().hidden).toBe(false)
+    expect(notice().textContent).toBe('')
+  })
+
   it('says it could not export for any other failure, and clears that on the next', async () => {
     exportAnswer = () => new Response('', { status: 404 })
     await open(THREE)
@@ -487,7 +514,8 @@ describe('Export', () => {
     exportButton().click()
     pick('png')
     await settle()
-    expect(notice().hidden).toBe(true)
+    expect(notice().textContent).toBe('')
+    expect(notice().hidden).toBe(false)
   })
 
   it('says it could not export when the request itself fails', async () => {
@@ -512,6 +540,33 @@ describe('Export', () => {
     seams.canDownload.mockRejectedValue(new Error('PROPFIND failed'))
     await open(THREE)
     expect(exportButton()).not.toBeNull()
+  })
+
+  it('draws the file within 3 s when the share is never answered, Export left to the route', async () => {
+    vi.useFakeTimers()
+    try {
+      seams.canDownload.mockReturnValue(new Promise(() => {}))
+      seams.loadFile.mockResolvedValue({ content: THREE, etag: '"e"' })
+      createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+      await vi.advanceTimersByTimeAsync(2900)
+      expect(tabs(root)).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(100)
+      expect(tabs(root)).toEqual(['nodes', 'login', 'p3'])
+      expect(exportButton()).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('names its menu by the heading, an id of its own view', async () => {
+    await open(THREE)
+    exportButton().click()
+    const title = root.querySelector('.plantuml-viewer__menu-heading')
+    const prefix = root.querySelector('.plantuml-viewer__stage').id.replace(/stage$/, '')
+
+    expect(title.id).toBe(`${prefix}export-heading`)
+    expect(menuShown().getAttribute('aria-labelledby')).toBe(title.id)
   })
 
   it("keeps a menu's Escape from the Viewer, for its own menu and the tabs' All diagrams", async () => {

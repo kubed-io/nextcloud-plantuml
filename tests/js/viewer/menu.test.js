@@ -37,6 +37,16 @@ describe('the export menu', () => {
     expect(anchor.getAttribute('aria-expanded')).toBe('true')
   })
 
+  it('is named by its heading, which is no item of it', () => {
+    menu.destroy()
+    menu = createMenu({ anchor, heading: () => what, items, onPick, idPrefix: 'plantuml-viewer-7-' })
+    const title = shown().firstElementChild
+
+    expect(title.id).toBe('plantuml-viewer-7-export-heading')
+    expect(shown().getAttribute('aria-labelledby')).toBe('plantuml-viewer-7-export-heading')
+    expect(title.getAttribute('role')).toBe('none')
+  })
+
   it('reads its heading anew each time it opens', () => {
     menu.open()
     menu.close()

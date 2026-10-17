@@ -171,8 +171,10 @@
 	font-size: 14px;
 }
 
-.plantuml-viewer__notice[hidden] {
-	display: none;
+/* Empty, out of the head's flow (no 16px gap of its own), yet still in the
+ * accessibility tree: a status region must be there before its text is. */
+.plantuml-viewer__notice:empty {
+	position: absolute;
 }
 
 /* The Export menu (src/viewer/menu.js): under Export, its left edge on Export's. */

@@ -27,6 +27,9 @@ import { createToolbar } from './toolbar.js'
 // their own view.
 let views = 0
 
+// How long the share's answer may hold the first drawing; past it, Export is offered and the route decides.
+const SHARE_WAIT = 3000
+
 // The Viewer (NcModal) takes ←/→ for the previous and next file and Escape for
 // closing. Keys a tab strip or an open menu of ours uses stop at the root: the
 // arrows, Home and End in a tablist or menu, and Escape in a menu.
@@ -83,10 +86,10 @@ export function createDiagramView(root, { path, basename, onReady }) {
   }
 
   const head = element('div', 'plantuml-viewer__head')
-  // A failed export says why here, under the toolbar, until the next export.
+  // A failed export says why here, under the toolbar, until the next export. The region stays
+  // rendered, empty and collapsed (viewer.css), so its text is read out when it arrives.
   const notice = element('p', 'plantuml-viewer__notice')
   notice.setAttribute('role', 'status')
-  notice.hidden = true
   const tabBar = element('div', 'plantuml-viewer__tabbar')
   tabBar.hidden = true
   const stage = element('div', 'plantuml-viewer__stage')
@@ -138,7 +141,6 @@ export function createDiagramView(root, { path, basename, onReady }) {
 
   function say(problem) {
     notice.textContent = problem
-    notice.hidden = problem === ''
   }
 
   /** Fetched, then saved through a blob: URL: a link straight to the route would save a refusal's JSON as the file. */
@@ -157,7 +159,8 @@ export function createDiagramView(root, { path, basename, onReady }) {
       document.body.append(link)
       link.click()
       link.remove()
-      URL.revokeObjectURL(url)
+      // The click starts the download on its own task; the URL goes on a later one.
+      setTimeout(() => URL.revokeObjectURL(url), 0)
     } catch {
       say(t(APP_ID, 'Could not export the diagram'))
     }
@@ -165,7 +168,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
 
   /** A second click on Export closes its menu, as the tabs' "All diagrams" does. */
   function exportMenu() {
-    menu ??= createMenu({ anchor: toolbar.exportButton, heading: exportHeading, items: formats(), onPick: download })
+    menu ??= createMenu({ anchor: toolbar.exportButton, heading: exportHeading, items: formats(), onPick: download, idPrefix: prefix })
     if (toolbar.exportButton.getAttribute('aria-expanded') === 'true') {
       menu.close()
     } else {
@@ -238,8 +241,16 @@ export function createDiagramView(root, { path, basename, onReady }) {
     head.prepend(toolbar.element)
   }
 
-  // A failed look at the share leaves Export to the route, which refuses what it must.
-  Promise.all([loadFile(path), canDownload(path).catch(() => true)]).then(([{ content }, exportable]) => {
+  // A failed look at the share, or one that has not answered in SHARE_WAIT, leaves Export to the
+  // route, which refuses what it must.
+  let waited
+  const downloadable = Promise.race([
+    canDownload(path).catch(() => true),
+    new Promise((resolve) => {
+      waited = setTimeout(() => resolve(true), SHARE_WAIT)
+    }),
+  ]).finally(() => clearTimeout(waited))
+  Promise.all([loadFile(path), downloadable]).then(([{ content }, exportable]) => {
     if (destroyed) {
       return
     }

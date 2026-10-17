@@ -73,7 +73,6 @@
 }
 
 .plantuml-editor__bar button.plantuml-editor__crumb:focus-visible {
-	outline: 2px solid var(--color-primary-element);
 	border-radius: var(--border-radius);
 }
 
@@ -117,7 +116,6 @@
 }
 
 .plantuml-editor__bar button.plantuml-editor__back:focus-visible {
-	outline: 2px solid var(--color-primary-element);
 	outline-offset: -2px;
 }
 
@@ -196,8 +194,17 @@
 .plantuml-editor__bar button.plantuml-editor__refresh:focus-visible,
 .plantuml-editor__bar button.plantuml-editor__save:focus-visible,
 .plantuml-editor__bar button.plantuml-editor__close:focus-visible {
-	outline: 2px solid var(--color-primary-element);
 	outline-offset: -2px;
+}
+
+/* The ring of every button in the bar, the tabs and both menus. Core's
+ * button:not(…):not(…):focus-visible ring is !important at (0,3,1); this rule is
+ * (0,4,1) and up. The split button's halves keep theirs (none: the pill rings). */
+.plantuml-editor .plantuml-editor__bar button:not(:disabled):not(.plantuml-editor__add-new, .plantuml-editor__add-type):focus-visible,
+.plantuml-editor .plantuml-editor__tabbar button:not(:disabled):focus-visible,
+.plantuml-editor .plantuml-editor__menu button.plantuml-editor__menu-item:not(:disabled):focus-visible {
+	outline: 2px solid var(--color-primary-element) !important;
+	box-shadow: none !important;
 }
 
 /* Disabled only for the moment a save runs: no dimming, or every autosave
@@ -461,7 +468,6 @@
 
 .plantuml-editor__more button.plantuml-editor__more-button:focus-visible,
 .plantuml-editor__menu button.plantuml-editor__menu-item:focus-visible {
-	outline: 2px solid var(--color-primary-element);
 	outline-offset: -2px;
 }
 
@@ -834,7 +840,6 @@
 }
 
 .plantuml-editor__tabs button.plantuml-editor__tab:focus-visible {
-	outline: 2px solid var(--color-primary-element);
 	outline-offset: -2px;
 }
 

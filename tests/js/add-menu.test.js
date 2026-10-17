@@ -151,6 +151,30 @@ describe('the type menu\'s place', () => {
   })
 })
 
+describe('the editor\'s focus ring', () => {
+  // Read from disk: vitest hands a stylesheet import back empty, ?raw too.
+  const css = readFileSync('css/editor.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, selector, body]) => ({ selector: selector.trim(), body }))
+
+  it('is the app\'s on the bar\'s buttons, the tabs and both menus\' rows, over core\'s !important one', () => {
+    // Core's button:not(.button-vue, [class^=vs__]):not(:disabled, .primary):focus-visible
+    // draws its own ring !important at (0,3,1); one rule of (0,4,1) and up draws the app's over it.
+    const shared = rules.find((r) => r.selector.startsWith('.plantuml-editor .plantuml-editor__bar button:not(:disabled)'))
+    expect(shared?.selector.split(',\n')).toEqual([
+      '.plantuml-editor .plantuml-editor__bar button:not(:disabled):not(.plantuml-editor__add-new, .plantuml-editor__add-type):focus-visible',
+      '.plantuml-editor .plantuml-editor__tabbar button:not(:disabled):focus-visible',
+      '.plantuml-editor .plantuml-editor__menu button.plantuml-editor__menu-item:not(:disabled):focus-visible',
+    ])
+    expect(shared.body).toMatch(/outline: 2px solid var\(--color-primary-element\) !important;/)
+    expect(shared.body).toMatch(/box-shadow: none !important;/)
+  })
+
+  it('leaves no button an outline of the app\'s that core\'s !important one would beat', () => {
+    const beaten = rules.filter((r) => /button[^,]*:focus-visible/.test(r.selector) && /(^|;)\s*outline:(?![^;]*!important)/.test(r.body))
+    expect(beaten.map((r) => r.selector)).toEqual([])
+  })
+})
+
 describe('fetchTemplates', () => {
   beforeEach(() => {
     vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })

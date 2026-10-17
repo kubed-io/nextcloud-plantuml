@@ -13,7 +13,7 @@
 import { insertCompletionText, startCompletion } from '@codemirror/autocomplete'
 import { HELPER_HEADS, KEYWORDS } from './keywords.js'
 import { valueAt } from '../values/index.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 
 /** The commonest first; what each is lives in the docs (`connector:` keys). */
 export const CONNECTORS = [

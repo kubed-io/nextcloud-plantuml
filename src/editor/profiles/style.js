@@ -8,7 +8,7 @@
  * The PlantUML mode hands a block's lines to `mode`.
  */
 import vocabulary from '../data/vocabulary.json'
-import { readStyle, styleBlocks, styleMode } from './style-grammar.js'
+import { readStyle, styleMode } from './style-grammar.js'
 import { styleCompletion } from '../completion/style.js'
 import { styleLint } from '../lint/style.js'
 
@@ -43,11 +43,14 @@ function declared({ property, end, tokens }, lineText, lineFrom) {
   return gap ? [{ from: lineFrom + end + gap[0].length, to: lineFrom + end + gap[0].length, kind: 'list', options: () => list }] : []
 }
 
-/** @type {import('../values/index.js').ValueEntry} */
-const styleValue = {
+/**
+ * @param {{ styleBlocks: typeof import('../regions.js').styleRegions }} core
+ * @return {import('../values/index.js').ValueEntry}
+ */
+const styleValue = ({ styleBlocks }) => ({
   match(lineText, state, lineFrom) {
     const number = state.doc.lineAt(lineFrom).number
-    const block = styleBlocks(state.doc.toString().split('\n')).find((candidate) => candidate.body.some((line) => line.line === number))
+    const block = styleBlocks(state.doc).find((candidate) => candidate.body.some((line) => line.line === number))
     if (!block) {
       return []
     }
@@ -74,7 +77,7 @@ const styleValue = {
     close()
     return found
   },
-}
+})
 
 /** @param {import('./index.js').Core} core */
-export default (core) => ({ type: 'style', mode: styleMode, completions: [styleCompletion(core)], lints: [styleLint(core)], values: [styleValue] })
+export default (core) => ({ type: 'style', mode: styleMode, completions: [styleCompletion(core)], lints: [styleLint(core)], values: [styleValue(core)] })

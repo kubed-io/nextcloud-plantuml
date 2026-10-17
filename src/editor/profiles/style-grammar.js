@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * PlantUML's style sheets: a stream mode for what sits between `<style>` and
- * `</style>`, where those blocks are, and the mode run over a block's body, so
- * completion and lint read a block exactly as it is highlighted. A profile's
- * module, so it lands in the style chunk and never in the editor's.
+ * `</style>`, and the mode run over a block's body (the core's `styleBlocks`
+ * says where those are), so completion and lint read a block exactly as it is
+ * highlighted. A profile's module, so it lands in the style chunk and never in
+ * the editor's.
  */
 const HEX = /^#(?:[\dA-Fa-f]{8}|[\dA-Fa-f]{6}|[\dA-Fa-f]{3,4})(?!\w)/
 
@@ -87,59 +88,6 @@ export const styleMode = {
   },
 }
 
-// The line forms the PlantUML mode reads (plantuml-mode.js): a block opens on
-// a line that is `<style>` and closes on one that is `</style>`, or at the
-// next `@end`; a one-line block is its own line. An imported sheet
-// (`<style file=…>`) has no body. `'` and `!` lines in a block are PlantUML's.
-const OPEN = /^[ \t]*<style>\s*$/
-const CLOSE = /^[ \t]*<\/style>\s*$/
-const ONE_LINE = /^([ \t]*<style>)(.*)<\/style>\s*$/
-const END = /^[ \t]*@end/
-const OWN = /^[ \t]*['!]/
-
-/**
- * @typedef {object} StyleLine a line of a block's body
- * @property {number} line its 1-based line number
- * @property {string} text what the mode reads: the line, cut before `</style>` on a one-line block
- * @property {number} from the column the body starts at
- *
- * @typedef {object} StyleBlock
- * @property {number} open the `<style>` line
- * @property {boolean} closed whether a `</style>` closes it
- * @property {StyleLine[]} body
- */
-
-/**
- * The style blocks in `lines`.
- *
- * @param {string[]} lines
- * @return {StyleBlock[]}
- */
-export function styleBlocks(lines) {
-  const blocks = []
-  let block = null
-  lines.forEach((text, i) => {
-    const line = i + 1
-    if (block) {
-      if (CLOSE.test(text) || END.test(text)) {
-        block.closed = CLOSE.test(text)
-        block = null
-      } else if (!OWN.test(text)) {
-        block.body.push({ line, text, from: 0 })
-      }
-      return
-    }
-    const one = ONE_LINE.exec(text)
-    if (one) {
-      blocks.push({ open: line, closed: true, body: [{ line, text: one[1] + one[2], from: one[1].length }] })
-    } else if (OPEN.test(text)) {
-      block = { open: line, closed: false, body: [] }
-      blocks.push(block)
-    }
-  })
-  return blocks
-}
-
 /**
  * The StringStream methods the mode uses, for reading a block outside the
  * editor. CodeMirror's own would put @codemirror/language in a chunk the
@@ -177,8 +125,8 @@ class LineStream {
  * Runs the mode over `body`, handing `each` every token it names, and gives
  * back the mode's state after the last line.
  *
- * @param {StyleLine[]} body
- * @param {(token: string, line: StyleLine, from: number, to: number, text: string) => void} [each]
+ * @param {import('../regions.js').StyleLine[]} body
+ * @param {(token: string, line: import('../regions.js').StyleLine, from: number, to: number, text: string) => void} [each]
  */
 export function readStyle(body, each = () => {}) {
   const state = styleMode.startState()

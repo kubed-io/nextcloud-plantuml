@@ -4,8 +4,10 @@
 // The style profile: what its mode names between `<style>` and `</style>`,
 // read the way CodeMirror reads it, inside the PlantUML language.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
+import { EditorState, Text } from '@codemirror/state'
+import { CompletionContext } from '@codemirror/autocomplete'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
+import { styleRegions } from '../../src/editor/regions.js'
 import { core } from './helpers/core.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 
@@ -196,5 +198,44 @@ describe('the style profile', () => {
     const names = tokens(...WORD_WRAP.split('\n')).map(([, name]) => name)
     expect(names).not.toContain(null)
     expect(tokens(...WORD_WRAP.split('\n'))).toContainEqual(['8.0', 'StyleNumber'])
+  })
+})
+
+describe('the style blocks the core hands the profile', () => {
+  const LINES = ['@startuml', '<style>', 'node {', "' a note", '!foo', '  !include x', '<style>', '}', '</style>', '  <style>a { b c }</style>', '<style file=x.css>', '<style>', 'x', '@enduml', '<style>', '']
+
+  it('are each block\'s open line, whether it closes, and its body: no tag, comment or ! line', () => {
+    expect(core.styleBlocks(Text.of(LINES))).toEqual([
+      { open: 2, closed: true, body: [{ line: 3, text: 'node {', from: 0 }, { line: 7, text: '<style>', from: 0 }, { line: 8, text: '}', from: 0 }] },
+      { open: 10, closed: true, body: [{ line: 10, text: '  <style>a { b c }', from: 9 }] },
+      { open: 12, closed: false, body: [{ line: 13, text: 'x', from: 0 }] },
+      { open: 15, closed: false, body: [{ line: 16, text: '', from: 0 }] },
+    ])
+  })
+
+  it('are the regions, read once per document version', () => {
+    const state = EditorState.create({ doc: '<style>\nnode\n</style>' })
+    const before = core.styleBlocks(state.doc)
+    const { doc } = state.update({ changes: { from: 0, insert: 'x\n' } }).state
+
+    expect(core.styleBlocks).toBe(styleRegions)
+    expect(core.styleBlocks(state.doc)).toBe(before)
+    expect(core.styleBlocks(doc)).not.toBe(before)
+    expect(core.styleBlocks(doc)[0]).toMatchObject({ open: 2, body: [{ line: 3 }] })
+  })
+
+  it('leave comment and ! lines to PlantUML in the profile\'s lint and completion', () => {
+    const marked = "<style>\nnode {\n  FontSise 1\n' FontSise 2\n!FontSise 3\n  |\n}"
+    const pos = marked.indexOf('|')
+    const state = EditorState.create({ doc: marked.replace('|', '') })
+
+    expect(profile.lints[0](state).map(({ from, message }) => [state.doc.lineAt(from).number, message])).toEqual([
+      [1, 'No </style> for this style block'],
+      [3, 'Unknown style property FontSise'],
+    ])
+    expect(profile.completions[0](new CompletionContext(state, pos, true)).options.map(({ label }) => label)).toContain('FontSize')
+    for (const line of [4, 5]) {
+      expect(profile.completions[0](new CompletionContext(state, state.doc.line(line).to, true))).toBeNull()
+    }
   })
 })

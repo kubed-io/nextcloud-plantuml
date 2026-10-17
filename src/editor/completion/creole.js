@@ -11,7 +11,7 @@
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
 import { connectorTyped } from './connectors.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 
 /** [label, template]; the tag's docs are keyed by its bare word. `${1:12}` is a field holding 12; a bare `${12}` would be field 12. */
 const TAGS = [

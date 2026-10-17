@@ -7,7 +7,7 @@
  * an empty one, and a leading tab one indent.
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 
 const SNIPPETS = [
   ['note', 'note ${right} of ${participant}\n\t${}\nend note', 'note block'],

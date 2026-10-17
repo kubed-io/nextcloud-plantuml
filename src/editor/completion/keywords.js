@@ -6,7 +6,7 @@
  * A word joins a list here; what it says of itself is its docs entry (`data/docs/`).
  */
 import { diagramAt, diagramsWithout } from '../blocks.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 import { PARTICIPANTS, STRUCTURES } from '../lexicon/rules.js'
 import { serverKeywords } from './server-list.js'
 

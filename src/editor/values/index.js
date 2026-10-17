@@ -26,7 +26,7 @@ import { Facet, StateEffect } from '@codemirror/state'
 import { themeValue } from '../completion/themes.js'
 import { serverColors, serverColorsNow, serverList, serverListNow } from '../completion/server-list.js'
 import { colourOf } from '../swatches.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 
 /** The loaded profiles' entries, read beside `coreValues`. */
 export const valuesFacet = Facet.define({ combine: (values) => values.flat() })

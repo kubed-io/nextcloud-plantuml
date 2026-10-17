@@ -12,6 +12,7 @@ import { acceptCompletion, completionStatus, currentCompletions, setSelectedComp
 import { history, undo } from '@codemirror/commands'
 import { translate } from '@nextcloud/l10n'
 import { diagramsOf } from '../../src/editor/blocks.js'
+import { styleRegions } from '../../src/editor/regions.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import { plantumlCompletion } from '../../src/editor/completion/index.js'
@@ -28,7 +29,7 @@ const answer = async (url) => new Response(JSON.stringify(String(url).endsWith('
 const fetch = vi.fn(answer)
 vi.stubGlobal('fetch', fetch)
 
-const profile = styleProfile({ diagrams: diagramsOf, t: translate })
+const profile = styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: translate })
 const extensions = [profileExtension([profile]), plantumlCompletion, history(), valueWidgets]
 
 const style = (...lines) => `<style>\nnode {\n${lines.map((line) => `  ${line}`).join('\n')}\n}\n</style>`

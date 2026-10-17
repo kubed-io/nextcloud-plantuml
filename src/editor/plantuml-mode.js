@@ -33,6 +33,7 @@ import {
 } from './lexicon/rules.js'
 import { table } from './lexicon/table.js'
 import { tokenTable } from './lexicon/tags.js'
+import { styleClose, styleImport, styleOneLine, styleOpen } from './regions.js'
 import { SUB_CLOSE, SUB_OPEN } from './sub-diagrams.js'
 
 // The rule and tags importers took from here before the lexicon held them.
@@ -230,14 +231,6 @@ const states = {
 const nextLine = { boxLast: 'start', afterLink: 'start', arrowAttr: 'start', noteLine: 'start', colonText: 'start', label: 'start', text: 'start', noteHead: 'noteBody', spriteHead: 'start', legendHead: 'legendBody', creoleHead: 'creoleBody', filesHead: 'filesBody', classHead: 'classBody' }
 const base = table(states, { nextLine, lineStates: ['tagAttrs', 'tagBraces', 'stereotype', 'args', 'condition', 'preprocessor', 'includePath', 'theme', 'themePath'] })
 
-// PlantUML's own style lines: a block opens on a line that is `<style>` and
-// closes on one that is `</style>`; a one-line block (its middle read as a
-// block's body) and an imported sheet (`<style file=…>`) are a line each.
-const styleOpen = /^([ \t]*)(<style>)(\s*)$/
-const styleOneLine = /^([ \t]*)(<style>)(.*)<\/style>\s*$/
-const styleImport = /^([ \t]*)(<style)(\s+)([\w-]+)(\s*)(=)(\s*)([^>]*?)(\s*)(>)(\s*)$/
-const styleClose = /^([ \t]*)(<\/style>)(\s*)$/
-
 // The states of a `!` line: PlantUML's to its end, in a nested mode too.
 const bangStates = new Set(['preprocessor', 'includePath', 'theme', 'themePath'])
 
@@ -284,34 +277,6 @@ function sheetValue(name, value) {
   if (name !== 'file') return [[value, 'string']]
   const quoted = /^"([^"]+)"$/.exec(value)
   return quoted ? [['"', 'punctuation'], [quoted[1], 'url'], ['"', 'punctuation']] : [[value, /^["']/.test(value) ? 'string' : 'url']]
-}
-
-/**
- * Whether `pos` is in a style block's body, read by the line forms above: a
- * line between `<style>` and `</style>` (or the next `@end`) that is not
- * PlantUML's own `'` or `!` directive line, or the middle of a one-line block. The core
- * completion sources leave such a place to the style profile's.
- *
- * @param {import('@codemirror/state').EditorState} state
- * @param {number} pos
- */
-export function inStyleBody(state, pos) {
-  const line = state.doc.lineAt(pos)
-  const one = styleOneLine.exec(line.text)
-  if (one) {
-    const column = pos - line.from
-    const from = one[1].length + one[2].length
-    return column >= from && column <= from + one[3].length
-  }
-  if (styleOpen.test(line.text) || styleClose.test(line.text) || /^[ \t]*(?:'|@end)/.test(line.text) || directiveLine.test(line.text)) {
-    return false
-  }
-  let open = false
-  for (let number = 1; number < line.number; number++) {
-    const text = state.doc.line(number).text
-    open = open ? !(styleClose.test(text) || /^[ \t]*@end/.test(text)) : styleOpen.test(text)
-  }
-  return open
 }
 
 // What the server cannot draw (1.2026.8 answers "Diagram not supported by this release") is

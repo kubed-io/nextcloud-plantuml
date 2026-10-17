@@ -14,7 +14,7 @@
  */
 import { PARTICIPANTS, STRUCTURES, inUml } from './keywords.js'
 import { serverColors } from './server-list.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 import { inSkinparamBlock, valueAt } from '../values/index.js'
 
 const KINDS = [...PARTICIPANTS, ...STRUCTURES, 'agent', 'archimate', 'artifact', 'box', 'card', 'circle', 'diamond', 'file', 'hexagon', 'label', 'legend', 'map', 'note', 'person', 'stack', 'storage']

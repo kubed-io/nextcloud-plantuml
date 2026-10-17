@@ -12,7 +12,7 @@
  * extractor, and without sanitizing, which would strip `</style>`.
  */
 import vocabulary from '../data/vocabulary.json'
-import { readStyle, styleBlocks } from '../profiles/style-grammar.js'
+import { readStyle } from '../profiles/style-grammar.js'
 
 const { properties } = vocabulary.style
 const KNOWN = new Set(properties.map((name) => name.toLowerCase()))
@@ -36,11 +36,11 @@ const nearest = (name) => properties.reduce((best, candidate) => (distance(name,
 
 const AS_TEXT = { escape: false, sanitize: false }
 
-/** @param {{ t: typeof import('@nextcloud/l10n').translate }} core */
-export const styleLint = ({ t }) => (state) => {
+/** @param {{ t: typeof import('@nextcloud/l10n').translate, styleBlocks: typeof import('../regions.js').styleRegions }} core */
+export const styleLint = ({ t, styleBlocks }) => (state) => {
   const { doc } = state
   const found = []
-  for (const block of styleBlocks(doc.toString().split('\n'))) {
+  for (const block of styleBlocks(doc)) {
     if (!block.closed) {
       const open = doc.line(block.open)
       const from = open.from + open.text.indexOf('<style>')

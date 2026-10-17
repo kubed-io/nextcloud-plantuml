@@ -5,10 +5,11 @@
 // Each completion source against a real EditorState: `|` in a document marks
 // the cursor, and what is asserted is what the popup would offer from where.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { CompletionContext, autocompletion, nextSnippetField, completionStatus, currentCompletions, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
+import { inStyleBody, styleRegions } from '../../src/editor/regions.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
 import { keywords } from '../../src/editor/completion/keywords.js'
@@ -31,7 +32,7 @@ import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
 import { diagramsOf, diagramsWithout, scan } from '../../src/editor/blocks.js'
 import { elementAt } from '../../src/editor/docs/element.js'
-import { profileExtension } from '../../src/editor/profiles/index.js'
+import { core, profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
 import language from '../../src/editor/data/language.json'
@@ -804,7 +805,7 @@ describe('connectors', () => {
     ['a style property\'s empty value', '<style>\nnode {\n  FontStyle |\n}\n</style>'],
   ])('are not offered where %s sits', (_what, marked) => {
     const pos = marked.indexOf('|')
-    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([styleProfile({ diagrams: diagramsOf, t: (app, text) => text })])] })
+    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: (app, text) => text })])] })
     expect(connectors(new CompletionContext(state, pos, true))).toBeNull()
   })
 
@@ -1097,8 +1098,8 @@ describe('snippets', () => {
 })
 
 describe('style', () => {
-  const style = styleCompletion({ diagrams: diagramsOf })
-  const profile = styleProfile({ diagrams: diagramsOf, t: (app, text) => text })
+  const style = styleCompletion({ diagrams: diagramsOf, styleBlocks: styleRegions })
+  const profile = styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: (app, text) => text })
 
   /** The registry's list source over a state with the style profile's values. */
   function styleValues(marked, explicit = false) {
@@ -1219,7 +1220,7 @@ describe('style', () => {
 
 describe('inside a style block', () => {
   const COLORS = { AliceBlue: '#F0F8FF', Red: '#FF0000' }
-  const profile = styleProfile({ diagrams: diagramsOf, t: (app, text) => text })
+  const profile = styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: (app, text) => text })
   const { selectors, fontStyles } = vocabulary.style
   let extensions
 
@@ -1292,6 +1293,48 @@ describe('inside a style block', () => {
     expect(labels(await complete(keywords, '<style>\n</style>\nac|'))).toContain('actor')
     expect(complete(styleTag, '<style>\n</style>\n<|')).not.toBeNull()
     expect(complete(connectors, '@startuml\n<style>\n@enduml\nnode1 |')).not.toBeNull()
+  })
+})
+
+describe('inStyleBody, the core sources\' guard', () => {
+  const at = (marked) => {
+    const { state, pos } = stateAt(marked)
+    return inStyleBody(state, pos)
+  }
+
+  it.each([
+    ['a body line', '<style>\nno|de\n</style>'],
+    ['a body with no </style> yet', '<style>\nnode {\n  |'],
+    ['a <style> line\'s body after another <style>', '<style>\n<style>\nno|de\n</style>'],
+    ['the middle of a one-line block', '<style>no|de { }</style>'],
+    ['the end of a one-line block\'s middle', '<style>node|</style>'],
+    ['a body after a known ! line', '<style>\n!include x\nno|de\n</style>'],
+  ])('is true on %s', (_where, marked) => {
+    expect(at(marked)).toBe(true)
+  })
+
+  it.each([
+    ['a <style> line', '<sty|le>\n</style>'],
+    ['a <style> line in a block', '<style>\n<sty|le>\n</style>'],
+    ['a </style> line', '<style>\n</st|yle>'],
+    ['a comment line', "<style>\n' no|te\n</style>"],
+    ['a known ! line', '<style>\n!incl|ude x\n</style>'],
+    ['an assignment', '<style>\n  !$x = 1|\n</style>'],
+    ['the @end line', '@startuml\n<style>\n@end|uml'],
+    ['after a block closed by @end', '@startuml\n<style>\n@enduml\nno|de'],
+    ['after the block', '<style>\n</style>\nno|de'],
+    ['a one-line block\'s <style>', '<sty|le>node</style>'],
+    ['a one-line block\'s </style>', '<style>node { }</sty|le>'],
+    ['an imported sheet', '<style file=x.css>\nno|de'],
+    ['outside every block', 'no|de'],
+  ])('is false on %s', (_where, marked) => {
+    expect(at(marked)).toBe(false)
+  })
+
+  // U5: a line starting `!` or `'` is PlantUML's, whatever follows, as the style profile reads it.
+  it('is false on a ! line PlantUML does not know', () => {
+    expect(at('<style>\n!fo|o\n</style>')).toBe(false)
+    expect(at('<style>\n  !|\n</style>')).toBe(false)
   })
 })
 
@@ -1942,7 +1985,7 @@ describe('the docs beside the completion list', () => {
   })
 
   it('keys a style selector and property, lower-cased, with no core import', async () => {
-    const style = styleCompletion({ diagrams: diagramsOf })
+    const style = styleCompletion({ diagrams: diagramsOf, styleBlocks: styleRegions })
     const selectors = await withDocs(style)(context('<style>\nsequenceDia|\n</style>', true))
     expect(option(selectors, 'sequenceDiagram')).toMatchObject({ docKey: 'selector:sequencediagram' })
     const properties = await withDocs(style)(context('<style>\nactor {\n  BackG|\n}\n</style>', true))
@@ -2009,6 +2052,31 @@ describe('one block scan per document version (F2)', () => {
   })
 })
 
+describe('one style-region pass per document version (F3)', () => {
+  it('serves the guard and the style profile\'s completion, lint and values from a single pass', async () => {
+    const marked = '@startuml\nactor Alice\n<style>\nnode {\n  FontSise 1\n  FontStyle bold\n  |\n}\n</style>\n@enduml'
+    const pos = marked.indexOf('|')
+    const doc = Text.of(marked.replace('|', '').split('\n'))
+    const read = vi.spyOn(doc, 'iterLines')
+    const walked = vi.spyOn(doc, 'line')
+    const profile = styleProfile(core)
+    const state = EditorState.create({ doc, extensions: [plantumlMode, profileExtension([profile]), plantumlCompletion] })
+
+    // The guard looks the line up; it no longer walks from line 1.
+    for (let ask = 0; ask < 3; ask++) {
+      expect(inStyleBody(state, pos)).toBe(true)
+    }
+    expect(walked).not.toHaveBeenCalled()
+    const results = await Promise.all(state.languageDataAt('autocomplete', pos).map((source) => source(new CompletionContext(state, pos, true))))
+    expect(results.filter(Boolean).flatMap(labels)).toContain('FontSize')
+    expect(profile.lints[0](state)).toMatchObject([{ message: 'Unknown style property FontSise' }])
+    const valued = doc.line(6)
+    expect(profile.values[0].match(valued.text, state, valued.from)).toHaveLength(1)
+
+    expect(read).toHaveBeenCalledTimes(1)
+  })
+})
+
 // The seam between the sources and the index: every docKey a source offers names an entry of
 // the shipped index, for some block type (a gantt word is offered in every block, and only
 // gantt's entry describes it).
@@ -2035,7 +2103,7 @@ describe('every docKey a source offers resolves in the shipped index', () => {
     const keys = new Set()
     for (const marked of contexts) {
       const pos = marked.indexOf('|')
-      const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, profileExtension([styleProfile({ diagrams: diagramsOf, t: (app, text) => text })])] })
+      const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, profileExtension([styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: (app, text) => text })])] })
       const result = await source(new CompletionContext(state, pos, true))
       expect(result?.options.length, `${source.name} at ${JSON.stringify(marked)}`).toBeGreaterThan(0)
       for (const { docKey } of result.options) {
@@ -2065,7 +2133,7 @@ describe('every docKey a source offers resolves in the shipped index', () => {
 
   it('style', async () => {
     const docs = await loadDocs()
-    const keys = await keysOf(styleCompletion({ diagrams: diagramsOf }), ['<style>\n|\n</style>', '<style>\nactor {\n  |\n}\n</style>'])
+    const keys = await keysOf(styleCompletion({ diagrams: diagramsOf, styleBlocks: styleRegions }), ['<style>\n|\n</style>', '<style>\nactor {\n  |\n}\n</style>'])
     expect(keys.filter((key) => !docs.get(key))).toEqual([])
   })
 })

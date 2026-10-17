@@ -9,7 +9,7 @@
  * the core the style profile is given, so it imports no core module.
  */
 import vocabulary from '../data/vocabulary.json'
-import { readStyle, styleBlocks } from '../profiles/style-grammar.js'
+import { readStyle } from '../profiles/style-grammar.js'
 
 const { selectors, properties } = vocabulary.style
 
@@ -68,8 +68,8 @@ function selectorOptions(type) {
  * The body of the style block the cursor is in, up to `to` on its line, or
  * null outside every block (and on its tag and PlantUML lines).
  */
-function bodyBefore(lines, line, column) {
-  for (const block of styleBlocks(lines)) {
+function bodyBefore(blocks, line, column) {
+  for (const block of blocks) {
     const at = block.body.findIndex((candidate) => candidate.line === line)
     const here = block.body[at]
     if (here && column >= here.from && column <= here.text.length) {
@@ -79,13 +79,13 @@ function bodyBefore(lines, line, column) {
   return null
 }
 
-/** @param {{ diagrams: typeof import('../blocks.js').diagramsOf }} core */
-export const styleCompletion = ({ diagrams }) => (context) => {
+/** @param {{ diagrams: typeof import('../blocks.js').diagramsOf, styleBlocks: typeof import('../regions.js').styleRegions }} core */
+export const styleCompletion = ({ diagrams, styleBlocks }) => (context) => {
   const { state, pos } = context
   const typed = context.matchBefore(/[\w-]*/)
   const line = state.doc.lineAt(pos)
   const column = typed.from - line.from
-  const body = bodyBefore(state.doc.toString().split('\n'), line.number, column)
+  const body = bodyBefore(styleBlocks(state.doc), line.number, column)
   // A word after `.` or `:` is a stereotype class or a depth, free-form.
   if (!body || (column > body.at(-1).from && /[^\s{};,]/.test(line.text[column - 1]))) {
     return null

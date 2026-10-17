@@ -7,7 +7,7 @@
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
 import { blocksOf, diagramsOf } from '../blocks.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 
 const option = snippetCompletion('<note>\n${}\n</note>', { label: '<note>', detail: 'files note', type: 'text', boost: 3 })
 

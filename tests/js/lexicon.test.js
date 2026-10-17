@@ -40,7 +40,7 @@ function spans(mode, lines) {
 describe('lex', () => {
   it('is what the loader hands every profile as core.lex', () => {
     expect(core.lex).toBe(lex)
-    expect(Object.keys(core)).toEqual(['scan', 'diagrams', 't', 'lex', 'subDiagrams'])
+    expect(Object.keys(core)).toEqual(['scan', 'diagrams', 'styleBlocks', 't', 'lex', 'subDiagrams'])
   })
 
   it('matches the first rule with a single token where the stream stands, and moves past it', () => {

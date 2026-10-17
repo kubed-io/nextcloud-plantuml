@@ -16,6 +16,7 @@
  * @typedef {object} Core
  * @property {typeof scan} scan
  * @property {typeof diagramsOf} diagrams the scan of a document, read once per version
+ * @property {typeof styleRegions} styleBlocks the style blocks of a document, read once per version
  * @property {typeof translate} t @nextcloud/l10n's translate, called with the
  *   app id written out so Nextcloud's string extractor finds the strings
  * @property {typeof lex} lex the lexicon: the rules the core grammar shares,
@@ -35,6 +36,7 @@ import { APP_ID } from '../../files-helpers.js'
 import { diagramsOf, scan } from '../blocks.js'
 import { lex } from '../lexicon/index.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
+import { styleRegions } from '../regions.js'
 import { SUB_OPEN, subDiagramsOf } from '../sub-diagrams.js'
 import { profileRules } from '../lint/index.js'
 import { valuesFacet } from '../values/index.js'
@@ -112,7 +114,7 @@ export function needed(diagrams, text) {
 }
 
 /** @type {Core} what every profile's factory is given */
-export const core = { scan, diagrams: diagramsOf, t: translate, lex, subDiagrams: subDiagramsOf }
+export const core = { scan, diagrams: diagramsOf, styleBlocks: styleRegions, t: translate, lex, subDiagrams: subDiagramsOf }
 const loading = new Map() // type → Promise<Profile|null>, for the page
 const failed = new Set()
 

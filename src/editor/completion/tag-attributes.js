@@ -10,7 +10,7 @@
  * a style block, or inside a quoted value.
  */
 import { reopen } from './local-files.js'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 
 const FONT = ['size', 'color']
 const IMG = ['src', 'vspace', 'valign']

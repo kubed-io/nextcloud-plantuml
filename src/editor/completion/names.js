@@ -8,7 +8,8 @@
  * a directive or preprocessor line, a string, an arrow's message, a Creole
  * tag, after a `#` or `colors`, or in a style block, where a name is not wanted.
  */
-import { arrow, inStyleBody } from '../plantuml-mode.js'
+import { arrow } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 import { PARTICIPANTS, STRUCTURES } from './keywords.js'
 
 const kinds = [...PARTICIPANTS, ...STRUCTURES].map((kind) => (kind === 'abstract' ? 'abstract(?:[ \\t]+class)?' : kind))

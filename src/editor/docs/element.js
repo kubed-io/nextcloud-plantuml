@@ -11,7 +11,8 @@
  */
 import { ensureSyntaxTree } from '@codemirror/language'
 import { diagramAt, diagramsOf } from '../blocks.js'
-import { atTopLevel, inStyleBody } from '../plantuml-mode.js'
+import { atTopLevel } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 import { CONNECTORS } from '../completion/connectors.js'
 import { HELPERS } from '../completion/keywords.js'
 

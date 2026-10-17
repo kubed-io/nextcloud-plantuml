@@ -7,7 +7,7 @@
  * too. Not inside a style block.
  */
 import { snippetCompletion } from '@codemirror/autocomplete'
-import { inStyleBody } from '../plantuml-mode.js'
+import { inStyleBody } from '../regions.js'
 
 const options = [
   snippetCompletion('<style>\n\t${}\n</style>', { label: '<style>', detail: 'style block', type: 'text', boost: 2 }),

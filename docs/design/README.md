@@ -1,6 +1,6 @@
 # Design boards
 
-Exported from the Penpot file "NXT PlantUML" on 2026-10-13, updated 2026-10-16, one PNG per
+Exported from the Penpot file "NXT PlantUML" on 2026-10-13, updated 2026-10-17, one PNG per
 board. The spec's "The design" section says what each board shows and what the prototype links do.
 
 | Page | Board | File |
@@ -32,7 +32,18 @@ board. The spec's "The design" section says what each board shows and what the p
 | Style guide | the editor's parts: swatch, pencil, stepper, lint marks, tabs, folding | [style-guide-editor-parts.png](style-guide-editor-parts.png) |
 | Style guide | the doc card: anatomy, hover and pinned, its timing and keys | [style-guide-doc-card.png](style-guide-doc-card.png) |
 | Files | the Diagrams folder | [files.png](files.png) |
-| Files | the Viewer on a diagram | [viewer.png](viewer.png) |
+| Files | the Viewer on a diagram: Tabs on `nodes` | [viewer.png](viewer.png) |
+| Files | Tabs on `order-flow` | [viewer-order-flow.png](viewer-order-flow.png) |
+| Files | Tabs on `config` | [viewer-config.png](viewer-config.png) |
+| Files | Stack: three cards, none checked, Export all | [viewer-stack.png](viewer-stack.png) |
+| Files | Wall: two cards checked, Export 2 | [viewer-wall.png](viewer-wall.png) |
+| Files | a file of one diagram: no switch, no tabs | [viewer-single.png](viewer-single.png) |
+| Files | the Export menu for `nodes` | [export-menu-nodes.png](export-menu-nodes.png) |
+| Files | the Export menu for `order-flow` | [export-menu-order-flow.png](export-menu-order-flow.png) |
+| Files | the Export menu for `config` | [export-menu-config.png](export-menu-config.png) |
+| Files | the Export menu for all three diagrams, as .zip | [export-menu-all.png](export-menu-all.png) |
+| Files | the Export menu for two checked, as .zip | [export-menu-checked.png](export-menu-checked.png) |
+| Files | the Export menu for the one-diagram file | [export-menu-single.png](export-menu-single.png) |
 | Files | the + New menu, with New puml File | [new-menu.png](new-menu.png) |
 | Files | the context menu on a .puml | [context-menu.png](context-menu.png) |
 | Readme | the README rendered above the list | [readme.png](readme.png) |

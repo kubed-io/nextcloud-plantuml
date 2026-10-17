@@ -30,7 +30,7 @@ import { sheetExtension } from './sheet.js'
  * @param {() => void} options.showState the bar redraws from the open file's session
  * @param {() => void} options.redraw R13: the main file's diagram drawn again (editor.js: draw(mainState().doc.toString()))
  * @param {(state: import('@codemirror/state').EditorState) => void} options.mainChanged the main file came back changed while parked: its diagrams, tab and profiles catch up
- * @param {(open: boolean) => void} options.onChange a linked file opened (true), the main file is back (false), or the open file was renamed by Save as copy (true); called where showCrumbs() is called today
+ * @param {(open: boolean) => void} options.onChange a linked file opened (true), the main file is back (false), or the open file was renamed by Save as copy (true)
  * @returns {{
  *   open: (link: { kind: 'style'|'include', path: string, written: string, section: string|null, block: string|null }) => Promise<void>,
  *   goBack: () => Promise<boolean>,

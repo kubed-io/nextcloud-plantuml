@@ -102,6 +102,7 @@ describe('linked mode', () => {
     expect(onChange).not.toHaveBeenCalled()
     expect(mode.isOpen()).toBe(false)
     expect(main.session.say).toHaveBeenCalledWith('Could not open the file')
+    expect(view.state.doc.toString()).toBe(MAIN)
   })
 
   it('sends the open file\'s text in place of the file it names (R13)', async () => {

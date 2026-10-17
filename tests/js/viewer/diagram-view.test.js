@@ -1440,9 +1440,62 @@ describe('Edit', () => {
     expect(seams.openEditor).toHaveBeenCalledOnce()
   })
 
+  it('opens nothing when the Viewer moved on to another file while the editor loaded (VW7)', async () => {
+    let loaded
+    seams.ensureEditor.mockReturnValue(new Promise((resolve) => { loaded = resolve }))
+    const view = await open(THREE)
+    edit()
+    view.setActive(false)
+    loaded()
+    await settle()
+
+    expect(window.OCA.Viewer.close).not.toHaveBeenCalled()
+    expect(seams.openEditor).not.toHaveBeenCalled()
+  })
+
   it('is not offered without a server', async () => {
     seams.serverConfigured = false
     await open(THREE)
     expect(root.querySelector('.plantuml-viewer__edit')).toBeNull()
   })
+})
+
+describe('a server that stays down (Review Focus 1)', () => {
+  it('is asked a bounded number of times through settled, re-pack and an observer that fires on every re-pack', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
+    FakeIntersectionObserver.made = []
+    fetch.mockImplementation(async (url) => {
+      const index = Number(new URL(url, 'https://x').searchParams.get('index'))
+      return index === 1
+        ? new Response('{"problem":"unreachable"}', { status: 503 })
+        : new Response(svg('s'), { status: 200 })
+    })
+    await open(THREE)
+    const stage = root.querySelector('.plantuml-viewer__stage')
+    Object.defineProperty(stage, 'clientWidth', { configurable: true, get: () => 1232 })
+    mode('Wall')
+    // Pessimistic: every card whose packed place changes is told it came near again.
+    const placeOf = (card) => `${card.style.gridColumn}|${card.style.gridRow}|${card.style.getPropertyValue('--plantuml-wall-height')}`
+    let was = new Map()
+    const watch = new MutationObserver(() => {
+      const all = cards()
+      const moved = all.filter((card) => was.get(card) !== placeOf(card))
+      was = new Map(all.map((card) => [card, placeOf(card)]))
+      if (moved.length) {
+        FakeIntersectionObserver.last().enter(...moved)
+      }
+    })
+    watch.observe(stage, { attributes: true, subtree: true, childList: true, attributeFilter: ['style'] })
+    FakeIntersectionObserver.last().enter(...cards())
+    const asks = () => asked(fetch).filter((index) => index === '1').length
+
+    await new Promise((resolve) => setTimeout(resolve, WALL_SETTLE * 3))
+    const first = asks()
+    await new Promise((resolve) => setTimeout(resolve, WALL_SETTLE * 6))
+    watch.disconnect()
+
+    expect(first).toBeGreaterThanOrEqual(1)
+    expect(first).toBeLessThanOrEqual(3)
+    expect(asks()).toBe(first)
+  }, 15000)
 })

@@ -177,6 +177,27 @@ describe('a failed sheet (VW10, VW1)', () => {
     await again
     expect(sheet.getAttribute('role')).toBe('img')
     expect(sheet.getAttribute('aria-label')).toBe('login')
+    expect(sheet.classList.contains('plantuml-viewer__sheet--problem')).toBe(false)
+  })
+
+  it('shows the spinner, busy, while a failed sheet is asked again (VW10)', async () => {
+    let answer
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response('{"problem":"unreachable"}', { status: 503 }))
+      .mockReturnValueOnce(new Promise((resolve) => { answer = resolve }))
+    vi.stubGlobal('fetch', fetch)
+    const sheets = createSheets('/D/S.puml', { labelOf: () => 'login' })
+    const { sheet } = await drawn(sheets, 1)
+    sheets.request(1)
+
+    expect(sheet.querySelector('.plantuml-viewer__spinner')).not.toBeNull()
+    expect(sheet.getAttribute('aria-busy')).toBe('true')
+    expect(sheet.classList.contains('plantuml-viewer__sheet--problem')).toBe(false)
+    expect(sheet.textContent).toBe('')
+    const done = settled(sheet)
+    answer(svgAnswer())
+    await done
+    expect(sheet.hasAttribute('aria-busy')).toBe(false)
   })
 })
 

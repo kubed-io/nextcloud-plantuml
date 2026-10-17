@@ -257,7 +257,8 @@ export function createDiagramView(root, { path, basename, onReady }) {
     } finally {
       editing = false
     }
-    if (destroyed) {
+    // Closed, or moved on to a neighbour (hidden beside the one shown) while it loaded: not this file's to open.
+    if (destroyed || !active) {
       return
     }
     window.OCA?.Viewer?.close()

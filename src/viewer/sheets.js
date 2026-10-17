@@ -89,16 +89,21 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
   const keyOf = (position) => (etag ? sheetKey(path, etag, position - 1) : null)
   const inline = (svgText, position) => toInlineSvg(svgText, { idPrefix: `${idPrefix}${position}-` })
 
+  /** The sheet as it waits for its drawing: Nextcloud's spinner, busy for a screen reader. */
+  function load(node, position) {
+    node.className = 'plantuml-viewer__sheet plantuml-viewer__sheet--loading'
+    node.setAttribute('role', 'img')
+    node.setAttribute('aria-label', labelOf(position))
+    node.setAttribute('aria-busy', 'true')
+    const spinner = document.createElement('span')
+    spinner.className = 'plantuml-viewer__spinner'
+    node.replaceChildren(spinner)
+  }
+
   function sheet(position) {
     if (!sheets.has(position)) {
       const node = document.createElement('div')
-      node.className = 'plantuml-viewer__sheet plantuml-viewer__sheet--loading'
-      node.setAttribute('role', 'img')
-      node.setAttribute('aria-label', labelOf(position))
-      node.setAttribute('aria-busy', 'true')
-      const spinner = document.createElement('span')
-      spinner.className = 'plantuml-viewer__spinner'
-      node.append(spinner)
+      load(node, position)
       sheets.set(position, node)
     }
     return sheets.get(position)
@@ -110,6 +115,7 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
     node.classList.remove('plantuml-viewer__sheet--loading')
     node.removeAttribute('aria-busy')
     if (svg) {
+      node.classList.remove('plantuml-viewer__sheet--problem')
       sizes.set(position, size)
       // A drawing is an image to a screen reader; a problem is text it reads as it is (VW1).
       node.setAttribute('role', 'img')
@@ -142,6 +148,10 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
     // A sheet drawn from memory is checked: it keeps its drawing unless the server draws it anew.
     const checking = remembered.has(position)
     const serverEtag = remembered.get(position)
+    // A problem asked again waits as a new sheet does, until it settles; a kept drawing stays as it is.
+    if (!checking && sheets.get(position).classList.contains('plantuml-viewer__sheet--problem')) {
+      load(sheets.get(position), position)
+    }
     const init = { credentials: 'same-origin', signal: stop.signal }
     if (typeof serverEtag === 'string') {
       init.headers = { 'If-None-Match': serverEtag }

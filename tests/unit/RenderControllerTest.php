@@ -382,6 +382,21 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame('', $response->render());
 	}
 
+	/** The web server marks the ETag of an answer it compressed; the browser sends it back so. */
+	#[DataProvider('compressedEtags')]
+	public function testIfNoneMatchWithTheWebServersMarkIs304(string $ifNoneMatch): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(), $ifNoneMatch)->byPath('Diagrams/Order flow.puml');
+
+		self::assertSame(304, $response->getStatus());
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function compressedEtags(): iterable {
+		yield 'gzip' => ['"abc123-gzip"'];
+		yield 'brotli' => ['"abc123-br"'];
+		yield 'weak gzip' => ['W/"abc123-gzip"'];
+	}
+
 	public function testServerProblemIs503WithProblem(): void {
 		$render = $this->createStub(RenderService::class);
 		$render->method('render')->willThrowException(new RenderException(RenderException::PROBLEM_UNREACHABLE));

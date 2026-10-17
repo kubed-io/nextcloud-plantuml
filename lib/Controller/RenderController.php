@@ -98,7 +98,8 @@ final class RenderController extends Controller {
 			}
 			$image = $found['render'];
 		}
-		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $file->etag) {
+		// The browser sends back the ETag as it got it, with the web server's `-gzip` or `-br` if it compressed the answer.
+		if (preg_replace('/-(?:gzip|br)$/', '', trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"')) === $file->etag) {
 			return $this->revalidated(new Response(Http::STATUS_NOT_MODIFIED), $file->etag);
 		}
 		try {

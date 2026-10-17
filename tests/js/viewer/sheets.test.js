@@ -223,6 +223,15 @@ describe('the page cache (VW11)', () => {
     expect(ifNoneMatch(fetch.mock.calls[1])).toBe('"srv1"')
   })
 
+  it('checks a kept sheet by the ETag the route gave, without the web server\'s -gzip', async () => {
+    fetch.mockImplementation(async () => svgAnswer(WITH_ID, { ETag: '"srv1-gzip"' }))
+    await drawn(sheetsOf('"e"'), 1)
+    fetch.mockImplementation(() => new Promise(() => {}))
+    sheetsOf('"e"', 'view-2-').request(1)
+
+    expect(ifNoneMatch(fetch.mock.calls[1])).toBe('"srv1"')
+  })
+
   it('draws anew a kept sheet the server has drawn anew, its size and what is kept with it', async () => {
     await drawn(sheetsOf('"e"'), 1)
     fetch.mockImplementation(async () => svgAnswer(NEW, { ETag: '"srv2"' }))

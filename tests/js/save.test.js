@@ -32,6 +32,15 @@ describe('loadFile', () => {
     await expect(loadFile('/Diagrams/Order flow.puml')).resolves.toEqual({ content: '@startuml\n@enduml\n', etag: '"e1"' })
     expect(client.getFileContents).toHaveBeenCalledWith('/files/drk/Diagrams/Order flow.puml', { format: 'text', details: true, headers: { 'Cache-Control': 'no-cache' } })
   })
+
+  // Apache's mod_deflate and mod_brotli mark a compressed answer's ETag; Sabre knows the file by the plain one.
+  for (const [sent, kept] of [['"e1-gzip"', '"e1"'], ['"e1-br"', '"e1"'], ['W/"e1-gzip"', '"e1"'], ['"e1-gzipped"', '"e1-gzipped"']]) {
+    it(`keeps the ETag ${sent} as ${kept}`, async () => {
+      client.getFileContents.mockResolvedValue({ data: 'a {}\n', headers: { etag: sent }, status: 200 })
+
+      await expect(loadFile('/Diagrams/UML_Fun.css')).resolves.toEqual({ content: 'a {}\n', etag: kept })
+    })
+  }
 })
 
 describe('currentEtag', () => {
@@ -159,6 +168,12 @@ describe('saveFile', () => {
 
   it('resolves with the ETag the server gave the new content', async () => {
     client.customRequest.mockResolvedValue(new Response(null, { status: 204, headers: { ETag: '"e2"' } }))
+
+    await expect(saveFile('/Diagrams/Order flow.puml', 'changed', '"e1"')).resolves.toBe('"e2"')
+  })
+
+  it('resolves with the new ETag as Sabre has it, without the web server\'s -gzip', async () => {
+    client.customRequest.mockResolvedValue(new Response(null, { status: 204, headers: { ETag: '"e2-gzip"' } }))
 
     await expect(saveFile('/Diagrams/Order flow.puml', 'changed', '"e1"')).resolves.toBe('"e2"')
   })

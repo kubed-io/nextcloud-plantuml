@@ -21,6 +21,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID, renderUrl } from '../files-helpers.js'
 import { toInlineSvg } from '../editor/inline-svg.js'
+import { plainEtag } from '../editor/etag.js'
 import { pageCache, sheetKey } from './page-cache.js'
 
 /**
@@ -154,7 +155,8 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
         size = sizeOf(svg)
         const key = keyOf(position)
         if (key !== null) {
-          cache.set(key, { svg: body, size, serverEtag: res.headers.get('ETag') })
+          // The ETag the route gave, without the web server's `-gzip`, so its If-None-Match matches.
+          cache.set(key, { svg: body, size, serverEtag: plainEtag(res.headers.get('ETag')) })
         }
       } else {
         // The route's own words, as it sent them: its "no diagram N" counts from 1.

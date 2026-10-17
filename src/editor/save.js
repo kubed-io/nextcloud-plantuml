@@ -8,6 +8,7 @@
  * Paths are in the user's folder, as a Files node's `path` is.
  */
 import { getClient, getDefaultPropfind, getRootPath, resultToNode } from '@nextcloud/files/dav'
+import { plainEtag } from './etag.js'
 import { once } from './once.js'
 
 const COPY_ATTEMPTS = 9
@@ -24,7 +25,7 @@ export class ConflictError extends Error {
 
 /**
  * @param {string} path
- * @return {Promise<{content: string, etag: string}>}
+ * @return {Promise<{content: string, etag: string}>} the ETag as Sabre has it (`plainEtag`)
  */
 export async function loadFile(path) {
   // Nextcloud sends no Cache-Control with a file, so the browser may answer from
@@ -34,7 +35,7 @@ export async function loadFile(path) {
     details: true,
     headers: { 'Cache-Control': 'no-cache' },
   })
-  return { content: res.data, etag: res.headers.etag }
+  return { content: res.data, etag: plainEtag(res.headers.etag) }
 }
 
 const ETAG_PROPFIND = `<?xml version="1.0"?>
@@ -192,7 +193,7 @@ function copyPath(path, n) {
 }
 
 function etagOf(res) {
-  const etag = res.headers.get('ETag') ?? res.headers.get('OC-ETag')
+  const etag = plainEtag(res.headers.get('ETag') ?? res.headers.get('OC-ETag'))
   // Without it the next save would send `If-Match: null` and refuse itself forever.
   if (!etag) {
     throw new Error('The server answered the save without an ETag')

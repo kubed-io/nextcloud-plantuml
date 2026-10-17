@@ -325,6 +325,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
     closed = true
     main?.session.stop()
+    linked?.session.stop()
     clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onKeydown)
@@ -382,7 +383,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
    * file that cannot be read leaves the main file shown, saying so.
    */
   async function openLinked(link) {
-    if (linked || opening) {
+    // A close under way leaves nothing behind the overlay: no file opens while it saves.
+    if (linked || opening || closing) {
       return
     }
     opening = true
@@ -408,7 +410,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     } finally {
       opening = false
     }
-    if (closed) {
+    if (closed || closing) {
       return
     }
     const name = link.path.slice(link.path.lastIndexOf('/') + 1)
@@ -478,7 +480,14 @@ export function openEditor(node, { diagram: openAt } = {}) {
 
   /** R11, R15: back to the main file once the linked one is saved or discarded; true once there. Asked again meanwhile, it is the same way back. */
   function goBack() {
-    goingBack ??= leaveLinked().finally(() => { goingBack = null })
+    if (!goingBack) {
+      const way = leaveLinked().finally(() => {
+        if (goingBack === way) {
+          goingBack = null
+        }
+      })
+      goingBack = way
+    }
     return goingBack
   }
 
@@ -498,6 +507,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
     const { state, doc, scrollTop } = parked
     parked = null
     view.setState(state)
+    // Back on the main file: a linked file opened from it while it is checked has a way back of its own.
+    goingBack = null
     view.requestMeasure({ read: () => null, write: () => { view.scrollDOM.scrollTop = scrollTop } })
     if (discarded) {
       cancelRender()

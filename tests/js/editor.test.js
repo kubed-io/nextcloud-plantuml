@@ -1894,10 +1894,11 @@ describe('a linked file', () => {
     expect(source()).toBe(MAIN)
   })
 
-  // A second way back would find the main file's state already restored: Vitest fails on its rejection.
   it('goes back once however often it is asked while the linked file saves', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const saving = deferred()
     seams.saveFile.mockReturnValue(saving.promise)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     await openStyle()
     typeLinked("' new\n")
 
@@ -1905,12 +1906,51 @@ describe('a linked file', () => {
     q('.plantuml-editor__back').click()
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
     await settle()
-    saving.resolve('"s2"')
+    saving.reject(new Error('507'))
     await settle()
 
     expect(seams.saveFile).toHaveBeenCalledTimes(1)
+    expect(window.confirm).toHaveBeenCalledTimes(1)
     expect(source()).toBe(MAIN)
     expect(q('.plantuml-editor')).not.toBeNull()
+  })
+
+  it('opens a linked file again while the main file is still checked, and closing saves it', async () => {
+    const looking = deferred()
+    seams.saveFile.mockResolvedValue('"s2"')
+    await openStyle()
+    seams.currentEtag.mockImplementation((path) => (path === '/Diagrams/Order flow.puml' ? looking.promise : Promise.resolve('"s1"')))
+    q('.plantuml-editor__back').click()
+    await settle()
+    await pressChip('UML_Fun.css')
+    typeLinked("' new\n")
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    looking.resolve('"m1"')
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/UML_Fun.css', "' new\n" + STYLE, '"s1"')
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it('opens no linked file while closing saves the main one', async () => {
+    const saving = deferred()
+    seams.saveFile.mockReturnValue(saving.promise)
+    await open()
+    view().dispatch({ changes: { from: 0, insert: "' mine\n" } })
+    await settle()
+
+    q('.plantuml-editor__close').click()
+    await pressChip('UML_Fun.css')
+    saving.resolve('"m2"')
+    await settle()
+    window.dispatchEvent(new Event('focus'))
+    await settle()
+
+    expect(q('.plantuml-editor')).toBeNull()
+    expect(seams.loadFile.mock.calls.map(([path]) => path)).not.toContain('/Diagrams/UML_Fun.css')
+    expect(seams.currentEtag.mock.calls.map(([path]) => path)).not.toContain('/Diagrams/UML_Fun.css')
   })
 
   it('stays on the linked file when its save is refused', async () => {
@@ -1939,26 +1979,34 @@ describe('a linked file', () => {
     expect(source()).toBe(shown)
   })
 
-  it('asks after ten seconds of a save that hangs', async () => {
+  it('asks after ten seconds of a save that hangs, and the save settling late leaves the bar to the main file', async () => {
     vi.useFakeTimers()
-    seams.saveFile.mockReturnValue(new Promise(() => {}))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const saving = deferred()
+    seams.saveFile.mockReturnValue(saving.promise)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     await openStyle()
     typeLinked("' new\n")
 
     q('.plantuml-editor__back').click()
     await vi.advanceTimersByTimeAsync(10000)
-
     expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+    expect(source()).toBe(MAIN)
+    saving.reject(new Error('507'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(status()).toBe('')
+    expect(indicator()).toBe('saved')
   })
 
+  // A refused save stays on the conflict line first; going back from it asks at once.
   it.each([
-    ['failed', () => {
+    ['failed', 1, () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
       seams.saveFile.mockRejectedValue(new Error('507'))
     }],
-    ['was refused', () => seams.saveFile.mockRejectedValue(new seams.ConflictError())],
-  ])('draws the main file from its own files again once the linked text whose save %s is discarded', async (_how, saving) => {
+    ['was refused', 2, () => seams.saveFile.mockRejectedValue(new seams.ConflictError())],
+  ])('draws the main file from its own files again once the linked text whose save %s is discarded', async (_how, clicks, saving) => {
     saving()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     await openStyle()
@@ -1966,8 +2014,7 @@ describe('a linked file', () => {
     expect(lastRender()[4]).toEqual({ './UML_Fun.css': "' new\n" + STYLE })
     seams.cancel.mockClear()
 
-    // A refused save stays on the conflict line first; going back from it asks at once.
-    while (source() !== MAIN) {
+    for (let i = 0; i < clicks; i++) {
       q('.plantuml-editor__back').click()
       await settle()
     }

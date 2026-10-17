@@ -169,6 +169,7 @@ describe('a style file', () => {
 
     startCompletion(view)
     await vi.waitFor(() => expect(currentCompletions(view.state).length).toBeGreaterThan(0))
+    expect(currentCompletions(view.state).map((option) => option.label.toLowerCase())).toContain('red')
     view.destroy()
   })
 

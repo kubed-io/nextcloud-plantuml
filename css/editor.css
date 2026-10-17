@@ -940,6 +940,8 @@
 		flex-wrap: wrap;
 		height: auto;
 		min-height: 50px;
+		/* The ::after break is a flex line of its own; the gap above it would be paid twice. */
+		row-gap: 0;
 	}
 
 	.plantuml-editor__bar::after {
@@ -952,6 +954,7 @@
 	.plantuml-editor__reload,
 	.plantuml-editor__copy {
 		order: 2;
+		margin-top: 8px;
 	}
 
 	.plantuml-editor__status {

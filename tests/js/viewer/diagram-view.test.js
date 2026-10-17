@@ -50,9 +50,9 @@ afterEach(() => {
 })
 
 /** A view of /D/S.puml, its file read and its first sheet asked for. */
-const open = async (content, { etag = '"e"', onReady = vi.fn() } = {}) => {
+const open = async (content, { etag = '"e"', onReady = vi.fn(), fileid } = {}) => {
   seams.loadFile.mockResolvedValue({ content, etag })
-  const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady })
+  const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', fileid, onReady })
   await settle()
   return view
 }
@@ -669,7 +669,7 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
     mode('Wall')
 
     expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('3')
-    expect(stage().style.getPropertyValue('--plantuml-wall-column')).toBe('233.6px')
+    expect(stage().style.getPropertyValue('--plantuml-wall-column')).toBe('minmax(0, 233.6px)')
     expect(cards().map(placeOf)).toEqual([['1 / span 1', '1 / span 38'], ['2 / span 1', '1 / span 38'], ['3 / span 1', '1 / span 38']])
     expect(cards().map((card) => card.style.getPropertyValue('--plantuml-wall-height'))).toEqual(['240px', '240px', '240px'])
   })
@@ -1370,6 +1370,13 @@ describe('Edit', () => {
     await settle()
     expect(window.OCA.Viewer.close).toHaveBeenCalled()
     expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 1 })
+  })
+
+  it('passes the file\'s id on, so closing finds its row by id (O3)', async () => {
+    await open(THREE, { fileid: 42 })
+    edit()
+    await settle()
+    expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml', fileid: 42 }, { diagram: 0 })
   })
 
   it('opens at the first checked card', async () => {

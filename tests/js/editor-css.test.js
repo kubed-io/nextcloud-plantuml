@@ -54,12 +54,14 @@ describe('the editor bar at phone width (L10)', () => {
     expect(has(bar, 'flex-wrap', 'wrap')).toBe(true)
     expect(has(bar, 'height', 'auto')).toBe(true)
     expect(has(bar, 'min-height', '50px')).toBe(true)
+    expect(has(bar, 'row-gap', '0')).toBe(true)
     const after = declared(media, '.plantuml-editor__bar::after')
     expect(has(after, 'content', "''")).toBe(true)
     expect(has(after, 'order', '1')).toBe(true)
     expect(has(after, 'flex-basis', '100%')).toBe(true)
     for (const name of ['status', 'reload', 'copy']) {
       expect(has(declared(media, `.plantuml-editor__${name}`), 'order', '2')).toBe(true)
+      expect(has(declared(media, `.plantuml-editor__${name}`), 'margin-top', '8px')).toBe(true)
     }
     expect(has(declared(media, '.plantuml-editor__status'), 'flex', '1 1 0')).toBe(true)
     expect(has(declared(base, '.plantuml-editor__bar'), 'flex-wrap', 'wrap')).toBe(false)

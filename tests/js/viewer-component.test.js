@@ -11,7 +11,7 @@ vi.mock('../../src/viewer/diagram-view.js', () => ({ createDiagramView: seams.cr
 const { default: component } = await import('../../src/viewer-component.js')
 
 function instance(active) {
-  return { ...component.methods, $el: document.createElement('div'), filename: '/Diagrams/Screens.puml', basename: 'Screens.puml', active, doneLoading: vi.fn() }
+  return { ...component.methods, $el: document.createElement('div'), filename: '/Diagrams/Screens.puml', basename: 'Screens.puml', fileid: 42, active, doneLoading: vi.fn() }
 }
 
 beforeEach(() => {
@@ -27,7 +27,7 @@ it('draws one empty root for the view', () => {
 it('builds the view on its file when it is the file shown', () => {
   const vm = instance(true)
   component.mounted.call(vm)
-  expect(seams.createDiagramView).toHaveBeenCalledWith(vm.$el, expect.objectContaining({ path: '/Diagrams/Screens.puml', basename: 'Screens.puml' }))
+  expect(seams.createDiagramView).toHaveBeenCalledWith(vm.$el, expect.objectContaining({ path: '/Diagrams/Screens.puml', basename: 'Screens.puml', fileid: 42 }))
   seams.createDiagramView.mock.calls[0][1].onReady()
   expect(vm.doneLoading).toHaveBeenCalled()
 })

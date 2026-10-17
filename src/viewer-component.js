@@ -41,7 +41,7 @@ export default {
 
   methods: {
     build() {
-      this.view ??= createDiagramView(this.$el, { path: this.filename, basename: this.basename, onReady: () => this.doneLoading() })
+      this.view ??= createDiagramView(this.$el, { path: this.filename, basename: this.basename, fileid: this.fileid, onReady: () => this.doneLoading() })
     },
   },
 

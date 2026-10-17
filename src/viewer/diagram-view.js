@@ -83,7 +83,7 @@ function filenameOf(disposition) {
  * @param {{ path: string, basename: string, onReady: () => void }} options
  * @return {{ setActive: (active: boolean) => void, destroy: () => void }}
  */
-export function createDiagramView(root, { path, basename, onReady }) {
+export function createDiagramView(root, { path, basename, fileid, onReady }) {
   const prefix = `plantuml-viewer-${++views}-`
   const stageId = `${prefix}stage`
   const state = { mode: 'tabs', active: 0, checked: new Set() }
@@ -262,7 +262,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
       return
     }
     window.OCA?.Viewer?.close()
-    openEditor({ path, basename }, { diagram: index })
+    openEditor({ path, basename, fileid }, { diagram: index })
   }
 
   function card(index) {
@@ -392,7 +392,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
       ? new Map(cards.map((node) => [node, node.getBoundingClientRect()]))
       : null
     stage.style.setProperty('--plantuml-wall-columns', String(used))
-    stage.style.setProperty('--plantuml-wall-column', `${columnWidth}px`)
+    stage.style.setProperty('--plantuml-wall-column', `minmax(0, ${columnWidth}px)`)
     placements.forEach((placed, index) => place(byIndex.get(index), placed))
     reorder(visualOrder(placements).map((index) => byIndex.get(index)))
     if (before) {

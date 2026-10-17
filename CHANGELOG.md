@@ -25,7 +25,7 @@ All notable changes to this project are documented here. The format follows
 - `GET /apps/plantuml/render` takes `diagram` (a name or a place) and `index`, for one diagram of a file.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon. Removing the app reverts that and leaves alone a mapping you set yourself in `config/mimetypemapping.json`; repair warns when it cannot write `core/js/mimetypelist.js`.
 - Admin settings: point the app at a PlantUML server and test the connection, which names the server's PlantUML version or says what is wrong; `occ plantuml:set-url`, `test-connection` and `show-config` do the same from the command line.
-- A `.puml` opens as its diagram in the image viewer, which says "Could not open the file" rather than showing a raw error page; its menu offers **Edit diagram** and **Open with text editor**.
+- A `.puml` opens as its diagram in the image viewer, which says "Could not open the file" when it cannot read the file and "Could not draw the diagram" (or the server's reason) when a drawing fails, rather than showing a raw error page; its menu offers **Edit diagram** and **Open with text editor**.
 - A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`, and diagram text through `POST /apps/plantuml/render`; both pass on PlantUML's error and its line in `X-PlantUML-Diagram-Error` headers.
 - **+ New → UML Diagram** creates `New diagram.puml` holding an empty diagram and opens the editor on it. The app writes the starting lines on the server, so any client creating a `.puml` through Files' create endpoint gets the same file, on object storage too.
 - **Edit diagram**: PlantUML source on the left, the diagram on the right redrawing as you type, drawn inline so its links open in a new tab; when the server cannot draw, the pane says why.
@@ -109,11 +109,16 @@ All notable changes to this project are documented here. The format follows
 - A quoted multiplicity or role after a link (`A *-- "many" B`) is coloured as a string.
 - A sub-diagram's indented lines read as the server reads them: an indented `#highlight` is highlighted, a `<style>` inside is a style block, and one left open in a class or description body ends at the body's own closer, never at a `}` or `]` of its own content.
 - A salt button holding a `]` reads as PlantUML draws it, and so does a tree with text after its `{T` (`{T{`): that text and the tree's first `}` line are rows.
-- A linked style file's pencils open their choosers: fonts after `FontStyle`, colours on `FontColor`.
-- The Wall's cards sit centred, with equal gaps on both sides.
+- A linked style file's pencils open their choosers: font styles after `FontStyle`, colours on `FontColor`.
+- The Wall's cards sit centred, within the scrollbar's gutter.
 - A double-click in the Viewer selects no text.
 - `archimate` and the other element keywords are coloured as keywords, and a line's declared name is moss.
 - Focus no longer falls to the page: a bar button that disappears hands it on, and closing the editor returns it to the file's row.
+- The Export menu stays inside the window on a narrow screen.
+- A failed export's line goes when the mode or tab changes or a box is checked.
+- The Viewer's toolbar, tabs and menus show the app's focus ring.
+- The Wall's background is opaque, so the Files page no longer shows through.
+- A failed drawing is read by a screen reader as text.
 - A drawing that failed is asked for again on retry, with a spinner; a refused answer is not.
 - Edit opens nothing once the Viewer has moved on, and a Viewer whose editor will not load stays and says so.
 - A failed Add diagram load says so, and the line clears on a later success.

@@ -91,6 +91,33 @@ describe('a file session', () => {
     expect(seams.currentEtag).toHaveBeenCalledWith('/Diagrams/UML_Fun.css')
   })
 
+  it('watches once however often it is started', () => {
+    const first = vi.fn()
+    seams.watchFile.mockReturnValueOnce({ stop: first })
+    const { s } = session()
+    s.start()
+
+    s.start()
+
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(seams.watchFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('takes no edit once stopped: nothing is scheduled and the bar is not told', () => {
+    vi.useFakeTimers()
+    const onChange = vi.fn()
+    const { s, type } = session({ onChange })
+    s.fail('Could not save the file')
+    s.stop()
+    onChange.mockClear()
+
+    type('a {}')
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    expect(s.status().line).toBe('Could not save the file')
+  })
+
   it('resumes even when the look at the file fails, and says so only to the debug console', async () => {
     seams.currentEtag.mockRejectedValue(new Error('offline'))
     const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})

@@ -44,6 +44,93 @@
 	text-overflow: ellipsis;
 }
 
+/* R11: the breadcrumb while a linked file is open, after the Penpot
+ * `screens/linked-style` board. Each name gives way with an ellipsis. */
+.plantuml-editor__name--linked {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.plantuml-editor__bar button.plantuml-editor__crumb {
+	all: unset;
+	cursor: pointer;
+	font-size: 16px;
+	font-weight: 400;
+	color: var(--color-text-maxcontrast);
+}
+
+.plantuml-editor__bar button.plantuml-editor__crumb,
+.plantuml-editor__linked {
+	overflow: hidden;
+	min-width: 0;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.plantuml-editor__bar button.plantuml-editor__crumb:hover {
+	text-decoration: underline;
+}
+
+.plantuml-editor__bar button.plantuml-editor__crumb:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	border-radius: var(--border-radius);
+}
+
+.plantuml-editor__separator {
+	flex-shrink: 0;
+	color: var(--color-text-maxcontrast);
+}
+
+.plantuml-editor__linked {
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.plantuml-editor__lock {
+	display: inline-flex;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	color: var(--color-text-maxcontrast);
+}
+
+.plantuml-editor__bar button.plantuml-editor__back {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: var(--default-clickable-area, 34px);
+	height: var(--default-clickable-area, 34px);
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	border: none;
+	border-radius: var(--border-radius-pill, 100px);
+	background: transparent;
+	color: var(--color-text-maxcontrast);
+	cursor: pointer;
+}
+
+.plantuml-editor__bar button.plantuml-editor__back:hover {
+	background: var(--color-background-hover);
+}
+
+.plantuml-editor__bar button.plantuml-editor__back:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+.plantuml-editor__back svg {
+	width: 14px;
+	height: 14px;
+}
+
+.plantuml-editor__lock svg {
+	width: 16px;
+	height: 16px;
+}
+
 .plantuml-editor__status {
 	color: var(--color-text-maxcontrast);
 }

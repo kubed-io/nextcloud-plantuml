@@ -4,6 +4,8 @@
  *
  * The side-by-side diagram editor, a full-page overlay over the Files app: the
  * source in CodeMirror on the left, the diagram redrawn from it on the right.
+ * A file the source links (a style sheet, an include) takes over the source
+ * pane until the breadcrumb or Escape goes back to it.
  * How the file is saved, and kept in step with changes made elsewhere, is its
  * session's business (file-session.js); the bar shows that session's state.
  *
@@ -12,29 +14,19 @@
  * it defines. Each diagram type's profile is imported only when a file holds it.
  */
 import crelt from 'crelt'
-import { Compartment, EditorState, Transaction } from '@codemirror/state'
-import {
-  EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers,
-} from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-import { bracketMatching } from '@codemirror/language'
-import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
-import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
-import { closeLintPanel } from '@codemirror/lint'
+import { EditorState, Transaction } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from './files-helpers.js'
-import { diagramAt, diagramsOf } from './editor/blocks.js'
-import { profileExtension, profileLoader, resetProfiles } from './editor/profiles/index.js'
-import { plantumlTheme } from './editor/theme.js'
-import { plantumlCompletion } from './editor/completion/index.js'
-import { valueWidgets } from './editor/values/widgets.js'
-import { colorSwatches } from './editor/swatches.js'
-import { plantumlLint, plantumlLintKeymap } from './editor/lint/index.js'
-import { plantumlDocs } from './editor/docs/hover.js'
-import { plantumlFolding } from './editor/folding.js'
-import { forgetLinkedFiles } from './editor/linked/chips.js'
+import { blocksOf, diagramAt, diagramsOf, scan } from './editor/blocks.js'
+import { loadSheetProfile, resetProfiles } from './editor/profiles/index.js'
+import { SECTION } from './editor/completion/local-files.js'
+import { editorChrome, readOnlyFile, sourceExtensions } from './editor/extensions.js'
+import { createBreadcrumb } from './editor/breadcrumb.js'
+import { forgetLinkedFiles, linkedChips } from './editor/linked/chips.js'
+import { sheetExtension } from './editor/linked/sheet.js'
 import { fileName, filePath, setServerError } from './editor/lint/state.js'
-import { loadFile } from './editor/save.js'
+import { fileAccess, loadFile } from './editor/save.js'
 import { createFileSession, fromFile } from './editor/file-session.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { toInlineSvg } from './editor/inline-svg.js'
@@ -60,8 +52,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
 
   const icon = crelt('span', { class: 'plantuml-editor__icon', 'aria-hidden': 'true' })
   icon.innerHTML = fileIcon
-  const title = crelt('h2', { class: 'plantuml-editor__name' })
-  title.textContent = name
+  const crumbs = createBreadcrumb({ onBack: () => { goBack() } })
+  crumbs.show(name, null)
   const status = crelt('span', { class: 'plantuml-editor__status', role: 'status' })
   const reloadButton = crelt('button', { class: 'plantuml-editor__reload', type: 'button', hidden: '' })
   reloadButton.textContent = t(APP_ID, 'Reload')
@@ -83,7 +75,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   const closeButton = crelt('button', { class: 'plantuml-editor__close', type: 'button', 'aria-label': t(APP_ID, 'Close') })
   closeButton.innerHTML = closeIcon
   const bar = crelt('header', { class: 'plantuml-editor__bar' })
-  bar.append(icon, title, status, reloadButton, copyButton, sourceToggle, refreshButton, saveButton, closeButton)
+  bar.append(icon, crumbs.element, status, reloadButton, copyButton, sourceToggle, refreshButton, saveButton, closeButton)
 
   const source = crelt('div', { class: 'plantuml-editor__source', id: 'plantuml-editor-source' })
   // The diagram is drawn inline, so its links work; to a screen reader it is one picture.
@@ -108,21 +100,18 @@ export function openEditor(node, { diagram: openAt } = {}) {
   document.body.append(overlay)
 
   let view = null
-  // The main file, once read: its name and its session. Its state is parked
-  // while another file is shown in the view; nothing parks it yet.
+  // The main file, once read: its name and its session. Its state is parked,
+  // with its scroll, while a linked file is shown in the view (R11).
   let main = null
-  let parked = null
+  let parked = null // { state, scrollTop }
+  let linked = null // { link, name, readOnly, session, wantProfiles } while a linked file is open
+  let opening = false // a linked file is being read
   let closing = false
   let closed = false
-  let diagrams = [] // the file's, from blocks.js; the one drawn is diagrams[active]
+  let diagrams = [] // the main file's, from blocks.js; the one drawn is diagrams[active]
   let active = 0
-  const nameConfig = new Compartment()
-  const profilesConfig = new Compartment()
-  const wantProfiles = profileLoader((extension) => {
-    if (!closed) {
-      view.dispatch({ effects: profilesConfig.reconfigure(extension) })
-    }
-  })
+  let nameConfig = null // the main file's name facets, once its state is built
+  let wantProfiles = null
 
   /** The main file's state, in the view or parked. */
   const mainState = () => parked?.state ?? view.state
@@ -136,9 +125,9 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   }
 
-  /** The bar shows the session's state; before the file is read there is none, and the bar stays as it is. */
+  /** The bar shows the open file's session's state; before the file is read there is none, and the bar stays as it is. */
   function showButtons() {
-    const shown = main?.session.status()
+    const shown = (linked ?? main)?.session.status()
     if (!shown) {
       return
     }
@@ -150,7 +139,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   }
 
   function showState() {
-    const shown = main?.session.status()
+    const shown = (linked ?? main)?.session.status()
     if (!shown) {
       return
     }
@@ -164,10 +153,22 @@ export function openEditor(node, { diagram: openAt } = {}) {
   /** Save as copy carried the main file on in the copy (S8): the editor takes its name. */
   function renamedMain(copy) {
     main.name = copy.basename
-    title.textContent = copy.basename
+    showCrumbs()
     overlay.setAttribute('aria-label', copy.basename)
     image.setAttribute('aria-label', copy.basename)
     toMain({ effects: nameConfig.reconfigure([fileName.of(copy.basename), filePath.of(copy.path)]) })
+  }
+
+  /** A linked file's Save as copy carried it on in the copy (S8): the breadcrumb takes its name. */
+  function renamedLinked(record, copy) {
+    record.name = copy.basename
+    if (linked === record) {
+      showCrumbs()
+    }
+  }
+
+  function showCrumbs() {
+    crumbs.show(main.name, linked && { name: linked.name, readOnly: linked.readOnly })
   }
 
   const ticker = setInterval(showButtons, TICK_MS)
@@ -229,7 +230,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   /** R6: a file the diagram includes may have changed while the page was away. */
   function drawAgain() {
     if (!closed && document.visibilityState === 'visible') {
-      draw(view.state.doc.toString())
+      draw(mainState().doc.toString())
     }
   }
 
@@ -271,7 +272,14 @@ export function openEditor(node, { diagram: openAt } = {}) {
    */
   async function close() {
     // A second Escape or click while the first close saves does nothing.
-    if (closing) {
+    if (closing || closed) {
+      return
+    }
+    // From a linked file, back to the main file first, which is then closed as ever.
+    if (linked && !(await goBack())) {
+      return
+    }
+    if (closed) {
       return
     }
     const session = main?.session
@@ -313,11 +321,147 @@ export function openEditor(node, { diagram: openAt } = {}) {
       main?.session.save()
       return
     }
+    // K1: Escape closes the editor from the main file; from a linked file it goes back (R11).
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
       event.stopPropagation()
-      close()
+      if (linked) {
+        goBack()
+      } else {
+        close()
+      }
     }
+  }
+
+  /** The main file's state only: a linked file's carries linkedUpdate instead. */
+  function mainUpdate(update) {
+    if (update.docChanged) {
+      main.session.edited()
+      const text = update.state.doc.toString()
+      diagrams = diagramsOf(update.state.doc, text)
+      wantProfiles(diagrams, text)
+    }
+    if (update.docChanged || update.selectionSet) {
+      follow(update.state, update.docChanged)
+    }
+  }
+
+  /**
+   * R11, R12, R16: the linked file takes over the source pane, read with the
+   * profile its link names and opened where the line points. The main file's
+   * state is parked whole, its session saving on and no longer watching. A
+   * file that cannot be read leaves the main file shown, saying so.
+   */
+  async function openLinked(link) {
+    if (linked || opening) {
+      return
+    }
+    opening = true
+    let file
+    let access
+    let sheet
+    try {
+      ;[file, access, sheet] = await Promise.all([
+        loadFile(link.path),
+        fileAccess(link.path),
+        link.kind === 'style' ? loadSheetProfile() : null,
+      ])
+      if (!access) {
+        throw new Error(`${link.path} is not readable`)
+      }
+    } catch (e) {
+      console.error(`[${APP_ID}] could not open ${link.path}`, e)
+      if (!closed) {
+        main.session.fail(t(APP_ID, 'Could not open the file'))
+      }
+      return
+    } finally {
+      opening = false
+    }
+    if (closed) {
+      return
+    }
+    const name = link.path.slice(link.path.lastIndexOf('/') + 1)
+    const readOnly = !access.writable
+    const record = { link, name, readOnly, session: null, wantProfiles: null }
+    const save = () => record.session.save()
+    let extensions
+    if (link.kind === 'style') {
+      extensions = [...editorChrome({ save, onUpdate: linkedUpdate }), ...sheetExtension(sheet)]
+    } else {
+      // R14: a linked .puml has no chips of its own.
+      const built = sourceExtensions({
+        name,
+        path: link.path,
+        save,
+        onUpdate: linkedUpdate,
+        chips: [],
+        // Its state is the view's only while it is open.
+        apply: (effects) => {
+          if (linked === record && !closed) {
+            view.dispatch({ effects })
+          }
+        },
+      })
+      extensions = built.extensions
+      record.wantProfiles = built.wantProfiles
+    }
+    // As CodeMirror reads the file's line breaks, so an offset in it is one in the editor's text.
+    const text = file.content.replace(/\r\n?/g, '\n')
+    const state = EditorState.create({
+      doc: text,
+      selection: { anchor: landing(text, link) },
+      extensions: readOnly ? [...extensions, readOnlyFile] : extensions,
+    })
+    parked = { state: view.state, scrollTop: view.scrollDOM.scrollTop }
+    main.session.pause()
+    view.setState(state)
+    // Made once the view shows the file: a session reads its text as saved when it starts.
+    record.session = createFileSession({
+      path: link.path,
+      etag: file.etag,
+      doc: () => view.state.doc,
+      replace: (content, opts) => replaceWith(view.state, (spec) => view.dispatch(spec), content, opts),
+      onChange: showState,
+      onCopied: (copy) => renamedLinked(record, copy),
+      readOnly,
+    })
+    linked = record
+    view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head, { y: 'start', yMargin: 20 }) })
+    record.wantProfiles?.(diagramsOf(view.state.doc, text), text)
+    record.session.start()
+    showCrumbs()
+    showState()
+    view.focus()
+  }
+
+  function linkedUpdate(update) {
+    if (!update.docChanged || !linked) {
+      return
+    }
+    linked.session.edited()
+    const text = update.state.doc.toString()
+    linked.wantProfiles?.(diagramsOf(update.state.doc, text), text)
+  }
+
+  /** R11: back to the main file as it was left, its text, selection, folds, undo and scroll; true once there. */
+  async function goBack() {
+    if (!linked) {
+      return true
+    }
+    // Task 8 puts the save-before-leaving checks here.
+    linked.session.stop()
+    linked = null
+    const { state, scrollTop } = parked
+    parked = null
+    view.setState(state)
+    view.requestMeasure({ read: () => null, write: () => { view.scrollDOM.scrollTop = scrollTop } })
+    showCrumbs()
+    showState()
+    view.focus()
+    // It looks at once for a change made elsewhere while it was parked.
+    await main.session.resume()
+    return true
   }
 
   function onBeforeUnload(event) {
@@ -339,64 +483,21 @@ export function openEditor(node, { diagram: openAt } = {}) {
     if (closed) {
       return
     }
-    view = new EditorView({
-      parent: source,
-      state: EditorState.create({
-        doc: content,
-        extensions: [
-          lineNumbers(),
-          highlightActiveLineGutter(),
-          highlightActiveLine(),
-          drawSelection(),
-          bracketMatching(),
-          closeBrackets(),
-          highlightSelectionMatches(),
-          search({ top: true }),
-          history(),
-          // The PlantUML language, and what the loaded profiles add to it.
-          profilesConfig.of(profileExtension([])),
-          plantumlCompletion,
-          // After the completion, whose Escape closes its list first; it draws a carded word's lint messages.
-          plantumlDocs,
-          plantumlLint,
-          plantumlFolding,
-          nameConfig.of([fileName.of(name), filePath.of(node.path)]),
-          plantumlTheme,
-          // A swatch before each ColorLiteral, named ones too; picking a colour writes it back as #rrggbb.
-          colorSwatches,
-          // A chooser after each value with a list, a stepper after each number, on the cursor's line.
-          valueWidgets,
-          // Long lines wrap, so the source pane never scrolls sideways.
-          EditorView.lineWrapping,
-          // Mod-s would otherwise be the browser's "Save page as". defaultKeymap
-          // carries Mod-/ for comments; Ctrl-M (Shift-Alt-M on macOS) makes Tab
-          // move focus again instead of indenting. plantumlLintKeymap (lint's own)
-          // opens the diagnostics panel on Mod-Shift-m and steps through them on F8.
-          keymap.of([
-            { key: 'Mod-s', run: () => { main.session.save(); return true } },
-            ...closeBracketsKeymap,
-            ...defaultKeymap,
-            ...searchKeymap,
-            ...historyKeymap,
-            ...plantumlLintKeymap,
-            // An open diagnostics panel takes Escape before the editor does.
-            { key: 'Escape', run: closeLintPanel },
-            indentWithTab,
-          ]),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              main.session.edited()
-              const text = update.state.doc.toString()
-              diagrams = diagramsOf(update.state.doc, text)
-              wantProfiles(diagrams, text)
-            }
-            if (update.docChanged || update.selectionSet) {
-              follow(update.state, update.docChanged)
-            }
-          }),
-        ],
-      }),
+    const built = sourceExtensions({
+      name,
+      path: node.path,
+      save: () => main.session.save(),
+      onUpdate: mainUpdate,
+      chips: linkedChips(openLinked),
+      apply: (effects) => {
+        if (!closed) {
+          toMain({ effects })
+        }
+      },
     })
+    nameConfig = built.nameConfig
+    wantProfiles = built.wantProfiles
+    view = new EditorView({ parent: source, state: EditorState.create({ doc: content, extensions: built.extensions }) })
     main = {
       name,
       session: createFileSession({
@@ -427,6 +528,24 @@ export function openEditor(node, { diagram: openAt } = {}) {
     console.error(`[${APP_ID}] could not open ${node.path}`, e)
     status.textContent = t(APP_ID, 'Could not open the file')
   })
+}
+
+/**
+ * R16: where a linked file opens, as an offset in its text (`\n` lines): the
+ * `!startsub` line the link's section names, or the `@start` line of its block
+ * by index or id (B1), else the top.
+ */
+function landing(text, { section, block }) {
+  if (section !== null) {
+    const found = [...text.matchAll(SECTION)].find((m) => m[1] === section)
+    return found ? text.lastIndexOf('\n', found.index + found[0].indexOf('!startsub')) + 1 : 0
+  }
+  if (block === null) {
+    return 0
+  }
+  const blocks = blocksOf(scan(text))
+  const found = /^\d+$/.test(block) ? blocks[Number(block)] : blocks.find((b) => b.id === block)
+  return found ? text.split('\n', found.start - 1).reduce((offset, line) => offset + line.length + 1, 0) : 0
 }
 
 /**

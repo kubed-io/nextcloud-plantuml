@@ -138,6 +138,10 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
 
   /** The text changed under the keyboard, or from the file. */
   function edited() {
+    // Once stopped, the file was left: what its text does then is no change to save or show.
+    if (stopped) {
+      return
+    }
     failure = notice = ''
     if (!conflict && !readOnly) {
       autosave.schedule()
@@ -278,10 +282,14 @@ export function createFileSession({ path, etag, doc, replace, onChange, onCopied
     })
   }
 
-  const start = () => { watcher = watchFile({ check }) }
   const pause = () => {
     watcher?.stop()
     watcher = null
+  }
+  // One watcher, however often it is started: resume() starts it again.
+  const start = () => {
+    pause()
+    watcher = watchFile({ check })
   }
   // A failed look is logged as the watcher logs it: going back must not fail on a blip.
   const resume = () => {

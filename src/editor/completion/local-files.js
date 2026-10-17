@@ -14,7 +14,7 @@
  * because PlantUML takes a block by id or index and never by a bare name. Each file is read once per page.
  */
 import { once } from '../once.js'
-import { folderOf } from '../paths.js'
+import { folderOf, resolveLinked } from '../paths.js'
 import { WEB_SCHEMES, reopen, reopenPlain } from './apply.js'
 import { listFolder, loadFile } from '../save.js'
 import { filePath } from '../lint/state.js'
@@ -23,7 +23,7 @@ import { blocksOf, scan } from '../blocks.js'
 const INCLUDE = /^\s*!include(?:_many|_once|sub)?[ \t]+([^\s]*)$/
 const INCLUDE_NAME = /^\s*!include(_many|_once|sub)?[ \t]+(?:"([^"!]+)"|([^\s"!]+))!([^\s"]*)$/
 const INCLUDESUB = /^\s*!includesub[ \t]+$/
-const SECTION = /^\s*!startsub[ \t]+(\S+)/gm
+export const SECTION = /^\s*!startsub[ \t]+(\S+)/gm
 const STYLE = /<style file=([^\s>]*)$/
 const INCLUDE_FILES = /\.(?:puml|iuml|plantuml|pu|txt)$/i
 const STYLE_FILES = /\.(?:css|txt)$/i
@@ -76,14 +76,13 @@ async function namesOf(context, file, kind, name, typed) {
   if (/^<|^https?:|[$%]/.test(name)) {
     return null
   }
-  const slash = name.lastIndexOf('/')
-  const folder = folderOf(file, name.slice(0, slash + 1))
-  if (folder === null) {
+  const path = resolveLinked(file, name)
+  if (path === null) {
     return null
   }
   let content
   try {
-    content = await readOnce(`${folder === '/' ? '' : folder}/${name.slice(slash + 1)}`)
+    content = await readOnce(path)
   } catch {
     return null
   }

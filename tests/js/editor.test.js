@@ -45,6 +45,10 @@ vi.mock('../../src/editor/preview.js', () => ({
   cancel: seams.cancel,
 }))
 
+// jsdom has no layout: CodeMirror measures the text it draws, a view given a new state among it.
+Range.prototype.getClientRects ??= () => []
+Range.prototype.getBoundingClientRect ??= () => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 })
+
 const q = (selector) => document.querySelector(selector)
 const settle = () => (vi.isFakeTimers() ? vi.advanceTimersByTimeAsync(0) : new Promise((resolve) => setTimeout(resolve, 0)))
 const type = (text) => EditorView.findFromDOM(q('.cm-editor')).dispatch({ changes: { from: 0, insert: text } })
@@ -1579,5 +1583,168 @@ describe('opening at a diagram', () => {
 
     expect(selectedTab()).toBe('a')
     expect(view().state.selection.main.head).toBe(0)
+  })
+})
+
+describe('a linked file', () => {
+  // screens / linked-main, linked-style and linked-include, verbatim.
+  const MAIN = "@startuml nodes\n@enduml\n@startuml order-flow\n' checkout, happy path\n<style file=./UML_Fun.css>\n!include ./UML_Fun_parts.puml\nparticipant Shop\nparticipant Payment\nCustomer -> Shop : place order\nShop -> Payment : charge\nPayment --> Shop : ok\nShop --> Customer : confirmation\n@enduml\n@startyaml config\nserver: plantuml\ntheme: plain\n@endyaml\n"
+  const STYLE = 'participant {\n  BackgroundColor   #FFE08A\n  LineColor   #8A6D00\n  FontStyle bold\n}\narrow {\n  LineColor   #8A6D00\n}\n'
+  const PARTS = "@startuml parts\n' the cast every diagram shares\nactor Customer\n<style file=./parts.css>\n@enduml\n@startuml(id=extra) more\nactor Clerk\n@enduml\n"
+  const FILES = {
+    '/Diagrams/Order flow.puml': { content: MAIN, etag: '"m1"' },
+    '/Diagrams/UML_Fun.css': { content: STYLE, etag: '"s1"' },
+    '/Diagrams/UML_Fun_parts.puml': { content: PARTS, etag: '"p1"' },
+    '/Diagrams/parts.css': { content: 'actor {}\n', etag: '"c1"' },
+  }
+  let files
+  const chip = (name) => q(`button.cm-plantuml-link-chip[aria-label="Open ${name}"]`)
+  const pressChip = async (name) => {
+    chip(name).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    await settle()
+  }
+
+  // The style profile is a chunk of its own: one settle() does not cover its import.
+  // The editor in use is the one the profiles tests imported last, so its module is asked.
+  beforeAll(async () => {
+    const { loadSheetProfile } = await import('../../src/editor/profiles/index.js')
+    await loadSheetProfile()
+  })
+
+  beforeEach(() => {
+    files = structuredClone(FILES)
+    seams.loadFile.mockImplementation(async (path) => files[path] ?? Promise.reject(new Error('404')))
+    seams.fileAccess.mockImplementation(async (path) => (files[path] ? { writable: true } : null))
+  })
+
+  /** Opens the style file with the cursor on its `<style file=…>` line, in the order-flow diagram. */
+  async function openStyle() {
+    await open()
+    view().dispatch({ selection: { anchor: MAIN.indexOf('<style') } })
+    await settle()
+    await pressChip('UML_Fun.css')
+  }
+
+  it('asks again whether a linked file is there at each open', async () => {
+    const asks = () => seams.fileAccess.mock.calls.filter(([path]) => path === '/Diagrams/UML_Fun.css').length
+    await open()
+    await settle()
+    expect(asks()).toBe(1)
+    q('.plantuml-editor__close').click()
+    await settle()
+
+    await open()
+    await settle()
+
+    expect(asks()).toBe(2)
+  })
+
+  it('takes over the source pane, named in the breadcrumb', async () => {
+    await openStyle()
+
+    expect(source()).toBe(STYLE)
+    expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml›UML_Fun.css')
+    expect(q('button.cm-plantuml-link-chip')).toBeNull()
+  })
+
+  it('reads a style file with the editor\'s own parts: line numbers, undo and swatches', async () => {
+    await openStyle()
+
+    expect(q('.cm-lineNumbers')).not.toBeNull()
+    view().dispatch({ changes: { from: 0, insert: "' x\n" } })
+    undo(view())
+    expect(source()).toBe(STYLE)
+  })
+
+  it.each([
+    ['the ×', () => q('.plantuml-editor__back').click()],
+    ['the main crumb', () => q('.plantuml-editor__crumb').click()],
+    ['Escape', () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))],
+  ])('goes back on %s, the editor still open', async (_how, back) => {
+    await openStyle()
+
+    back()
+    await settle()
+
+    expect(source()).toBe(MAIN)
+    expect(q('.plantuml-editor')).not.toBeNull()
+    expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml')
+  })
+
+  it('keeps the main file whole: text, unsaved edit, selection and undo', async () => {
+    await open()
+    view().dispatch({ changes: { from: 0, insert: "' mine\n" }, selection: { anchor: 3 } })
+    await settle()
+    await pressChip('UML_Fun.css')
+    view().dispatch({ changes: { from: 0, insert: "' theirs\n" } })
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(source()).toBe("' mine\n" + MAIN)
+    expect(view().state.selection.main.head).toBe(3)
+    undo(view())
+    expect(source()).toBe(MAIN)
+  })
+
+  it('autosaves the main file\'s own text while a linked file is open', async () => {
+    vi.useFakeTimers()
+    seams.saveFile.mockResolvedValue('"m2"')
+    await open()
+    view().dispatch({ changes: { from: 0, insert: "' mine\n" } })
+    await vi.advanceTimersByTimeAsync(0)
+    await pressChip('UML_Fun.css')
+
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/Order flow.puml', "' mine\n" + MAIN, '"m1"')
+    expect(seams.saveFile.mock.calls.some(([path, text]) => path === '/Diagrams/Order flow.puml' && text === STYLE)).toBe(false)
+  })
+
+  it('reads a linked .puml as a diagram, with no chips of its own', async () => {
+    await open()
+    await settle()
+    await pressChip('UML_Fun_parts.puml')
+    await settle()
+
+    expect(source()).toBe(PARTS)
+    expect(q('button.cm-plantuml-link-chip')).toBeNull()
+  })
+
+  it.each([
+    ['!includesub ./UML_Fun_parts.puml!B', "@startuml\n!startsub A\nX\n!endsub\n!startsub B\nY\n!endsub\n@enduml\n", 5],
+    ['!include ./UML_Fun_parts.puml!1', PARTS, 6],
+    ['!include ./UML_Fun_parts.puml!extra', PARTS, 6],
+  ])('opens %s where the line points', async (line, content, number) => {
+    files['/Diagrams/UML_Fun_parts.puml'] = { content, etag: '"p1"' }
+    files['/Diagrams/Order flow.puml'] = { content: `@startuml\n${line}\n@enduml\n`, etag: '"m1"' }
+    await open()
+    await settle()
+    await pressChip('UML_Fun_parts.puml')
+
+    expect(view().state.doc.lineAt(view().state.selection.main.head).number).toBe(number)
+  })
+
+  it('stays on the main file when the linked one cannot be read', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await open()
+    await settle()
+    delete files['/Diagrams/UML_Fun.css']
+    await pressChip('UML_Fun.css')
+
+    expect(source()).toBe(MAIN)
+    expect(status()).toBe('Could not open the file')
+    expect(error).toHaveBeenCalledWith('[plantuml] could not open /Diagrams/UML_Fun.css', expect.any(Error))
+  })
+
+  it('closes from the main file on the next Escape', async () => {
+    await openStyle()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await settle()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await settle()
+
+    expect(q('.plantuml-editor')).toBeNull()
   })
 })

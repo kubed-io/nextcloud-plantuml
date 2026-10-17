@@ -209,6 +209,27 @@ final class ExportControllerTest extends TestCase {
 		self::assertSame(['problem' => 'no image for b'], $response->getData());
 	}
 
+	/** Controls, C1 controls and format characters such as the bidi override U+202E go as `/` does. */
+	public function testNamesLoseEveryUnsafeAndInvisibleCharacter(): void {
+		$name = "a\\b*c?d<e>f|g\th\u{202E}i\u{9B}j\u{200B}k";
+		$response = $this->controller($this->drawing(), 'Doc.puml', "@startuml x\n@enduml\n@startuml {$name}\n@enduml\n")->export('Diagrams/Doc.puml', 'svg', null, ['1']);
+		self::assertSame(
+			"attachment; filename=\"Doc - a - b - c - d - e - f - g - h - i - j - k.svg\"; filename*=UTF-8''" . rawurlencode('Doc - a - b - c - d - e - f - g - h - i - j - k.svg'),
+			self::header($response, 'Content-Disposition'),
+		);
+	}
+
+	/** A label past 150 characters is cut there, for the download and for the zip entry alike. */
+	public function testALongLabelIsCutAt150Characters(): void {
+		$long = str_repeat('x', 140) . str_repeat('ö', 20) . 'tail';
+		$text = "@startuml x\n@enduml\n@startuml {$long}\n@enduml\n";
+		$cut = 'Doc - ' . str_repeat('x', 140) . str_repeat('ö', 10) . '.svg';
+		$one = $this->controller($this->drawing(), 'Doc.puml', $text)->export('Diagrams/Doc.puml', 'svg', null, ['1']);
+		self::assertStringEndsWith("; filename*=UTF-8''" . rawurlencode($cut), (string)self::header($one, 'Content-Disposition'));
+		$all = $this->controller($this->drawing(), 'Doc.puml', $text)->export('Diagrams/Doc.puml', 'svg');
+		self::assertSame(['Doc - x.svg', $cut], array_keys($this->entries($all->render())));
+	}
+
 	/** Review focus 2: two unnamed diagrams of one type. */
 	public function testSameLabelsStayApart(): void {
 		$response = $this->controller($this->drawing(), 'Doc.puml', "@startuml\n@enduml\n@startuml\n@enduml\n@startuml\n@enduml\n")->export('Diagrams/Doc.puml', 'svg');

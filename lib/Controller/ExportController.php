@@ -38,6 +38,8 @@ use OCP\ITempManager;
 final class ExportController extends Controller {
 	public const MAX_DIAGRAMS = 100;
 	public const MAX_BYTES = 52428800;
+	/** Characters of a diagram's label kept in a name: headers stay small, and zip entries short. */
+	public const MAX_LABEL = 150;
 
 	public function __construct(
 		string $appName,
@@ -188,12 +190,16 @@ final class ExportController extends Controller {
 
 	/** @param Diagram $diagram */
 	private static function entry(string $base, array $diagram, string $format): string {
-		return self::safe($base . ' - ' . Diagrams::label($diagram)) . ".{$format}";
+		return self::safe($base . ' - ' . mb_substr(Diagrams::label($diagram), 0, self::MAX_LABEL)) . ".{$format}";
 	}
 
-	/** Each run of unsafe characters, with the spaces around it, becomes ` - `: `Login / Sign-up` is `Login - Sign-up`. */
+	/**
+	 * Each run of unsafe characters, with the spaces around it, becomes ` - `: `Login / Sign-up` is
+	 * `Login - Sign-up`. Unsafe: what a file system or a header refuses, and the invisible ones (C0
+	 * and C1 controls, and `\p{Cf}` such as a bidi override, which shows a name backwards).
+	 */
 	private static function safe(string $name): string {
-		$name = trim((string)preg_replace(['/\s*[\/\\\\:*?"<>|\x00-\x1F\x7F]+\s*/u', '/ {2,}/'], [' - ', ' '], $name), ' -');
+		$name = trim((string)preg_replace(['/\s*[\/\\\\:*?"<>|\p{Cc}\p{Cf}]+\s*/u', '/ {2,}/'], [' - ', ' '], $name), ' -');
 		return $name !== '' ? $name : 'diagram';
 	}
 

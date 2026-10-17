@@ -103,6 +103,83 @@ describe('a sheet', () => {
   })
 })
 
+describe('a failed sheet (VW10, VW1)', () => {
+  beforeEach(() => vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` }))
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('asks again, when next asked, for a sheet that got no answer or a 5xx (VW10)', async () => {
+    const fetch = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(new Response('{"problem":"unreachable"}', { status: 503 }))
+      .mockResolvedValue(svgAnswer())
+    vi.stubGlobal('fetch', fetch)
+    const sheets = createSheets('/D/S.puml', { labelOf: () => 'a' })
+    const sheet = sheets.sheet(1)
+
+    await drawn(sheets, 1)
+    expect(sheet.textContent).toBe('Could not draw the diagram')
+    let again = settled(sheet)
+    sheets.request(1)
+    await again
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(sheet.textContent).toBe('unreachable')
+    again = settled(sheet)
+    sheets.request(1)
+    await again
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(sheet.querySelector('svg')).not.toBeNull()
+  })
+
+  it.each([
+    ['a missing image', () => new Response('{"problem":"no image for three"}', { status: 404 })],
+    ['a file too large', () => new Response('{"problem":"too large"}', { status: 413 })],
+  ])('never asks again for the route\'s own refusal, %s (VW10)', async (_what, answer) => {
+    const fetch = vi.fn(async () => answer())
+    vi.stubGlobal('fetch', fetch)
+    const sheets = createSheets('/D/S.puml', { labelOf: () => 'a' })
+    await drawn(sheets, 1)
+    sheets.request(1)
+    await tick()
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks nothing again by itself after a failure (VW10)', async () => {
+    vi.useFakeTimers()
+    const fetch = vi.fn(async () => new Response('{"problem":"unreachable"}', { status: 502 }))
+    vi.stubGlobal('fetch', fetch)
+    const sheets = createSheets('/D/S.puml', { labelOf: () => 'a' })
+    const { sheet } = await drawn(sheets, 1)
+
+    await vi.advanceTimersByTimeAsync(5000)
+    sheet.dispatchEvent(new CustomEvent('plantuml-viewer:settled', { detail: { size: null } }))
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads a problem as text, not as an image (VW1)', async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response('{"problem":"no image for three"}', { status: 500 }))
+      .mockResolvedValue(svgAnswer())
+    vi.stubGlobal('fetch', fetch)
+    const sheets = createSheets('/D/S.puml', { labelOf: () => 'login' })
+    const { sheet } = await drawn(sheets, 1)
+
+    expect(sheet.hasAttribute('role')).toBe(false)
+    expect(sheet.hasAttribute('aria-label')).toBe(false)
+    expect(sheet.textContent).toBe('no image for three')
+    const again = settled(sheet)
+    sheets.request(1)
+    await again
+    expect(sheet.getAttribute('role')).toBe('img')
+    expect(sheet.getAttribute('aria-label')).toBe('login')
+  })
+})
+
 describe('a sheet still loading (VW9)', () => {
   beforeEach(() => vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` }))
   afterEach(() => vi.unstubAllGlobals())

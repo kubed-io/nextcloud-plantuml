@@ -19,7 +19,7 @@ let editorFailures = 0
  *
  * @return {Promise<void>}
  */
-function ensureEditor() {
+export function ensureEditor() {
   if (window.OCA?.PlantUml?.openEditor) {
     return Promise.resolve()
   }

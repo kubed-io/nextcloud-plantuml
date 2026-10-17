@@ -4,9 +4,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FakeIntersectionObserver } from '../helpers/intersection.js'
 
-const seams = vi.hoisted(() => ({ loadFile: vi.fn(), canDownload: vi.fn(), openEditor: vi.fn(), serverConfigured: true }))
+const seams = vi.hoisted(() => ({ loadFile: vi.fn(), canDownload: vi.fn(), openEditor: vi.fn(), ensureEditor: vi.fn(), serverConfigured: true }))
 vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile, canDownload: seams.canDownload }))
-vi.mock('../../../src/open-editor.js', () => ({ openEditor: seams.openEditor }))
+vi.mock('../../../src/open-editor.js', () => ({ openEditor: seams.openEditor, ensureEditor: seams.ensureEditor }))
 vi.mock('@nextcloud/initial-state', () => ({ loadState: () => seams.serverConfigured }))
 // The Wall's memory is the signed-in user's.
 vi.mock('@nextcloud/auth', () => ({ getCurrentUser: () => ({ uid: 'drk' }) }))
@@ -36,6 +36,7 @@ beforeEach(() => {
   })
   vi.stubGlobal('fetch', fetch)
   seams.canDownload.mockResolvedValue(true)
+  seams.ensureEditor.mockResolvedValue(undefined)
   seams.serverConfigured = true
   window.OCA = { Viewer: { close: vi.fn() } }
   root = document.createElement('div')
@@ -375,6 +376,18 @@ describe('Stack and Wall', () => {
     expect(first.querySelector('label').textContent).toBe('nodes')
     box.click()
     expect(box.checked).toBe(true)
+  })
+
+  it('describes a disabled box by its sheet\'s problem (VW1)', async () => {
+    fetch.mockImplementation(async () => new Response('{"problem":"no image for b"}', { status: 404 }))
+    await open('@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n')
+    mode('Stack')
+    await settle()
+
+    const box = cards()[1].querySelector('input[type="checkbox"]')
+    const described = document.getElementById(box.getAttribute('aria-describedby'))
+    expect(described.textContent).toBe('no image for b')
+    expect(described.hasAttribute('role')).toBe(false)
   })
 
   it('disables the checkbox of a diagram the server draws no image for, described by its sheet', async () => {
@@ -1354,6 +1367,7 @@ describe('Edit', () => {
     await open(THREE)
     root.querySelectorAll('[role="tab"]')[1].click()
     edit()
+    await settle()
     expect(window.OCA.Viewer.close).toHaveBeenCalled()
     expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 1 })
   })
@@ -1364,6 +1378,7 @@ describe('Edit', () => {
     check(2)
     check(1)
     edit()
+    await settle()
     expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 1 })
   })
 
@@ -1371,7 +1386,58 @@ describe('Edit', () => {
     await open(THREE)
     mode('Wall')
     edit()
+    await settle()
     expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 0 })
+  })
+
+  it('closes the Viewer only once the editor has loaded (VW7)', async () => {
+    let loaded
+    seams.ensureEditor.mockReturnValue(new Promise((resolve) => { loaded = resolve }))
+    await open(THREE)
+    edit()
+    await settle()
+    expect(window.OCA.Viewer.close).not.toHaveBeenCalled()
+    expect(seams.openEditor).not.toHaveBeenCalled()
+
+    loaded()
+    await settle()
+    expect(window.OCA.Viewer.close).toHaveBeenCalledOnce()
+    expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 0 })
+  })
+
+  it('stays as it was and says so when the editor will not load, and the next Edit tries again (VW7)', async () => {
+    seams.ensureEditor.mockRejectedValueOnce(new Error('no bundle'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await open(THREE)
+    mode('Stack')
+    check(1)
+    edit()
+    await settle()
+
+    expect(window.OCA.Viewer.close).not.toHaveBeenCalled()
+    expect(root.querySelector('.plantuml-viewer__notice').textContent).toBe('Could not open the editor')
+    expect(root.querySelector('.plantuml-viewer__stage--stack')).not.toBeNull()
+    expect(cards()[1].querySelector('input').checked).toBe(true)
+
+    edit()
+    await settle()
+    expect(seams.ensureEditor).toHaveBeenCalledTimes(2)
+    expect(window.OCA.Viewer.close).toHaveBeenCalledOnce()
+    expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 1 })
+  })
+
+  it('does nothing on a second Edit while the editor loads (VW7)', async () => {
+    let loaded
+    seams.ensureEditor.mockReturnValue(new Promise((resolve) => { loaded = resolve }))
+    await open(THREE)
+    edit()
+    edit()
+    loaded()
+    await settle()
+
+    expect(seams.ensureEditor).toHaveBeenCalledOnce()
+    expect(window.OCA.Viewer.close).toHaveBeenCalledOnce()
+    expect(seams.openEditor).toHaveBeenCalledOnce()
   })
 
   it('is not offered without a server', async () => {

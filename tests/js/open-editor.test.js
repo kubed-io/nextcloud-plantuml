@@ -54,4 +54,16 @@ describe('opening the editor from elsewhere', () => {
 
     expect(window.OCA.Viewer.open).toHaveBeenCalledWith({ path: '/Diagrams/Screens.puml' })
   })
+
+  it('exports the one bundle loader, which loads once', async () => {
+    const { ensureEditor } = await import('../../src/open-editor.js')
+
+    const first = ensureEditor()
+    const second = ensureEditor()
+    expect(scripts()).toHaveLength(1)
+    editorBundleRuns()
+    await Promise.all([first, second])
+
+    expect(scripts()).toHaveLength(1)
+  })
 })

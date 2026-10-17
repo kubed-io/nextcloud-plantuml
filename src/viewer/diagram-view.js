@@ -25,7 +25,7 @@ import { APP_ID, exportUrl } from '../files-helpers.js'
 import { canDownload, loadFile } from '../editor/save.js'
 import { label, scan } from '../editor/blocks.js'
 import { createTabs } from '../editor/tabs.js'
-import { openEditor } from '../open-editor.js'
+import { ensureEditor, openEditor } from '../open-editor.js'
 import { createMenu } from './menu.js'
 import { createSheets, jsonProblem } from './sheets.js'
 import { createToolbar } from './toolbar.js'
@@ -97,6 +97,8 @@ export function createDiagramView(root, { path, basename, onReady }) {
   let active = true
   let destroyed = false
   let ready = false
+  // The editor bundle is loading for an Edit already pressed.
+  let editing = false
   // The file is read and its stage (or the problem line) shows.
   let shown = false
   // A card → the position of its sheet.
@@ -234,9 +236,30 @@ export function createDiagramView(root, { path, basename, onReady }) {
     }
   }
 
-  /** The editor at the diagram in view; the Viewer closes first, as the editor opens over Files. */
-  function edit() {
+  /**
+   * The editor at the diagram in view. The Viewer stays until the editor bundle has loaded, so
+   * the screen is never blank; it closes then, as the editor opens over Files. A bundle that will
+   * not load leaves the Viewer as it was, and says so. A second press meanwhile does nothing.
+   */
+  async function edit() {
+    if (editing) {
+      return
+    }
+    editing = true
+    say('')
     const index = chosen()[0] ?? 0
+    try {
+      await ensureEditor()
+    } catch (e) {
+      console.error(`[${APP_ID}] could not load the editor`, e)
+      say(t(APP_ID, 'Could not open the editor'))
+      return
+    } finally {
+      editing = false
+    }
+    if (destroyed) {
+      return
+    }
     window.OCA?.Viewer?.close()
     openEditor({ path, basename }, { diagram: index })
   }

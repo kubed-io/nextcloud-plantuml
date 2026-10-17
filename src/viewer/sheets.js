@@ -111,8 +111,13 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
     node.removeAttribute('aria-busy')
     if (svg) {
       sizes.set(position, size)
+      // A drawing is an image to a screen reader; a problem is text it reads as it is (VW1).
+      node.setAttribute('role', 'img')
+      node.setAttribute('aria-label', labelOf(position))
       node.replaceChildren(svg)
     } else {
+      node.removeAttribute('role')
+      node.removeAttribute('aria-label')
       const line = document.createElement('p')
       line.className = 'plantuml-viewer__problem'
       line.textContent = problem
@@ -144,6 +149,8 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
     let svg = null
     let size = null
     let problem = ''
+    // No answer, or the server failing (500 or more), is worth asking again when next asked; any 4xx is the route's own word.
+    let again = false
     try {
       const res = await fetch(renderUrl(path, { index: position - 1 }), init)
       if (checking && res.status === 304) {
@@ -161,15 +168,21 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
       } else {
         // The route's own words, as it sent them: its "no diagram N" counts from 1.
         problem = (!res.ok && jsonProblem(body)) || t(APP_ID, 'Could not draw the diagram')
+        again = res.status >= 500
       }
     } catch {
       if (stop.signal.aborted) {
         return
       }
       problem = t(APP_ID, 'Could not draw the diagram')
+      again = true
     }
     if (svg || !checking) {
       settle(position, svg, size, problem)
+      if (again) {
+        // Only a later request() asks again; nothing here does.
+        started.delete(position)
+      }
     }
   }
 

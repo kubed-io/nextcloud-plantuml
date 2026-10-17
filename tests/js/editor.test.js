@@ -1595,6 +1595,16 @@ describe('the editor as a key boundary', () => {
     expect(q('.plantuml-editor')).not.toBeNull()
   })
 
+  it('keeps them from Files when the focus fell to the body, as when a focused button is disabled', async () => {
+    await open()
+    document.body.focus()
+
+    hotkeys(document.body)
+
+    expect(onWindow).not.toHaveBeenCalled()
+    expect(q('.plantuml-editor')).not.toBeNull()
+  })
+
   it('keeps them from the type menu\'s rows', async () => {
     await open()
     q('.plantuml-editor__add-type').click()

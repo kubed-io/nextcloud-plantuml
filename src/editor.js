@@ -385,7 +385,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     linkedMode.stop()
     clearInterval(ticker)
     cancelRender()
-    document.removeEventListener('keydown', onKeydown)
+    document.removeEventListener('keydown', onOutsideKeydown)
     document.removeEventListener('visibilitychange', drawAgain)
     window.removeEventListener('focus', drawAgain)
     window.removeEventListener('beforeunload', onBeforeUnload)
@@ -401,6 +401,12 @@ export function openEditor(node, { diagram: openAt } = {}) {
 
   // CodeMirror marks an Escape it used (closing the completion popup, the
   // search or diagnostics panel, dropping a multi-selection) as handled.
+  /** A key from outside the overlay while the editor is open: the editor's, never Files'. */
+  function onOutsideKeydown(event) {
+    onKeydown(event)
+    event.stopPropagation()
+  }
+
   function onKeydown(event) {
     // The editor's own Mod-s has handled it already when the focus is in the
     // source. 'S' is Caps Lock's; Shift is another shortcut's.
@@ -451,12 +457,13 @@ export function openEditor(node, { diagram: openAt } = {}) {
   // Viewer, Delete, F2 …) act on the file underneath, and Enter's cancels a
   // button's own click. A key from inside is handled here, after the source,
   // the menus and the modal, and stops; its default is left alone. The document
-  // still takes one from outside, as when a click left the focus on the body.
+  // still takes one from outside, as when a click left the focus on the body or
+  // a focused button was disabled or hidden, and stops it before Files' window.
   overlay.addEventListener('keydown', (event) => {
     onKeydown(event)
     event.stopPropagation()
   })
-  document.addEventListener('keydown', onKeydown)
+  document.addEventListener('keydown', onOutsideKeydown)
   window.addEventListener('beforeunload', onBeforeUnload)
 
   loadFile(node.path).then(({ content, etag: loadedEtag }) => {

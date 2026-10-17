@@ -66,13 +66,20 @@ trait TemplateSteps {
 		if ($status >= 300) {
 			throw new \RuntimeException("PUT {$name} as " . self::SHARER . " answered HTTP {$status}");
 		}
-		$target = $this->shareViewOnlyWithMe(self::SHARER, $password, "/{$name}");
-		// A received share is moved in my files as any file of mine is.
-		$moved = $this->davClient()->request('MOVE', $this->davPath($target), [
-			'headers' => ['Destination' => $this->baseUrl . '/remote.php/dav/files/' . rawurlencode($this->adminUser) . '/' . $this->davPath("Templates/{$name}")],
-		])->getStatusCode();
-		if ($moved >= 300 || !$this->davExists("Templates/{$name}")) {
-			throw new \RuntimeException("moving the share {$target} into Templates answered HTTP {$moved}");
+		// A view-only share cannot be moved (WebDAV MOVE asks the right to delete it), so it is
+		// accepted into Templates: Files' "folder for accepted shares", set for this share alone.
+		$user = escapeshellarg($this->adminUser);
+		$set = $this->occ("user:setting {$user} files_sharing share_folder " . escapeshellarg('/Templates'));
+		if ($set['exit'] !== 0) {
+			throw new \RuntimeException("user:setting failed (exit {$set['exit']}):\n{$set['output']}");
+		}
+		try {
+			$target = $this->shareViewOnlyWithMe(self::SHARER, $password, "/{$name}");
+		} finally {
+			$this->occ("user:setting {$user} files_sharing share_folder --delete");
+		}
+		if (!$this->davExists("Templates/{$name}")) {
+			throw new \RuntimeException("the share landed at {$target}, not in Templates");
 		}
 	}
 

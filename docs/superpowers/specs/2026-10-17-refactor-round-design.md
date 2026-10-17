@@ -75,7 +75,7 @@ Status: **agreed (refactor round)**, approved by Dr K on 2026-10-17.
 
 Measured the way the refactor audit measured them (`.superpowers/research/2026-10-17-refactor-round/`):
 
-- Editor entry ≤ 236 KB gzip (260.45 today). Measured: 240.94 kB by `npm run build` (240,940 bytes, under the 241,664 of 236 KiB; 237,729 bytes with `gzip`), `dist/plantuml-push.js` 28.03 kB beside it. Met.
+- Editor entry ≤ 236 kB gzip (260.45 before the round): measured 240.94 kB (`npm run build`), **missed by about 4.9 kB**, a 19.5 kB drop. It sits above the audit's 235.3 kB experiment because notify_push moved to its own bundle (`dist/plantuml-push.js`, 28.03 kB) with its capability check and loader kept in the entry, and later tasks added code.
 - Per keystroke on the 3,600-line documents: all completion sources ≤ 1.2 ms (1.78–2.58 today). Measured: raw 0.80 / 0.65 / 0.56 ms and with `withDocs` 1.24 / 1.03 / 0.75 ms on documents A / B / C (median of 20, after a warm-up). Raw met; with `withDocs` on A (3,637 lines of `uml.puml`) **missed by 0.04 ms**.
 - A hover on a plain name in a 3,350-line block ≤ 1 ms (11.3 today). Measured: 0.36 ms. Met.
 - `npx vitest run` ≤ 15 s (25.0 today). Measured: 11.9–12.2 s over three runs (1,941 tests). Met.

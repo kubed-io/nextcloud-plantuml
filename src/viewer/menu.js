@@ -55,10 +55,20 @@ export function createMenu({ anchor, heading, items, onPick, idPrefix = 'plantum
     }
   }
 
+  /** Move left to keep the right edge 8 px inside the window, but never past 8 px from its left. */
+  function keepInside() {
+    const rect = element.getBoundingClientRect()
+    const shift = Math.min(rect.right - (window.innerWidth - 8), rect.left - 8)
+    if (shift > 0) {
+      element.style.left = `${anchor.offsetLeft - shift}px`
+    }
+  }
+
   function open() {
     title.textContent = heading()
     element.style.left = `${anchor.offsetLeft}px`
     element.hidden = false
+    keepInside()
     anchor.setAttribute('aria-expanded', 'true')
     document.addEventListener('pointerdown', outside, true)
     buttons[0]?.focus()

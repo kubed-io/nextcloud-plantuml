@@ -144,6 +144,14 @@ export function createDiagramView(root, { path, basename, onReady }) {
     resizer.observe(stage)
   }
 
+  // A second press of a double-click on a Files row lands on the Viewer once it opens, and would
+  // highlight the page or the diagram under it; a first press is left to do its work.
+  root.addEventListener('mousedown', (event) => {
+    if (event.detail > 1) {
+      event.preventDefault()
+    }
+  })
+
   root.addEventListener('keydown', (event) => {
     const inMenu = event.target.closest?.('[role="menu"]')
     const inTabs = event.target.closest?.('[role="tablist"]')
@@ -235,6 +243,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     mark.setAttribute('aria-hidden', 'true')
     box.checked = state.checked.has(index)
     box.addEventListener('change', () => {
+      say('')
       if (box.checked) {
         state.checked.add(index)
       } else {
@@ -417,6 +426,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
   }
 
   function show() {
+    say('')
     toolbar?.setMode(state.mode)
     tabBar.hidden = state.mode !== 'tabs' || diagrams.length < 2
     stage.className = `plantuml-viewer__stage plantuml-viewer__stage--${state.mode}`
@@ -475,7 +485,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
       return
     }
     const line = element('p', 'plantuml-viewer__problem')
-    line.textContent = t(APP_ID, 'Could not draw the diagram')
+    line.textContent = t(APP_ID, 'Could not open the file')
     root.replaceChildren(line)
     shown = true
     settle()

@@ -180,8 +180,11 @@
 	background: var(--color-background-hover);
 }
 
-.plantuml-viewer__toolbar button.plantuml-viewer__button:focus-visible {
-	outline: 2px solid var(--color-primary-element);
+/* The ring of the toolbar, the tabs and the menu's rows. Core's button:not(…):focus-visible
+ * ring is !important at (0,3,1); this rule is (0,4,1). */
+.plantuml-viewer .plantuml-viewer__head button:not(:disabled):focus-visible {
+	outline: 2px solid var(--color-primary-element) !important;
+	box-shadow: none !important;
 }
 
 .plantuml-viewer__toolbar button.plantuml-viewer__mode[aria-pressed="true"] {
@@ -229,6 +232,7 @@
 	top: calc(100% + 4px);
 	z-index: 1;
 	width: 260px;
+	max-width: calc(100vw - 16px);
 	padding: 4px 0;
 	box-sizing: border-box;
 	border: 1px solid var(--color-border);
@@ -265,6 +269,7 @@
 	color: var(--color-main-text);
 	font-size: 15px;
 	font-weight: 400;
+	outline-offset: -2px;
 }
 
 .plantuml-viewer__menu button.plantuml-viewer__menu-item:hover,

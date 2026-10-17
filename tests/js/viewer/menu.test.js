@@ -37,6 +37,28 @@ describe('the export menu', () => {
     expect(anchor.getAttribute('aria-expanded')).toBe('true')
   })
 
+  it('moves left to keep its right edge 8 px inside the window, never past 8 px from its left (VW6)', () => {
+    const rect = (left, right) => { shown().getBoundingClientRect = () => ({ left, right, width: right - left }) }
+    Object.defineProperty(anchor, 'offsetLeft', { configurable: true, value: 200 })
+    vi.stubGlobal('innerWidth', 390)
+    rect(200, 460)
+    menu.open()
+    expect(shown().style.left).toBe('122px')
+    menu.close()
+
+    vi.stubGlobal('innerWidth', 300)
+    rect(100, 460)
+    menu.open()
+    expect(shown().style.left).toBe('108px')
+    menu.close()
+
+    vi.stubGlobal('innerWidth', 390)
+    rect(200, 380)
+    menu.open()
+    expect(shown().style.left).toBe('200px')
+    vi.unstubAllGlobals()
+  })
+
   it('is named by its heading, which is no item of it', () => {
     menu.destroy()
     menu = createMenu({ anchor, heading: () => what, items, onPick, idPrefix: 'plantuml-viewer-7-' })

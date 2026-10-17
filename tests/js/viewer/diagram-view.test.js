@@ -176,14 +176,40 @@ describe('the Viewer, in Tabs', () => {
     expect(onReady).toHaveBeenCalledOnce()
   })
 
-  it('says it could not draw when the file cannot be read, and is ready', async () => {
+  it('says it could not open the file when the file cannot be read, and is ready (VW1)', async () => {
     seams.loadFile.mockRejectedValue(new Error('404'))
     const onReady = vi.fn()
     createDiagramView(root, { path: '/D/Gone.puml', basename: 'Gone.puml', onReady })
     await settle()
 
-    expect(root.textContent).toBe('Could not draw the diagram')
+    expect(root.textContent).toBe('Could not open the file')
     expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('starts no selection on a second press, and leaves a first press alone (VW14)', async () => {
+    const press = (target, detail) => {
+      const event = new MouseEvent('mousedown', { detail, bubbles: true, cancelable: true })
+      target.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    await open(SCREENS)
+    const sheet = root.querySelector('.plantuml-viewer__sheet')
+    expect(press(sheet, 2)).toBe(true)
+    expect(press(sheet, 1)).toBe(false)
+
+    mode('Wall')
+    const card = cards()[0]
+    expect(press(card, 2)).toBe(true)
+    expect(press(card, 1)).toBe(false)
+  })
+
+  it('still checks a box whose second press was prevented (VW14)', async () => {
+    await open(SCREENS)
+    mode('Stack')
+    const box = cards()[0].querySelector('input')
+    box.dispatchEvent(new MouseEvent('mousedown', { detail: 2, bubbles: true, cancelable: true }))
+    box.click()
+    expect(box.checked).toBe(true)
   })
 
   it('does nothing more once destroyed mid-load', async () => {
@@ -511,7 +537,7 @@ describe('Stack and Wall draw what is on screen (VW10)', () => {
     expect(onReady).not.toHaveBeenCalled()
 
     view.setActive(true)
-    expect(root.textContent).toBe('Could not draw the diagram')
+    expect(root.textContent).toBe('Could not open the file')
     expect(onReady).toHaveBeenCalledOnce()
   })
 
@@ -1180,6 +1206,28 @@ describe('Export', () => {
     await settle()
     expect(notice().textContent).toBe('')
     expect(notice().hidden).toBe(false)
+  })
+
+  it("clears a failed export's line on a change of mode, of tab, or a check (VW6)", async () => {
+    exportAnswer = () => new Response('', { status: 404 })
+    await open(THREE)
+    const fail = async () => {
+      exportButton().click()
+      pick('png')
+      await settle()
+      expect(notice().textContent).toBe('Could not export the diagram')
+    }
+    await fail()
+    root.querySelectorAll('[role="tab"]')[1].click()
+    expect(notice().textContent).toBe('')
+
+    await fail()
+    mode('Stack')
+    expect(notice().textContent).toBe('')
+
+    await fail()
+    check(0)
+    expect(notice().textContent).toBe('')
   })
 
   it('says it could not export when the request itself fails', async () => {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { createToolbar } from '../../../src/viewer/toolbar.js'
 
@@ -70,5 +71,23 @@ describe('the toolbar', () => {
     expect(toolbar.exportButton.querySelector('.plantuml-viewer__label')).toBeNull()
     expect(toolbar.exportButton.getAttribute('aria-label')).toBe('Export 2')
     expect(toolbar.exportButton.title).toBe('Export 2')
+  })
+})
+
+describe('the Viewer\'s focus ring (VW2)', () => {
+  // Read from disk: vitest hands a stylesheet import back empty, ?raw too.
+  const css = readFileSync('css/viewer.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, selector, body]) => ({ selector: selector.trim(), body }))
+
+  it('is the app\'s on the toolbar, the tabs and the menu\'s rows, over core\'s !important one', () => {
+    const shared = rules.find((r) => r.selector.startsWith('.plantuml-viewer .plantuml-viewer__head button:not(:disabled)'))
+    expect(shared?.selector).toBe('.plantuml-viewer .plantuml-viewer__head button:not(:disabled):focus-visible')
+    expect(shared.body).toMatch(/outline: 2px solid var\(--color-primary-element\) !important;/)
+    expect(shared.body).toMatch(/box-shadow: none !important;/)
+  })
+
+  it('leaves no button an outline of the app\'s that core\'s !important one would beat', () => {
+    const beaten = rules.filter((r) => /button[^,]*:focus-visible/.test(r.selector) && /(^|;)\s*outline:(?![^;]*!important)/.test(r.body))
+    expect(beaten.map((r) => r.selector)).toEqual([])
   })
 })

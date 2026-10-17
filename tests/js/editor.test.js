@@ -1838,4 +1838,253 @@ describe('a linked file', () => {
 
     expect(view().state.field(serverError)).toEqual({ message: 'In UML_Fun.css, line 2: bad', pos: MAIN.indexOf('<style') })
   })
+
+  const typeLinked = (text) => view().dispatch({ changes: { from: 0, insert: text } })
+
+  it('autosaves the linked file against its own ETag, two seconds after typing stops', async () => {
+    vi.useFakeTimers()
+    seams.saveFile.mockResolvedValue('"s2"')
+    await openStyle()
+
+    typeLinked("' new\n")
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/UML_Fun.css', "' new\n" + STYLE, '"s1"')
+    expect(indicator()).toBe('saved')
+  })
+
+  it('gives the linked file its own conflict line', async () => {
+    vi.useFakeTimers()
+    await openStyle()
+    typeLinked("' new\n")
+    seams.currentEtag.mockImplementation(async (path) => (path === '/Diagrams/UML_Fun.css' ? '"theirs"' : '"m1"'))
+
+    // A check before the 2 s autosave: as a save would, it meets their change.
+    window.dispatchEvent(new Event('focus'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(status()).toBe('Someone else changed this file')
+    expect(reloadButton().hidden).toBe(false)
+    expect(copyButton().hidden).toBe(false)
+  })
+
+  it('never checks the main file while the linked file is open, and checks it at once on going back', async () => {
+    vi.useFakeTimers()
+    seams.currentEtag.mockResolvedValue('"s1"')
+    await openStyle()
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(seams.currentEtag.mock.calls.map(([path]) => path)).not.toContain('/Diagrams/Order flow.puml')
+
+    seams.currentEtag.mockResolvedValue('"m1"')
+    q('.plantuml-editor__back').click()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(seams.currentEtag).toHaveBeenCalledWith('/Diagrams/Order flow.puml')
+  })
+
+  it('saves the linked file before going back', async () => {
+    seams.saveFile.mockResolvedValue('"s2"')
+    await openStyle()
+    typeLinked("' new\n")
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/UML_Fun.css', "' new\n" + STYLE, '"s1"')
+    expect(source()).toBe(MAIN)
+  })
+
+  // A second way back would find the main file's state already restored: Vitest fails on its rejection.
+  it('goes back once however often it is asked while the linked file saves', async () => {
+    const saving = deferred()
+    seams.saveFile.mockReturnValue(saving.promise)
+    await openStyle()
+    typeLinked("' new\n")
+
+    q('.plantuml-editor__back').click()
+    q('.plantuml-editor__back').click()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await settle()
+    saving.resolve('"s2"')
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+    expect(source()).toBe(MAIN)
+    expect(q('.plantuml-editor')).not.toBeNull()
+  })
+
+  it('stays on the linked file when its save is refused', async () => {
+    seams.saveFile.mockRejectedValue(new seams.ConflictError())
+    await openStyle()
+    typeLinked("' new\n")
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(source()).toBe("' new\n" + STYLE)
+    expect(status()).toBe('Someone else changed this file')
+  })
+
+  it.each([[true, MAIN], [false, "' new\n" + STYLE]])('asks before discarding a save that failed (OK: %s)', async (ok, shown) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    seams.saveFile.mockRejectedValue(new Error('507'))
+    vi.spyOn(window, 'confirm').mockReturnValue(ok)
+    await openStyle()
+    typeLinked("' new\n")
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+    expect(source()).toBe(shown)
+  })
+
+  it('asks after ten seconds of a save that hangs', async () => {
+    vi.useFakeTimers()
+    seams.saveFile.mockReturnValue(new Promise(() => {}))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await openStyle()
+    typeLinked("' new\n")
+
+    q('.plantuml-editor__back').click()
+    await vi.advanceTimersByTimeAsync(10000)
+
+    expect(window.confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+  })
+
+  it.each([
+    ['failed', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      seams.saveFile.mockRejectedValue(new Error('507'))
+    }],
+    ['was refused', () => seams.saveFile.mockRejectedValue(new seams.ConflictError())],
+  ])('draws the main file from its own files again once the linked text whose save %s is discarded', async (_how, saving) => {
+    saving()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await openStyle()
+    typeLinked("' new\n")
+    expect(lastRender()[4]).toEqual({ './UML_Fun.css': "' new\n" + STYLE })
+    seams.cancel.mockClear()
+
+    // A refused save stays on the conflict line first; going back from it asks at once.
+    while (source() !== MAIN) {
+      q('.plantuml-editor__back').click()
+      await settle()
+    }
+
+    expect(seams.saveFile).toHaveBeenCalledTimes(1)
+    expect(seams.cancel).toHaveBeenCalled()
+    expect(lastRender()[0]).toBe(MAIN)
+    expect(lastRender()[4]).toBeNull()
+  })
+
+  it('saves the linked file, then the main one, on closing', async () => {
+    seams.saveFile.mockResolvedValue('"x2"')
+    await open()
+    view().dispatch({ changes: { from: 0, insert: "' mine\n" } })
+    await settle()
+    await pressChip('UML_Fun.css')
+    typeLinked("' new\n")
+
+    q('.plantuml-editor__close').click()
+    await settle()
+
+    expect(seams.saveFile.mock.calls.map(([path]) => path)).toEqual(['/Diagrams/UML_Fun.css', '/Diagrams/Order flow.puml'])
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  it.each([
+    ['the main file', () => view().dispatch({ changes: { from: 0, insert: "' mine\n" } }), () => {}],
+    ['the linked file', () => {}, () => typeLinked("' new\n")],
+  ])('holds the page while %s is unsaved', async (_which, editMain, editLinked) => {
+    await open()
+    editMain()
+    await settle()
+    await pressChip('UML_Fun.css')
+    editLinked()
+    const event = new Event('beforeunload', { cancelable: true })
+
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('opens a file that may only be read as read-only, locked and never saved', async () => {
+    vi.useFakeTimers()
+    seams.fileAccess.mockImplementation(async (path) => (path === '/Diagrams/UML_Fun.css' ? { writable: false } : { writable: true }))
+    await openStyle()
+
+    typeLinked("' new\n")
+    await vi.advanceTimersByTimeAsync(31000)
+
+    expect(source()).toBe(STYLE)
+    expect(q('.plantuml-editor__lock').title).toBe('Read only')
+    expect(saveButton().hidden).toBe(true)
+    expect(seams.saveFile).not.toHaveBeenCalled()
+  })
+
+  it('shows the save indicator again on going back from a file that may only be read', async () => {
+    seams.fileAccess.mockImplementation(async (path) => (path === '/Diagrams/UML_Fun.css' ? { writable: false } : { writable: true }))
+    await openStyle()
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(saveButton().hidden).toBe(false)
+  })
+
+  it('reloads a file that may only be read from the file', async () => {
+    seams.fileAccess.mockImplementation(async (path) => (path === '/Diagrams/UML_Fun.css' ? { writable: false } : { writable: true }))
+    await openStyle()
+    files['/Diagrams/UML_Fun.css'] = { content: "' theirs\n" + STYLE, etag: '"s2"' }
+
+    refreshButton().click()
+    await settle()
+
+    expect(source()).toBe("' theirs\n" + STYLE)
+  })
+
+  it('takes theirs into the linked file on Reload, the main file left alone', async () => {
+    seams.saveFile.mockRejectedValue(new seams.ConflictError())
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await openStyle()
+    typeLinked("' new\n")
+    saveButton().click()
+    await settle()
+    files['/Diagrams/UML_Fun.css'] = { content: "' theirs\n" + STYLE, etag: '"s2"' }
+
+    reloadButton().click()
+    await settle()
+
+    expect(source()).toBe("' theirs\n" + STYLE)
+    expect(status()).toBe('')
+    expect(seams.loadFile.mock.calls.filter(([path]) => path === '/Diagrams/Order flow.puml')).toHaveLength(1)
+  })
+
+  it('saves the linked file on Ctrl+S from outside the source', async () => {
+    seams.saveFile.mockResolvedValue('"s2"')
+    await openStyle()
+    typeLinked("' new\n")
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }))
+    await settle()
+
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/UML_Fun.css', "' new\n" + STYLE, '"s1"')
+  })
+
+  it('stops sending overrides once the linked file is saved as a copy', async () => {
+    seams.saveCopy.mockResolvedValue({ node: { path: '/Diagrams/UML_Fun (copy).css', basename: 'UML_Fun (copy).css' }, etag: '"c1"' })
+    seams.saveFile.mockRejectedValue(new seams.ConflictError())
+    await openStyle()
+    typeLinked("' new\n")
+    saveButton().click() // Save as copy shows on a conflict (S8)
+    await settle()
+
+    copyButton().click()
+    await settle()
+    typeLinked(' ')
+
+    expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml›UML_Fun (copy).css')
+    expect(seams.debouncedRender.mock.calls.at(-1)[4]).toBeNull()
+  })
 })

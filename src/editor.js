@@ -106,6 +106,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   let parked = null // { state, doc, scrollTop }: doc is the text it was parked with
   let linked = null // { link, name, readOnly, session, wantProfiles } while a linked file is open
   let opening = false // a linked file is being read
+  let goingBack = null // the way back from it, while it saves
   let closing = false
   let closed = false
   let diagrams = [] // the main file's, from blocks.js; the one drawn is diagrams[active]
@@ -125,12 +126,17 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   }
 
+  /** The open file's session, which the bar shows and its buttons act on (R15); none before the file is read. */
+  const openSession = () => (linked ?? main)?.session
+
   /** The bar shows the open file's session's state; before the file is read there is none, and the bar stays as it is. */
   function showButtons() {
-    const shown = (linked ?? main)?.session.status()
+    const shown = openSession()?.status()
     if (!shown) {
       return
     }
+    // R17: a file that may only be read is never saved, so there is no state to show.
+    saveButton.hidden = Boolean(linked?.readOnly)
     saveButton.dataset.state = shown.state
     saveButton.classList.toggle('icon-loading-small', shown.state === 'saving')
     saveButton.title = shown.title
@@ -139,7 +145,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   }
 
   function showState() {
-    const shown = (linked ?? main)?.session.status()
+    const shown = openSession()?.status()
     if (!shown) {
       return
     }
@@ -285,36 +291,40 @@ export function openEditor(node, { diagram: openAt } = {}) {
   }
 
   /**
-   * Saves first. A refused save stays open on the conflict line, whose buttons
-   * are the way out; a save that cannot land (a read-only share, a full quota,
-   * an outage) asks before discarding instead of trapping the user.
+   * S4: saves first; true once the file may be left. A refused save stays on
+   * the conflict line, whose buttons are the way out; a save that cannot land
+   * (a read-only share, a full quota, an outage) asks before discarding instead
+   * of trapping the user.
    */
+  async function savedOrDiscarded(session) {
+    if (session.isDirty() && !session.blocked()) {
+      await session.saveBeforeLeaving()
+      if (session.status().conflict) {
+        return false
+      }
+    }
+    return !session.isDirty() || window.confirm(t(APP_ID, 'Discard unsaved changes?'))
+  }
+
   async function close() {
     // A second Escape or click while the first close saves does nothing.
     if (closing || closed) {
       return
     }
-    // From a linked file, back to the main file first, which is then closed as ever.
-    if (linked && !(await goBack())) {
-      return
-    }
-    if (closed) {
-      return
-    }
-    const session = main?.session
-    if (session?.isDirty() && !session.blocked()) {
-      closing = true
-      await session.saveBeforeLeaving()
+    closing = true
+    let leave
+    try {
+      // R15: from a linked file, back to the main file first, which is then closed as ever.
+      // A clean file closes at once, in the same task as the key or click.
+      leave = (!linked || await goBack()) && !closed && (!main?.session.isDirty() || await savedOrDiscarded(main.session))
+    } finally {
       closing = false
-      if (session.status().conflict) {
-        return
-      }
     }
-    if (session?.isDirty() && !window.confirm(t(APP_ID, 'Discard unsaved changes?'))) {
+    if (!leave) {
       return
     }
     closed = true
-    session?.stop()
+    main?.session.stop()
     clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onKeydown)
@@ -337,7 +347,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     // source. 'S' is Caps Lock's; Shift is another shortcut's.
     if ((event.key === 's' || event.key === 'S') && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && !event.defaultPrevented) {
       event.preventDefault()
-      main?.session.save()
+      openSession()?.save()
       return
     }
     // K1: Escape closes the editor from the main file; from a linked file it goes back (R11).
@@ -466,24 +476,40 @@ export function openEditor(node, { diagram: openAt } = {}) {
     draw(mainState().doc.toString())
   }
 
-  /** R11: back to the main file as it was left, its text, selection, folds, undo and scroll; true once there. */
-  async function goBack() {
+  /** R11, R15: back to the main file once the linked one is saved or discarded; true once there. Asked again meanwhile, it is the same way back. */
+  function goBack() {
+    goingBack ??= leaveLinked().finally(() => { goingBack = null })
+    return goingBack
+  }
+
+  /** The main file as it was left, its text, selection, folds, undo and scroll. */
+  async function leaveLinked() {
     if (!linked) {
       return true
     }
-    // Task 8 puts the save-before-leaving checks here.
-    linked.session.stop()
+    const { session } = linked
+    if (!(await savedOrDiscarded(session))) {
+      return false
+    }
+    // R13: the drawing still carries the discarded text, waiting or on its way; the main file's own files draw it again.
+    const discarded = session.isDirty()
+    session.stop()
     linked = null
     const { state, doc, scrollTop } = parked
     parked = null
     view.setState(state)
     view.requestMeasure({ read: () => null, write: () => { view.scrollDOM.scrollTop = scrollTop } })
+    if (discarded) {
+      cancelRender()
+    }
     // A change landed while parked (a check that was under way) ran no update listener: the tabs and drawing catch up.
     if (!state.doc.eq(doc)) {
       const text = state.doc.toString()
       diagrams = diagramsOf(state.doc, text)
       follow(state, true)
       wantProfiles(diagrams, text)
+    } else if (discarded) {
+      draw(state.doc.toString())
     }
     showCrumbs()
     showState()
@@ -493,17 +519,18 @@ export function openEditor(node, { diagram: openAt } = {}) {
     return true
   }
 
+  // S5, R15: the main file's session reads its parked text while a linked file is open.
   function onBeforeUnload(event) {
-    if (main?.session.isDirty()) {
+    if (main?.session.isDirty() || linked?.session.isDirty()) {
       event.preventDefault()
     }
   }
 
-  saveButton.addEventListener('click', () => main?.session.save())
-  reloadButton.addEventListener('click', () => main?.session.reload())
-  refreshButton.addEventListener('click', () => main?.session.reload())
+  saveButton.addEventListener('click', () => openSession()?.save())
+  reloadButton.addEventListener('click', () => openSession()?.reload())
+  refreshButton.addEventListener('click', () => openSession()?.reload())
   sourceToggle.addEventListener('click', toggleSource)
-  copyButton.addEventListener('click', () => main?.session.saveAsCopy())
+  copyButton.addEventListener('click', () => openSession()?.saveAsCopy())
   closeButton.addEventListener('click', close)
   document.addEventListener('keydown', onKeydown)
   window.addEventListener('beforeunload', onBeforeUnload)

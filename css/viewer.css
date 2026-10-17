@@ -158,16 +158,22 @@
 	justify-content: center;
 	gap: 4px;
 	height: var(--default-clickable-area);
-	min-width: var(--default-clickable-area);
+	width: var(--default-clickable-area);
 	min-height: 0;
 	margin: 0;
-	padding: 0 8px;
+	padding: 0;
 	border: none;
 	border-radius: 100px;
 	background: transparent;
 	color: var(--color-main-text);
 	font-size: 14px;
 	font-weight: 400;
+}
+
+/* Export keeps its chevron, so it is wider than the square icon buttons. */
+.plantuml-viewer__toolbar button.plantuml-viewer__export {
+	width: auto;
+	padding: 0 8px;
 }
 
 .plantuml-viewer__toolbar button.plantuml-viewer__button:hover {

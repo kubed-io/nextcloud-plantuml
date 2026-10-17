@@ -52,6 +52,11 @@ describe('the toolbar', () => {
     }
   })
 
+  it('still draws the label span when asked for words', () => {
+    const button = createToolbar({ ...options, labelled: true }).exportButton
+    expect(button.querySelector('.plantuml-viewer__label').textContent).toBe('Export')
+  })
+
   it('has no Export for a file whose share forbids download', () => {
     const toolbar = createToolbar({ ...options, exportable: false })
     expect(names(toolbar)).toEqual(['Tabs', 'Stack', 'Wall', 'divider', 'Edit'])

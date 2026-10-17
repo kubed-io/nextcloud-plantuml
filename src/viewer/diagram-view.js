@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * The Viewer's diagrams (VW1–VW8), on a root the Vue component hands over. The
+ * The Viewer's diagrams (VW1–VW11), on a root the Vue component hands over. The
  * file is read once and split as the editor's tabs split it; every open starts
  * in Tabs on the first diagram (VW8). The head (toolbar, export notice, tab
  * bar) sits outside the scrolling stage, so none moves when a diagram changes
@@ -10,6 +10,8 @@
  * Stack and Wall (VW4, VW5) show every diagram as a card with a checkbox; what
  * is checked lasts while the view does, across modes. Export (VW6) and Edit
  * (VW7) act on the open tab, or in Stack and Wall on the checked cards.
+ * Only what is on screen is drawn (VW10): the open tab, or the cards near the
+ * visible part of the stage; a hidden view asks for nothing.
  */
 import { n, translate as t } from '@nextcloud/l10n'
 import { loadState } from '@nextcloud/initial-state'
@@ -66,7 +68,7 @@ function filenameOf(disposition) {
 /**
  * @param {HTMLElement} root
  * @param {{ path: string, basename: string, onReady: () => void }} options
- * @return {{ destroy: () => void }}
+ * @return {{ setActive: (active: boolean) => void, destroy: () => void }}
  */
 export function createDiagramView(root, { path, basename, onReady }) {
   const prefix = `plantuml-viewer-${++views}-`
@@ -76,8 +78,12 @@ export function createDiagramView(root, { path, basename, onReady }) {
   let sheets = null
   let toolbar = null
   let menu = null
+  let observer = null
+  let active = true
   let destroyed = false
   let ready = false
+  // A card → the position of its sheet.
+  const positions = new WeakMap()
   const settle = () => {
     if (!ready && !destroyed) {
       ready = true
@@ -199,6 +205,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
       afterCheck()
     })
     caption.append(box, label(diagrams[index]))
+    positions.set(node, index + 1)
     node.classList.toggle('plantuml-viewer__card--checked', box.checked)
     node.append(caption, sheets.sheet(index + 1))
     // The caption is a <label>: a click on its text toggles the box, so it counts as the checkbox.
@@ -213,6 +220,41 @@ export function createDiagramView(root, { path, basename, onReady }) {
     return node
   }
 
+  /**
+   * What the stage shows is asked for: the open tab, or in Stack and Wall each card once it comes
+   * within a stage's height of the visible part, watched from the scrolling stage, the nearest
+   * in file order. A card that leaves before its turn waits no more; a hidden view asks for nothing.
+   */
+  function want() {
+    observer?.disconnect()
+    observer = null
+    sheets.clear()
+    if (!active) {
+      return
+    }
+    if (state.mode === 'tabs') {
+      sheets.request(state.active + 1)
+      return
+    }
+    const shown = [...stage.children]
+    if (typeof IntersectionObserver === 'undefined') {
+      sheets.request(...shown.map((node) => positions.get(node)))
+      return
+    }
+    observer = new IntersectionObserver((entries) => {
+      const near = []
+      for (const { target, isIntersecting } of entries) {
+        if (isIntersecting) {
+          near.push(positions.get(target))
+        } else {
+          sheets.release(positions.get(target))
+        }
+      }
+      sheets.request(...near.sort((a, b) => a - b))
+    }, { root: stage, rootMargin: '100%' })
+    shown.forEach((node) => observer.observe(node))
+  }
+
   function show() {
     toolbar?.setMode(state.mode)
     tabBar.hidden = state.mode !== 'tabs' || diagrams.length < 2
@@ -220,11 +262,10 @@ export function createDiagramView(root, { path, basename, onReady }) {
     if (state.mode === 'tabs') {
       tabs.update(diagrams, state.active)
       stage.replaceChildren(sheets.sheet(state.active + 1))
-      sheets.request(state.active + 1)
     } else {
       stage.replaceChildren(...diagrams.map((_diagram, index) => card(index)))
-      diagrams.forEach((_diagram, index) => sheets.request(index + 1))
     }
+    want()
     afterCheck()
   }
 
@@ -274,8 +315,16 @@ export function createDiagramView(root, { path, basename, onReady }) {
   })
 
   return {
+    /** The Viewer shows this file (true) or keeps it hidden beside the one shown (false). */
+    setActive(now) {
+      active = now
+      if (sheets && !destroyed) {
+        want()
+      }
+    },
     destroy() {
       destroyed = true
+      observer?.disconnect()
       menu?.destroy()
       sheets?.destroy()
       tabs.destroy()

@@ -257,6 +257,18 @@ describe('the page cache (VW11)', () => {
     expect(kept).toEqual({ svg: WITH_ID, size: null, serverEtag: '"srv1"' })
   })
 
+  it('draws a sheet never drawn before it checks those drawn from memory, each in file order', async () => {
+    for (const position of [1, 2, 3, 4]) {
+      await drawn(sheetsOf('"e"'), position)
+    }
+    fetch.mockImplementation(() => new Promise(() => {}))
+    const sheets = sheetsOf('"e"', 'view-2-')
+    sheets.request(1, 2, 3, 4, 5)
+
+    expect([1, 2, 3, 4].map((position) => sheets.sheet(position).querySelector('svg') !== null)).toEqual([true, true, true, true])
+    expect(asked(fetch).slice(4)).toEqual(['4', '0', '1'])
+  })
+
   it('asks again once the file has a new ETag', async () => {
     await drawn(sheetsOf('"e"'), 1)
     await drawn(sheetsOf('"f"'), 1)

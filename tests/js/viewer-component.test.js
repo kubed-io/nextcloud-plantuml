@@ -6,7 +6,7 @@
 // Vue runtime; the view it builds is mocked at its module.
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const seams = vi.hoisted(() => ({ view: { destroy: vi.fn() }, createDiagramView: vi.fn() }))
+const seams = vi.hoisted(() => ({ view: { destroy: vi.fn(), setActive: vi.fn() }, createDiagramView: vi.fn() }))
 vi.mock('../../src/viewer/diagram-view.js', () => ({ createDiagramView: seams.createDiagramView }))
 const { default: component } = await import('../../src/viewer-component.js')
 
@@ -70,4 +70,20 @@ it('keeps a hidden neighbour out of the focus order, and lets it back in when sh
   expect(vm.$el.hasAttribute('inert')).toBe(false)
   component.watch.active.call(vm, false)
   expect(vm.$el.hasAttribute('inert')).toBe(true)
+})
+
+it('pauses the view while it is hidden and resumes it when shown', () => {
+  const vm = instance(true)
+  component.mounted.call(vm)
+  component.watch.active.call(vm, false)
+  expect(seams.view.setActive).toHaveBeenLastCalledWith(false)
+  component.watch.active.call(vm, true)
+  expect(seams.view.setActive).toHaveBeenLastCalledWith(true)
+})
+
+it('tells a view just built nothing more', () => {
+  const vm = instance(false)
+  component.mounted.call(vm)
+  component.watch.active.call(vm, true)
+  expect(seams.view.setActive).not.toHaveBeenCalled()
 })

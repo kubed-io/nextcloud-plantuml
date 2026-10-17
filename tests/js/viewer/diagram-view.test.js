@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FakeIntersectionObserver } from '../helpers/intersection.js'
 
 const seams = vi.hoisted(() => ({ loadFile: vi.fn(), canDownload: vi.fn(), openEditor: vi.fn(), serverConfigured: true }))
 vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile, canDownload: seams.canDownload }))
@@ -373,6 +374,128 @@ describe('Stack and Wall', () => {
     pending.shift().resolve(new Response(svg('d2')))
     await settle()
     expect(waiting(pending)).toEqual(['3', '4', '5'])
+  })
+})
+
+describe('Stack and Wall draw what is on screen (VW10)', () => {
+  const FORTY = Array.from({ length: 40 }, (_, i) => `@startuml d${i + 1}\n@enduml\n`).join('')
+  const observer = () => FakeIntersectionObserver.last()
+  let pending
+  const answerOne = async () => {
+    pending.shift().resolve(new Response(svg('d')))
+    await settle()
+  }
+
+  beforeEach(() => {
+    FakeIntersectionObserver.made = []
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
+    pending = []
+    fetch.mockImplementation((url) => new Promise((resolve) => pending.push({ url, resolve })))
+  })
+
+  it('watches every card from the scrolling stage, a stage height ahead', async () => {
+    await open(THREE)
+    mode('Stack')
+
+    expect(observer().options).toEqual({ root: root.querySelector('.plantuml-viewer__stage'), rootMargin: '100%' })
+    expect(observer().observed()).toEqual(cards())
+  })
+
+  it('asks only for the cards near what is in view, in file order, three at a time', async () => {
+    await open(FORTY)
+    await answerOne()
+    mode('Wall')
+    await settle()
+    expect(asked(fetch)).toEqual(['0'])
+
+    observer().enter(...cards().slice(0, 6).reverse())
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3'])
+    await answerOne()
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '4'])
+  })
+
+  it('lets a card go that scrolled away before its turn', async () => {
+    await open(FORTY)
+    await answerOne()
+    mode('Stack')
+    observer().enter(...cards().slice(1, 8))
+    observer().leave(...cards().slice(4, 8))
+    observer().enter(cards()[30])
+    await answerOne()
+
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '30'])
+  })
+
+  it('asks for nothing more while the view is hidden, and goes on once it is shown', async () => {
+    seams.loadFile.mockResolvedValue({ content: FORTY, etag: '"e"' })
+    const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+    await settle()
+    await answerOne()
+    mode('Stack')
+    observer().enter(...cards().slice(1, 8))
+    const watched = observer()
+
+    view.setActive(false)
+    expect(watched.disconnected).toBe(true)
+    await answerOne()
+    await answerOne()
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3'])
+
+    view.setActive(true)
+    expect(observer()).not.toBe(watched)
+    observer().enter(...cards().slice(1, 8))
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '4', '5'])
+  })
+
+  it('asks for nothing while hidden before its file is read, and is ready once shown and drawn', async () => {
+    let read
+    seams.loadFile.mockReturnValue(new Promise((resolve) => { read = resolve }))
+    const onReady = vi.fn()
+    const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady })
+    view.setActive(false)
+    read({ content: THREE, etag: '"e"' })
+    await settle()
+    expect(fetch).not.toHaveBeenCalled()
+
+    view.setActive(true)
+    expect(asked(fetch)).toEqual(['0'])
+    await answerOne()
+    expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('stops watching the cards back in Tabs, and asks only for the open tab', async () => {
+    await open(FORTY)
+    await answerOne()
+    mode('Stack')
+    observer().enter(...cards().slice(1, 8))
+    const watched = observer()
+    mode('Tabs')
+    root.querySelectorAll('[role="tab"]')[20].click()
+    await answerOne()
+    await answerOne()
+    await answerOne()
+
+    expect(watched.disconnected).toBe(true)
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '20'])
+  })
+
+  it('stops watching when destroyed', async () => {
+    seams.loadFile.mockResolvedValue({ content: THREE, etag: '"e"' })
+    const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+    await settle()
+    mode('Wall')
+    view.destroy()
+
+    expect(observer().disconnected).toBe(true)
+  })
+
+  it('asks for every card where the browser has no IntersectionObserver', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined)
+    await open(THREE)
+    await answerOne()
+    mode('Stack')
+
+    expect(asked(fetch)).toEqual(['0', '1', '2'])
   })
 })
 

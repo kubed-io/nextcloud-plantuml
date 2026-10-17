@@ -5,8 +5,9 @@
  * The Viewer's sheets: one diagram each, drawn inline through GET /render so its
  * links work (D1), or the line saying why not (D4). Until then a sheet shows
  * Nextcloud's loading spinner at a fixed size (VW9). A sheet is drawn only once
- * it is asked for (VW10), a few at a time, the lowest position waiting first, so
- * a wall of diagrams does not flood the server.
+ * it is asked for (VW10), a few at a time, so a wall of diagrams does not flood
+ * the server: a sheet still loading goes before a check of one drawn from
+ * memory, and the lowest position first within each.
  *
  * What is drawn is kept for the page (page-cache.js, VW11). A kept drawing is
  * drawn at once, then checked in its turn with the server by the ETag the route
@@ -67,7 +68,7 @@ export function sizeOf(svg) {
  * @param {ReturnType<import('./page-cache.js').createPageCache>} [options.cache]
  * @return {{
  *   sheet: (position: number) => HTMLElement,
- *   request: (position: number) => void,
+ *   request: (...positions: number[]) => void,
  *   release: (position: number) => void,
  *   clear: () => void,
  *   sizeOf: (position: number) => ({ width: number, height: number }|null),
@@ -170,9 +171,15 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
     }
   }
 
+  /** The next to go: the lowest position still loading, else the lowest to check. */
+  function next() {
+    const loading = [...waiting].filter((position) => !remembered.has(position))
+    return Math.min(...(loading.length ? loading : waiting))
+  }
+
   function pump() {
     while (running < parallel && waiting.size && !stop.signal.aborted) {
-      const position = Math.min(...waiting)
+      const position = next()
       waiting.delete(position)
       started.add(position)
       running++
@@ -185,16 +192,21 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
 
   return {
     sheet,
-    /** Draws the sheet at `position`, from memory at once, and from the server in its turn; once, however often asked. */
-    request(position) {
-      sheet(position)
-      if (started.has(position) || waiting.has(position) || stop.signal.aborted) {
-        return
+    /**
+     * Draws each sheet asked for, from memory at once, and from the server in its turn; once,
+     * however often asked. Those asked for together take their turns as one.
+     */
+    request(...positions) {
+      for (const position of positions) {
+        sheet(position)
+        if (started.has(position) || waiting.has(position) || stop.signal.aborted) {
+          continue
+        }
+        if (!remembered.has(position)) {
+          fromMemory(position)
+        }
+        waiting.add(position)
       }
-      if (!remembered.has(position)) {
-        fromMemory(position)
-      }
-      waiting.add(position)
       pump()
     },
     /** A sheet no longer wanted before its turn (a card scrolled away) waits no more. */

@@ -161,6 +161,12 @@ describe('a @start line with a huge run of spaces', () => {
     expect(ms).toBeLessThan(200)
   })
 
+  it('reads a 40,000-letter @start word cut by a line separator in under 200 ms', () => {
+    const [diagrams, ms] = timed(`@start${'a'.repeat(40000)}\u2028x\n@enduml`)
+    expect(diagrams.map((d) => d.start)).toEqual([null])
+    expect(ms).toBeLessThan(200)
+  })
+
   it('still keeps quotes out of a name: one left inside opens no block', () => {
     expect(scan('@startuml a "b" c\n@enduml')[0].start).toBeNull()
     expect(scan('@startuml "a b" }\n@enduml')[0].name).toBe('a b')

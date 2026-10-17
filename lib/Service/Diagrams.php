@@ -29,7 +29,7 @@ final class Diagrams {
 	private const W = '[A-Za-z0-9_]';
 	/** JavaScript's `.`, which stops at U+2028 and U+2029 as at a line feed: PCRE's takes both. */
 	private const DOT = '[^\n\r\x{2028}\x{2029}]';
-	private const START = '/^' . self::S . '*@start(' . self::W . '+)(' . self::DOT . '*)$/u';
+	private const START = '/^' . self::S . '*@start(' . self::W . '++)(' . self::DOT . '*)$/u';
 	private const END = '/^' . self::S . '*@end' . self::W . '*' . self::S . '*$/u';
 	private const NEWPAGE = '/^' . self::S . '*newpage(?:' . self::S . self::DOT . '*)?$/u';
 	private const CALL = '/^\(([^)]*)\)/u';

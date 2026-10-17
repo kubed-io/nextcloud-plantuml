@@ -7,7 +7,9 @@
  */
 import { startCall, startName, untailed } from './lexicon/start.js'
 
-const START = /^\s*@start(\w+)(.*)$/
+// `(?=(\w+))\1` is a possessive `\w+`: a line that fails at `$` (a line separator after the word) is not
+// retried one letter shorter, which is quadratic. PHP's twin writes it `++`.
+const START = /^\s*@start(?=(\w+))\1(.*)$/
 const END = /^\s*@end\w*\s*$/
 const NEWPAGE = /^\s*newpage(?:\s.*)?$/
 const ID = /^\s*id\s*=\s*/

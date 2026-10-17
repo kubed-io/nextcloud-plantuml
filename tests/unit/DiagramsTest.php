@@ -35,9 +35,41 @@ final class DiagramsTest extends TestCase {
 		return $cases;
 	}
 
+	/** `drawn` is the server's own (see testMarksWhatIsDrawn); the rest is the editor's. */
 	#[DataProvider('cases')]
 	public function testScansAsTheEditorDoes(string $text, array $diagrams): void {
-		self::assertSame($diagrams, Diagrams::scan($text));
+		self::assertSame($diagrams, array_map(static fn (array $d): array => array_diff_key($d, ['drawn' => true]), Diagrams::scan($text)));
+	}
+
+	/** Of the shared fixtures, only the block left open after the last image has none of its own. */
+	public function testEveryFixtureDiagramIsDrawnButOneLeftOpenPastTheLast(): void {
+		$undrawn = [];
+		foreach (array_keys(self::cases()) as $file) {
+			foreach (Diagrams::scan((string)file_get_contents(self::FIXTURES . $file)) as $d) {
+				if (!$d['drawn']) {
+					$undrawn[] = "{$file} " . Diagrams::label($d);
+				}
+			}
+		}
+		self::assertSame(['render-past-end.puml b'], $undrawn);
+	}
+
+	/** Drawn: PlantUML has an image for it (its `render` is below the image count); `/svg/<n>` past the last answers 400. */
+	public function testMarksWhatIsDrawn(): void {
+		$drawn = static fn (string $text): array => array_column(Diagrams::scan($text), 'drawn');
+		self::assertSame([true, false], $drawn("@startuml a\n@enduml\n@startuml b\n"));
+		self::assertSame([true, false, false], $drawn("@startuml a\n@enduml\n@startuml b\nA\nnewpage\nB\n"));
+		// A block an unclosed one swallows shows the image that closes over it.
+		self::assertSame([true, true], $drawn("@startyaml\na: 1\n@startuml\nA -> B\n@enduml\n"));
+		// Nothing closes: drawn as if wrapped in @startuml…@enduml.
+		self::assertSame([true, true], $drawn("@startuml a\nA\n@startuml b\nB\n"));
+		self::assertSame([true], $drawn(''));
+	}
+
+	public function testSaysWhatHasNoImage(): void {
+		$diagrams = Diagrams::scan("@startuml a\n@enduml\n@startuml b\nA\nnewpage\nB\n");
+		self::assertSame('no image for b 2', Diagrams::noImage($diagrams[2]));
+		self::assertSame('no image for uml', Diagrams::noImage(Diagrams::scan("@startuml a\n@enduml\n@startuml\n")[1]));
 	}
 
 	public function testTheBomFixtureStartsWithTheBom(): void {
@@ -102,15 +134,13 @@ final class DiagramsTest extends TestCase {
 	/** The Viewer sends a 0-based index; the image to ask the server for is that diagram's `render`. */
 	public function testAnIndexIsTheImageToSend(): void {
 		$diagrams = Diagrams::scan("@startuml a\nA\n@startuml b\nB\n@enduml\n@startuml c\nC\nnewpage\nD\n@enduml\n");
-		self::assertSame([0, 0, 1, 2], array_map(static fn (int $i): ?int => Diagrams::renderOf($diagrams, $i), [0, 1, 2, 3]));
-		self::assertNull(Diagrams::renderOf($diagrams, 4));
-		self::assertNull(Diagrams::renderOf($diagrams, -1));
+		self::assertSame([0, 0, 1, 2], array_column($diagrams, 'render'));
 	}
 
 	/** A block PlantUML drops has no image of its own; its index still resolves, past the end when none follows. */
 	public function testAnIndexPastTheDrawnImagesIsTheNextOne(): void {
 		$diagrams = Diagrams::scan("@startuml a\n@enduml\n@startuml b\n");
-		self::assertSame(1, Diagrams::renderOf($diagrams, 1));
+		self::assertSame(1, $diagrams[1]['render']);
 	}
 
 	#[DataProvider('nothing')]

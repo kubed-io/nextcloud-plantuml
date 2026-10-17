@@ -55,8 +55,11 @@ final class ExportController extends Controller {
 	 *
 	 * The diagrams are asked for by `index[]` (0-based places, what the Viewer
 	 * sends), which decides when it comes, or by `diagram[]` (a name, else a
-	 * number counted from 1); none asked is every diagram. Each is drawn once,
-	 * in file order, and named by its diagram whichever way it was asked for.
+	 * number counted from 1); none asked is every diagram PlantUML draws an
+	 * image for. Each is drawn once, in file order, and named by its diagram
+	 * whichever way it was asked for. One asked for that has no image (a block
+	 * left open after the last closed one) is a 404 naming it: the server's 400
+	 * for it would read as no PlantUML server.
 	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
@@ -84,7 +87,7 @@ final class ExportController extends Controller {
 		$picked = [];
 		if ($places !== []) {
 			foreach ($places as $place) {
-				if (Diagrams::renderOf($all, $place) === null) {
+				if (!isset($all[$place])) {
 					return new JSONResponse(['problem' => Diagrams::missing((string)($place + 1))], Http::STATUS_NOT_FOUND);
 				}
 				$picked[$place] = $all[$place];
@@ -98,7 +101,15 @@ final class ExportController extends Controller {
 				$picked[$found['index']] = $found;
 			}
 		} else {
-			$picked = $all;
+			$picked = array_filter($all, static fn (array $d): bool => $d['drawn']);
+			if ($picked === []) {
+				return new JSONResponse(['problem' => 'no diagram has an image'], Http::STATUS_NOT_FOUND);
+			}
+		}
+		foreach ($picked as $d) {
+			if (!$d['drawn']) {
+				return new JSONResponse(['problem' => Diagrams::noImage($d)], Http::STATUS_NOT_FOUND);
+			}
 		}
 		ksort($picked);
 		if (count($picked) > self::MAX_DIAGRAMS) {

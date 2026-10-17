@@ -115,6 +115,34 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(['problem' => 'no diagram 9'], $response->getData());
 	}
 
+	/** A block left open after the last closed one: PlantUML draws no image for it, and its 400 is no server problem. */
+	private const PAST_END = "@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n";
+
+	public function testAnUndrawnDiagramByIndexIs404(): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::PAST_END))->byPath('Diagrams/Doc.puml', '', 1);
+		self::assertInstanceOf(JSONResponse::class, $response);
+		self::assertSame(404, $response->getStatus());
+		self::assertSame(['problem' => 'no image for b'], $response->getData());
+	}
+
+	/** @return array<string, array{string}> */
+	public static function undrawnDiagrams(): array {
+		return ['by name' => ['b'], 'by number' => ['2']];
+	}
+
+	#[DataProvider('undrawnDiagrams')]
+	public function testAnUndrawnDiagramByNameOrNumberIs404(string $diagram): void {
+		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::PAST_END), '"abc123"')->byPath('Diagrams/Doc.puml', $diagram);
+		self::assertInstanceOf(JSONResponse::class, $response);
+		self::assertSame(404, $response->getStatus());
+		self::assertSame(['problem' => 'no image for b'], $response->getData());
+	}
+
+	public function testTheDrawnDiagramBeforeAnUndrawnOneStillDraws(): void {
+		$this->controller($this->indexing($index), $this->diagram(content: self::PAST_END))->byPath('Diagrams/Doc.puml', 'a');
+		self::assertSame(0, $index);
+	}
+
 	public function testAMissingDiagramIsNeverRevalidated(): void {
 		$response = $this->controller($this->renderingNothing(), $this->diagram(content: self::SCREENS), '"abc123"')->byPath('Diagrams/Screens.puml', 'signup');
 		self::assertSame(404, $response->getStatus());

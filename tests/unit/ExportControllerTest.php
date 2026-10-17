@@ -177,6 +177,38 @@ final class ExportControllerTest extends TestCase {
 		self::assertSame(['problem' => 'no diagram 6'], $response->getData());
 	}
 
+	/** A block left open after the last closed one: PlantUML draws no image for it, and its 400 is no server problem. */
+	private const PAST_END = "@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n";
+
+	public function testEveryDiagramLeavesOutOneWithNoImage(): void {
+		$response = $this->controller($this->drawing($calls), 'Doc.puml', "@startuml a\n@enduml\n@startuml b\n@enduml\n@startuml c\n")->export('Diagrams/Doc.puml', 'svg');
+		self::assertSame([[0, 'svg'], [1, 'svg']], $calls);
+		self::assertSame(['Doc - a.svg' => 'svg:0', 'Doc - b.svg' => 'svg:1'], $this->entries($response->render()));
+	}
+
+	public function testEveryDiagramOfOneDrawnIsThatOneFile(): void {
+		$response = $this->controller($this->drawing($calls), 'Doc.puml', self::PAST_END)->export('Diagrams/Doc.puml', 'png');
+		self::assertSame([[0, 'png']], $calls);
+		self::assertSame("attachment; filename=\"Doc - a.png\"; filename*=UTF-8''Doc%20-%20a.png", self::header($response, 'Content-Disposition'));
+	}
+
+	/** @return array<string, array{mixed, mixed}> */
+	public static function undrawnAsked(): array {
+		return [
+			'by index' => [null, ['1']],
+			'by name' => [['b'], null],
+			'by number' => [['2'], null],
+			'beside a drawn one' => [['a', 'b'], null],
+		];
+	}
+
+	#[DataProvider('undrawnAsked')]
+	public function testAnUndrawnDiagramAskedForIs404(mixed $diagram, mixed $index): void {
+		$response = $this->controller($this->drawingNothing(), 'Doc.puml', self::PAST_END)->export('Diagrams/Doc.puml', 'svg', $diagram, $index);
+		self::assertSame(404, $response->getStatus());
+		self::assertSame(['problem' => 'no image for b'], $response->getData());
+	}
+
 	/** Review focus 2: two unnamed diagrams of one type. */
 	public function testSameLabelsStayApart(): void {
 		$response = $this->controller($this->drawing(), 'Doc.puml', "@startuml\n@enduml\n@startuml\n@enduml\n@startuml\n@enduml\n")->export('Diagrams/Doc.puml', 'svg');

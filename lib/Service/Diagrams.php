@@ -15,8 +15,13 @@ namespace OCA\PlantUml\Service;
  * each with the image PlantUML draws for it. tests/fixtures/diagrams/expected.json
  * holds both to the same answers.
  *
- * @psalm-type Diagram = array{index: int, type: string, name: string, id: ?string, page: int, pages: int, render: int}
+ * `drawn` is the server's own, not the editor's: whether PlantUML draws an image for the diagram at
+ * all. A block left open after the last closed one has a `render` past the last image, and the
+ * server answers that with a 400 page, not a picture.
+ *
+ * @psalm-type Diagram = array{index: int, type: string, name: string, id: ?string, page: int, pages: int, render: int, drawn: bool}
  */
+
 final class Diagrams {
 	/** The characters of JavaScript's `\s`, which PCRE's is narrower than; bare, to go inside other classes. */
 	private const SC = '\t\n\x{0B}\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
@@ -73,7 +78,7 @@ final class Diagrams {
 					break;
 				}
 			}
-			$diagrams[] = ['index' => $index, 'type' => $d['type'], 'name' => $d['name'], 'id' => $d['id'], 'page' => $d['page'], 'pages' => $d['pages'], 'render' => $render];
+			$diagrams[] = ['index' => $index, 'type' => $d['type'], 'name' => $d['name'], 'id' => $d['id'], 'page' => $d['page'], 'pages' => $d['pages'], 'render' => $render, 'drawn' => $render < count($drawn)];
 		}
 		return $diagrams;
 	}
@@ -91,20 +96,15 @@ final class Diagrams {
 		return preg_match('/^\d{1,4}$/', $diagram) === 1 ? ($diagrams[(int)$diagram - 1] ?? null) : null;
 	}
 
-	/**
-	 * The image PlantUML draws for the diagram at a 0-based index (B1's `index`, what the Viewer
-	 * sends): its `render`, the number to ask the server for. Null past the last diagram.
-	 *
-	 * @param list<Diagram> $diagrams
-	 */
-	public static function renderOf(array $diagrams, int $index): ?int {
-		return $diagrams[$index]['render'] ?? null;
-	}
-
 	/** @param Diagram $diagram */
 	public static function label(array $diagram): string {
 		$base = $diagram['name'] !== '' ? $diagram['name'] : $diagram['type'];
 		return $diagram['pages'] > 1 ? "{$base} {$diagram['page']}" : $base;
+	}
+
+	/** @param Diagram $diagram */
+	public static function noImage(array $diagram): string {
+		return 'no image for ' . self::label($diagram);
 	}
 
 	public static function missing(string $diagram): string {

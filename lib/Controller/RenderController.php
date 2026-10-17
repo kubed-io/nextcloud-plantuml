@@ -67,7 +67,8 @@ final class RenderController extends Controller {
 	 * counted from 1); `index` wins when both come. The place is found in the
 	 * file as stored, not in its includes, whose blocks are inlined without
 	 * their `@start` lines. One that is not there is a 404 naming it, never the
-	 * first diagram instead.
+	 * first diagram instead; so is one PlantUML draws no image for (a block left
+	 * open after the last closed one), whose 400 would read as no PlantUML server.
 	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
@@ -86,11 +87,14 @@ final class RenderController extends Controller {
 		$image = 0;
 		if ($index !== null || $diagram !== '') {
 			$diagrams = Diagrams::scan($file->text);
-			$found = $index !== null ? Diagrams::renderOf($diagrams, $index) : (Diagrams::find($diagrams, $diagram)['render'] ?? null);
+			$found = $index !== null ? ($diagrams[$index] ?? null) : Diagrams::find($diagrams, $diagram);
 			if ($found === null) {
 				return new JSONResponse(['problem' => Diagrams::missing($index !== null ? (string)($index + 1) : $diagram)], Http::STATUS_NOT_FOUND);
 			}
-			$image = $found;
+			if (!$found['drawn']) {
+				return new JSONResponse(['problem' => Diagrams::noImage($found)], Http::STATUS_NOT_FOUND);
+			}
+			$image = $found['render'];
 		}
 		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $file->etag) {
 			return $this->revalidated(new Response(Http::STATUS_NOT_MODIFIED), $file->etag);

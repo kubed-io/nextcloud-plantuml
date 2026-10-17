@@ -214,7 +214,15 @@ export function createDiagramView(root, { path, basename, onReady }) {
     caption.append(box, mark, label(diagrams[index]))
     positions.set(node, index + 1)
     node.classList.toggle('plantuml-viewer__card--checked', box.checked)
-    node.append(caption, sheets.sheet(index + 1))
+    const sheet = sheets.sheet(index + 1)
+    // A diagram the server draws no image for cannot be exported: its box stays off, so Export N
+    // never counts it, and its sheet (the route's problem line, once it lands) describes why.
+    if (!diagrams[index].drawn) {
+      sheet.id = `${prefix}sheet-${index + 1}`
+      box.disabled = true
+      box.setAttribute('aria-describedby', sheet.id)
+    }
+    node.append(caption, sheet)
     // The caption is a <label>: a click on its text toggles the box, so it counts as the checkbox.
     // A diagram's link opens in a new tab (inline-svg.js) and leaves the Wall as it is.
     node.addEventListener('click', (event) => {

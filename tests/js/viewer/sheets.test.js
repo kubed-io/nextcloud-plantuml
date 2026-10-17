@@ -237,6 +237,25 @@ describe('the page cache (VW11)', () => {
     expect(cache.get(key)).toEqual({ svg: NEW, size: { width: 80, height: 30 }, serverEtag: '"srv2"' })
   })
 
+  it('gives a drawing that replaces a kept one, after a 200 check, its own view prefix', async () => {
+    await drawn(sheetsOf('"e"'), 1)
+    fetch.mockImplementation(async () => svgAnswer(WITH_ID, { ETag: '"srv2"' }))
+    const sheets = sheetsOf('"e"', 'view-2-')
+    const sheet = sheets.sheet(1)
+    // Drawn from memory at once; the check answers 200 on a later task and replaces the drawing.
+    const replaced = new Promise((resolve) => sheet.addEventListener('plantuml-viewer:settled', resolve, { once: true }))
+    sheets.request(1)
+    await replaced
+    const fromMemory = sheet.querySelector('svg')
+    await tick()
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(sheet.querySelector('svg')).not.toBe(fromMemory)
+    expect(sheet.querySelector('filter').id).toBe('view-2-1-f')
+    expect(sheet.querySelector('rect').getAttribute('filter')).toBe('url(#view-2-1-f)')
+    expect(cache.get(key).serverEtag).toBe('"srv2"')
+  })
+
   it.each([
     ['the server has it unchanged', () => new Response(null, { status: 304, headers: { ETag: '"srv1"' } })],
     ['the server refuses', () => new Response('{"problem":"not set"}', { status: 503 })],

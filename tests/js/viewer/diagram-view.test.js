@@ -312,6 +312,19 @@ describe('Stack and Wall', () => {
     expect(box.checked).toBe(true)
   })
 
+  it('disables the checkbox of a diagram the server draws no image for, described by its sheet', async () => {
+    await open('@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n')
+    mode('Stack')
+    const [first, second] = cards().map((card) => card.querySelector('input[type="checkbox"]'))
+
+    expect(first.disabled).toBe(false)
+    expect(second.disabled).toBe(true)
+    expect(second.getAttribute('aria-describedby')).toBe(cards()[1].querySelector('.plantuml-viewer__sheet').id)
+    second.click()
+    expect(second.checked).toBe(false)
+    expect(cards()[1].classList.contains('plantuml-viewer__card--checked')).toBe(false)
+  })
+
   it('opens a Wall card in Tabs on a click outside its checkbox', async () => {
     await open(THREE)
     mode('Wall')

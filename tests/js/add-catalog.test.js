@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
 import { arrange, builtins, emptyText, fromFiles, matching } from '../../src/editor/add/catalog.js'
+import { blocksOf, scan } from '../../src/editor/blocks.js'
+import { BRACED } from '../../src/editor/completion/directives.js'
+
+// What the editor hands the add chunk (add/index.js's Core), the real modules.
+const CORE = { BRACED, blocksOf, scan }
 
 const OWN = {
   'diagram:uml': { summary: 'UML diagrams, drawn from text', example: '@startuml\nAlice -> Bob : hi\n@enduml' },
@@ -12,17 +17,17 @@ const titles = (list) => list.map((t) => t.title)
 
 describe('emptyText', () => {
   it('is the two lines with a blank one between', () => {
-    expect(emptyText('gantt')).toBe('@startgantt\n\n@endgantt')
+    expect(emptyText('gantt', CORE)).toBe('@startgantt\n\n@endgantt')
   })
 
   it('braces salt and json, as the @start completion does', () => {
-    expect(emptyText('salt')).toBe('@startsalt\n{\n\t\n}\n@endsalt')
-    expect(emptyText('json')).toBe('@startjson\n{\n\t\n}\n@endjson')
+    expect(emptyText('salt', CORE)).toBe('@startsalt\n{\n\t\n}\n@endsalt')
+    expect(emptyText('json', CORE)).toBe('@startjson\n{\n\t\n}\n@endjson')
   })
 })
 
 describe('builtins', () => {
-  const all = builtins(OWN)
+  const all = builtins(OWN, CORE)
   const of = (type) => all.filter((t) => t.type === type)
 
   it('gives UML Empty, Example and its nine', () => {
@@ -46,7 +51,7 @@ describe('builtins', () => {
 })
 
 describe('fromFiles', () => {
-  const file = (text, path = 'Templates/flows.puml', source = 'shared') => fromFiles([{ source, path, text }])
+  const file = (text, path = 'Templates/flows.puml', source = 'shared') => fromFiles([{ source, path, text }], CORE)
 
   it('takes each block as written, @start line to @end line', () => {
     const [t] = file("' before\n@startuml(id=L) Login\nA -> B\n@enduml\nafter")
@@ -94,14 +99,14 @@ describe('arrange', () => {
     const files = fromFiles([
       { source: 'yours', path: 'Templates/b.puml', text: '@startuml Aaa\n@enduml' },
       { source: 'shared', path: 'Templates/a.puml', text: '@startuml Beta\n@enduml\n@startuml Alpha\n@enduml' },
-    ])
-    const uml = arrange(builtins(OWN), files).get('uml')
+    ], CORE)
+    const uml = arrange(builtins(OWN, CORE), files).get('uml')
     expect(titles(uml).slice(-3)).toEqual(['Alpha', 'Beta', 'Aaa'])
     expect(uml[0].title).toBe('Empty')
   })
 
   it('keys every type, in A6\'s order', () => {
-    const keys = [...arrange(builtins(OWN), []).keys()]
+    const keys = [...arrange(builtins(OWN, CORE), []).keys()]
     expect(keys).toHaveLength(27)
     expect(keys[0]).toBe('uml')
     expect(keys.at(-1)).toBe('packetdiag')
@@ -109,7 +114,7 @@ describe('arrange', () => {
 })
 
 describe('matching', () => {
-  const arranged = arrange(builtins(OWN), [])
+  const arranged = arrange(builtins(OWN, CORE), [])
 
   it('finds a type by its name, word, @start word or a template\'s title', () => {
     expect(matching(arranged, 'mind')).toEqual(['mindmap'])

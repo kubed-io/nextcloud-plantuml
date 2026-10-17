@@ -4,11 +4,10 @@
  *
  * Every template Add diagram offers (editor spec A5, A8, A9), by type and in
  * order: the built-ins, then the admin's shared files, then the user's own.
- * Pure: the menu and the modal render what this gives.
+ * Pure: the menu and the modal render what this gives. In the add chunk, so
+ * what it needs of the editor's comes in `core` (index.js).
  */
 import templates from '../data/templates.json'
-import { BRACED } from '../completion/directives.js'
-import { blocksOf, scan } from '../blocks.js'
 import { TYPES } from './types.js'
 
 /**
@@ -25,8 +24,13 @@ import { TYPES } from './types.js'
 const BY_TYPE = new Map(TYPES.map((t) => [t.type, t]))
 const FROM = { builtin: 0, shared: 1, yours: 2 }
 
-/** Empty (A8): the two lines and a blank one, braces for salt and json as B8 inserts them. */
-export function emptyText(type) {
+/**
+ * Empty (A8): the two lines and a blank one, braces for salt and json as B8 inserts them.
+ *
+ * @param {string} type
+ * @param {Pick<import('./index.js').Core, 'BRACED'>} core
+ */
+export function emptyText(type, { BRACED }) {
   return `@start${type}\n${BRACED.includes(type) ? '{\n\t\n}' : ''}\n@end${type}`
 }
 
@@ -37,11 +41,12 @@ function firstLine(text) {
 
 /**
  * @param {Record<string, { summary?: string, example?: string }>} own own.json
+ * @param {Pick<import('./index.js').Core, 'BRACED'>} core
  * @returns {Template[]}
  */
-export function builtins(own) {
+export function builtins(own, core) {
   return TYPES.flatMap(({ type, icon }) => {
-    const list = [{ type, title: 'Empty', name: type, description: `@start${type} and @end${type}, nothing between`, text: emptyText(type), icon, source: 'builtin' }]
+    const list = [{ type, title: 'Empty', name: type, description: `@start${type} and @end${type}, nothing between`, text: emptyText(type, core), icon, source: 'builtin' }]
     const example = own[`diagram:${type}`]?.example
     if (example?.startsWith(`@start${type}`)) {
       list.push({ type, title: 'Example', name: type, description: firstLine(example), text: example, icon, source: 'builtin' })
@@ -57,9 +62,10 @@ export function builtins(own) {
  * A9: each closed block of each file, of a type A6 lists.
  *
  * @param {{ source: 'shared'|'yours', path: string, text: string }[]} files
+ * @param {Pick<import('./index.js').Core, 'blocksOf'|'scan'>} core
  * @returns {Template[]}
  */
-export function fromFiles(files) {
+export function fromFiles(files, { blocksOf, scan }) {
   return files.flatMap(({ source, path, text }) => {
     const lines = text.split('\n')
     const base = path.split('/').pop().replace(/\.[^.]+$/, '')

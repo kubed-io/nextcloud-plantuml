@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Add diagram in the editor: a type's empty diagram from ▾, or any template from +, built in, from the admin's template folder or from your own Templates folder.
 - Open a diagram's linked style or include file from its `<>` chip or Ctrl/Cmd+click, and edit it in place while the diagram redraws live.
 - **+ New** reads **New puml File** and still makes `New diagram.puml`.
 - The Viewer shows every diagram of a `.puml` as tabs, a stack or a wall, drawn inline so their links work; the wall packs diagrams of every size together, live, and opens as it was last packed. The mode is not remembered, every open is Tabs.

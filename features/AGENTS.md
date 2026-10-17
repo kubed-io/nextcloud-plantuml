@@ -302,6 +302,10 @@ The steps ask `GET /templates` as each user and set the folder through core's
 declarative settings API, as the admin card does; the users they make (`drk`,
 `alice`, `plantuml-sharer`) go after each scenario with everything they own.
 
+`GET /templates` answers the shared and the user's own files as `{source, path, text}`; the
+editor cuts them into diagrams. The built-ins are not on the route: they live in
+`src/editor/data/templates.json`, drawn in CI by `scripts/template-examples.mjs`.
+
 ## diagrams/create
 
 `features/diagrams/create.feature`

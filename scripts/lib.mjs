@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // What the build scripts share.
+import { realpathSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -10,7 +11,16 @@ const EDITOR = new URL('../src/editor/', import.meta.url)
 
 /** True when the script whose `import.meta.url` is given was started directly, not imported. */
 export function isMain(metaUrl) {
-  return process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === metaUrl
+  const entry = process.argv[1]
+  if (entry === undefined) return false
+  // Node gives import.meta.url the realpath but leaves argv[1] as typed, so resolve symlinks first.
+  let real = entry
+  try {
+    real = realpathSync(entry)
+  } catch {
+    // an unresolvable path is compared as typed
+  }
+  return pathToFileURL(real).href === metaUrl
 }
 
 /** The body of a URL as text; a non-OK status throws, naming the URL. */

@@ -84,7 +84,7 @@ Feature: Editing a diagram file
     Then the drawing names the include as one it cannot read
     And none of the shared file's text is in it
 
-  @api @todo
+  @api
   Scenario: A view-only folder cannot be read through a drawing of my own
     Given a colleague shared a folder with me that may be viewed but not downloaded
     And the folder holds a text file
@@ -94,20 +94,20 @@ Feature: Editing a diagram file
 
     # ── RULE: an open linked file is drawn before it is saved ─────────────────
 
-  @api @unbuilt
+  @api
   Scenario: A linked file's unsaved text is drawn in place of the saved one
     Given I have a diagram that takes its style from a file beside it
     When the diagram is drawn with new text for that style file
     Then the drawing uses the new text
     And the style file is unchanged
 
-  @api @unbuilt
+  @api
   Scenario: Unsaved text cannot stand in for a file that is not there
     Given I have a diagram that includes a file beside it that does not exist
     When the diagram is drawn with text for that missing file
     Then the drawing names the include as one it cannot find
 
-  @api @unbuilt
+  @api
   Scenario: Unsaved text cannot read the rest of a view-only share
     Given a colleague shared a folder with me that may be viewed but not downloaded
     And the folder holds a diagram, a part it includes and a notes file

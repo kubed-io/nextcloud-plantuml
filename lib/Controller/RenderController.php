@@ -46,6 +46,8 @@ use OCP\IRequest;
  */
 final class RenderController extends Controller {
 	public const MAX_SOURCE = DiagramFiles::MAX_SOURCE;
+	/** More overrides than the resolver could ever read (its 64 files) is no editor's request. */
+	public const MAX_OVERRIDES = 64;
 
 	public function __construct(
 		string $appName,
@@ -109,9 +111,12 @@ final class RenderController extends Controller {
 	/**
 	 * With a `path` (the edited file, or the README of a fence), relative
 	 * includes resolve against its folder; without one the source goes as written.
+	 * `overrides` (only with a `path`) are the unsaved texts of linked files, by
+	 * path as written, read in place of the files they name once those are found
+	 * readable; they count toward the megabyte with the source.
 	 */
 	#[NoAdminRequired]
-	public function bySource(string $source = '', mixed $index = 0, string $path = ''): Response {
+	public function bySource(string $source = '', mixed $index = 0, string $path = '', mixed $overrides = null): Response {
 		if (is_string($index) && preg_match('/^\d{1,3}$/', $index) === 1) {
 			$index = (int)$index;
 		}
@@ -119,7 +124,21 @@ final class RenderController extends Controller {
 		if (trim($source) === '' || !is_int($index) || $index < 0 || $index > 999) {
 			return new Response(Http::STATUS_BAD_REQUEST);
 		}
-		if (strlen($source) > DiagramFiles::MAX_SOURCE) {
+		$overrides ??= [];
+		if (!is_array($overrides) || ($overrides !== [] && $path === '') || count($overrides) > self::MAX_OVERRIDES) {
+			return new Response(Http::STATUS_BAD_REQUEST);
+		}
+		$bytes = strlen($source);
+		$texts = [];
+		foreach ($overrides as $written => $text) {
+			// PHP keeps a JSON key "1" as the int 1, so a list is refused here too.
+			if (!is_string($written) || !is_string($text)) {
+				return new Response(Http::STATUS_BAD_REQUEST);
+			}
+			$texts[$written] = $text;
+			$bytes += strlen($text);
+		}
+		if ($bytes > DiagramFiles::MAX_SOURCE) {
 			return DiagramFiles::tooLarge();
 		}
 		$expanded = null;
@@ -131,7 +150,7 @@ final class RenderController extends Controller {
 				return new Response(Http::STATUS_NOT_FOUND);
 			}
 			if (DiagramFiles::namesAFile($source)) {
-				$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node, self::ownersText($node, $source));
+				$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node, self::ownersText($node, $source), $texts);
 			}
 		}
 		try {

@@ -97,10 +97,13 @@ final class IncludeResolverTest extends TestCase {
 		return $handle;
 	}
 
-	/** @param array<string, string|File> $files */
-	private function expand(string $source, array $files, string $base = 'docs', ?File $self = null): Expanded {
+	/**
+	 * @param array<string, string|File> $files
+	 * @param array<string, string> $overrides as the editor sends them
+	 */
+	private function expand(string $source, array $files, string $base = 'docs', ?File $self = null, array $overrides = []): Expanded {
 		[$folder, $root] = $this->tree($files, $base);
-		return (new IncludeResolver())->expand($source, $folder, $root, $self);
+		return (new IncludeResolver())->expand($source, $folder, $root, $self, false, $overrides);
 	}
 
 	/** A Folder double that fails the test if it is asked for any file. */
@@ -998,12 +1001,21 @@ final class IncludeResolverTest extends TestCase {
 	 * A diagram on share `S` with `$permissions` and what `!include b.puml`
 	 * beside it gives, the sibling on `$sibling` (share S, read-only, by default);
 	 * `$ownersText` as the route says whether the source is the diagram's own.
+	 * `notes.txt` is beside them on share S, which no override text may read;
+	 * `$overrides` as the editor sends them, `$source` the diagram's stored
+	 * text, and `$more` other files, by path from the root.
+	 *
+	 * @param array<string, string> $overrides
+	 * @param array<string, File> $more
 	 */
-	private function drawnInShare(int $permissions, ?ISharedStorage $sibling = null, bool $ownersText = true): Expanded {
-		$files = ['Shared/b.puml' => $this->file('Shared/b.puml', "beside\n", null, $sibling ?? $this->shareStorage(false))];
+	private function drawnInShare(int $permissions, ?ISharedStorage $sibling = null, bool $ownersText = true, array $overrides = [], string $source = "!include b.puml\n", array $more = []): Expanded {
+		$files = [
+			'Shared/b.puml' => $this->file('Shared/b.puml', "beside\n", null, $sibling ?? $this->shareStorage(false)),
+			'Shared/notes.txt' => $this->file('Shared/notes.txt', "Q4 figures\n", null, $this->shareStorage(false)),
+		] + $more;
 		[$folder, $root] = $this->tree($files, 'Shared');
-		$self = $this->file('Shared/a.puml', "!include b.puml\n", null, $this->shareStorage(false, 'S', $permissions));
-		return (new IncludeResolver())->expand("!include b.puml\n", $folder, $root, $self, $ownersText);
+		$self = $this->file('Shared/a.puml', $source, null, $this->shareStorage(false, 'S', $permissions));
+		return (new IncludeResolver())->expand($source, $folder, $root, $self, $ownersText, $overrides);
 	}
 
 	/** Viewing a shared diagram is unchanged, and so are the files beside it in that share. */
@@ -1089,5 +1101,131 @@ final class IncludeResolverTest extends TestCase {
 
 		self::assertSame("$line\n", $expanded->source);
 		self::assertSame([['line' => 0, 'message' => 'Figures.txt includes itself']], $expanded->mistakes);
+	}
+
+	public function testAnOverrideReplacesAStyleFilesText(): void {
+		$expanded = $this->expand("<style file=x.css>\n", ['docs/x.css' => "a {}\n"], overrides: ['x.css' => "b {}\n"]);
+
+		self::assertSame("<style>\nb {}\n</style>\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	public function testTwoSpellingsOfOneFileShareItsOverride(): void {
+		$expanded = $this->expand("<style file=x.css>\n", ['docs/x.css' => "a {}\n"], overrides: ['./x.css' => "b {}\n"]);
+
+		self::assertSame("<style>\nb {}\n</style>\n", $expanded->source);
+	}
+
+	public function testAnOverrideFromTheRootNamesTheSameFile(): void {
+		$expanded = $this->expand("<style file=x.css>\n", ['docs/x.css' => "a {}\n"], overrides: ['/docs/x.css' => "b {}\n"]);
+
+		self::assertSame("<style>\nb {}\n</style>\n", $expanded->source);
+	}
+
+	public function testAnOverrideReachesAFileANestedIncludeNames(): void {
+		$files = ['docs/a.puml' => "!include x.puml\n", 'docs/x.puml' => "A -> B\n"];
+
+		$expanded = $this->expand("!include a.puml\n", $files, overrides: ['x.puml' => "C -> D\n"]);
+
+		self::assertSame("C -> D\n", $expanded->source);
+	}
+
+	public function testAnOverrideForAMissingFileIsIgnored(): void {
+		$expanded = $this->expand("<style file=x.css>\n", [], overrides: ['x.css' => "b {}\n"]);
+
+		self::assertSame("<style file=x.css>\n", $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'Cannot find x.css']], $expanded->mistakes);
+	}
+
+	public function testAnOverrideAboveTheRootIsIgnored(): void {
+		$expanded = $this->expand("<style file=x.css>\n", ['docs/x.css' => "a {}\n"], overrides: ['../../x.css' => "b {}\n"]);
+
+		self::assertSame("<style>\na {}\n</style>\n", $expanded->source);
+	}
+
+	public function testAnOverrideCannotOpenAViewOnlyFile(): void {
+		$expanded = $this->expand("<style file=x.css>\n", ['docs/x.css' => $this->viewOnly()], overrides: ['x.css' => "b {}\n"]);
+
+		self::assertStringNotContainsString('b {}', $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'Cannot read x.css']], $expanded->mistakes);
+	}
+
+	public function testAnOverrideOfTheDiagramItselfIsStillACycle(): void {
+		$self = $this->file('docs/a.puml', "!include a.puml\n");
+
+		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $self], self: $self, overrides: ['a.puml' => "X -> Y\n"]);
+
+		self::assertSame([['line' => 0, 'message' => 'a.puml includes itself']], $expanded->mistakes);
+	}
+
+	public function testAnOverrideCountsTowardTheMegabyte(): void {
+		$expanded = $this->expand("<style file=x.css>\n", ['docs/x.css' => "a {}\n"], overrides: ['x.css' => str_repeat('a', 1048577)]);
+
+		self::assertSame([['line' => 0, 'message' => 'x.css is past the limit of 1 MB in all']], $expanded->mistakes);
+	}
+
+	/** Outside any share, a library the diagram imports is the override text's to include from too. */
+	public function testOverrideTextIncludesFromALibraryTheDiagramImports(): void {
+		$files = ['docs/lib.zip' => self::zip(['z.puml' => "zipped\n"]), 'docs/b.puml' => "b\n"];
+
+		$expanded = $this->expand("!import lib.zip\n!include b.puml\n", $files, overrides: ['b.puml' => "!include z.puml\n"]);
+
+		self::assertSame("zipped\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	/** The overridden part is the owner's file in the owner's share: it stays readable. */
+	public function testAnOverriddenFileInTheShareStaysReadable(): void {
+		$expanded = $this->drawnInShare(Constants::PERMISSION_READ, overrides: ['b.puml' => "New parts\n"]);
+
+		self::assertSame("New parts\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	/** Override text is the caller's: what it names is read without the owner's exemption. */
+	public function testOverrideTextCannotReadTheRestOfAViewOnlyShare(): void {
+		$expanded = $this->drawnInShare(Constants::PERMISSION_READ, overrides: ['b.puml' => "!include notes.txt\n"]);
+
+		self::assertStringNotContainsString('Q4', $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'In b.puml, line 1: Cannot read notes.txt']], $expanded->mistakes);
+	}
+
+	/** The owner's text reading a file first does not open it to the override text after. */
+	public function testAFileTheOwnersTextReadIsStillRefusedToOverrideText(): void {
+		$expanded = $this->drawnInShare(Constants::PERMISSION_READ, overrides: ['b.puml' => "!include notes.txt\n"], source: "!include notes.txt\n!include b.puml\n");
+
+		self::assertSame("Q4 figures\n!include notes.txt\n", $expanded->source);
+		self::assertSame([['line' => 1, 'message' => 'In b.puml, line 1: Cannot read notes.txt']], $expanded->mistakes);
+	}
+
+	/** A library only the owner's exemption opened gives the override text nothing. */
+	public function testOverrideTextCannotIncludeFromAViewOnlyLibraryTheOwnerImported(): void {
+		$library = $this->file('Shared/lib.zip', self::zip(['shown.puml' => "Shown\n", 'secret.puml' => "Q4 zipped\n"]), null, $this->shareStorage(false));
+
+		$expanded = $this->drawnInShare(
+			Constants::PERMISSION_READ,
+			overrides: ['b.puml' => "!include secret.puml\n"],
+			source: "!import lib.zip\n!include shown.puml\n!include b.puml\n",
+			more: ['Shared/lib.zip' => $library],
+		);
+
+		self::assertSame("Shown\n!include secret.puml\n", $expanded->source);
+		self::assertSame([['line' => 2, 'message' => 'In b.puml, line 1: Cannot find secret.puml']], $expanded->mistakes);
+	}
+
+	/** A library the override text imports is the caller's, even where the owner's own include finds it first. */
+	public function testALibraryOverrideTextImportsReadsAsTheCallersEverywhere(): void {
+		$expanded = $this->drawnInShare(
+			Constants::PERMISSION_READ,
+			overrides: ['b.puml' => "!import /Mine/mine.zip\n"],
+			source: "!include b.puml\n!include c.puml\n",
+			more: [
+				'Shared/c.puml' => $this->file('Shared/c.puml', "the owner's c\n", null, $this->shareStorage(false)),
+				'Mine/mine.zip' => $this->file('Mine/mine.zip', self::zip(['c.puml' => "!include /Shared/notes.txt\n"])),
+			],
+		);
+
+		self::assertStringNotContainsString('Q4', $expanded->source);
+		self::assertSame([['line' => 1, 'message' => 'In ../Mine/mine.zip/c.puml, line 1: Cannot read /Shared/notes.txt']], $expanded->mistakes);
 	}
 }

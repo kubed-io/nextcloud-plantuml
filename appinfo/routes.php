@@ -10,7 +10,7 @@ return [
 		['name' => 'config#testConnection', 'url' => '/test-connection', 'verb' => 'POST'],
 		// ?path=<path in the caller's folder>
 		['name' => 'render#byPath', 'url' => '/render', 'verb' => 'GET'],
-		// JSON {source}
+		// JSON {source, index?, path?, overrides?: {path as written: text}}
 		['name' => 'render#bySource', 'url' => '/render', 'verb' => 'POST'],
 		// ?path=<path>&format=<svg|png|pdf|eps|txt>[&index[]=<0-based>…][&diagram[]=<n or name>…], a download
 		['name' => 'export#export', 'url' => '/export', 'verb' => 'GET'],

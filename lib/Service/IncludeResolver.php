@@ -35,7 +35,7 @@ use OCP\Lock\LockedException;
  * that refuses (offline, forbidden, locked) makes a file unreadable, never an
  * error of the route.
  *
- * @psalm-type Context = array{dir: list<string>|null, zip: int|null, zipDir: list<string>}
+ * @psalm-type Context = array{dir: list<string>|null, zip: int|null, zipDir: list<string>, caller: bool}
  * @psalm-type At = array{text: string, inner: int, top: int, display: string|null}
  * @psalm-type Found = array{id: string, display: string, context: Context, file: File|null, zip: int|null, entry: int}
  */
@@ -82,10 +82,19 @@ final class IncludeResolver {
 	private array $stack = [];
 	/** @var array<string, string> */
 	private array $contents = [];
-	/** @var list<array{zip: \ZipArchive, tmp: string, id: string, display: string, dir: list<string>|null}> */
+	/** @var array<string, true> ids of the files whose text the caller sent: what that text names is the caller's to read */
+	private array $overridden = [];
+	/**
+	 * `caller`: imported by the caller's text, so its entries are the caller's too;
+	 * `exempt`: opened only by the owner's exemption, so the caller's text never looks in it.
+	 *
+	 * @var list<array{zip: \ZipArchive, tmp: string, id: string, display: string, dir: list<string>|null, caller: bool, exempt: bool}>
+	 */
 	private array $imports = [];
 	/** @var array<string, File|null|false> what each path asked of the user's files gave, so it is asked once */
 	private array $nodes = [];
+	/** @var array<string, File|null|false> the same for the caller's text, which the owner's exemption never covers */
+	private array $callerNodes = [];
 	/** The read-only share the diagram is on, as `shareOf()` names it; its own files stay readable to it. */
 	private ?string $ownShare = null;
 	/** The diagram's own file, as `find()` names it: never read into itself. */
@@ -100,12 +109,15 @@ final class IncludeResolver {
 	private static bool $hooked = false;
 
 	/**
-	 * Only the owner's text (`$ownersText`) may read the rest of a view-only share `$self` is on.
+	 * Only the owner's text (`$ownersText`) may read the rest of a view-only share `$self` is on;
+	 * an override's text is the caller's, and so is everything it names.
 	 *
 	 * @param File|null $self the diagram's own file, so including it is a cycle from the start
 	 * @param bool $ownersText the source is `$self`'s stored text, or a part of it, so the share's owner wrote it
+	 * @param array<string, string> $overrides texts read in place of the files they name, once those are found readable:
+	 *                                         a path as written, from `$base`, or from the root when it starts `/`
 	 */
-	public function expand(string $source, Folder $base, Folder $root, ?File $self = null, bool $ownersText = false): Expanded {
+	public function expand(string $source, Folder $base, Folder $root, ?File $self = null, bool $ownersText = false, array $overrides = []): Expanded {
 		$run = new self();
 		$run->root = $root;
 		$rootPath = rtrim($root->getPath(), '/');
@@ -116,8 +128,23 @@ final class IncludeResolver {
 			$run->stack[] = $run->self;
 		}
 		$run->ownShare = $self === null || !$ownersText ? null : self::readOnlyShareOf($self);
+		foreach ($overrides as $written => $text) {
+			$path = str_replace('\\', '/', $written);
+			if (preg_match('/[\x00-\x1f]/', $path) === 1) {
+				continue;
+			}
+			$dir = str_starts_with($path, '/') ? [] : $run->baseDir;
+			$segments = $dir === null ? null : self::resolve($dir, $path);
+			if ($segments === null || $segments === []) {
+				continue;
+			}
+			// read() takes contents by the found id, so only once lookUp() and viewOnly() have let the file through.
+			$id = 'files:' . implode('/', $segments);
+			$run->contents[$id] = $text;
+			$run->overridden[$id] = true;
+		}
 		try {
-			$run->walk(explode("\n", $source), ['dir' => $run->baseDir, 'zip' => null, 'zipDir' => []], 0, null, null);
+			$run->walk(explode("\n", $source), ['dir' => $run->baseDir, 'zip' => null, 'zipDir' => [], 'caller' => false], 0, null, null);
 		} finally {
 			foreach ($run->imports as $import) {
 				$import['zip']->close();
@@ -333,7 +360,16 @@ final class IncludeResolver {
 			return;
 		}
 		$this->libraryBytes += strlen((string)$content);
-		$this->imports[] = ['zip' => $zip[0], 'tmp' => $zip[1], 'id' => $found['id'], 'display' => $found['display'], 'dir' => $found['context']['dir']];
+		$this->imports[] = [
+			'zip' => $zip[0],
+			'tmp' => $zip[1],
+			'id' => $found['id'],
+			'display' => $found['display'],
+			'dir' => $found['context']['dir'],
+			'caller' => $context['caller'],
+			// Found for the caller, it forbids no download; found for the owner, only the exemption let it through.
+			'exempt' => self::forbidsDownload($found['file']),
+		];
 		$this->take();
 	}
 
@@ -439,7 +475,9 @@ final class IncludeResolver {
 	 * Where a path leads: inside the zip the line is in, then each imported
 	 * zip, then the user's files. False when the storage refuses to say, or
 	 * the file's share forbids download. A path new to this diagram past a
-	 * limit is not asked for: the limit is given instead (`64 files`).
+	 * limit is not asked for: the limit is given instead (`64 files`). The
+	 * caller's text looks in no zip the owner's exemption opened, and the
+	 * file it finds is looked up apart from the owner's.
 	 *
 	 * @param Context $context
 	 * @return Found|string|null|false
@@ -453,13 +491,13 @@ final class IncludeResolver {
 		$relative = !str_starts_with($path, '/');
 		if ($zips && $relative) {
 			if ($context['zip'] !== null) {
-				$found = $this->inZip($context['zip'], $context['zipDir'], $path);
+				$found = $this->inZip($context['zip'], $context['zipDir'], $path, $context['caller']);
 				if ($found !== null) {
 					return $found;
 				}
 			}
 			foreach (array_keys($this->imports) as $n) {
-				$found = $this->inZip($n, [], $path);
+				$found = $this->inZip($n, [], $path, $context['caller']);
 				if ($found !== null) {
 					return $found;
 				}
@@ -473,23 +511,32 @@ final class IncludeResolver {
 			return null;
 		}
 		$name = implode('/', $segments);
-		if (!array_key_exists($name, $this->nodes)) {
+		$caller = $context['caller'];
+		$known = $caller ? $this->callerNodes : $this->nodes;
+		if (array_key_exists($name, $known)) {
+			$node = $known[$name];
+		} else {
 			if ($this->files >= self::MAX_FILES) {
 				return self::MAX_FILES . ' files';
 			}
 			if ($this->lookups >= self::MAX_LOOKUPS) {
 				return self::MAX_LOOKUPS . ' lookups';
 			}
-			$this->nodes[$name] = $this->lookUp($name);
+			$node = $this->lookUp($name, $caller);
+			if ($caller) {
+				$this->callerNodes[$name] = $node;
+			} else {
+				$this->nodes[$name] = $node;
+			}
 		}
-		$node = $this->nodes[$name];
 		if (!$node instanceof File) {
 			return $node;
 		}
+		$id = 'files:' . $name;
 		return [
-			'id' => 'files:' . implode('/', $segments),
+			'id' => $id,
 			'display' => $this->display($segments),
-			'context' => ['dir' => array_slice($segments, 0, -1), 'zip' => null, 'zipDir' => []],
+			'context' => ['dir' => array_slice($segments, 0, -1), 'zip' => null, 'zipDir' => [], 'caller' => $caller || isset($this->overridden[$id])],
 			'file' => $node,
 			'zip' => null,
 			'entry' => 0,
@@ -497,7 +544,7 @@ final class IncludeResolver {
 	}
 
 	/** The one place the user's files are asked; false as for `find()`. */
-	private function lookUp(string $name): File|null|false {
+	private function lookUp(string $name, bool $caller): File|null|false {
 		$this->lookups++;
 		try {
 			$node = $this->root?->get($name);
@@ -509,14 +556,19 @@ final class IncludeResolver {
 		if (!$node instanceof File) {
 			return null;
 		}
-		return $this->viewOnly($node) ? false : $node;
+		return $this->viewOnly($node, $caller) ? false : $node;
 	}
 
 	/**
+	 * An entry of import `$n`; never, for the caller's text, of a zip only the owner's exemption opened.
+	 *
 	 * @param list<string> $dir
 	 * @return Found|null
 	 */
-	private function inZip(int $n, array $dir, string $path): ?array {
+	private function inZip(int $n, array $dir, string $path, bool $caller): ?array {
+		if ($caller && $this->imports[$n]['exempt']) {
+			return null;
+		}
 		$segments = self::resolve($dir, $path);
 		if ($segments === null || $segments === []) {
 			return null;
@@ -529,7 +581,7 @@ final class IncludeResolver {
 		return [
 			'id' => $this->imports[$n]['id'] . '!' . $name,
 			'display' => $this->imports[$n]['display'] . '/' . $name,
-			'context' => ['dir' => $this->imports[$n]['dir'], 'zip' => $n, 'zipDir' => array_slice($segments, 0, -1)],
+			'context' => ['dir' => $this->imports[$n]['dir'], 'zip' => $n, 'zipDir' => array_slice($segments, 0, -1), 'caller' => $caller || $this->imports[$n]['caller']],
 			'file' => null,
 			'zip' => $n,
 			'entry' => $entry,
@@ -772,10 +824,10 @@ final class IncludeResolver {
 	/**
 	 * A file that forbids download (above), which a picture of its text would get
 	 * around, unless the diagram is on that same share, may not write to it and is
-	 * the owner's text.
+	 * the owner's text, and the lookup is not for the caller's (`$caller`).
 	 */
-	private function viewOnly(File $file): bool {
-		return self::forbidsDownload($file) && ($this->ownShare === null || self::shareOf($file) !== $this->ownShare);
+	private function viewOnly(File $file, bool $caller): bool {
+		return self::forbidsDownload($file) && ($this->ownShare === null || $caller || self::shareOf($file) !== $this->ownShare);
 	}
 
 	/**

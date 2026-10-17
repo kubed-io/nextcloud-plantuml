@@ -61,10 +61,7 @@ trait RenderApiSteps {
 		if ($index === false) {
 			throw new \RuntimeException("{$path} has no diagram named {$name}");
 		}
-		$this->renderResponse = $this->httpClient()->post($this->baseUrl . '/index.php/apps/plantuml/render', [
-			'json' => ['source' => $source, 'index' => $index],
-			'headers' => ['OCS-APIRequest' => 'true'],
-		]);
+		$this->renderResponse = $this->renderWith($source, index: $index);
 	}
 
 	/** @Then /^I receive the diagram "([^"]*)"$/ */
@@ -120,15 +117,41 @@ trait RenderApiSteps {
 		]);
 	}
 
-	/**
-	 * The source route is CSRF-checked. A basic-auth client has no request
-	 * token; Nextcloud passes the check for a request that sends OCS-APIRequest.
-	 */
+	/** The source alone, as a README's fence is drawn. */
 	private function renderBySource(string $source): ResponseInterface {
+		return $this->renderWith($source);
+	}
+
+	/**
+	 * POST /render as the editor sends it: the file whose folder includes
+	 * resolve against, and any linked file's unsaved text. The route is
+	 * CSRF-checked. A basic-auth client has no request token; Nextcloud passes
+	 * the check for a request that sends OCS-APIRequest.
+	 *
+	 * @param array<string, string> $overrides
+	 */
+	private function renderWith(string $source, string $path = '', array $overrides = [], int $index = 0): ResponseInterface {
+		$body = ['source' => $source, 'index' => $index];
+		if ($path !== '') {
+			$body['path'] = $path;
+		}
+		if ($overrides !== []) {
+			$body['overrides'] = $overrides;
+		}
 		return $this->httpClient()->post($this->baseUrl . '/index.php/apps/plantuml/render', [
-			'json' => ['source' => $source],
+			'json' => $body,
 			'headers' => ['OCS-APIRequest' => 'true'],
 		]);
+	}
+
+	/** The drawing's one mistake, as the routes send it: the message and the 0-based line. */
+	private function assertMistake(string $expected, int $line): void {
+		$response = $this->lastRenderResponse();
+		$error = rawurldecode($response->getHeaderLine('X-PlantUML-Diagram-Error'));
+		$at = $response->getHeaderLine('X-PlantUML-Diagram-Error-Line');
+		if ($error !== $expected || $at !== (string)$line) {
+			throw new \RuntimeException("expected '{$expected}' on line {$line}, got HTTP {$response->getStatusCode()}, error '{$error}', line '{$at}'");
+		}
 	}
 
 	/** A 200 SVG and, when given, with that text drawn in it. */

@@ -946,4 +946,95 @@ final class RenderControllerTest extends TestCase {
 		self::assertStringNotContainsString('TOP SECRET', (string)$sent);
 		self::assertSame('Cannot read Figures.txt', self::header($response, 'X-PlantUML-Diagram-Error'));
 	}
+
+	/** The owner's diagram left as it is, with its part's unsaved text: that text is the reader's. */
+	public function testBySourceOverrideTextCannotReadAViewOnlyShare(): void {
+		$flow = "@startuml\nlegend\n!include parts.puml\nendlegend\n@enduml\n";
+		$files = $this->viewOnlyShare() + [
+			'Shared/Flow.puml' => $this->onViewOnlyShare('Shared/Flow.puml', $flow),
+			'Shared/parts.puml' => $this->onViewOnlyShare('Shared/parts.puml', "Parts\n", 'text/plain'),
+		];
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $files)->bySource($flow, 0, 'Shared/Flow.puml', ['parts.puml' => "!include secret.txt\n"]);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame("@startuml\nlegend\n!include secret.txt\nendlegend\n@enduml\n", $sent);
+		self::assertSame('In parts.puml, line 1: Cannot read secret.txt', self::header($response, 'X-PlantUML-Diagram-Error'));
+		self::assertSame('2', self::header($response, 'X-PlantUML-Diagram-Error-Line'));
+	}
+
+	private const STYLED = "@startuml\n<style file=x.css>\nA -> B\n@enduml\n";
+
+	/** @return array<string, Node> */
+	private function styledFiles(): array {
+		return [
+			'Diagrams/Order flow.puml' => $this->diagram('text/x-plantuml', self::STYLED),
+			'Diagrams/x.css' => $this->diagram('text/plain', "a {}\n", 'css1', 'x.css'),
+		];
+	}
+
+	public function testBySourceDrawsAnOverrideInPlaceOfTheFile(): void {
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $this->styledFiles())->bySource(self::STYLED, 0, '/Diagrams/Order flow.puml', ['./x.css' => "b {}\n"]);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame("@startuml\n<style>\nb {}\n</style>\nA -> B\n@enduml\n", $sent);
+	}
+
+	public function testOverridesWithoutAPathAre400(): void {
+		$response = $this->controller($this->renderingNothing(), new NotFoundException())->bySource(self::STYLED, 0, '', ['x.css' => 'b {}']);
+
+		self::assertSame(400, $response->getStatus());
+	}
+
+	/** @return iterable<string, array{mixed}> */
+	public static function malformedOverrides(): iterable {
+		yield 'a list' => [['b {}']];
+		yield 'a number for text' => [['x.css' => 1]];
+		yield 'a string' => ['x.css'];
+		yield 'sixty-five of them' => [array_fill_keys(array_map(static fn (int $n): string => "f$n.css", range(1, 65)), '')];
+	}
+
+	#[DataProvider('malformedOverrides')]
+	public function testMalformedOverridesAre400(mixed $overrides): void {
+		$response = $this->controller($this->renderingNothing(), $this->styledFiles())->bySource(self::STYLED, 0, '/Diagrams/Order flow.puml', $overrides);
+
+		self::assertSame(400, $response->getStatus());
+	}
+
+	public function testSixtyFourOverridesAreTaken(): void {
+		$overrides = array_fill_keys(array_map(static fn (int $n): string => "f$n.css", range(1, 63)), '') + ['x.css' => "b {}\n"];
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $this->styledFiles())->bySource(self::STYLED, 0, '/Diagrams/Order flow.puml', $overrides);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame("@startuml\n<style>\nb {}\n</style>\nA -> B\n@enduml\n", $sent);
+	}
+
+	public function testASourceAndOverridesPastAMegabyteAre413(): void {
+		$overrides = ['x.css' => str_repeat('a', RenderController::MAX_SOURCE - strlen(self::STYLED) + 1)];
+
+		$response = $this->controller($this->renderingNothing(), $this->styledFiles())->bySource(self::STYLED, 0, '/Diagrams/Order flow.puml', $overrides);
+
+		self::assertSame(413, $response->getStatus());
+		self::assertSame(self::TOO_LARGE, $response->getData());
+	}
+
+	/** @return iterable<string, array{array<string, string>|null}> */
+	public static function noOverrides(): iterable {
+		yield 'null' => [null];
+		yield 'an empty set' => [[]];
+	}
+
+	#[DataProvider('noOverrides')]
+	public function testWithoutOverridesTheStoredFileIsDrawn(?array $overrides): void {
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$this->controller($render, $this->styledFiles())->bySource(self::STYLED, 0, '/Diagrams/Order flow.puml', $overrides);
+
+		self::assertSame("@startuml\n<style>\na {}\n</style>\nA -> B\n@enduml\n", $sent);
+	}
 }

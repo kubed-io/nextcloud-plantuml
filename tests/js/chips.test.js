@@ -4,7 +4,8 @@
 //
 // R9, R10: the `<>` chip after a linked file's path, and Ctrl (Cmd) + click on
 // the path. Whether a file is there is asked once for the page, again at R6's
-// moments (the window focused, the tab shown) and at each open.
+// moments (the window focused, the tab shown) and at each open. The answers are
+// kept for the page, across tests too: a test that needs none uses its own file.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
@@ -153,18 +154,37 @@ describe('the linked-file chip', () => {
     expect(seams.fileAccess).toHaveBeenCalledTimes(2) // the style file and the parts file
 
     window.dispatchEvent(new Event('focus'))
-    await settle()
 
-    expect(seams.fileAccess).toHaveBeenCalledTimes(4)
+    await vi.waitFor(() => expect(seams.fileAccess).toHaveBeenCalledTimes(4))
   })
 
   it('asks again when the tab is shown again', async () => {
     await editor()
 
     document.dispatchEvent(new Event('visibilitychange'))
-    await settle()
+
+    await vi.waitFor(() => expect(seams.fileAccess).toHaveBeenCalledTimes(4))
+  })
+
+  it('asks once per path for a return that both focuses the window and shows the tab', async () => {
+    await editor()
+
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('focus'))
+    await vi.waitFor(() => expect(seams.fileAccess).toHaveBeenCalledTimes(4))
+    await new Promise((resolve) => setTimeout(resolve, 300))
 
     expect(seams.fileAccess).toHaveBeenCalledTimes(4)
+  })
+
+  it('keeps the chips showing while the files are asked again', async () => {
+    await editor()
+    seams.fileAccess.mockReturnValue(new Promise(() => {}))
+
+    window.dispatchEvent(new Event('focus'))
+    await vi.waitFor(() => expect(seams.fileAccess).toHaveBeenCalledTimes(4))
+
+    expect(chips()).toHaveLength(1)
   })
 
   it('keeps the answers for the page: the editor drawn again does not ask again', async () => {
@@ -200,16 +220,48 @@ describe('the linked-file chip', () => {
     expect(chips()).toHaveLength(1)
   })
 
-  it('asks again after a failed answer', async () => {
+  it('keeps a failed answer until the next return, not asking at every edit', async () => {
     vi.spyOn(console, 'debug').mockImplementation(() => {})
-    seams.fileAccess.mockRejectedValueOnce(new Error('offline'))
-    await editor()
+    // A file no other test asks for, so no answer kept for the page shows its chip.
+    seams.fileAccess.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ writable: true })
+    await editor(vi.fn(), '@startuml\n<style file=./Offline.css>\n@enduml\n')
+    const asked = () => seams.fileAccess.mock.calls.filter(([path]) => path === '/Diagrams/Offline.css')
 
-    view.dispatch({ changes: { from: 0, insert: "' a comment\n" } })
+    for (const insert of ["' one\n", "' two\n", "' three\n"]) {
+      view.dispatch({ changes: { from: 0, insert } })
+      await settle()
+    }
+    expect(asked()).toHaveLength(1)
+    expect(chips()).toHaveLength(0)
+
+    window.dispatchEvent(new Event('focus'))
+
+    await vi.waitFor(() => expect(chips()).toHaveLength(1))
+    expect(asked()).toHaveLength(2)
+  })
+
+  it('gives a line linking the main file itself no chip', async () => {
+    seams.fileAccess.mockResolvedValue({ writable: true })
+
+    await editor(vi.fn(), '@startuml\n!include "Order flow.puml"\n!include "./Order flow.puml"\n@enduml\n')
+
+    expect(chips()).toHaveLength(0)
+    expect(view.dom.querySelector('[data-linked-path]')).toBeNull()
+    expect(seams.fileAccess).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['its chip', () => press(chips()[0])],
+    ['a Ctrl+click on its path', () => press(view.contentDOM.querySelector('.cm-plantuml-link'), { ctrlKey: true })],
+  ])('logs an open that fails from %s', async (_, click) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failure = new Error('gone')
+    await editor(vi.fn().mockRejectedValue(failure))
+
+    click()
     await settle()
 
-    expect(seams.fileAccess.mock.calls.filter(([path]) => path === '/Diagrams/UML_Fun.css')).toHaveLength(2)
-    expect(chips()).toHaveLength(1)
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('could not open /Diagrams/UML_Fun.css'), failure)
   })
 
   it('drops the chip of a file that went away', async () => {
@@ -217,8 +269,7 @@ describe('the linked-file chip', () => {
     seams.fileAccess.mockResolvedValue(null)
 
     window.dispatchEvent(new Event('focus'))
-    await settle()
 
-    expect(chips()).toHaveLength(0)
+    await vi.waitFor(() => expect(chips()).toHaveLength(0))
   })
 })

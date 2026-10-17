@@ -5,8 +5,9 @@
  * R9, R10: a `<>` chip after the path of a line that links a readable file
  * beside the diagram, and Ctrl+click (Cmd+click on macOS) on that path.
  * Whether a file is there is asked once for the page, so the editor drawn
- * again on going back does not ask again; R6's moments and each open forget
- * the answers. Each answer redraws every editor drawing chips.
+ * again on going back does not ask again; R6's moments and each open ask
+ * again, the old answers showing till the new land. A failed ask waits for
+ * that too. Each answer redraws every editor drawing chips.
  */
 import { StateEffect } from '@codemirror/state'
 import { Decoration, ViewPlugin, WidgetType } from '@codemirror/view'
@@ -21,10 +22,13 @@ import codeTags from '../../../img/icons/code-tags.svg?raw'
 /** A file's answer landed, or the answers were forgotten: draw again. */
 const answered = StateEffect.define()
 
-const asked = new Set() // paths asked since the answers were last forgotten
-const answers = new Map() // path → {writable}|null, once answered
+const asked = new Set() // paths asked, failed ones too, since the answers were last forgotten
+const answers = new Map() // path → {writable}|null, the latest answer
 const live = new Set() // the plugins drawing chips
 let round = 0 // bumped by each forgetting, so an answer to an older ask is dropped
+let returning = null // the timer that forgets once a return's events have all come
+// A return fires focus and visibilitychange both, a moment apart: one forgetting for the two.
+const RETURN_MS = 100
 
 const mac = () => /Mac|iP(?:hone|ad|od)/.test(navigator.platform)
 const held = (event) => (mac() ? event.metaKey : event.ctrlKey)
@@ -36,17 +40,23 @@ function redraw(path) {
   }
 }
 
-/** Forgets every answer, for the next draw to ask again: at R6's moments, and at each open. */
+/** Asks every path again at its next draw, at R6's moments and at each open; the answers show till then. */
 export function forgetLinkedFiles() {
+  clearTimeout(returning)
+  returning = null
   round++
   asked.clear()
-  answers.clear()
   redraw(null)
+}
+
+function returned() {
+  clearTimeout(returning)
+  returning = setTimeout(forgetLinkedFiles, RETURN_MS)
 }
 
 const visible = () => {
   if (document.visibilityState === 'visible') {
-    forgetLinkedFiles()
+    returned()
   }
 }
 
@@ -62,11 +72,8 @@ function ask(path) {
       redraw(path)
     }
   }, (e) => {
-    // A failure is not kept: the next draw asks again.
+    // Kept as asked, so a draw at each key or scroll does not ask again.
     console.debug(`[${APP_ID}] could not check a linked file`, e)
-    if (at === round) {
-      asked.delete(path)
-    }
   })
 }
 
@@ -98,11 +105,11 @@ class Chip extends WidgetType {
   }
 }
 
-/** The linked file on `line`, with its path beside the diagram at `file`, or null. */
+/** The linked file on `line`, with its path beside the diagram at `file`, or null; never the diagram itself. */
 function linkedOn(file, text) {
   const link = linkOn(text)
   const path = link && resolveLinked(file, link.written)
-  return path ? { ...link, path } : null
+  return path && path !== file ? { ...link, path } : null
 }
 
 /**
@@ -119,7 +126,7 @@ export function linkedChips(open) {
       document.addEventListener('keyup', this.ctrl)
       window.addEventListener('blur', this.released)
       if (live.size === 0) {
-        window.addEventListener('focus', forgetLinkedFiles)
+        window.addEventListener('focus', returned)
         document.addEventListener('visibilitychange', visible)
       }
       live.add(this)
@@ -175,7 +182,7 @@ export function linkedChips(open) {
       window.removeEventListener('blur', this.released)
       live.delete(this)
       if (live.size === 0) {
-        window.removeEventListener('focus', forgetLinkedFiles)
+        window.removeEventListener('focus', returned)
         document.removeEventListener('visibilitychange', visible)
       }
     }
@@ -192,7 +199,7 @@ export function linkedChips(open) {
           return false
         }
         event.preventDefault()
-        open(link)
+        Promise.resolve(open(link)).catch((e) => console.error(`[${APP_ID}] could not open ${link.path}`, e))
         return true
       },
     },

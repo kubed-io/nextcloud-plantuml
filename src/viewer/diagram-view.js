@@ -145,12 +145,21 @@ export function createDiagramView(root, { path, basename, onReady }) {
   }
 
   // A second press of a double-click on a Files row lands on the Viewer once it opens, and would
-  // highlight the page or the diagram under it; a first press is left to do its work.
-  root.addEventListener('mousedown', (event) => {
-    if (event.detail > 1) {
+  // highlight the page or the diagram under it; it may land on NcModal's mask, header or arrows
+  // as well as the root, so the whole modal (.modal-mask, else the root) is guarded for as long
+  // as this view is shown. A first press is left to do its work.
+  const guard = (event) => {
+    if (event.detail > 1 && (root.closest('.modal-mask') ?? root).contains(event.target)) {
       event.preventDefault()
     }
-  })
+  }
+  const guarding = (now) => {
+    document.removeEventListener('mousedown', guard, true)
+    if (now) {
+      document.addEventListener('mousedown', guard, true)
+    }
+  }
+  guarding(active)
 
   root.addEventListener('keydown', (event) => {
     const inMenu = event.target.closest?.('[role="menu"]')
@@ -495,6 +504,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     /** The Viewer shows this file (true) or keeps it hidden beside the one shown (false). */
     setActive(now) {
       active = now
+      guarding(now && !destroyed)
       if (sheets && !destroyed) {
         want()
       }
@@ -505,6 +515,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     },
     destroy() {
       destroyed = true
+      guarding(false)
       clearTimeout(repack)
       observer?.disconnect()
       resizer?.disconnect()

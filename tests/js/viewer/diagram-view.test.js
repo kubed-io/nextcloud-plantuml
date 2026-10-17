@@ -203,6 +203,36 @@ describe('the Viewer, in Tabs', () => {
     expect(press(card, 1)).toBe(false)
   })
 
+  it('guards the whole modal around the root while shown, and nothing once hidden or destroyed (VW14)', async () => {
+    const mask = document.createElement('div')
+    mask.className = 'modal-mask'
+    const header = document.createElement('div')
+    const outside = document.createElement('div')
+    root.replaceWith(mask)
+    mask.append(header, root)
+    document.body.append(outside)
+    const press = (target, detail) => {
+      const event = new MouseEvent('mousedown', { detail, bubbles: true, cancelable: true })
+      target.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    const view = await open(SCREENS)
+    expect(press(mask, 2)).toBe(true)
+    expect(press(header, 2)).toBe(true)
+    expect(press(header, 1)).toBe(false)
+    expect(press(outside, 2)).toBe(false)
+
+    view.setActive(false)
+    expect(press(header, 2)).toBe(false)
+    view.setActive(true)
+    expect(press(header, 2)).toBe(true)
+    view.setActive(true)
+    view.destroy()
+    expect(press(header, 2)).toBe(false)
+    outside.remove()
+    root = mask
+  })
+
   it('still checks a box whose second press was prevented (VW14)', async () => {
     await open(SCREENS)
     mode('Stack')

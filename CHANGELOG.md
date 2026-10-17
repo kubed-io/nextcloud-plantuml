@@ -25,7 +25,7 @@ All notable changes to this project are documented here. The format follows
 - `GET /apps/plantuml/render` takes `diagram` (a name or a place) and `index`, for one diagram of a file.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon. Removing the app reverts that and leaves alone a mapping you set yourself in `config/mimetypemapping.json`; repair warns when it cannot write `core/js/mimetypelist.js`.
 - Admin settings: point the app at a PlantUML server and test the connection, which names the server's PlantUML version or says what is wrong; `occ plantuml:set-url`, `test-connection` and `show-config` do the same from the command line.
-- A `.puml` opens as its diagram in the image viewer, which says "Could not draw the diagram" rather than showing a raw error page; its menu offers **Edit diagram** and **Open with text editor**.
+- A `.puml` opens as its diagram in the image viewer, which says "Could not open the file" rather than showing a raw error page; its menu offers **Edit diagram** and **Open with text editor**.
 - A `.puml` file renders to SVG at `/apps/plantuml/render?path=…`, and diagram text through `POST /apps/plantuml/render`; both pass on PlantUML's error and its line in `X-PlantUML-Diagram-Error` headers.
 - **+ New → UML Diagram** creates `New diagram.puml` holding an empty diagram and opens the editor on it. The app writes the starting lines on the server, so any client creating a `.puml` through Files' create endpoint gets the same file, on object storage too.
 - **Edit diagram**: PlantUML source on the left, the diagram on the right redrawing as you type, drawn inline so its links open in a new tab; when the server cannot draw, the pane says why.

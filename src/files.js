@@ -34,7 +34,9 @@ import plantumlIcon from '../img/icons/plantuml.svg?raw'
 
 const serverConfigured = loadState(APP_ID, 'server_configured', false)
 
-const viewerHandler = { id: APP_ID, mimes: [MIMETYPE], component }
+// Viewer stable34 lists the folder's files only for a handler with a `group`, keeping those
+// whose mime is in it: without one, ← and → have no previous or next .puml to go to.
+const viewerHandler = { id: APP_ID, group: APP_ID, mimes: [MIMETYPE], component }
 if (window.OCA?.Viewer) {
   window.OCA.Viewer.registerHandler(viewerHandler)
 } else {

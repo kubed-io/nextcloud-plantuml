@@ -30,9 +30,12 @@ verb.
 | 3 | Click a `.puml` → its diagram opens in the image viewer | `diagrams/view.feature` (the route; the click is checked by hand) |
 | 4 | A URL that names a `.puml` file answers with its image | `diagrams/view.feature` |
 | 5 | Right-click a `.puml` → edit it, source beside the live diagram | `diagrams/edit.feature` |
-| 6 | **+ New → UML Diagram** makes `New diagram.puml` and opens the editor on it | `diagrams/create.feature` |
+| 6 | **+ New → New puml File** makes `New diagram.puml` and opens the editor on it | `diagrams/create.feature` |
 | 7 | A folder README shows its ```` ```plantuml ```` fences and `![](x.puml)` images as diagrams | `readme/render.feature` |
 | 8 | A file with several diagrams: the editor shows one tab each (editor spec B1–B8); a README image names the one it shows, `![](x.puml#login)` or `![](x.puml#2)`, else the first; a fence draws all of its diagrams | `readme/render.feature` (proposed, awaits Dr K) |
+| 9 | The Viewer shows every diagram of a file, as tabs, one after another or as a wall; exports one, some or all; opens the editor at one (agreed, VW1–VW8) | to propose to Dr K, `diagrams/view.feature` |
+| 10 | The editor adds a diagram from a template: built in, from the admin's template folder or from the user's Templates folder (agreed, TP1–TP5, editor spec A1–A9) | to propose to Dr K, `diagrams/edit.feature` |
+| 11 | The editor opens a file a diagram links to (`<style file=./x.css>`, `!include ./x.puml`) in place of the source, the diagram live beside it (agreed, editor spec R9–R18) | to propose to Dr K, `diagrams/edit.feature` |
 
 Delete, rename, move, copy, trash, restore, share: Nextcloud's, untouched. A `.puml` is
 an ordinary file.
@@ -144,7 +147,7 @@ Verified against the live instance (Nextcloud 34.0.3, Text 8.0.0) and upstream s
                  │      source ◀─▶ WebDAV GET (no-cache) · PUT If-Match       │
                  │      diagram ─ inline SVG ◀─ POST /render {source} ────────┼──▶ POST /svg
                  │      completion ◀─ GET /themes · /icons · /emoji ──────────┼──▶ POST /txt, /svg
-  + New ────────▶│    UML Diagram ─▶ Files' create ─▶ NewDiagramListener      │
+  + New ────────▶│  New puml File ─▶ Files' create ─▶ NewDiagramListener      │
                  │                                 ─▶ editor                  │
   README ───────▶│  Text workspace ─ readme observer (DOM)                    │
    ```plantuml   │    fence ─ <img> ◀─ POST /render {source} ─────────────────┼──▶ POST /svg
@@ -166,7 +169,9 @@ WebDAV requests too, as the siblings do.
 | `Service/Rendered`, `Exception/RenderException` | The render's value object; the problem (`not set`, `unreachable`, `not a PlantUML server`) and its admin line (`Server URL is not set`, `Server is unreachable`, `Server is not a PlantUML server`). | — |
 | `Controller/RenderController` | The render routes and the server's lists, below. All for logged-in users only (no `#[PublicPage]`). | `RenderService`, `IRootFolder`, `IUserSession` |
 | `Controller/ConfigController` | `POST /apps/plantuml/test-connection` behind `#[AuthorizedAdminSetting(settings: AdminTest::class)]`: calls `version()` and answers `{success: true, message: "PlantUML 1.2026.8"}` or `{success: false, message: <admin line>}`, always with a 200. | `RenderService` |
-| `Settings/InstanceSettings` | One declarative-settings card, form id `instance`: title "PlantUML", description "Point to your PlantUML server", one URL field "Server URL", stored externally through `ServerConfig`. An empty submit clears the URL; a refused one is logged with its reason and fails the save. | `ServerConfig` |
+| `Controller/TemplatesController`, `Service/TemplateLibrary` (agreed) | `GET /templates` (TP1–TP3): finds the actor (TP2), makes sure the folder exists, lists the shared files and the caller's Templates folder and reads them within the caps. | `IAppConfig`, `IGroupManager`, `IRootFolder`, `ITemplateManager`, `IUserSession` |
+| `Controller/ExportController` (agreed) | `GET /export` (VW6): resolves the file as `GET /render` does (`IncludeResolver`), draws each asked diagram in the asked format (`RenderService::render` gains a format, today SVG only) and answers one file or a zip (core's `ZipStreamer`). | `RenderService`, `IncludeResolver`, `IRootFolder`, `IUserSession` |
+| `Settings/InstanceSettings` | One declarative-settings card, form id `instance`: title "PlantUML", description "Point to your PlantUML server", one URL field "Server URL", stored externally through `ServerConfig`; the Templates section (TP4, agreed) adds "Template folder", stored in `IAppConfig` as `template_folder`. An empty submit clears the URL; a refused one is logged with its reason and fails the save. | `ServerConfig` |
 | `Settings/AdminSection`, `Settings/AdminTest` | The section (id `plantuml`, priority 80 as in the siblings, icon `app-dark.svg`) and, under the card, the **Test connection** button: `templates/admin_test.php` with `js/admin-test.js` and `css/admin-test.css`, added through `Util` so they carry the CSP nonce. `AdminTest` is the delegated setting the test endpoint is authorised by. | — |
 | `Command/SetUrl`, `Command/TestConnection`, `Command/ShowConfig` | The `occ` twins: `plantuml:set-url <url>`, `plantuml:test-connection` (prints `PlantUML x.y.z` or the admin line), `plantuml:show-config` (`server_url: …`, or `(not set)` and a failure exit). CLI-first is the house style and is what the integration suite drives. | the services above |
 | `Listener/LoadFilesScriptListener` | On Files' `LoadAdditionalScriptsEvent`: provides the initial state `server_configured`, adds `dist/plantuml-files.js`, `css/editor.css` and `dist/plantuml-readme.js`. The editor bundle is left to `plantuml-files.js`. | `ServerConfig`, `IInitialState` |
@@ -179,8 +184,10 @@ WebDAV requests too, as the siblings do.
 |---|---|---|---|
 | `GET /apps/plantuml/render?path=<path>` | The SVG of the `.puml` at `path`, resolved in the **calling user's** folder, so a user can only render what they can read. Relative includes and `<style file=…>` resolve against the file's folder (shipped #38; editor spec R1–R3); the ETag then covers the included files too (a hash of the file's ETag and each included file's), so a changed include is a new answer, not a 304. No CSRF token (it is an `<img src>`); the path rule keeps it safe. | The file's ETag and `Cache-Control: private, no-cache` (core's default `no-store` would keep the browser from sending the ETag back); `304` on a matching `If-None-Match`, weak or quoted. | `404` for a missing path, one that climbs out with `..`, a folder, or a file that is not `text/x-plantuml`; `503 {"problem": …}` |
 | `GET /apps/plantuml/render?path=<path>&diagram=<name or number>` | As above, for one diagram of a file that holds several (agreed, round 4). `diagram` is a diagram's name (B1) or its position counted from 1, pages included, as the editor's tabs count; a name wins over a number. The server finds the index with the same block rules as the editor's B1 (`lib/Service/Diagrams.php`) and sends it to `<server>/svg/<index>`. Absent, it is the first diagram, as today. | As above; the ETag is the file's, so it covers every diagram in it. | As above, and `404 {"problem": "no diagram named <x>"}` (or `"no diagram <n>"`) when nothing matches, never a fallback to the first |
-| `POST /apps/plantuml/render` | JSON `{source}` → its SVG, for the README fences and the editor's live diagram. CSRF-checked. `{source, index}` (shipped #36; an integer 0–999) draws the diagram at that 0-based index, through `<server>/svg/<index>` (editor spec B5). An optional `path` (shipped #38) resolves relative includes and `<style file=…>` against that file's folder in the caller's files (editor spec R1–R4). | None (core's default). | `400` for a blank source or an `index` that is not an integer 0–999; `404` for a `path` the caller cannot read; `503 {"problem": …}` |
+| `POST /apps/plantuml/render` | JSON `{source}` → its SVG, for the README fences and the editor's live diagram. CSRF-checked. An optional `overrides` (agreed, linked-files round; editor spec R13) maps a path, as written on a `<style file=…>` or include line and relative to `path`'s folder, to text the resolver reads instead of that file, so the open linked file draws before it is saved; only with `path`, and only for files the caller can read. `{source, index}` (shipped #36; an integer 0–999) draws the diagram at that 0-based index, through `<server>/svg/<index>` (editor spec B5). An optional `path` (shipped #38) resolves relative includes and `<style file=…>` against that file's folder in the caller's files (editor spec R1–R4). | None (core's default). | `400` for a blank source or an `index` that is not an integer 0–999; `404` for a `path` the caller cannot read; `503 {"problem": …}` |
 | `GET /apps/plantuml/colors` | `{"colors": {"AliceBlue": "#F0F8FF", …}}`: the names from the server's `help colors`, each with the hex its `colors` drawing gives it, for editor spec X14 (shipped #38). | As the themes row. | As the themes row. |
+| `GET /apps/plantuml/export?path=<path>&format=<f>&diagram=<n>` (agreed, VW6) | The diagrams of the `.puml` at `path` (resolved as `GET /render`) in format `svg`, `png`, `pdf`, `eps` or `txt` (ASCII art), each through `<server>/<format>/<index>`. One `diagram` (repeatable, positions from 1 as the tabs count, or names) answers that file as a download, `<file> - <diagram>.<ext>`; several, or none (every diagram), answer `<file>.zip`. | None. | As `GET /render`; `400` for another format |
+| `GET /apps/plantuml/templates` (agreed, TP3) | `{"files": [{"source", "path", "text"}, …]}`, the shared and the caller's own template files (TP1). | None: read on each open of the Add menu or modal. | A missing folder or an unreadable file is left out, never an error |
 | `GET /apps/plantuml/fonts` | `{"fonts": [...]}`: the font families the server's `help font` lists, the only ones a diagram can use, for editor spec W4 (shipped, #41). | As the themes row. | As the themes row. |
 | `GET /apps/plantuml/keywords` | `{"diagrams": [...], "types": [...], "keywords": [...]}`: the `@start…` types and other keywords from the server's `help keywords`, the element types from `help types`, for editor spec X11 (shipped, #39) and X2, which reads it in round 3. The stdlib completion (X5) needs no route: its per-library index ships with the app under `stdlib-index/`. | As the themes row. | As the themes row. |
 | `GET /apps/plantuml/sprites` | `{"sprites": [...]}`, the server's ArchiMate sprites from `listsprite`, for editor spec T9 (agreed, round 3). Same caching and refusals as the row below. | | |
@@ -221,7 +228,7 @@ P1–P6).
 | Unit | Does |
 |---|---|
 | `files.js`, `files-helpers.js` | Registers the Viewer handler for `text/x-plantuml` (queued on `window._oca_viewer_handlers` when the Viewer loads later), which makes a plain click open the diagram in Nextcloud's standard image lightbox. Registers two file actions for one diagram in the user's files (not a multi-selection, not the trash): **Edit diagram** (order 1, after the Viewer's View), shown only when `server_configured`; and **Open with text editor** (order 2), `OCA.Viewer.openWith('text', { path })`, shown whenever the Viewer is there. Registers **UML Diagram** in the **+ New** menu, with or without a server: asks Files' create endpoint (fact 10) for `New diagram.puml` (made unique among the folder's names) in the current folder, which `NewDiagramListener` fills; stats it over WebDAV, emits `files:node:created` and opens the editor on it. A failure is logged and shown as "Could not create the diagram". Opening the editor first adds the editor bundle, once, with the Files bundle's `?v=` and `&h=<the editor build's hash>`; a load that fails is forgotten so the next open retries, and that open falls back to the Viewer. |
-| `viewer-component.js` | The Viewer component (Vue 2 `render(h)`, as Viewer stable34 mounts it): an `<img>` on `GET /render?path=…` inside a `<div>` (the Viewer's mixin would swap an erroring root for its generic error page). When the image fails it asks the URL once more and shows, in white on the Viewer's black, the route's `problem` or, for any other failure, the fixed line **Could not draw the diagram** (#32). A diagram mistake is an image, so it shows PlantUML's error drawing. |
+| `viewer-component.js` | The Viewer component (Vue 2 `render(h)`, as Viewer stable34 mounts it): an `<img>` on `GET /render?path=…` inside a `<div>` (the Viewer's mixin would swap an erroring root for its generic error page). When the image fails it asks the URL once more and shows, in white on the Viewer's black, the route's `problem` or, for any other failure, the fixed line **Could not draw the diagram** (#32). A diagram mistake is an image, so it shows PlantUML's error drawing. **Agreed (viewer round):** the `<img>` gives way to VW1–VW8: inline sheets, the toolbar, Tabs, Stack and Wall, Export and Edit. |
 | `editor.js`, `editor/` | The **Edit diagram** overlay, specified in `2026-10-14-editor-design.md`. What it asks of the rest: the file over WebDAV (`editor/save.js`: GET with `Cache-Control: no-cache` (fact 11, E4), PUT with `If-Match` (S1), a copy with `If-None-Match: *` (S8), a Depth-0 `getetag` PROPFIND to watch for changes (E1)); the diagram from `POST /render`, 300 ms after typing stops and one request at a time (`editor/preview.js`, D3; an empty source is not sent), the problem line in its place when the server cannot (D4); the server's lists from `/themes`, `/icons`, `/emoji`, once per page (C8). Loaded on first use (O2). The answer is drawn **inline** as sanitised SVG, not an `<img>`, so its links work (`editor/inline-svg.js`, editor spec D1, #30). |
 | `readme.js`, `readme/markdown.js`, `readme/workspace.js` | The README observer, loaded on Files pages. A `MutationObserver` on the page wakes when Text draws a `.ProseMirror` inside `#rich-workspace` holding code blocks or image figures not yet looked at. It asks Text's own `GET ocs/v2.php/apps/text/workspace?path=<dir>` which file the workspace shows (kept while the folder stays the same), reads it over WebDAV, and scans it for fences (backtick or tilde, CommonMark's closing rule) and relative images. Each `.code-block` is matched to the fence at the same index, and drawn only when that fence is `plantuml` and the block's text equals its source; its children are hidden and an `<img>` of `POST /render`'s answer (a `blob:` URL; renders cached by source, 64 of them, failures not kept) is added, the hidden source made non-editable and kept so if Text resets it. Each image figure whose `data-src` ends in `.puml` is hidden and our own `<figure>` goes after it: an `<img>` on `GET /render?path=…`, the path resolved against the README's folder as Text's `AttachmentResolver` does, with the Markdown alt text as its caption. Text's elements are hidden, never removed. Both drawings swallow the click, so Text's lightbox does not reopen them as a broken `.puml`. A fence the server cannot draw keeps Text's code block. **Several diagrams (agreed, round 4):** an image's `#fragment` names the diagram (`Screens.puml#login`, `Screens.puml#2`) and goes to `GET /render` as `&diagram=`, URL-decoded; the path before the `#` is what must end in `.puml`. When Text's figure has dropped the fragment from `data-src`, it is read from the README's own Markdown, matching images to figures in order. A fence draws each of its diagrams in turn, one `POST /render` per index, since the README shows its source and every block in it is the author's. |
 | `js/admin-test.js` | The **Test connection** button, a plain script outside the build: POSTs to `/test-connection` with the request token, shows the message with a check or an error icon, and "Could not test the connection" for an answer that is not the JSON. |
@@ -292,6 +299,42 @@ diagram**, in the Viewer and the editor (see the error vocabulary above).
   Nextcloud origin or is a `blob:` URL of a render it answered, and the lazily added
   editor bundle is a script from the app's own path.
 
+## The Viewer (agreed 2026-10-17, viewer round)
+
+Dr K, 2026-10-17: "the double click to preview right now only shows the first diagram, it
+should have tabs like the preview … somewhere in the UI we would have an edit button", then
+"tabs should float centered … below some kind of toolbar like element where we can have our
+edit button … something to display as tabs or just one after the other … or even a wall …
+maybe an export button too". The Viewer's own bar (file name, its ⋯ menu, ×) stays the
+Viewer's; everything below it is this component's.
+
+| # | Requirement | Source | Status |
+|---|---|---|---|
+| VW1 | **The diagrams are drawn inline**, as the editor draws them (D1's sanitiser, `editor/inline-svg.js`), each on a white sheet (`plantuml.background`, 8 px radius, 40 px padding) on the Viewer's black, so links work. The file is read once and split with the editor's B1; each diagram is drawn through `GET /render?path=…&diagram=<n>`. | Dr K: "the same preview like element with the embedded SVG" | agreed (viewer round) |
+| VW2 | **A toolbar** floats centred under the Viewer's bar and stays in place when the page scrolls: a pill on `--color-main-background` with a 1 px `--color-border-maxcontrast` outline (the pill's own colour on black reads 1.17:1 in the dark theme, the outline 5.1:1) and the popover shadow. In order: the **Display** switch (Tabs `tab`, Stack `view-agenda-outline`, Wall `view-grid-outline`; the active one on `--color-primary-element-light`), a divider, **Export ▾** (VW6) and **Edit** (VW7). A file with one diagram shows no Display switch and no divider. | Dr K | agreed (viewer round) |
+| VW3 | **Tabs**, on every open: a tab bar floats centred under the toolbar (the editor's B2 tabs, the "All diagrams" menu included), only with two or more diagrams; one sheet, centred in the space below, the first diagram on open. The toolbar and the tabs never move when the diagram changes size. | Dr K: "tabs should float centered if they exist at sort of a fixed location" | agreed (viewer round) |
+| VW4 | **Stack**: every diagram as a card one after another, 720 px wide, the page scrolling under the fixed bar and toolbar. A card is a caption row (a checkbox labelled with the diagram's name) over its sheet, the card outlined as VW2's pill. | Dr K: "just one after the other on top of each other" | agreed (viewer round) |
+| VW5 | **Wall**: the same cards in a wrapping grid, in file order. A click on a card (not on its checkbox) opens that diagram in Tabs. | Dr K: "a wall that could possibly try to organize them in a tile like grid" | agreed (viewer round) |
+| VW6 | **Export** saves the diagram in view in Tabs, its button reading "Export". In Stack and Wall the checkboxes choose: none checked reads "Export all" and exports every diagram, N checked reads "Export N"; a checked card is outlined 2 px in `--color-primary-element`. The menu's heading names what is exported (the diagram's name, or "N diagrams, as .zip"), then **SVG, PNG, PDF, EPS, ASCII art** (the formats the server answers: checked 2026-10-17, `utxt` and `latex` answer 404). One diagram downloads as `<file name> - <diagram name>.<ext>` (`<file name>.<ext>` when the file holds one diagram); several download as `<file name>.zip` of those files, through `GET /export` (below). | Dr K: "how does the export to like PNG work if there are multiple diagrams?" and "in tab mode we would know what to export" | agreed (viewer round) |
+| VW7 | **Edit** opens the editor (O1) at the diagram in view: the open tab, or in Stack and Wall the first checked card, else the first diagram; its cursor goes to that diagram's `@start` line as B4 does. There is no edit control per card. | Dr K: "we only need the one edit in the toolbar" | agreed (viewer round) |
+| VW8 | **The mode is not remembered**: every open is Tabs on the first diagram. | design | agreed (viewer round) |
+
+## Templates (agreed 2026-10-17, add-diagram round)
+
+What the editor's Add diagram (editor spec A1–A9) reads. Dr K, 2026-10-17: "admin can set a
+directory and we ensure it exists like how the other nextcloud-* apps treat an 'admin
+folder' … default to 'Templates' … a global option that our extension can see these files in
+code … without having to literally share the files … our built in templates … built in …
+ignore the tag filter for now … always select *.puml".
+
+| # | Requirement | Source | Status |
+|---|---|---|---|
+| TP1 | **Three sources, one list.** The built-ins ship in the editor (A8). The **shared** templates are the `.puml` and `.plantuml` files (the `text/x-plantuml` type) under the admin's template folder (TP2), subfolders included, read on the server as the folder's owner, so nothing is shared and every logged-in user gets them. The **user's own** are those under the caller's Nextcloud Templates folder (`ITemplateManager::getTemplatePath()`, the per-user `core/templateDirectory` set in Files' settings), skipped when it is unset or missing; nothing in Nextcloud keeps a user from deleting it, and Files offers to make a new one. A file that is in both (the actor's own Templates folder when the admin folder is `Templates`) is listed once, as shared. | Dr K; platform facts checked on Nextcloud 34.0.3 | agreed (add-diagram round) |
+| TP2 | **The admin's template folder** is a path in one user's files, default `Templates`, set on the admin card (TP4). That user is the **actor**, as `nextcloud-grafana` and `nextcloud-n8n` pick theirs: the app config `template_actor`, else the first member of Nextcloud's `admin` group. Saving the setting creates the folder in the actor's files when it is missing (`mkdir -p`, as the siblings' `ensureFolder`), and listing the templates creates it again if it has gone. A Team Folder works by naming its mount path in the actor's files. No tag filter. | Dr K | agreed (add-diagram round) |
+| TP3 | **`GET /apps/plantuml/templates`** answers `{"files": [{"source": "shared" or "yours", "path": …, "text": …}, …]}`; the editor cuts each text into diagrams with B1 (A9). Capped as R2 caps includes: at most 64 files and 1 MB of text in all; a file past a cap, unreadable or not valid UTF-8 is skipped, never an error. Asked each time the Add menu or modal opens, so a new template file shows next time without a reload. | design | agreed (add-diagram round) |
+| TP4 | **The admin card gains a Templates section** under the server URL: title "Templates", subtitle "Diagrams everyone can start from, in Add diagram", one field "Template folder" (default `Templates`), and a status line under it, "In <actor>'s files · N templates in M files" (N counts diagrams). `occ plantuml:show-config` prints `template_folder` and `template_actor`. | Dr K | agreed (add-diagram round) |
+| TP5 | **Built-in templates never use `skinparam`**; any styling is a `<style>` block (editor spec A8). | Dr K: "skinparam is deprecated" | agreed (add-diagram round) |
+
 ## The design (Penpot, file "NXT PlantUML")
 
 Every board is exported as a PNG under [`docs/design/`](../../design/README.md), so the
@@ -309,11 +352,27 @@ and are not screens.
 |---|---|---|
 | Admin | `screens / admin` → `screens / admin-success`; `Admin — health check states` | *Test connection* reveals the result line. The states board holds the four lines the check can show: `PlantUML 1.2026.8`, `Server URL is not set`, `Server is unreachable`, `Server is not a PlantUML server`. |
 | Editor | `screens / editor` → `screens / editor-saving` → `screens / editor-saved`; `screens / editor-autocomplete`, `screens / editor-lint`, `screens / editor-style`, `screens / editor-style-stepper`, `screens / editor-dark`, `screens / editor-diagram-only` | The unsaved board (check with a dot, the divider's handle) moves to saving and then saved by itself after a delay, as autosave does; a click on the save state saves at once; typing in the saved board makes it unsaved again. *Add name* on the lint board returns to the editor. The other boards are states: connector completions after `node1 `, the unnamed-`@startuml` warning with its panel, a `<style>` block with swatches before its colours and the pencil after `FontStyle bold` opening its list (bold first), the stepper after `FontSize 22`, the dark theme with search open. The Source toggle switches between the editor and `screens / editor-diagram-only`, where it is unpressed and the diagram spans the full width. Detail: editor spec. |
-| Files | `screens / files`, `screens / viewer`, `overlay / context-menu`, `overlay / new-menu` | A row's name or icon opens the Viewer; its × returns. The row's *…* opens the menu: **View**, **Edit diagram**, **Open with text editor**, then Nextcloud's own entries. *+ New* opens its menu with **UML Diagram** as the new entry (drawn as **Diagram** on 2026-10-13). |
+| Files | `screens / files`, `screens / viewer` (Tabs on `nodes`), `screens / viewer-order-flow`, `screens / viewer-config`, `screens / viewer-stack`, `screens / viewer-wall`, `screens / viewer-single`, `screens / editor (from the viewer)`, `overlay / export-menu-…` (`nodes`, `order-flow`, `config`, `all`, `checked`, `single`), `overlay / context-menu`, `overlay / new-menu` (2026-10-17) | A row's name or icon opens the Viewer: Order flow.puml in Tabs on its first diagram, Checkout.puml on the one-diagram board; × returns. Tabs switch boards; Tabs, Stack and Wall switch modes; Export opens its menu for what is in view (VW6); Edit lands on a copy of the Editor page's `screens / editor-saved` (a component), whose × returns to Files; a Wall card opens its diagram in Tabs. The row's *…* and *+ New* open their menus as before. |
 | Readme | `screens / readme` ↔ `screens / readme-source` | The Diagrams folder with Text's README workspace above the list: a ```` ```plantuml ```` fence and an `![Order flow](Order flow.puml)` both shown as the diagram, the image with its alt text as caption. Clicking the README.md row shows the markdown source; its × returns. |
+| Add diagram (2026-10-17) | `screens / editor`, `overlay / type-menu`, `screens / add-modal-uml` with `overlay / class-preview`, `screens / add-modal-hover` (a still), `screens / add-modal-mindmap`, `screens / added-class`, `screens / added-gantt` | **+** opens the modal on UML; **▾** opens the type menu, where Gantt adds an empty Gantt. In the modal, holding the pointer on Class pops up the text it adds and a click adds it: one blank line, then the block, its tab active, the cursor inside. The search box shows the list after typing "mind"; × returns. Only Gantt, Class and the search are wired. |
+| Linked files (2026-10-17) | `screens / linked-main` (the `<>` chip after `<style file=./UML_Fun.css>`), `screens / linked-ctrl` (the path underlined while Ctrl is held), `screens / linked-style` (`UML_Fun.css` open), `screens / linked-include` (`UML_Fun_parts.puml` open, no chips in it) | The chip or the underlined path opens the file; the breadcrumb's × or first crumb goes back. The diagram pane keeps the main file's tabs throughout and draws the style file's colours. |
 
 Copy on the admin card: section title "PlantUML", subtitle "Point to your PlantUML server",
-field label "Server URL", button "Test connection". Nothing else.
+field label "Server URL", button "Test connection". Nothing else. The Templates section (TP4, 2026-10-17) adds title "Templates", subtitle "Diagrams
+everyone can start from, in Add diagram", field label "Template folder" and the status line
+"In admin's files · 12 templates in 4 files", on both admin boards.
+
+Added on 2026-10-17: the Components page holds `library / viewer` (`viewer-header`,
+`viewer-toolbar`, `display-option` (Active, Default, Hover, Focus), `toolbar-button` (Default,
+Hover, Focus), `viewer-tab-bar`, `diagram-sheet`, `diagram-card` (Checked False, True),
+`checkbox` Checked=True, `export-menu`, and the drawings `diagram / nodes` and
+`diagram / config`), `library / diagram icons` (the 36 icons of editor spec A7 as
+`icon / type-…` and `icon / uml-…`, and `icon-tile`) and `library / add diagram`
+(`split-button` (Default, HoverAdd, Open, Focus), `type-row` (Default, Hover, Active),
+`template-row` (Default, Hover), `template-preview`); `editor-bar` holds the split button, so
+every editor board shows it. The Style guide page has `style-guide / diagram-icons`. Links on
+the Files, Add diagram and Linked files pages sit on transparent hotspots on the boards, never
+on layers inside component copies, since editing a main resets those copies' links.
 
 Every board is built from library components, and every fill, stroke, radius, shadow and
 flex spacing on a layer is a token (2026-10-14), with two exceptions: the syntax colours in
@@ -376,8 +435,16 @@ across unchanged.
 
 ## Known limitations and open proposals
 
-- The Viewer and the README still show the diagram as an `<img>`, so its links do not
-  work there. *Proposed, not agreed:* inline SVG for both, through `inline-svg.js`.
+- The README still shows the diagram as an `<img>`, so its links do not work there.
+  *Proposed, not agreed:* inline SVG through `inline-svg.js`. The Viewer gets it in the
+  viewer round (VW1, agreed).
+- *Open with Dr K (2026-10-17):* his rule that buttons carry no words came after the viewer
+  toolbar was drawn with labels (Tabs, Stack, Wall, Export, Edit); whether it goes icon-only
+  too waits on him. The Add button already is (editor spec A1).
+- The Wall is drawn with every card at its diagram's own size. With many or large
+  diagrams the cards may need to shrink to thumbnails; not decided.
+- A template file's relative includes resolve beside the file it is added to, not beside
+  the template (editor spec Known limitations).
 - The first `/emoji` of a day takes about 9 s, so the first `<:` completion waits for it.
 - Trash and shares need nothing from the app (#13, closed): a `.puml` is a plain file to
   Nextcloud. The file actions are not offered in the trash (the `/files` root guard), and a
@@ -412,7 +479,7 @@ across unchanged.
 | Admin surface | URL + Test connection, nothing else | a format or timeout setting — neither is a decision an admin makes per instance |
 | Error vocabulary | three fixed problems, shared by every surface | per-surface wording |
 | A new diagram's starting lines | written by the server, `NewDiagramListener` on Files' create endpoint (Dr K, 2026-10-14: "regardless of an api call or click in the UI you would get the same start/end uml tags") | the + New handler PUTting them from JavaScript — only that one client would get them |
-| The **+ New** entry | our own, "UML Diagram", opening the editor | a `TemplateFileCreator` — a second entry, and the new file opens in the Viewer (fact 10) |
+| The **+ New** entry | our own, "New puml File", opening the editor | a `TemplateFileCreator` — a second entry, and the new file opens in the Viewer (fact 10) |
 | Saving in the editor | by itself as Text does (Dr K, 2026-10-14): 2 s after the last change, at least every 30 s, stopped by a conflict; closing saves first, and asks before discarding when that save fails or hangs 10 s (editor spec S2, S4) | Save only — a long edit all at risk until a click; Text's 5 s session sync — there is no session to sync to |
 | Autocomplete | `@codemirror/autocomplete`, one source per file in `src/editor/completion/`, registered through the language's data facet so a source is a file and a line; Tab never accepts | one hand-written source with every rule in it — the pattern was the point (Dr K: "a pattern going for autocomplete that we can expand on") |
 | What the server knows (themes, icons, emoji) | the server's own lists, through the app's routes, cached a day per server URL | a list written into the bundle — wrong the day the server's version differs |
@@ -454,7 +521,7 @@ the detail.
 - **"The fact JS would make the start and end tags is odd. Shouldn't the backend do
   that?"** The backend writes a new diagram's starting lines, so an API call and a click
   give the same file (`NewDiagramListener`, #18; see the decisions table).
-- **"UML Diagram"** is the **+ New** label (#18).
+- **"New puml File"** is the **+ New** label (Dr K, 2026-10-17, viewer round; it was "UML Diagram", #18). The file it makes is still `New diagram.puml`.
 - **"I would like ours to auto save after some time … after some inactivity."** Autosave
   and Text's save indicator (S2, S3, #21).
 - **"Get a pattern going for autocomplete that we can expand on."** One file per

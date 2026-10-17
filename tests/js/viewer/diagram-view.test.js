@@ -8,7 +8,9 @@ const seams = vi.hoisted(() => ({ loadFile: vi.fn(), canDownload: vi.fn(), openE
 vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile, canDownload: seams.canDownload }))
 vi.mock('../../../src/open-editor.js', () => ({ openEditor: seams.openEditor }))
 vi.mock('@nextcloud/initial-state', () => ({ loadState: () => seams.serverConfigured }))
-const { createDiagramView } = await import('../../../src/viewer/diagram-view.js')
+// The Wall's memory is the signed-in user's.
+vi.mock('@nextcloud/auth', () => ({ getCurrentUser: () => ({ uid: 'drk' }) }))
+const { createDiagramView, WALL_SETTLE } = await import('../../../src/viewer/diagram-view.js')
 const { pageCache } = await import('../../../src/viewer/page-cache.js')
 
 const SCREENS = '@startuml nodes\nA -> B\n@enduml\n@startuml login\nC -> D\n@enduml\n'
@@ -22,8 +24,9 @@ const asked = (fetch) => fetch.mock.calls.map(([url]) => new URL(url, 'https://x
 let root
 let fetch
 beforeEach(() => {
-  // Drawings are kept for the page: each test starts with none.
+  // Drawings are kept for the page, and Wall layouts in the browser: each test starts with none.
   pageCache.clear()
+  window.localStorage.clear()
   vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
   // Each index answers the drawing of its own name, with its ETag, as the route would.
   fetch = vi.fn(async (url) => {
@@ -545,6 +548,250 @@ describe('Stack and Wall draw what is on screen (VW10)', () => {
     mode('Stack')
 
     expect(asked(fetch)).toEqual(['0', '1', '2'])
+  })
+})
+
+describe('the Wall packs its cards (VW12, VW13)', () => {
+  // A 1232 px stage: five columns of 233.6 px. Each index answers a drawing of its own size.
+  let sizes
+  const sized = (index) => {
+    const [width, height] = sizes[index] ?? [40, 20]
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><text>${['nodes', 'login', 'p3'][index]}</text></svg>`
+  }
+  const repacked = () => new Promise((resolve) => setTimeout(resolve, WALL_SETTLE + 20))
+  const stage = () => root.querySelector('.plantuml-viewer__stage')
+  const placeOf = (card) => [card.style.gridColumn, card.style.gridRow]
+  const byName = (name) => cards().find((card) => card.querySelector('label').textContent === name)
+  const names = () => cards().map((card) => card.querySelector('label').textContent)
+  const wide = (width = 1232) => Object.defineProperty(stage(), 'clientWidth', { configurable: true, get: () => width })
+  // The tab strip watches its own size too: this is the one watching the stage.
+  const watching = () => resized.find((observer) => observer.target === stage())
+  const resize = (width) => {
+    wide(width)
+    watching().callback([])
+  }
+  const unplaced = [['', ''], ['', ''], ['', '']]
+  let resized
+
+  beforeEach(() => {
+    sizes = [[40, 20], [600, 300], [100, 800]]
+    fetch.mockImplementation(async (url) => new Response(sized(Number(new URL(url, 'https://x').searchParams.get('index'))), { status: 200 }))
+    resized = []
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback) {
+        this.callback = callback
+        resized.push(this)
+      }
+
+      observe(target) {
+        this.target = target
+      }
+
+      disconnect() {
+        this.disconnected = true
+      }
+    })
+  })
+
+  it('places every card at once, in file order, while no size is known', async () => {
+    fetch.mockImplementation(() => new Promise(() => {}))
+    await open(THREE)
+    wide()
+    mode('Wall')
+
+    expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('5')
+    expect(cards().map(placeOf)).toEqual([['1 / span 1', '1 / span 38'], ['2 / span 1', '1 / span 38'], ['3 / span 1', '1 / span 38']])
+    expect(cards().map((card) => card.style.getPropertyValue('--plantuml-wall-height'))).toEqual(['240px', '240px', '240px'])
+  })
+
+  it('packs the whole wall again once the sizes have arrived: tallest first, a wide one across the columns it needs', async () => {
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+
+    expect(placeOf(byName('p3'))).toEqual(['1 / span 1', '1 / span 112'])
+    expect(placeOf(byName('login'))).toEqual(['2 / span 3', '1 / span 50'])
+    expect(placeOf(byName('nodes'))).toEqual(['5 / span 1', '1 / span 15'])
+    expect(byName('login').style.getPropertyValue('--plantuml-wall-width')).toBe('600px')
+    expect(byName('login').style.getPropertyValue('--plantuml-wall-height')).toBe('332px')
+  })
+
+  it('packs once for sizes that land together, not once per drawing', async () => {
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await settle()
+
+    // All three are drawn; the wall still shows the first packing.
+    expect(shown(root)).toHaveLength(3)
+    expect(placeOf(byName('p3'))).toEqual(['3 / span 1', '1 / span 38'])
+    await repacked()
+    expect(placeOf(byName('p3'))).toEqual(['1 / span 1', '1 / span 112'])
+  })
+
+  it('shrinks a diagram too wide for the wall no further than half, across the wall, scrolling sideways', async () => {
+    fetch.mockImplementation(async () => new Response('<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="100" viewBox="0 0 4000 100"><text>w</text></svg>', { status: 200 }))
+    await open('@startuml w\n@enduml\n@startuml v\n@enduml\n')
+    wide()
+    mode('Wall')
+    await repacked()
+
+    expect(cards()[0].style.gridColumn).toBe('1 / span 5')
+    expect(cards()[0].style.getPropertyValue('--plantuml-wall-width')).toBe('2000px')
+    expect(cards()[0].classList.contains('plantuml-viewer__card--scroll')).toBe(true)
+  })
+
+  it('opens a wall packed before at its final places at once, each waiting sheet at its size', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    view.destroy()
+    // Nothing is drawn this time, from memory or the server: only the layout is remembered.
+    pageCache.clear()
+    fetch.mockImplementation(() => new Promise(() => {}))
+    await open(THREE)
+    wide()
+    mode('Wall')
+
+    expect(placeOf(byName('p3'))).toEqual(['1 / span 1', '1 / span 112'])
+    expect(byName('p3').querySelector('.plantuml-viewer__sheet--loading')).not.toBeNull()
+    expect(byName('p3').style.getPropertyValue('--plantuml-wall-height')).toBe('832px')
+  })
+
+  it('packs a file changed since, its ETag new, as its sizes arrive', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    view.destroy()
+    pageCache.clear()
+    fetch.mockImplementation(() => new Promise(() => {}))
+    await open(THREE, { etag: '"f"' })
+    wide()
+    mode('Wall')
+
+    expect(names()).toEqual(['nodes', 'login', 'p3'])
+    expect(placeOf(byName('p3'))).toEqual(['3 / span 1', '1 / span 38'])
+  })
+
+  it('packs again when the stage is resized, and opens at a width it never packed with every card placed at once', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    resize(536)
+    await repacked()
+
+    expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('2')
+    // Two columns: the wide one shrinks to 0.82 across both, under the tall one.
+    expect(placeOf(byName('login'))).toEqual(['1 / span 2', '113 / span 43'])
+
+    view.destroy()
+    pageCache.clear()
+    fetch.mockImplementation(() => new Promise(() => {}))
+    await open(THREE)
+    wide(800)
+    mode('Wall')
+
+    // Three columns, which neither packing had: every card where its size puts it, none drawn.
+    expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('3')
+    expect(cards().map(placeOf)).toEqual([['2 / span 1', '44 / span 15'], ['2 / span 2', '1 / span 43'], ['1 / span 1', '1 / span 112']])
+  })
+
+  it('packs again at the new size when a kept drawing is drawn anew', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    view.destroy()
+    // The next open draws from the page's memory at once; then the server draws p3 anew, wider.
+    sizes[2] = [1000, 800]
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+
+    expect(placeOf(byName('p3'))).toEqual(['1 / span 4', '1 / span 107'])
+    expect(byName('p3').style.getPropertyValue('--plantuml-wall-width')).toBe('940px')
+  })
+
+  it('packs nothing while the view is hidden, and packs again once it is shown', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    view.setActive(false)
+    resize(536)
+    await repacked()
+    expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('5')
+
+    view.setActive(true)
+    await repacked()
+    expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('2')
+  })
+
+  it('packs nothing and remembers nothing on a stage 0 px wide, and packs once it has a width', async () => {
+    await open(THREE)
+    mode('Wall')
+    await repacked()
+
+    expect(cards().map(placeOf)).toEqual(unplaced)
+    expect(window.localStorage.getItem('plantuml.viewer.wall')).toBeNull()
+    resize(1232)
+    await repacked()
+    expect(placeOf(byName('p3'))).toEqual(['1 / span 1', '1 / span 112'])
+  })
+
+  it('still packs when the browser keeps nothing', async () => {
+    const blocked = () => { throw new Error('blocked') }
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked)
+    try {
+      await open(THREE)
+      wide()
+      mode('Wall')
+      await repacked()
+
+      expect(placeOf(byName('p3'))).toEqual(['1 / span 1', '1 / span 112'])
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('keeps every card waiting in file order, and remembers nothing, when no diagram can be drawn', async () => {
+    fetch.mockImplementation(async () => new Response('{"problem":"no diagram"}', { status: 400 }))
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+
+    expect(cards().map(placeOf)).toEqual([['1 / span 1', '1 / span 38'], ['2 / span 1', '1 / span 38'], ['3 / span 1', '1 / span 38']])
+    expect(window.localStorage.getItem('plantuml.viewer.wall')).toBeNull()
+  })
+
+  it('leaves Stack in file order, unplaced, however the stage is resized', async () => {
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    // A packing still to come when the mode changes, and a resize after it.
+    resize(536)
+    mode('Stack')
+    resize(800)
+    await repacked()
+
+    expect(names()).toEqual(['nodes', 'login', 'p3'])
+    expect(cards().map(placeOf)).toEqual(unplaced)
+  })
+
+  it('stops watching the stage size when destroyed', async () => {
+    const view = await open(THREE)
+    const watcher = watching()
+    view.destroy()
+
+    expect(watcher.disconnected).toBe(true)
   })
 })
 

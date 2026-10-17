@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * The Viewer's diagrams (VW1–VW11), on a root the Vue component hands over. The
+ * The Viewer's diagrams (VW1–VW13), on a root the Vue component hands over. The
  * file is read once and split as the editor's tabs split it; every open starts
  * in Tabs on the first diagram (VW8). The head (toolbar, export notice, tab
  * bar) sits outside the scrolling stage, so none moves when a diagram changes
@@ -10,6 +10,10 @@
  * Stack and Wall (VW4, VW5) show every diagram as a card with a checkbox; what
  * is checked lasts while the view does, across modes. Export (VW6) and Edit
  * (VW7) act on the open tab, or in Stack and Wall on the checked cards.
+ * The Wall (VW12) is packed by wall-layout.js as the drawn sizes arrive, a few
+ * at a time, and again when the stage is resized; its cards then read in the
+ * order they are drawn. The sizes it was packed with are remembered for the
+ * next open (VW13, wall-memory.js).
  * Only what is on screen is drawn (VW10): the open tab, or the cards near the
  * visible part of the stage; a hidden view asks for nothing. The view is ready
  * (the Viewer's own spinner goes) once the file is read and its sheets, each
@@ -25,6 +29,8 @@ import { openEditor } from '../open-editor.js'
 import { createMenu } from './menu.js'
 import { createSheets, jsonProblem } from './sheets.js'
 import { createToolbar } from './toolbar.js'
+import { pack } from './wall-layout.js'
+import { recall, remember } from './wall-memory.js'
 
 // The Viewer keeps the file before mounted, hidden, beside the one shown: each
 // view numbers its ids, so a tab's aria-controls and a diagram's url(#…) find
@@ -33,6 +39,10 @@ let views = 0
 
 // How long the share's answer may hold the first drawing; past it, Export is offered and the route decides.
 const SHARE_WAIT = 3000
+
+// The Wall packs again this long after the last size arrives, and at most WALL_MOST after the first.
+export const WALL_SETTLE = 150
+const WALL_MOST = 500
 
 // The Viewer (NcModal) takes ←/→ for the previous and next file and Escape for
 // closing. Keys a tab strip or an open menu of ours uses stop at the root: the
@@ -81,6 +91,8 @@ export function createDiagramView(root, { path, basename, onReady }) {
   let toolbar = null
   let menu = null
   let observer = null
+  let resizer = null
+  let etag = null
   let active = true
   let destroyed = false
   let ready = false
@@ -88,6 +100,12 @@ export function createDiagramView(root, { path, basename, onReady }) {
   let shown = false
   // A card → the position of its sheet.
   const positions = new WeakMap()
+  // The Wall's next packing, when the first size it waits for arrived, what it last packed, and
+  // the sizes remembered for this file as read: read once, as one ETag's sizes never change.
+  let repack = 0
+  let since = 0
+  let packed = ''
+  let recalled = null
   // Ready once shown, and only while the Viewer shows this file: a neighbour is ready once it is.
   const settle = () => {
     if (shown && active && !ready && !destroyed) {
@@ -116,6 +134,14 @@ export function createDiagramView(root, { path, basename, onReady }) {
   tabBar.append(tabs.element)
   head.append(notice, tabBar)
   root.replaceChildren(head, stage)
+
+  // A sheet's drawn size arrived (twice for a kept drawing drawn anew), or the stage changed size.
+  // The settled event does not bubble: listening in the capture phase hears every sheet in the stage.
+  stage.addEventListener('plantuml-viewer:settled', () => schedule(), true)
+  if (typeof ResizeObserver === 'function') {
+    resizer = new ResizeObserver(() => schedule())
+    resizer.observe(stage)
+  }
 
   root.addEventListener('keydown', (event) => {
     const inMenu = event.target.closest?.('[role="menu"]')
@@ -275,6 +301,62 @@ export function createDiagramView(root, { path, basename, onReady }) {
     shown.forEach((node) => observer.observe(node))
   }
 
+  /** The Wall packs again once its sizes stop arriving: WALL_SETTLE after the last, WALL_MOST after the first. */
+  function schedule() {
+    if (state.mode !== 'wall') {
+      return
+    }
+    const now = Date.now()
+    since ||= now
+    clearTimeout(repack)
+    repack = setTimeout(() => arrange(), Math.min(WALL_SETTLE, since + WALL_MOST - now))
+  }
+
+  /**
+   * Every card of the Wall where wall-layout.js packs it, by the sizes drawn and those remembered;
+   * the sizes are remembered. Nothing changed, nothing is done; a hidden or 0 px stage packs nothing.
+   */
+  function arrange() {
+    clearTimeout(repack)
+    repack = 0
+    since = 0
+    if (state.mode !== 'wall' || !active || destroyed) {
+      return
+    }
+    const style = getComputedStyle(stage)
+    const width = stage.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0)
+    if (width <= 0) {
+      return
+    }
+    recalled ??= recall(path, etag) ?? []
+    const sizes = diagrams.map((_diagram, index) => sheets.sizeOf(index + 1) ?? recalled[index] ?? null)
+    const now = JSON.stringify([width, sizes])
+    if (now === packed) {
+      return
+    }
+    packed = now
+    if (sizes.some(Boolean)) {
+      remember(path, etag, sizes)
+    }
+    const { columns, placements } = pack(sizes, { width })
+    const byIndex = new Map([...stage.children].map((node) => [positions.get(node) - 1, node]))
+    stage.style.setProperty('--plantuml-wall-columns', String(columns))
+    placements.forEach((placed, index) => place(byIndex.get(index), placed))
+  }
+
+  /** A card at its packed place, its sheet at the packed height and its drawing at the packed width. */
+  function place(node, { column, span, row, rows, scroll, width, height }) {
+    node.style.gridColumn = `${column + 1} / span ${span}`
+    node.style.gridRow = `${row + 1} / span ${rows}`
+    node.style.setProperty('--plantuml-wall-height', `${height}px`)
+    if (width === null) {
+      node.style.removeProperty('--plantuml-wall-width')
+    } else {
+      node.style.setProperty('--plantuml-wall-width', `${width}px`)
+    }
+    node.classList.toggle('plantuml-viewer__card--scroll', scroll)
+  }
+
   function show() {
     toolbar?.setMode(state.mode)
     tabBar.hidden = state.mode !== 'tabs' || diagrams.length < 2
@@ -284,6 +366,8 @@ export function createDiagramView(root, { path, basename, onReady }) {
       stage.replaceChildren(sheets.sheet(state.active + 1))
     } else {
       stage.replaceChildren(...diagrams.map((_diagram, index) => card(index)))
+      packed = ''
+      arrange()
     }
     want()
     afterCheck()
@@ -313,10 +397,12 @@ export function createDiagramView(root, { path, basename, onReady }) {
       waited = setTimeout(() => resolve(true), SHARE_WAIT)
     }),
   ]).finally(() => clearTimeout(waited))
-  Promise.all([loadFile(path), downloadable]).then(([{ content, etag }, exportable]) => {
+  Promise.all([loadFile(path), downloadable]).then(([file, exportable]) => {
     if (destroyed) {
       return
     }
+    etag = file.etag ?? null
+    const { content } = file
     // CodeMirror reads any line ending for the editor; scan() splits on \n alone.
     diagrams = scan(content.replace(/\r\n?/g, '\n'))
     sheets = createSheets(path, { etag, labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
@@ -343,11 +429,16 @@ export function createDiagramView(root, { path, basename, onReady }) {
       if (sheets && !destroyed) {
         want()
       }
+      if (now) {
+        schedule()
+      }
       settle()
     },
     destroy() {
       destroyed = true
+      clearTimeout(repack)
       observer?.disconnect()
+      resizer?.disconnect()
       menu?.destroy()
       sheets?.destroy()
       tabs.destroy()

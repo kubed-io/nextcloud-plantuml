@@ -301,15 +301,19 @@
 	max-width: calc(100% - 32px);
 }
 
-/* Wall: the cards wrapping in file order, each at its diagram's own size. */
+/* Wall (VW12): a grid of columns and 8px rows, each card placed on it by
+ * wall-layout.js; the column count comes from diagram-view.js. The gutter is
+ * kept, so a scrollbar coming or going never changes the columns' width. */
 .plantuml-viewer__stage--wall {
-	flex-wrap: wrap;
-	align-items: flex-start;
-	align-content: flex-start;
-	justify-content: safe center;
-	gap: 24px;
-	padding: 16px 80px 0;
+	display: grid;
+	grid-template-columns: repeat(var(--plantuml-wall-columns, 1), minmax(0, 1fr));
+	grid-auto-rows: 8px;
+	column-gap: 16px;
+	align-items: start;
+	align-content: start;
+	padding: 16px 24px 0;
 	box-sizing: border-box;
+	scrollbar-gutter: stable;
 }
 
 .plantuml-viewer__card {
@@ -329,8 +333,50 @@
 	outline-offset: -1px;
 }
 
+/* A grid item is as wide as its content by default: min-width keeps a card
+ * that scrolls sideways within the columns it spans. */
 .plantuml-viewer__stage--wall .plantuml-viewer__card {
+	min-width: 0;
 	cursor: pointer;
+}
+
+/* A move slides from the old place (diagram-view.js), unless motion is reduced. */
+@media (prefers-reduced-motion: no-preference) {
+	.plantuml-viewer__stage--wall .plantuml-viewer__card {
+		transition: transform 200ms ease;
+	}
+}
+
+/* wall-layout.js counts this chrome: the caption is pinned at Nextcloud's
+ * 34px clickable area, and each sheet takes the height the packing gave it
+ * (the waiting sheet's 240px while its size is not known), its drawing at the
+ * packed width and fitted inside. */
+.plantuml-viewer__stage--wall .plantuml-viewer__caption {
+	height: 34px;
+}
+
+.plantuml-viewer__stage--wall .plantuml-viewer__sheet {
+	height: var(--plantuml-wall-height, 240px);
+	padding: 16px;
+	box-sizing: border-box;
+}
+
+.plantuml-viewer__stage--wall .plantuml-viewer__sheet--loading {
+	width: auto;
+}
+
+.plantuml-viewer__stage--wall .plantuml-viewer__sheet svg {
+	width: var(--plantuml-wall-width, auto);
+	max-height: 100%;
+}
+
+/* Too wide at half its size: the card spans the wall and its sheet scrolls sideways. */
+.plantuml-viewer__card--scroll .plantuml-viewer__sheet {
+	overflow-x: auto;
+}
+
+.plantuml-viewer__card--scroll .plantuml-viewer__sheet svg {
+	max-width: none;
 }
 
 .plantuml-viewer__caption {

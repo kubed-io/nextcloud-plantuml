@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { columnsFor, pack, visualOrder } from '../../../src/viewer/wall-layout.js'
 
@@ -173,5 +174,25 @@ describe('the reading order', () => {
     const placements = [{ row: 10, column: 0 }, { row: 0, column: 2 }, { row: 0, column: 0 }, { row: 10, column: 1 }]
 
     expect(visualOrder(placements)).toEqual([2, 1, 0, 3])
+  })
+})
+
+describe('the Wall\'s CSS', () => {
+  // wall-layout.js counts the card's chrome; viewer.css draws it. A mismatch would overlap cards.
+  const css = readFileSync(new URL('../../../css/viewer.css', import.meta.url), 'utf8')
+  const rule = (selector) => new RegExp(`^${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'm').exec(css)?.[1] ?? ''
+
+  it('draws the chrome the packing counts', () => {
+    expect(rule('.plantuml-viewer__card')).toMatch(/padding: 4px;[\s\S]*border: 1px solid/)
+    expect(rule('.plantuml-viewer__card')).toMatch(/gap: 4px;/)
+    expect(rule('.plantuml-viewer__stage--wall .plantuml-viewer__caption')).toMatch(/height: 34px;/)
+    expect(rule('.plantuml-viewer__stage--wall .plantuml-viewer__sheet')).toMatch(/padding: 16px;/)
+    expect(rule('.plantuml-viewer__stage--wall .plantuml-viewer__sheet')).toMatch(/height: var\(--plantuml-wall-height, 240px\);/)
+    expect(rule('.plantuml-viewer__stage--wall')).toMatch(/grid-auto-rows: 8px;[\s\S]*column-gap: 16px;/)
+  })
+
+  it('keeps a card within the columns it spans', () => {
+    // A grid item is at least as wide as its content by default: a sideways-scrolling card would widen past its span.
+    expect(rule('.plantuml-viewer__stage--wall .plantuml-viewer__card')).toMatch(/min-width: 0;/)
   })
 })

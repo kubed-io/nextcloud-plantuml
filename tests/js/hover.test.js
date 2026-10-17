@@ -30,11 +30,11 @@ import sourceData from '../../src/editor/data/docs/source.json'
 import builtinList from '../../src/editor/data/builtins.json'
 import language from '../../src/editor/data/language.json'
 import vocabulary from '../../src/editor/data/vocabulary.json'
-import { atTopLevel } from '../../src/editor/plantuml-mode.js'
+import { atTopLevel } from '../../src/editor/docs/top-level.js'
 import { diagramsOf, scan } from '../../src/editor/blocks.js'
 
 // The real functions, counted: the top-level check and the scan run only where they are needed.
-vi.mock('../../src/editor/plantuml-mode.js', async (importOriginal) => {
+vi.mock('../../src/editor/docs/top-level.js', async (importOriginal) => {
   const real = await importOriginal()
   return { ...real, atTopLevel: vi.fn(real.atTopLevel) }
 })
@@ -270,6 +270,13 @@ describe('elementAt: only the work a position needs', () => {
     expect(atTopLevel).toHaveBeenCalledTimes(1)
     atTopLevel.mockClear()
     expect(key(['@startyaml', 'colors', '@endyaml'], 'colors')).toBeNull()
+    expect(atTopLevel).not.toHaveBeenCalled()
+  })
+
+  it('asks the line before the block: a plain name in a long block runs no top-level check', () => {
+    const long = ['@startuml', ...Array.from({ length: 3350 }, (_, i) => `A${i} -> B${i} : hi`), 'Alice', '@enduml']
+    atTopLevel.mockClear()
+    expect(key(long, 'Alice')).toBeNull()
     expect(atTopLevel).not.toHaveBeenCalled()
   })
 

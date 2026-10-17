@@ -11,7 +11,7 @@
  */
 import { ensureSyntaxTree } from '@codemirror/language'
 import { diagramAt, diagramsOf } from '../blocks.js'
-import { atTopLevel } from '../plantuml-mode.js'
+import { atTopLevel } from './top-level.js'
 import { inStyleBody } from '../regions.js'
 import { CONNECTORS } from '../completion/connectors.js'
 import { HELPERS } from '../completion/keywords.js'
@@ -107,8 +107,9 @@ export function elementAt(state, pos, side) {
   }
   const diagram = diagramAt(diagramsOf(state.doc), state.doc.lineAt(pos).number)
   const type = diagram?.type ?? 'uml'
-  const element = found || (type === 'uml' && atTopLevel(state, pos, diagram?.start ?? 1) && lineKey(state, pos, side))
-  if (!element) {
+  const element = found || (type === 'uml' && lineKey(state, pos, side))
+  // The line's form is the cheap question; the grammar's state at its start is asked only of a line that could name something.
+  if (!element || (!found && !atTopLevel(state, pos, diagram?.start ?? 1))) {
     return null
   }
   return { key: element.key, type, from: element.from ?? node.from, to: element.to ?? node.to }

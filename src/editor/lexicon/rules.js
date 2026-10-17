@@ -695,7 +695,7 @@ export function startLine(stream, state) {
     parts.push(...readArgs(call[1]), [')', 'paren'])
     rest = rest.slice(call[0].length)
   }
-  const name = startName.exec(rest)
+  const name = startName(rest)
   if (name) {
     parts.push(...wrapping(name[1]))
     if (name[2]) parts.push([name[2], name[2].startsWith('file://') ? 'DiagramName url' : 'DiagramName'])

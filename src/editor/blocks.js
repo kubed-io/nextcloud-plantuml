@@ -5,11 +5,12 @@
  * Reads a document into its diagrams: one per `@start…` block, one per
  * `newpage` page of a uml block, in PlantUML's own order. Pure, no editor.
  */
-import { startCall, startName } from './lexicon/start.js'
+import { startCall, startName, untailed } from './lexicon/start.js'
 
 const START = /^\s*@start(\w+)(.*)$/
 const END = /^\s*@end\w*\s*$/
 const NEWPAGE = /^\s*newpage(?:\s.*)?$/
+const ID = /^\s*id\s*=\s*/
 
 /**
  * The `@start` line a line is, read as PlantUML reads it (the lexicon's `startName`, the same
@@ -29,10 +30,13 @@ function startOf(line) {
   let id = null
   const call = startCall.exec(rest)
   if (call) {
-    id = /^\s*id\s*=\s*(.*?)\s*$/.exec(call[1])?.[1] || null
+    const lead = ID.exec(call[1])?.[0]
+    // `.` stops at a line terminator, so an id with one inside is none, as the pattern read it.
+    const value = lead === undefined ? '' : untailed(call[1].slice(lead.length), /\s/)
+    id = /[\r\u2028\u2029]/.test(value) ? null : value || null
     rest = rest.slice(call[0].length)
   }
-  const named = startName.exec(rest)
+  const named = startName(rest)
   if (rest !== '' && !named) {
     return null
   }

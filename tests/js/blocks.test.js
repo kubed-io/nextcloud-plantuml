@@ -134,6 +134,35 @@ describe('scan block arguments', () => {
   })
 })
 
+// The name and id were read by a lazy group before a trailing class: quadratic, so a long run
+// of spaces held the editor and the Viewer for seconds (160,000 took node several).
+describe('a @start line with a huge run of spaces', () => {
+  const timed = (text) => {
+    const begun = performance.now()
+    const diagrams = scan(text)
+    return [diagrams, performance.now() - begun]
+  }
+
+  it('reads a name with 200,000 spaces inside it in under 200 ms', () => {
+    const name = `a${' '.repeat(200000)}b`
+    const [diagrams, ms] = timed(`@startuml ${name}   \n@enduml\n@startuml c\n@enduml`)
+    expect(diagrams.map((d) => d.name)).toEqual([name, 'c'])
+    expect(ms).toBeLessThan(200)
+  })
+
+  it('reads an id with 200,000 spaces inside it in under 200 ms', () => {
+    const id = `x${' '.repeat(200000)}y`
+    const [diagrams, ms] = timed(`@startuml(id=${id}   )\n@enduml`)
+    expect(diagrams[0]).toMatchObject({ id, name: id })
+    expect(ms).toBeLessThan(200)
+  })
+
+  it('still keeps quotes out of a name: one left inside opens no block', () => {
+    expect(scan('@startuml a "b" c\n@enduml')[0].start).toBeNull()
+    expect(scan('@startuml "a b" }\n@enduml')[0].name).toBe('a b')
+  })
+})
+
 describe('label', () => {
   it('is the name, else the type, plus the page of a multi-page block', () => {
     const nodes = { type: 'uml', name: 'nodes', page: 2, pages: 3 }

@@ -72,6 +72,27 @@ final class DiagramsTest extends TestCase {
 		self::assertSame('no image for uml', Diagrams::noImage(Diagrams::scan("@startuml a\n@enduml\n@startuml\n")[1]));
 	}
 
+	/** A long run of spaces inside a name used to exhaust PCRE (false at ~1,400), so the line was no `@start` line. */
+	public function testANameWithAHugeRunOfSpacesIsRead(): void {
+		$name = 'a' . str_repeat(' ', 200000) . 'b';
+		$diagrams = Diagrams::scan("@startuml {$name}   \nA\n@enduml\n@startuml c\n@enduml\n");
+		self::assertSame([$name, 'c'], array_column($diagrams, 'name'));
+		self::assertSame([0, 1], array_column($diagrams, 'render'));
+	}
+
+	public function testAnIdWithAHugeRunOfSpacesIsRead(): void {
+		$id = 'x' . str_repeat(' ', 200000) . 'y';
+		$diagrams = Diagrams::scan("@startuml(id={$id}   )\n@enduml\n");
+		self::assertSame([$id, $id], [$diagrams[0]['id'], $diagrams[0]['name']]);
+	}
+
+	/** Quotes stay out of a name: one inside it opens no block, as in the editor. */
+	public function testAQuoteInsideANameOpensNoBlock(): void {
+		self::assertSame('', Diagrams::scan("@startuml a \"b\" c\n@enduml\n")[0]['name']);
+		self::assertSame(null, Diagrams::scan("@startuml a \"b\" c\n@enduml\n")[0]['id']);
+		self::assertSame('a b', Diagrams::scan("@startuml \"a b\" }\n@enduml\n")[0]['name']);
+	}
+
 	public function testTheBomFixtureStartsWithTheBom(): void {
 		self::assertSame("\xEF\xBB\xBF", substr((string)file_get_contents(self::FIXTURES . 'bom.puml'), 0, 3));
 	}

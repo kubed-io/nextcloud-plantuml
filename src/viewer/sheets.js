@@ -155,7 +155,7 @@ export function createSheets(path, { labelOf, etag, parallel = 3, idPrefix = 'pl
         size = sizeOf(svg)
         const key = keyOf(position)
         if (key !== null) {
-          // The ETag the route gave, without the web server's `-gzip`, so its If-None-Match matches.
+          // The ETag the route gave, without the web server's `-gzip` or `-br`, so its If-None-Match matches.
           cache.set(key, { svg: body, size, serverEtag: plainEtag(res.headers.get('ETag')) })
         }
       } else {

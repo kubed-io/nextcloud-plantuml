@@ -20,7 +20,6 @@ All notable changes to this project are documented here. The format follows
 - Export from the Viewer to SVG, PNG, PDF, EPS or ASCII art: the diagram in view, the checked ones or all as a zip, named so every file system takes them, except from a share that forbids download. `GET /apps/plantuml/export` does the same.
 - **Edit** in the Viewer opens the editor at the diagram in view.
 - The Viewer shows a spinner on each diagram until it is drawn, draws a stack or wall as you scroll to it, and shows a diagram it drew before on the same page at once.
-- Linked style files save even when the server compresses them.
 - In the Viewer, ← and → step to the previous and next `.puml` in the folder.
 - `GET /apps/plantuml/render` takes `diagram` (a name or a place) and `index`, for one diagram of a file.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon. Removing the app reverts that and leaves alone a mapping you set yourself in `config/mimetypemapping.json`; repair warns when it cannot write `core/js/mimetypelist.js`.

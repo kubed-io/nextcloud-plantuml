@@ -774,6 +774,7 @@ final class RenderControllerTest extends TestCase {
 		$includes = ['Diagrams/parts.iuml' => 'parts1'];
 
 		self::assertSame(200, $this->etagWith($includes, ifNoneMatch: '"abc123"')->getStatus());
+		self::assertSame(200, $this->etagWith($includes, ifNoneMatch: '"abc123-gzip"')->getStatus());
 		self::assertSame(304, $this->etagWith($includes, ifNoneMatch: '"' . md5('abc123,parts1,') . '"')->getStatus());
 	}
 

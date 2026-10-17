@@ -4,11 +4,8 @@
  *
  * The side-by-side diagram editor, a full-page overlay over the Files app: the
  * source in CodeMirror on the left, the diagram redrawn from it on the right.
- * The file is written by Save, and by itself two seconds after typing stops,
- * always guarded by the ETag it was read with; when someone else changed it
- * meanwhile, saving stops until Reload takes theirs or Save as copy keeps ours
- * in a new file beside it. A change made elsewhere is taken in while the source
- * is all saved, and is that same conflict while it is not.
+ * How the file is saved, and kept in step with changes made elsewhere, is its
+ * session's business (file-session.js); the bar shows that session's state.
  *
  * The Files bundle adds this bundle, an ES module, to the page the first time
  * "Edit diagram" or + New needs it, then calls the window.OCA.PlantUml.openEditor
@@ -24,8 +21,7 @@ import { bracketMatching } from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import { closeLintPanel } from '@codemirror/lint'
-import { translate as t, translatePlural as n } from '@nextcloud/l10n'
-import { emit } from '@nextcloud/event-bus'
+import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from './files-helpers.js'
 import { diagramAt, diagramsOf } from './editor/blocks.js'
 import { profileExtension, profileLoader, resetProfiles } from './editor/profiles/index.js'
@@ -37,23 +33,20 @@ import { plantumlLint, plantumlLintKeymap } from './editor/lint/index.js'
 import { plantumlDocs } from './editor/docs/hover.js'
 import { plantumlFolding } from './editor/folding.js'
 import { fileName, filePath, setServerError } from './editor/lint/state.js'
-import { ConflictError, currentEtag, loadFile, saveCopy, saveFile } from './editor/save.js'
+import { loadFile } from './editor/save.js'
+import { createFileSession, fromFile } from './editor/file-session.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { toInlineSvg } from './editor/inline-svg.js'
-import { createAutosave } from './editor/autosave.js'
 import { createSplitter } from './editor/splitter.js'
 import { createTabs } from './editor/tabs.js'
-import { watchFile } from './editor/watch.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
 import checkIcon from '../img/icons/check.svg?raw'
 import refreshIcon from '../img/icons/refresh.svg?raw'
 import sourceIcon from '../img/icons/code-tags.svg?raw'
 
-const IDLE_MS = 2000
-const MAX_WAIT_MS = 30000
-const MINUTE = 60000
-const CLOSE_WAIT_MS = 10000
+// "Saved n min ago" counts minutes: the bar redraws twice a minute.
+const TICK_MS = 30000
 
 /** Opens the editor on a Files node, at the diagram index asked for; a second call while one is open does nothing. */
 export function openEditor(node, { diagram: openAt } = {}) {
@@ -61,9 +54,6 @@ export function openEditor(node, { diagram: openAt } = {}) {
     return
   }
   resetProfiles()
-  // The file being edited, the copy's once Save as copy carries on there (S8):
-  // what is read and written, and what the diagram's relative files resolve against (R4).
-  let currentPath = node.path
   const name = node.basename
 
   const icon = crelt('span', { class: 'plantuml-editor__icon', 'aria-hidden': 'true' })
@@ -116,15 +106,10 @@ export function openEditor(node, { diagram: openAt } = {}) {
   document.body.append(overlay)
 
   let view = null
-  let etag = ''
-  let saved = null // the Text last read or written
-  let savedAt = 0 // when this editor last wrote it
-  let conflict = false // a save met someone else's change; lasts until resolved
-  let failure = '' // what went wrong last; lasts until the next change
-  let notice = '' // their version was taken in; lasts until the next change
-  let running = null // the file operation in flight
-  let quiet = false // that operation is a check, which the buttons do not show
-  let watcher = null
+  // The main file, once read: its name and its session. Its state is parked
+  // while another file is shown in the view; nothing parks it yet.
+  let main = null
+  let parked = null
   let closing = false
   let closed = false
   let diagrams = [] // the file's, from blocks.js; the one drawn is diagrams[active]
@@ -137,114 +122,53 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   })
 
-  const isDirty = () => view !== null && !view.state.doc.eq(saved)
+  /** The main file's state, in the view or parked. */
+  const mainState = () => parked?.state ?? view.state
 
-  function savedTitle() {
-    if (!savedAt) {
-      return t(APP_ID, 'Saved')
+  /** A change to the main file's state, wherever it is. */
+  function toMain(spec) {
+    if (parked) {
+      parked.state = parked.state.update(spec).state
+    } else {
+      view.dispatch(spec)
     }
-    const minutes = Math.floor((Date.now() - savedAt) / MINUTE)
-    if (minutes < 1) {
-      return t(APP_ID, 'Saved just now')
-    }
-    return minutes < 60
-      ? n(APP_ID, 'Saved %n min ago', 'Saved %n min ago', minutes)
-      : n(APP_ID, 'Saved %n h ago', 'Saved %n h ago', Math.floor(minutes / 60))
   }
 
+  /** The bar shows the session's state; before the file is read there is none, and the bar stays as it is. */
   function showButtons() {
-    const busy = running !== null && !quiet
-    const state = busy ? 'saving' : isDirty() ? 'unsaved' : 'saved'
-    saveButton.dataset.state = state
-    saveButton.classList.toggle('icon-loading-small', state === 'saving')
-    saveButton.title = state === 'saved' ? savedTitle() : t(APP_ID, 'Unsaved changes')
-    reloadButton.hidden = copyButton.hidden = !conflict
-    reloadButton.disabled = copyButton.disabled = refreshButton.disabled = busy
+    const shown = main?.session.status()
+    if (!shown) {
+      return
+    }
+    saveButton.dataset.state = shown.state
+    saveButton.classList.toggle('icon-loading-small', shown.state === 'saving')
+    saveButton.title = shown.title
+    reloadButton.hidden = copyButton.hidden = !shown.conflict
+    reloadButton.disabled = copyButton.disabled = refreshButton.disabled = shown.busy
   }
 
   function showState() {
-    status.textContent = failure || (conflict ? t(APP_ID, 'Someone else changed this file') : notice)
-    showButtons()
-  }
-
-  function fail(message) {
-    failure = message
-    showState()
-  }
-
-  /** `doc` is what the file now holds, at `etag`. */
-  /** `wrote` is false when the file came to us, so "Saved …" keeps our last save. */
-  function markSaved(doc, { wrote = true } = {}) {
-    saved = doc
-    if (wrote) {
-      savedAt = Date.now()
-    }
-    conflict = false
-    failure = notice = ''
-    showState()
-  }
-
-  /** Saving stops until Reload or Save as copy resolves it: a Save in conflict writes nothing. */
-  function enterConflict() {
-    conflict = true
-    failure = ''
-    autosave.cancel()
-    showState()
-  }
-
-  /**
-   * The file's text in place of the source, changing only the stretch that
-   * differs: CodeMirror maps the cursor, and the line at the top of the view,
-   * through a change that small, so both stay where they were.
-   */
-  function replaceWith(content, { history = true } = {}) {
-    const old = view.state.doc.toString()
-    const max = Math.min(old.length, content.length)
-    let from = 0
-    while (from < max && old[from] === content[from]) {
-      from++
-    }
-    let end = 0
-    while (end < max - from && old[old.length - 1 - end] === content[content.length - 1 - end]) {
-      end++
-    }
-    view.dispatch({
-      changes: { from, to: old.length - end, insert: content.slice(from, content.length - end) },
-      // Their version is not an edit of ours to undo (and autosave back).
-      annotations: history ? [] : [Transaction.addToHistory.of(false)],
-    })
-  }
-
-  /**
-   * One file operation at a time. A change that lands meanwhile, or an
-   * autosave that found one running, is saved once it is done. A check gives
-   * way: it is skipped while anything runs, and anything else waits it out.
-   */
-  async function exclusively(task, { check = false } = {}) {
-    while (running && quiet && !check) {
-      await running.catch(() => {})
-    }
-    if (running) {
+    const shown = main?.session.status()
+    if (!shown) {
       return
     }
-    quiet = check
-    running = task()
-    showButtons()
-    try {
-      await running
-    } finally {
-      running = null
-      quiet = false
-      showButtons()
-      if (!closed && !conflict && !failure && isDirty()) {
-        autosave.schedule()
-      }
+    // The session redraws on every file operation too: a live region rewritten with the same line may be read out again.
+    if (status.textContent !== shown.line) {
+      status.textContent = shown.line
     }
+    showButtons()
   }
 
-  // A conflict stops it until resolved; a failure until the next change.
-  const autosave = createAutosave({ idleMs: IDLE_MS, maxWaitMs: MAX_WAIT_MS, save: () => (conflict ? Promise.resolve() : save()) })
-  const ticker = setInterval(showButtons, MINUTE / 2)
+  /** Save as copy carried the main file on in the copy (S8): the editor takes its name. */
+  function renamedMain(copy) {
+    main.name = copy.basename
+    title.textContent = copy.basename
+    overlay.setAttribute('aria-label', copy.basename)
+    image.setAttribute('aria-label', copy.basename)
+    toMain({ effects: nameConfig.reconfigure([fileName.of(copy.basename), filePath.of(copy.path)]) })
+  }
+
+  const ticker = setInterval(showButtons, TICK_MS)
 
   function draw(text) {
     // The route answers a blank source with 400; there is nothing to draw, and
@@ -256,7 +180,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
     const index = active
     // PlantUML's own count, which an unclosed block can make differ from the tab's.
-    debouncedRender(text, diagrams[index].render, currentPath, (error, svgText, mistake) => {
+    debouncedRender(text, diagrams[index].render, main.session.path, (error, svgText, mistake) => {
       if (closed || !view.state.doc.toString().trim()) {
         return
       }
@@ -338,159 +262,30 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   }
 
-  async function save() {
-    // Once closed, a discard was chosen: a hanging save that settles late writes nothing more.
-    if (closed || !isDirty()) {
-      return
-    }
-    await exclusively(async () => {
-      // A check found theirs while this save waited: its PUT could only be refused.
-      if (conflict || closed) {
-        return
-      }
-      const doc = view.state.doc
-      try {
-        etag = await saveFile(currentPath, doc.toString(), etag)
-        markSaved(doc)
-      } catch (e) {
-        if (e instanceof ConflictError) {
-          enterConflict()
-          return
-        }
-        console.error(`[${APP_ID}] could not save ${currentPath}`, e)
-        fail(t(APP_ID, 'Could not save the file'))
-      }
-    })
-  }
-
-  /** Theirs replaces ours: the file as saved, at its new ETag. */
-  async function reload() {
-    await exclusively(async () => {
-      // Asked here, once any check has run: the source may have changed meanwhile.
-      if (isDirty() && !window.confirm(t(APP_ID, 'Replace your changes with the saved file?'))) {
-        return
-      }
-      try {
-        const file = await loadFile(currentPath)
-        if (closed) {
-          return
-        }
-        etag = file.etag
-        replaceWith(file.content)
-        markSaved(view.state.doc, { wrote: false })
-      } catch (e) {
-        console.error(`[${APP_ID}] could not open ${currentPath}`, e)
-        fail(t(APP_ID, 'Could not open the file'))
-      }
-    })
-  }
-
-  /**
-   * Whether the file changed elsewhere, by its ETag; a save of ours holds the
-   * ETag it was answered with, so it is no change. A clean source takes the new
-   * version in, an unsaved one is a conflict. A failed check is the watcher's to log.
-   */
-  async function check() {
-    if (closing || closed || conflict) {
-      return
-    }
-    await exclusively(async () => {
-      if ((await currentEtag(currentPath)) === etag || closing || closed) {
-        return
-      }
-      if (isDirty()) {
-        enterConflict()
-        return
-      }
-      const file = await loadFile(currentPath)
-      if (closing || closed) {
-        return
-      }
-      // A change typed while it loaded is ours, unsaved, against theirs.
-      if (isDirty()) {
-        enterConflict()
-        return
-      }
-      const changed = file.content !== view.state.doc.toString()
-      etag = file.etag
-      replaceWith(file.content, { history: false })
-      markSaved(view.state.doc, { wrote: false })
-      if (changed) {
-        notice = t(APP_ID, 'Updated from the file')
-        showState()
-      }
-    }, { check: true })
-  }
-
-  /** Ours goes to a new file beside theirs, and the editor carries on there. */
-  async function saveAsCopy() {
-    await exclusively(async () => {
-      const doc = view.state.doc
-      try {
-        const copy = await saveCopy(currentPath, doc.toString())
-        emit('files:node:created', copy.node)
-        currentPath = copy.node.path
-        title.textContent = copy.node.basename
-        overlay.setAttribute('aria-label', copy.node.basename)
-        image.setAttribute('aria-label', copy.node.basename)
-        view.dispatch({ effects: nameConfig.reconfigure([fileName.of(copy.node.basename), filePath.of(currentPath)]) })
-        etag = copy.etag
-        markSaved(doc)
-      } catch (e) {
-        console.error(`[${APP_ID}] could not save a copy of ${currentPath}`, e)
-        fail(t(APP_ID, 'Could not save a copy'))
-      }
-    })
-  }
-
-  /**
-   * Saves until the file holds the source, including a change typed meanwhile,
-   * or until a save does not land, or CLOSE_WAIT_MS pass with one hanging.
-   */
-  function saveBeforeClose() {
-    let timer
-    let gaveUp = false
-    const saving = (async () => {
-      while (!gaveUp && isDirty() && !conflict && !failure) {
-        while (running) {
-          // A check leaves its own failures to the watcher; one must not stop a close.
-          await running.catch(() => {})
-        }
-        if (gaveUp || conflict || failure) {
-          break
-        }
-        await autosave.flush()
-      }
-    })()
-    const timeout = new Promise((resolve) => {
-      timer = setTimeout(() => { gaveUp = true; resolve() }, CLOSE_WAIT_MS)
-    })
-    return Promise.race([saving, timeout]).finally(() => clearTimeout(timer))
-  }
-
   /**
    * Saves first. A refused save stays open on the conflict line, whose buttons
    * are the way out; a save that cannot land (a read-only share, a full quota,
    * an outage) asks before discarding instead of trapping the user.
    */
   async function close() {
+    // A second Escape or click while the first close saves does nothing.
     if (closing) {
       return
     }
-    if (isDirty() && !conflict && !failure) {
+    const session = main?.session
+    if (session?.isDirty() && !session.blocked()) {
       closing = true
-      await saveBeforeClose()
+      await session.saveBeforeLeaving()
       closing = false
-      if (conflict) {
+      if (session.status().conflict) {
         return
       }
     }
-    if (isDirty() && !window.confirm(t(APP_ID, 'Discard unsaved changes?'))) {
+    if (session?.isDirty() && !window.confirm(t(APP_ID, 'Discard unsaved changes?'))) {
       return
     }
     closed = true
-    watcher?.stop()
-    autosave.cancel()
+    session?.stop()
     clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onKeydown)
@@ -513,7 +308,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     // source. 'S' is Caps Lock's; Shift is another shortcut's.
     if ((event.key === 's' || event.key === 'S') && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && !event.defaultPrevented) {
       event.preventDefault()
-      save()
+      main?.session.save()
       return
     }
     if (event.key === 'Escape' && !event.defaultPrevented) {
@@ -524,25 +319,24 @@ export function openEditor(node, { diagram: openAt } = {}) {
   }
 
   function onBeforeUnload(event) {
-    if (isDirty()) {
+    if (main?.session.isDirty()) {
       event.preventDefault()
     }
   }
 
-  saveButton.addEventListener('click', save)
-  reloadButton.addEventListener('click', reload)
-  refreshButton.addEventListener('click', reload)
+  saveButton.addEventListener('click', () => main?.session.save())
+  reloadButton.addEventListener('click', () => main?.session.reload())
+  refreshButton.addEventListener('click', () => main?.session.reload())
   sourceToggle.addEventListener('click', toggleSource)
-  copyButton.addEventListener('click', saveAsCopy)
+  copyButton.addEventListener('click', () => main?.session.saveAsCopy())
   closeButton.addEventListener('click', close)
   document.addEventListener('keydown', onKeydown)
   window.addEventListener('beforeunload', onBeforeUnload)
 
-  loadFile(currentPath).then(({ content, etag: loadedEtag }) => {
+  loadFile(node.path).then(({ content, etag: loadedEtag }) => {
     if (closed) {
       return
     }
-    etag = loadedEtag
     view = new EditorView({
       parent: source,
       state: EditorState.create({
@@ -564,7 +358,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
           plantumlDocs,
           plantumlLint,
           plantumlFolding,
-          nameConfig.of([fileName.of(name), filePath.of(currentPath)]),
+          nameConfig.of([fileName.of(name), filePath.of(node.path)]),
           plantumlTheme,
           // A swatch before each ColorLiteral, named ones too; picking a colour writes it back as #rrggbb.
           colorSwatches,
@@ -577,7 +371,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
           // move focus again instead of indenting. plantumlLintKeymap (lint's own)
           // opens the diagnostics panel on Mod-Shift-m and steps through them on F8.
           keymap.of([
-            { key: 'Mod-s', run: () => { save(); return true } },
+            { key: 'Mod-s', run: () => { main.session.save(); return true } },
             ...closeBracketsKeymap,
             ...defaultKeymap,
             ...searchKeymap,
@@ -589,14 +383,10 @@ export function openEditor(node, { diagram: openAt } = {}) {
           ]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
-              failure = notice = ''
-              showState()
+              main.session.edited()
               const text = update.state.doc.toString()
               diagrams = diagramsOf(update.state.doc, text)
               wantProfiles(diagrams, text)
-              if (!conflict) {
-                autosave.schedule()
-              }
             }
             if (update.docChanged || update.selectionSet) {
               follow(update.state, update.docChanged)
@@ -605,10 +395,20 @@ export function openEditor(node, { diagram: openAt } = {}) {
         ],
       }),
     })
-    saved = view.state.doc
+    main = {
+      name,
+      session: createFileSession({
+        path: node.path,
+        etag: loadedEtag,
+        doc: () => mainState().doc,
+        replace: (text, opts) => replaceWith(mainState(), toMain, text, opts),
+        onChange: showState,
+        onCopied: renamedMain,
+      }),
+    }
     saveButton.hidden = refreshButton.hidden = sourceToggle.hidden = false
     showButtons()
-    watcher = watchFile({ check })
+    main.session.start()
     document.addEventListener('visibilitychange', drawAgain)
     window.addEventListener('focus', drawAgain)
     view.focus()
@@ -621,8 +421,32 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
     wantProfiles(diagrams, text)
   }, (e) => {
-    console.error(`[${APP_ID}] could not open ${currentPath}`, e)
-    fail(t(APP_ID, 'Could not open the file'))
+    // No session yet to hold the failure: the line says it directly.
+    console.error(`[${APP_ID}] could not open ${node.path}`, e)
+    status.textContent = t(APP_ID, 'Could not open the file')
+  })
+}
+
+/**
+ * The file's text in place of `state`'s, changing only the stretch that
+ * differs: CodeMirror maps the cursor, and the line at the top of the view,
+ * through a change that small, so both stay where they were.
+ */
+function replaceWith(state, dispatch, content, { history = true } = {}) {
+  const old = state.doc.toString()
+  const max = Math.min(old.length, content.length)
+  let from = 0
+  while (from < max && old[from] === content[from]) {
+    from++
+  }
+  let end = 0
+  while (end < max - from && old[old.length - 1 - end] === content[content.length - 1 - end]) {
+    end++
+  }
+  dispatch({
+    changes: { from, to: old.length - end, insert: content.slice(from, content.length - end) },
+    // Their version is not an edit of ours to undo (and autosave back).
+    annotations: history ? [fromFile.of(true)] : [fromFile.of(true), Transaction.addToHistory.of(false)],
   })
 }
 

@@ -194,5 +194,4 @@ trait TemplateSteps {
 			'http_errors' => false,
 		]);
 	}
-
 }

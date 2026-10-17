@@ -2374,6 +2374,80 @@ describe('Add diagram', () => {
     })
   })
 
+  // The last tests in the file: each loads a new editor whose add chunk is held back.
+  describe('when the add chunk arrives late', () => {
+    const MAIN = '@startuml order-flow\n<style file=./UML_Fun.css>\nA -> B\n@enduml\n'
+    // The menu may close again at once (focus), so what counts is that it was ever added.
+    const watch = (overlay) => {
+      const added = []
+      new MutationObserver((records) => {
+        for (const node of records.flatMap((r) => [...r.addedNodes])) added.push(node.className)
+      }).observe(overlay, { childList: true, subtree: true })
+      return added
+    }
+    const STYLE = 'participant {\n  LineColor #8A6D00\n}\n'
+    let release
+    let imported
+
+    beforeEach(async () => {
+      vi.resetModules()
+      const gate = new Promise((resolve) => { release = resolve })
+      let imports
+      imported = new Promise((resolve) => { imports = resolve })
+      vi.doMock('../../src/editor/add/index.js', async (importOriginal) => {
+        await gate
+        const chunk = await importOriginal()
+        imports()
+        return chunk
+      })
+      await import('../../src/editor.js')
+      const files = { '/Diagrams/Order flow.puml': { content: MAIN, etag: '"m1"' }, '/Diagrams/UML_Fun.css': { content: STYLE, etag: '"s1"' } }
+      seams.loadFile.mockImplementation(async (path) => files[path] ?? Promise.reject(new Error('404')))
+      seams.fileAccess.mockImplementation(async (path) => (files[path] ? { writable: true } : null))
+    })
+
+    afterEach(() => {
+      release()
+      vi.doUnmock('../../src/editor/add/index.js')
+    })
+
+    it('opens nothing over a linked file opened meanwhile, and the button stays hidden', async () => {
+      const { loadSheetProfile } = await import('../../src/editor/profiles/index.js')
+      await loadSheetProfile()
+      await open()
+      view().dispatch({ selection: { anchor: MAIN.indexOf('<style') } })
+      await settle()
+      const added = watch(q('.plantuml-editor'))
+      typeButton().click()
+      q('button.cm-plantuml-link-chip[aria-label="Open UML_Fun.css"]').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+      await settle()
+      expect(source()).toBe(STYLE)
+
+      release()
+      await imported
+      await settle()
+
+      expect(added.filter((c) => String(c).includes('plantuml-add'))).toEqual([])
+      expect(typeButton().getAttribute('aria-expanded')).toBe('false')
+      expect(q('.plantuml-editor__add').hidden).toBe(true)
+    })
+
+    it('opens nothing once the editor has closed, and throws nothing', async () => {
+      await open()
+      const added = watch(q('.plantuml-editor'))
+      typeButton().click()
+      q('.plantuml-editor__close').click()
+      await settle()
+      expect(q('.plantuml-editor')).toBeNull()
+
+      release()
+      await imported
+      await settle()
+
+      expect(added.filter((c) => String(c).includes('plantuml-add'))).toEqual([])
+    })
+  })
+
   // Last in the file: it loads a new editor whose add chunk fails once.
   it('tries the chunk again after it failed to load: the next click opens the menu', async () => {
     vi.resetModules()

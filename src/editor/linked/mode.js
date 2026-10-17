@@ -64,7 +64,7 @@ export function createLinkedMode({ view, main, isClosing, isClosed, savedOrDisca
   function renamedLinked(record, copy) {
     record.name = copy.basename
     if (linked === record) {
-      onChange(linked !== null)
+      onChange(true)
     }
   }
 
@@ -162,7 +162,7 @@ export function createLinkedMode({ view, main, isClosing, isClosed, savedOrDisca
     view().dispatch({ effects: EditorView.scrollIntoView(view().state.selection.main.head, { y: 'start', yMargin: 20 }) })
     record.wantProfiles?.(diagramsOf(view().state.doc, text), text)
     record.session.start()
-    onChange(linked !== null)
+    onChange(true)
     showState()
     view().focus()
   }
@@ -219,7 +219,7 @@ export function createLinkedMode({ view, main, isClosing, isClosed, savedOrDisca
     } else if (discarded) {
       redraw()
     }
-    onChange(linked !== null)
+    onChange(false)
     showState()
     view().focus()
     // It looks at once for a change made elsewhere while it was parked.

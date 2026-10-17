@@ -143,7 +143,7 @@ final class TemplateLibrary {
 	public static function blocks(string $text): int {
 		$count = 0;
 		$open = null;
-		foreach (preg_split('/\r?\n/', $text) ?: [] as $line) {
+		foreach (preg_split('/\r\n?|\n/', $text) ?: [] as $line) {
 			if (preg_match('/^\s*@start(\w+)/', $line, $start) === 1) {
 				$open = $start[1];
 			} elseif ($open !== null && preg_match('/^\s*@end\w*\s*$/', $line) === 1) {

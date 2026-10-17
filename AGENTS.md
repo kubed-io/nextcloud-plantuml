@@ -99,7 +99,7 @@ decides whether it goes in.
 
 | Path | What's there |
 |---|---|
-| `appinfo/info.xml`, `appinfo/routes.php` | App metadata, settings and commands registration, repair steps; the routes: test connection, the two render routes, `/export`, and the server's lists (`/themes`, `/icons`, `/emoji`) |
+| `appinfo/info.xml`, `appinfo/routes.php` | App metadata, settings and commands registration, repair steps; the routes: test connection, the two render routes, `/export`, `GET /templates`, and the server's lists (`/themes`, `/icons`, `/emoji`) |
 | `lib/AppInfo/Application.php` | Bootstrap: declarative settings, event listeners |
 | `lib/Service/` | `ServerConfig`, `RenderService` (+ `Rendered`), `Diagrams` (a file cut into diagrams as the editor's tabs do), `DiagramFiles` (the stored-file read the routes share), `FileReader` (a file's text, and whether its download is forbidden), `TemplateLibrary` (the template files within the caps), the behaviour |
 | `lib/Exception/RenderException.php` | The three problems: `not set`, `unreachable`, `not a PlantUML server` |

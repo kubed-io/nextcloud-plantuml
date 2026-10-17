@@ -66,7 +66,8 @@ export function builtins(own, core) {
  * @returns {Template[]}
  */
 export function fromFiles(files, { blocksOf, scan }) {
-  return files.flatMap(({ source, path, text }) => {
+  return files.flatMap(({ source, path, text: raw }) => {
+    const text = raw.replace(/\r\n?/g, '\n')
     const lines = text.split('\n')
     const base = path.split('/').pop().replace(/\.[^.]+$/, '')
     let unnamed = 0

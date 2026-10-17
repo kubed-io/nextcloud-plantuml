@@ -354,6 +354,8 @@ final class TemplateLibraryTest extends TestCase {
 		yield 'one block of two pages' => ["@startuml\nA\nnewpage\nB\n@enduml", 1];
 		yield 'an unclosed block before a closed one' => ["@startuml\nA\n@startgantt\n@endgantt", 1];
 		yield 'CRLF' => ["@startuml\r\nA\r\n@enduml\r\n", 1];
+		yield 'CRLF, named' => ["@startuml retro\r\nA -> B\r\n@enduml\r\n", 1];
+		yield 'CR only' => ["@startuml retro\rA -> B\r@enduml\r", 1];
 	}
 
 	/** A9: a template is a closed block of a type Add diagram lists. */

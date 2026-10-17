@@ -53,6 +53,19 @@ describe('builtins', () => {
 describe('fromFiles', () => {
   const file = (text, path = 'Templates/flows.puml', source = 'shared') => fromFiles([{ source, path, text }], CORE)
 
+  it('cuts a file saved with CRLF line endings, handing the text back with \\n', () => {
+    const [t, ...rest] = file('@startuml retro\r\nA -> B\r\n@enduml\r\n')
+    expect(rest).toEqual([])
+    expect(t.title).toBe('retro')
+    expect(t.text).toBe('@startuml retro\nA -> B\n@enduml')
+  })
+
+  it('cuts a file saved with CR line endings alone', () => {
+    const [t, ...rest] = file('@startuml retro\rA -> B\r@enduml\r')
+    expect(rest).toEqual([])
+    expect(t.text).toBe('@startuml retro\nA -> B\n@enduml')
+  })
+
   it('takes each block as written, @start line to @end line', () => {
     const [t] = file("' before\n@startuml(id=L) Login\nA -> B\n@enduml\nafter")
     expect(t.text).toBe('@startuml(id=L) Login\nA -> B\n@enduml')

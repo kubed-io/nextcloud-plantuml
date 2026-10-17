@@ -45,7 +45,7 @@ const separator = /={2,}[^=].*?={2,}\s*$|\.{3,}(?:.*?\.{3,})?\s*$/.source
 // The words whose condition follows in parentheses (`if (x)`, `else (no)`).
 const conditionWords = /(?:if|elseif|else|while|endwhile|switch|case)/.source
 
-const lineKeywords = /abstract\s+class|left\s+to\s+right\s+direction|top\s+to\s+bottom\s+direction|end(?:fork|merge|legend|title|header|footer|caption)|archimate|packetdiag|partition|allowmixing|allow_mixing|kill|skin|end\s+(?:box|fork|group|merge|note|ref|split|title)|(?:fork|split)(?:\s+again)?|activate|actor|agent|alt|annotation|artifact|autoactivate|autonumber|backward|binary|boundary|box|break|caption|card|case|circle|class|clock|cloud|collections|component|concise|control|create|critical|database|deactivate|destroy|detach|diamond|else|elseif|end|end[hr]note|endif|endswitch|endwhile|entity|enum|file|folder|footer|frame|group|[hr]?note|header|hexagon|hide|if|interface|label|legend|loop|map|namespace|network|newpage|node|nwdiag|object|opt|package|page|par|participant|person|queue|rectangle|ref|remove|repeat|restore|return|robust|scale|set|show|skinparam|stack|start|state|stop|storage|switch|title|together|usecase|usecase\/|while/.source
+const lineKeywords = /abstract\s+class|left\s+to\s+right\s+direction|top\s+to\s+bottom\s+direction|end(?:fork|merge|legend|title|header|footer|caption)|archimate|packetdiag|partition|allowmixing|allow_mixing|kill|skin|end\s+(?:box|fork|group|merge|note|ref|split|title)|(?:fork|split)(?:\s+again)?|activate|actor|agent|alt|annotation|artifact|autoactivate|autonumber|backward|binary|boundary|box|break|caption|card|case|circle|class|clock|cloud|collections|component|concise|control|create|critical|database|deactivate|destroy|detach|diamond|else|elseif|end|end[hr]note|endif|endswitch|endwhile|entity|enum|file|folder|footer|frame|group|(?:floating\s+)?[hr]?note|header|hexagon|hide|if|interface|label|legend|loop|map|namespace|network|newpage|node|nwdiag|object|opt|package|page|par|participant|person|queue|rectangle|ref|remove|repeat|restore|return|robust|scale|set|show|skinparam|stack|start|state|stop|storage|switch|title|together|usecase|usecase\/|while/.source
 
 /** The rules of a path slot, each ending in the state that reads the rest of the `!` line. */
 const toPreprocessor = (rules) => rules.map((rule) => ({ ...rule, next: 'preprocessor' }))
@@ -86,6 +86,8 @@ const states = {
     // What a line declares is a type (H15); a class's `{` opens its members (H17).
     ...declarations,
     atLineStart(`(?:${lineKeywords})(?=\\s|$)`, 'keyword'),
+    // The kinds that only a name makes a declaration of (`process -> Bob` is a message), alone on a line.
+    atLineStart(/(?:action|analog|dataclass|exception|metaclass|process|record)(?=\s*$)/.source, 'keyword'),
     // `#highlight` and the like start a line; a colour never does, but a hex keeps its picker.
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
     // A sprite definition (T16): its header is read by `spriteHead`, its pixel rows by `spriteRows`.

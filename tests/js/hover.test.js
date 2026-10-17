@@ -48,6 +48,8 @@ vi.mock('../../src/editor/docs/index.js', async (importOriginal) => {
   const docs = real.buildDocs({
     own: {
       'keyword:alt': { summary: 'Alternatives, one drawn per else', example: 'alt paid\nend' },
+      'keyword:archimate': { summary: 'Declares an Archimate element', example: 'archimate #Business customer' },
+      'keyword:partition': { summary: 'Groups steps under a title', example: 'partition Checkout {' },
       'function:%strlen': { signature: '%strlen(text)', summary: 'The length of a string' },
     },
     links: { links: { 'keyword:alt': { page: 'sequence-diagram', anchor: 'grouping', section: 'Grouping message' } } },
@@ -345,6 +347,15 @@ describe('the card on hover (I2) and pinned (I3)', () => {
     expect(docSource(view, at('alt', 2), 1)).toBe(tooltip)
     expect(docSource(view, at('alt', 3), -1)).toBe(tooltip)
     expect(docSource(view, at('%strlen'), 1)).toMatchObject({ pos: doc.indexOf('%strlen'), end: doc.indexOf('%strlen') + 7 })
+  })
+
+  it('opens the card of a newly coloured word, archimate, with its text', () => {
+    const text = 'archimate #Business customer'
+    const view = viewOf([], text)
+    const tooltip = docSource(view, 1, 1)
+    expect(tooltip).toMatchObject({ pos: 0, end: 9 })
+    const { dom } = tooltip.create(view)
+    expect(dom.textContent).toContain('Declares an Archimate element')
   })
 
   it.each([

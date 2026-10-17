@@ -385,7 +385,7 @@ const alternation = (words) => [...new Set(words)].sort((a, b) => b.length - a.l
 const DECLARING = alternation(elements)
 
 // The kinds whose `{` opens members (H17).
-const BODIED = alternation(['class', 'interface', 'enum', 'abstract class', 'abstract', 'annotation', 'entity', 'struct', 'protocol', 'object', 'map'])
+const BODIED = alternation(['class', 'interface', 'enum', 'abstract class', 'abstract', 'annotation', 'entity', 'struct', 'protocol', 'object', 'map', 'exception', 'dataclass', 'metaclass', 'record'])
 // A URL is a path, never a name (`component https://x.org/a`); a `$name` is the preprocessor's
 // variable. Two groups, `declaredTokens`.
 const declared = /(?:(\$[A-Za-z_]\w*)|(?![A-Za-z][\w+.-]*:\/\/)([A-Za-z_][\w.:]*))/.source

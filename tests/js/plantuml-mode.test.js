@@ -1390,6 +1390,22 @@ describe('declarations and class bodies (H15, H17)', () => {
     expect(tokens('repeatwhile (more)').slice(0, 2)).toEqual([['repeatwhile', 'keyword'], ['(', 'paren']])
   })
 
+  it.each(['action', 'analog', 'dataclass', 'exception', 'metaclass', 'process', 'record'])('names the bare element type %s a keyword, as class alone is (H24)', (type) => {
+    expect(tokens(type)).toEqual([[type, 'keyword']])
+  })
+
+  it('reads a quoted floating note as a keyword, as a quoted note is (H24)', () => {
+    expect(tokens('floating note "x" as N')[0]).toEqual(['floating note', 'keyword'])
+  })
+
+  it.each(['exception', 'dataclass', 'metaclass', 'record'])('opens a class body after %s with {, its members read as members (H17)', (type) => {
+    const body = tokens(`${type} Boom {`, '  +code : int', '}')
+    const base = tokens('class Boom {', '  +code : int', '}')
+    expect(body[0]).toEqual([type, 'keyword'])
+    expect(body.slice(1)).toEqual(base.slice(1))
+    expect(body).toEqual(expect.arrayContaining([['+', 'modifier'], ['int', 'typeName']]))
+  })
+
   it('keeps a new kind plain where it starts a message (H15)', () => {
     expect(tokens('process -> Bob : go')).toEqual([['->', 'LinkOperator'], ['go', 'labelName']])
   })

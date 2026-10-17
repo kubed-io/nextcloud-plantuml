@@ -5,7 +5,7 @@
  * Reads a document into its diagrams: one per `@start…` block, one per
  * `newpage` page of a uml block, in PlantUML's own order. Pure, no editor.
  */
-import { startCall, startName } from './lexicon/rules.js'
+import { startCall, startName } from './lexicon/start.js'
 
 const START = /^\s*@start(\w+)(.*)$/
 const END = /^\s*@end\w*\s*$/

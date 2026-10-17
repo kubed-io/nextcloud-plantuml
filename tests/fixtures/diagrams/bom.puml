@@ -1,0 +1,3 @@
+﻿@startuml a
+A -> B
+@enduml

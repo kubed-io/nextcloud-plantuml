@@ -1,0 +1,159 @@
+<?php
+
+/**
+ * SPDX-FileCopyrightText: 2026 kubed-io
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace OCA\PlantUml\Service;
+
+/**
+ * A file read into its diagrams as the editor's tabs read it (src/editor/blocks.js,
+ * editor spec B1): one per `@start…` block, one per `newpage` page of a uml block,
+ * each with the image PlantUML draws for it. tests/fixtures/diagrams/expected.json
+ * holds both to the same answers.
+ *
+ * @psalm-type Diagram = array{index: int, type: string, name: string, id: ?string, page: int, pages: int, render: int}
+ */
+final class Diagrams {
+	/** The characters of JavaScript's `\s`, which PCRE's is narrower than; bare, to go inside other classes. */
+	private const SC = '\t\n\x{0B}\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
+	private const S = '[' . self::SC . ']';
+	/** JavaScript's `\w`: under `/u`, PCRE's would take any letter. */
+	private const W = '[A-Za-z0-9_]';
+	private const START = '/^' . self::S . '*@start(' . self::W . '+)(.*)$/u';
+	private const END = '/^' . self::S . '*@end' . self::W . '*' . self::S . '*$/u';
+	private const NEWPAGE = '/^' . self::S . '*newpage(?:' . self::S . '.*)?$/u';
+	private const CALL = '/^\(([^)]*)\)/u';
+	private const ID = '/^' . self::S . '*id' . self::S . '*=' . self::S . '*(.*?)' . self::S . '*$/u';
+	private const NAME = '/^([' . self::SC . '{][' . self::SC . '"“”]*)([^"“”]*?)([' . self::SC . '}"“”]*)$/u';
+
+	/** @return list<Diagram> */
+	public static function scan(string $text): array {
+		// Bytes that are not UTF-8 would fail every `/u` pattern; the browser reads them as U+FFFD.
+		$text = mb_scrub($text, 'UTF-8');
+		$lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $text));
+		$found = [];
+		$block = null;
+		$close = static function () use (&$block, &$found): void {
+			if ($block === null) {
+				return;
+			}
+			$pages = count($block['pages']);
+			foreach ($block['pages'] as $i => $from) {
+				$found[] = ['type' => $block['type'], 'name' => $block['name'], 'id' => $block['id'], 'page' => $i + 1, 'pages' => $pages, 'from' => $from];
+			}
+			$block = null;
+		};
+		foreach ($lines as $i => $line) {
+			$n = $i + 1;
+			$open = self::startOf($line);
+			if ($open !== null) {
+				$close();
+				$block = $open + ['pages' => [$n]];
+			} elseif ($block !== null && preg_match(self::END, $line) === 1) {
+				$close();
+			} elseif ($block !== null && $block['type'] === 'uml' && preg_match(self::NEWPAGE, $line) === 1) {
+				$block['pages'][] = $n;
+			}
+		}
+		$close();
+		if ($found === []) {
+			$found[] = ['type' => 'uml', 'name' => '', 'id' => null, 'page' => 1, 'pages' => 1, 'from' => 1];
+		}
+		$drawn = self::images($lines);
+		$diagrams = [];
+		foreach ($found as $index => $d) {
+			$render = count($drawn);
+			foreach ($drawn as $at => $last) {
+				if ($last >= $d['from']) {
+					$render = $at;
+					break;
+				}
+			}
+			$diagrams[] = ['index' => $index, 'type' => $d['type'], 'name' => $d['name'], 'id' => $d['id'], 'page' => $d['page'], 'pages' => $d['pages'], 'render' => $render];
+		}
+		return $diagrams;
+	}
+
+	/**
+	 * @param list<Diagram> $diagrams
+	 * @return Diagram|null
+	 */
+	public static function find(array $diagrams, string $diagram): ?array {
+		foreach ($diagrams as $d) {
+			if ($d['name'] !== '' && $d['name'] === $diagram && $d['page'] === 1) {
+				return $d;
+			}
+		}
+		return preg_match('/^\d{1,4}$/', $diagram) === 1 ? ($diagrams[(int)$diagram - 1] ?? null) : null;
+	}
+
+	/**
+	 * The image PlantUML draws for the diagram at a 0-based index (B1's `index`, what the Viewer
+	 * sends): its `render`, the number to ask the server for. Null past the last diagram.
+	 *
+	 * @param list<Diagram> $diagrams
+	 */
+	public static function renderOf(array $diagrams, int $index): ?int {
+		return $diagrams[$index]['render'] ?? null;
+	}
+
+	/** @param Diagram $diagram */
+	public static function label(array $diagram): string {
+		$base = $diagram['name'] !== '' ? $diagram['name'] : $diagram['type'];
+		return $diagram['pages'] > 1 ? "{$base} {$diagram['page']}" : $base;
+	}
+
+	public static function missing(string $diagram): string {
+		return preg_match('/^\d+$/', $diagram) === 1 ? "no diagram {$diagram}" : "no diagram named {$diagram}";
+	}
+
+	/** @return array{type: string, id: ?string, name: string}|null */
+	private static function startOf(string $line): ?array {
+		if (preg_match(self::START, $line, $open) !== 1) {
+			return null;
+		}
+		$rest = $open[2];
+		$id = null;
+		if (preg_match(self::CALL, $rest, $call) === 1) {
+			$id = preg_match(self::ID, $call[1], $m) === 1 && $m[1] !== '' ? $m[1] : null;
+			$rest = substr($rest, strlen($call[0]));
+		}
+		$named = preg_match(self::NAME, $rest, $name) === 1;
+		if ($rest !== '' && !$named) {
+			return null;
+		}
+		$text = $named && $name[2] !== '' ? $name[2] : ($id ?? '');
+		return ['type' => $open[1], 'id' => $id, 'name' => $text];
+	}
+
+	/**
+	 * The last line of each image PlantUML draws, in its order (blocks.js `images`).
+	 *
+	 * @param list<string> $lines
+	 * @return list<int>
+	 */
+	private static function images(array $lines, bool $wrapped = false): array {
+		$lasts = [];
+		$open = $wrapped ? ['type' => 'uml', 'pages' => []] : null;
+		foreach ($lines as $i => $line) {
+			$n = $i + 1;
+			$start = self::startOf($line);
+			if ($start !== null) {
+				$open = ['type' => $start['type'], 'pages' => []];
+			} elseif ($open !== null && preg_match(self::END, $line) === 1) {
+				array_push($lasts, ...$open['pages'], ...[$n]);
+				$open = null;
+			} elseif ($open !== null && $open['type'] === 'uml' && preg_match(self::NEWPAGE, $line) === 1) {
+				$open['pages'][] = $n - 1;
+			}
+		}
+		if ($wrapped && $open !== null) {
+			array_push($lasts, ...$open['pages'], ...[count($lines)]);
+		}
+		return $lasts !== [] || $wrapped ? $lasts : self::images($lines, true);
+	}
+}

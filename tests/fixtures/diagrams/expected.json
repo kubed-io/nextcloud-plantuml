@@ -42,5 +42,26 @@
   "swallowed.puml": [
     { "index": 0, "type": "yaml", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": null, "render": 0 },
     { "index": 1, "type": "uml", "name": "", "id": null, "page": 1, "pages": 1, "from": 3, "to": 4, "start": 3, "end": 5, "render": 0 }
+  ],
+  "bom.puml": [
+    { "index": 0, "type": "uml", "name": "a", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
+  ],
+  "jcckit-args.puml": [
+    { "index": 0, "type": "jcckit", "name": "", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
+  ],
+  "nothing-closes.puml": [
+    { "index": 0, "type": "uml", "name": "a", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": null, "render": 0 },
+    { "index": 1, "type": "uml", "name": "b", "id": null, "page": 1, "pages": 1, "from": 3, "to": 5, "start": 3, "end": null, "render": 0 }
+  ],
+  "id.puml": [
+    { "index": 0, "type": "uml", "name": "x", "id": "x", "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 }
+  ],
+  "render-past-end.puml": [
+    { "index": 0, "type": "uml", "name": "a", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": 3, "render": 0 },
+    { "index": 1, "type": "uml", "name": "b", "id": null, "page": 1, "pages": 1, "from": 4, "to": 5, "start": 4, "end": null, "render": 1 }
+  ],
+  "unclosed-then-closed.puml": [
+    { "index": 0, "type": "uml", "name": "a", "id": null, "page": 1, "pages": 1, "from": 1, "to": 2, "start": 1, "end": null, "render": 0 },
+    { "index": 1, "type": "uml", "name": "b", "id": null, "page": 1, "pages": 1, "from": 3, "to": 4, "start": 3, "end": 5, "render": 0 }
   ]
 }

@@ -16,7 +16,8 @@ import { availableParallelism } from 'node:os'
 import { defineConfig } from 'vitest/config'
 
 const DIR = 'tests/js'
-const suites = readdirSync(DIR).filter((name) => name.endsWith('.test.js')).map((name) => `${DIR}/${name}`)
+// Every folder down, so a suite in a nested one is never silently left out.
+const suites = readdirSync(DIR, { recursive: true }).filter((name) => name.endsWith('.test.js')).map((name) => `${DIR}/${name}`)
 const dom = suites.filter((file) => readFileSync(file, 'utf8').includes('@vitest-environment jsdom'))
 
 export default defineConfig({

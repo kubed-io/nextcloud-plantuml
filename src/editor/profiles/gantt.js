@@ -48,7 +48,8 @@ const NUMBERS = [
   /\d+(?:st|nd|rd|th|%)?(?!\w)/i,
 ]
 
-const SEPARATOR = /--(?:[ \t]*\S.*?[ \t]*--)?[ \t]*$/
+// Anchored, and the text cannot contain `--`, so the closing `--` never overlaps it (linear on any line).
+export const SEPARATOR = /^--(?:[ \t]*[^\s-](?:[^-]|-(?!-))*--)?[ \t]*$/
 const LINK_STYLE = /with(?=(?:[ \t]+#?\w+)*?[ \t]+link(?!\w))/i
 const OWN_LINE = /(?:title|header|footer)(?=[ \t]*$)/i
 const TEXT_LINE = /(?:title|header|footer|caption)(?=[ \t]+\S)/i

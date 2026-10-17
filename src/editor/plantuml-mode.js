@@ -351,6 +351,9 @@ function emit(stream, state, parts) {
   return token
 }
 
+/** The longest line that is tokenised: a longer one is one plain span (a hostile line must not freeze the editor). */
+export const MAX_LINE = 10000
+
 /**
  * PlantUML, with each `@start<type>` … `@end` block of a type in `inner` read
  * by that type's stream mode. A fresh language on every call, so a profile
@@ -610,6 +613,12 @@ export function plantumlLanguage(profiles = {}) {
   }
 
   function token(stream, state) {
+    // A line past MAX_LINE is plain to its end and leaves the state alone, so the block open before
+    // it stays open after it. Every nested mode runs inside this one `token`.
+    if (stream.string.length > MAX_LINE) {
+      stream.skipToEnd()
+      return null
+    }
     // A rule matched at the start of a line hands back its groups one at a
     // time (`pending`), all still at the start: they belong to the state it set.
     if (state.pending) return base.token(stream, state)

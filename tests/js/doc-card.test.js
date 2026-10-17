@@ -5,7 +5,9 @@
 // lacks left out, the close button always there.
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { renderDoc } from '../../src/editor/docs/card.js'
+import { ICONS } from '../../src/editor/docs/icons.js'
 
 const full = {
   name: 'skinparam',
@@ -13,7 +15,7 @@ const full = {
   look: 'keyword',
   summary: 'sets a style parameter',
   example: 'skinparam shadowing false',
-  icon: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+  icon: 'demo',
   link: { page: 'skinparam', anchor: 'usage', section: 'Skin parameters' },
 }
 
@@ -49,10 +51,30 @@ describe('the doc card', () => {
     expect(dom.querySelector('.cm-doc-icon').hidden).toBe(true)
   })
 
-  it('draws an entry\'s icon', () => {
-    const icon = renderDoc(full).dom.querySelector('.cm-doc-icon')
-    expect(icon.hidden).toBe(false)
-    expect(icon.querySelector('svg')).not.toBeNull()
+  it('draws an entry\'s icon by name from ICONS', () => {
+    ICONS.demo = '<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+    try {
+      const icon = renderDoc(full).dom.querySelector('.cm-doc-icon')
+      expect(icon.hidden).toBe(false)
+      expect(icon.querySelector('svg')).not.toBeNull()
+    } finally {
+      delete ICONS.demo
+    }
+  })
+
+  it('keeps the slot hidden and empty for a name ICONS lacks, and renders no HTML from the entry', () => {
+    for (const icon of ['nope', '<img src=x onerror=alert(1)>', 'toString', '__proto__']) {
+      const slot = renderDoc({ ...full, icon }).dom.querySelector('.cm-doc-icon')
+      expect(slot.hidden).toBe(true)
+      expect(slot.innerHTML).toBe('')
+    }
+    expect(renderDoc({ ...full, icon: '<img src=x>' }).dom.querySelector('img')).toBeNull()
+  })
+
+  it('assigns innerHTML only from ICONS and the bundled close icon', () => {
+    const source = readFileSync('src/editor/docs/card.js', 'utf8')
+    const assigned = [...source.matchAll(/innerHTML\s*=\s*([^\n]+)/g)].map((m) => m[1].trim())
+    expect(assigned.sort()).toEqual(['ICONS[entry.icon]', 'closeIcon'])
   })
 
   it('has a labelled close button in the head of every card', () => {

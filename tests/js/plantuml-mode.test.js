@@ -9,7 +9,7 @@ import { toggleComment } from '@codemirror/commands'
 import { closeBrackets, insertBracket } from '@codemirror/autocomplete'
 import { StringStream, ensureSyntaxTree } from '@codemirror/language'
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight'
-import { plantumlLanguage, plantumlMode, underline } from '../../src/editor/plantuml-mode.js'
+import { MAX_LINE, plantumlLanguage, plantumlMode, underline } from '../../src/editor/plantuml-mode.js'
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {
@@ -1625,5 +1625,29 @@ describe('plantumlMode, a top-level body left open (P5)', () => {
     state = state.update({ changes: { from: state.doc.length, insert: '\n@enduml' } }).state
     const at = state.doc.toString().indexOf('@enduml')
     expect(ensureSyntaxTree(state, state.doc.length, 5000).resolveInner(at, 1).name).toBe('keyword')
+  })
+})
+
+describe('a hostile line', () => {
+  const spans = (lines) => tokensOf(plantumlLanguage({}), lines)
+
+  it('is one plain span past 10000 characters and tokenised at 10000', () => {
+    expect(MAX_LINE).toBe(10000)
+    const at = 'actor '.padEnd(MAX_LINE, 'a')
+    const past = 'actor '.padEnd(MAX_LINE + 1, 'a')
+    expect(spans([at])[0]).toEqual(['actor', 'keyword'])
+    expect(spans([past])).toEqual([])
+  })
+
+  it('leaves the open block open across it', () => {
+    const plain = spans(['@startuml', 'alt x', 'end', '@enduml'])
+    const hostile = spans(['@startuml', 'alt x', 'x'.repeat(20000), 'end', '@enduml'])
+    expect(hostile).toEqual(plain)
+    expect(hostile.filter(([text]) => text === 'alt' || text === 'end')).toEqual([['alt', 'keyword'], ['end', 'keyword']])
+  })
+
+  it('keeps a nested mode in step across it', () => {
+    const gap = spans(['@startuml', 'note left', 'x'.repeat(20000), 'end note', '@enduml'])
+    expect(gap.filter(([text]) => text === 'note' || text === 'end note').length).toBeGreaterThan(0)
   })
 })

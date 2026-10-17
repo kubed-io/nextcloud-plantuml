@@ -14,7 +14,7 @@ import { serverColors } from '../../src/editor/completion/server-list.js'
 
 vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
 vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ colors: { lavender: '#E6E6FA' } }), { status: 200 }))
-import ganttProfile, { project as projectProfile } from '../../src/editor/profiles/gantt.js'
+import ganttProfile, { SEPARATOR, project as projectProfile } from '../../src/editor/profiles/gantt.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
 
@@ -260,5 +260,17 @@ describe.each(['gantt', 'project'])('a @start%s block', (type) => {
     expect(out[0]).toEqual(['<style>', 'tagName'])
     expect(out).toContainEqual(['</style>', 'tagName'])
     expect(out.slice(-5)).toEqual([['[', 'squareBracket'], ['A', 'typeName'], [']', 'squareBracket'], ['lasts', 'keyword'], ['1 day', 'number']])
+  })
+})
+
+describe('the gantt separator', () => {
+  it('is linear on a line built to backtrack, and the guard is not what saves it', () => {
+    const started = performance.now()
+    expect(SEPARATOR.test('--' + ' x --'.repeat(20000) + 'y')).toBe(false)
+    expect(performance.now() - started).toBeLessThan(50)
+  })
+
+  it.each(['--', '-- Phase 2 --', '--  Phase 2  --  ', '-- a-b --', '--x--', '-- x'.replace('x', 'x --')])('still matches %j', (line) => {
+    expect(SEPARATOR.test(line)).toBe(true)
   })
 })

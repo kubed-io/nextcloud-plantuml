@@ -8,6 +8,7 @@
  */
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
+import { ICONS } from './icons.js'
 import closeIcon from '../../../img/icons/close.svg?raw'
 
 /** The element `tag` with `className` and, if given, `text`. */
@@ -26,9 +27,11 @@ export function renderDoc(entry) {
   const head = element('div', 'cm-doc-head')
 
   const icon = element('span', 'cm-doc-icon')
-  icon.hidden = !entry.icon
-  if (entry.icon) {
-    icon.innerHTML = entry.icon
+  // The entry names an icon; only a name in ICONS is drawn, so no markup comes from data.
+  const known = Object.hasOwn(ICONS, entry.icon)
+  icon.hidden = !known
+  if (known) {
+    icon.innerHTML = ICONS[entry.icon]
   }
 
   const close = element('button', 'cm-doc-close')

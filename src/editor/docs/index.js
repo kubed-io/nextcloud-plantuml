@@ -35,7 +35,7 @@ const KINDS = {
  * @property {string} [signature]
  * @property {string} [summary]
  * @property {string} [example]
- * @property {string} [icon]
+ * @property {string} [icon] the name of an icon in ./icons.js
  * @property {{ page: string, anchor?: string, section: string }} [link]
  */
 

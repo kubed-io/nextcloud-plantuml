@@ -43,6 +43,10 @@ import { listFolder, loadFile } from '../../src/editor/save.js'
 import { loadDocs } from '../../src/editor/docs/index.js'
 import { withDocs } from '../../src/editor/completion/docs.js'
 
+// jsdom has no layout; accepting a completion scrolls the cursor into view, which measures text.
+Range.prototype.getClientRects ??= () => []
+Range.prototype.getBoundingClientRect ??= () => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 })
+
 vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn(), loadFile: vi.fn() }))
 // The real scan and its memo, counted: a document version is scanned once.
 vi.mock('../../src/editor/blocks.js', async (original) => {

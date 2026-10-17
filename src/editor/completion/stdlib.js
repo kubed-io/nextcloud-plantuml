@@ -12,7 +12,7 @@
  * level; a file its path and the closing `>`.
  */
 import { once } from '../once.js'
-import { reopen } from './apply.js'
+import { reopen, reopenPlain } from './apply.js'
 import { serverStdlib } from './server-list.js'
 
 const INCLUDE = /^\s*!include(?:_many|_once|sub)?[ \t]+<([^>\s]*)$/
@@ -56,7 +56,6 @@ function files(folder) {
 }
 
 const openLibrary = reopen('/')
-const reopenPlain = reopen()
 
 /** The folders and files directly under `dir` (`''` or `a/b/`) among a library's paths. */
 function level(paths, dir) {

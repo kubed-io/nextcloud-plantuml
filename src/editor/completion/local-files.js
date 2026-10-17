@@ -14,7 +14,7 @@
  * because PlantUML takes a block by id or index and never by a bare name. Each file is read once per page.
  */
 import { once } from '../once.js'
-import { WEB_SCHEMES, reopen } from './apply.js'
+import { WEB_SCHEMES, reopen, reopenPlain } from './apply.js'
 import { listFolder, loadFile } from '../save.js'
 import { filePath } from '../lint/state.js'
 import { blocksOf, scan } from '../blocks.js'
@@ -29,7 +29,6 @@ const STYLE_FILES = /\.(?:css|txt)$/i
 
 /** A file picked after `!includesub` gets the `!` and opens its section names. */
 const reopenWithBang = reopen('!')
-const reopenPlain = reopen()
 
 /** Files read this page, by path: a second completion does not read again. */
 const reads = new Map()

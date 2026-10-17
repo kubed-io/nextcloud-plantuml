@@ -4,10 +4,14 @@
 //
 // reopen(): insert the label and a suffix, then open the list again.
 import { afterEach, describe, expect, it } from 'vitest'
-import { EditorState } from '@codemirror/state'
+import { EditorSelection, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { autocompletion, completionStatus } from '@codemirror/autocomplete'
 import { ELEMENT_KINDS, WEB_SCHEMES, reopen } from '../../src/editor/completion/apply.js'
+
+// jsdom has no layout; accepting a completion scrolls the cursor into view, which measures text.
+Range.prototype.getClientRects ??= () => []
+Range.prototype.getBoundingClientRect ??= () => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 })
 
 let view
 afterEach(() => view?.destroy())
@@ -27,6 +31,22 @@ describe('reopen', () => {
     expect(view.state.doc.toString()).toBe(inserted)
     expect(view.state.selection.main.head).toBe(inserted.length)
     expect(completionStatus(view.state)).not.toBeNull()
+  })
+})
+
+describe('reopen with several cursors', () => {
+  it('completes every cursor and keeps one after each', () => {
+    view = new EditorView({
+      state: EditorState.create({
+        doc: 'A \nB ',
+        selection: EditorSelection.create([EditorSelection.cursor(2), EditorSelection.cursor(5)]),
+        extensions: [EditorState.allowMultipleSelections.of(true), autocompletion({ override: [() => null] })],
+      }),
+      parent: document.body,
+    })
+    reopen(' ')(view, { label: '-->' }, 2, 2)
+    expect(view.state.doc.toString()).toBe('A --> \nB --> ')
+    expect(view.state.selection.ranges.map((r) => r.head)).toEqual([6, 13])
   })
 })
 

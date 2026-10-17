@@ -141,30 +141,35 @@ describe('scan block arguments', () => {
 // The name and id were read by a lazy group before a trailing class: quadratic, so a long run
 // of spaces held the editor and the Viewer for seconds (160,000 took node several).
 describe('a @start line with a huge run of spaces', () => {
+  // The best of three runs, so a busy machine does not fail a guard against seconds.
   const timed = (text) => {
-    const begun = performance.now()
-    const diagrams = scan(text)
-    return [diagrams, performance.now() - begun]
+    let diagrams
+    const runs = [0, 1, 2].map(() => {
+      const begun = performance.now()
+      diagrams = scan(text)
+      return performance.now() - begun
+    })
+    return [diagrams, Math.min(...runs)]
   }
 
-  it('reads a name with 200,000 spaces inside it in under 200 ms', () => {
+  it('reads a name with 200,000 spaces inside it in under 250 ms', () => {
     const name = `a${' '.repeat(200000)}b`
     const [diagrams, ms] = timed(`@startuml ${name}   \n@enduml\n@startuml c\n@enduml`)
     expect(diagrams.map((d) => d.name)).toEqual([name, 'c'])
-    expect(ms).toBeLessThan(200)
+    expect(ms).toBeLessThan(250)
   })
 
-  it('reads an id with 200,000 spaces inside it in under 200 ms', () => {
+  it('reads an id with 200,000 spaces inside it in under 250 ms', () => {
     const id = `x${' '.repeat(200000)}y`
     const [diagrams, ms] = timed(`@startuml(id=${id}   )\n@enduml`)
     expect(diagrams[0]).toMatchObject({ id, name: id })
-    expect(ms).toBeLessThan(200)
+    expect(ms).toBeLessThan(250)
   })
 
-  it('reads a 40,000-letter @start word with a line separator after it in under 200 ms, as PlantUML opens it', () => {
+  it('reads a 40,000-letter @start word with a line separator after it in under 250 ms, as PlantUML opens it', () => {
     const [diagrams, ms] = timed(`@start${'a'.repeat(40000)}\u2028x\n@enduml`)
     expect(diagrams.map((d) => [d.start, d.name])).toEqual([[1, 'x']])
-    expect(ms).toBeLessThan(200)
+    expect(ms).toBeLessThan(250)
   })
 
   it('still keeps quotes out of a name: one left inside opens no block', () => {

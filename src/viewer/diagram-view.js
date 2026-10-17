@@ -242,7 +242,11 @@ export function createDiagramView(root, { path, basename, onReady }) {
       node.classList.toggle('plantuml-viewer__card--checked', box.checked)
       afterCheck()
     })
-    caption.append(box, mark, label(diagrams[index]))
+    // The name is a span of its own so the Wall can cut a long one short (viewer.css); the title keeps it whole.
+    const name = element('span', 'plantuml-viewer__caption-name')
+    name.textContent = label(diagrams[index])
+    caption.title = name.textContent
+    caption.append(box, mark, name)
     positions.set(node, index + 1)
     node.classList.toggle('plantuml-viewer__card--checked', box.checked)
     const sheet = sheets.sheet(index + 1)

@@ -355,6 +355,13 @@
 	height: 34px;
 }
 
+.plantuml-viewer__stage--wall .plantuml-viewer__caption-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .plantuml-viewer__stage--wall .plantuml-viewer__sheet {
 	height: var(--plantuml-wall-height, 240px);
 	padding: 16px;

@@ -702,6 +702,17 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
       .toEqual([['2 / span 1', '44 / span 15'], ['2 / span 2', '1 / span 43'], ['1 / span 1', '1 / span 112']])
   })
 
+  it('puts a card\'s name in a span of its own, and the whole name in the caption\'s title', async () => {
+    await open(THREE)
+    mode('Wall')
+    const caption = byName('login').querySelector('label')
+    const name = caption.querySelector('.plantuml-viewer__caption-name')
+
+    expect(name.tagName).toBe('SPAN')
+    expect(name.textContent).toBe('login')
+    expect(caption.title).toBe('login')
+  })
+
   it('reads the cards in the order they are drawn: by row, then column', async () => {
     await open(THREE)
     wide()

@@ -1674,6 +1674,29 @@ describe('a linked file', () => {
     expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml')
   })
 
+  it('hides Add diagram while the linked file is open, and shows it again on going back', async () => {
+    await openStyle()
+    expect(q('.plantuml-editor__add').hidden).toBe(true)
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(q('.plantuml-editor__add').hidden).toBe(false)
+  })
+
+  it('closes an open type menu when a linked file opens', async () => {
+    await open()
+    view().dispatch({ selection: { anchor: MAIN.indexOf('<style') } })
+    await settle()
+    q('.plantuml-editor__add-type').click()
+    await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())
+
+    await pressChip('UML_Fun.css')
+
+    await vi.waitFor(() => expect(q('.plantuml-add__menu')).toBeNull())
+    expect(q('.plantuml-editor__add-type').getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('keeps the main file whole: text, unsaved edit, selection and undo', async () => {
     await open()
     view().dispatch({ changes: { from: 0, insert: "' mine\n" }, selection: { anchor: 3 } })
@@ -2151,5 +2174,128 @@ describe('a linked file', () => {
 
     expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml›UML_Fun (copy).css')
     expect(seams.debouncedRender.mock.calls.at(-1)[4]).toBeNull()
+  })
+})
+
+describe('Add diagram', () => {
+  const addButton = () => q('.plantuml-editor__add-new')
+  const typeButton = () => q('.plantuml-editor__add-type')
+  const view = () => EditorView.findFromDOM(q('.cm-editor'))
+  const pickType = async (name) => {
+    typeButton().click()
+    await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())
+    ;[...document.querySelectorAll('.plantuml-add__menu [role="menuitem"]')].find((i) => i.textContent === name).click()
+  }
+
+  it('sits just before the Source toggle, once the file is there', async () => {
+    let loaded
+    seams.loadFile.mockReturnValue(new Promise((resolve) => { loaded = resolve }))
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Order flow.puml', basename: 'Order flow.puml' })
+    expect(q('.plantuml-editor__add').hidden).toBe(true)
+    loaded({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+    await settle()
+    expect(q('.plantuml-editor__add').hidden).toBe(false)
+    expect(q('.plantuml-editor__add').nextElementSibling).toBe(toggle())
+    expect(addButton().getAttribute('aria-label')).toBe('Add diagram')
+    expect(addButton().title).toBe('Add diagram')
+    expect(typeButton().getAttribute('aria-label')).toBe('Add a diagram of a type')
+    expect(typeButton().getAttribute('aria-haspopup')).toBe('menu')
+  })
+
+  it('adds an empty Gantt from the type menu, one blank line down, its tab active', async () => {
+    await open()
+    await pickType('Gantt')
+    expect(source()).toBe('@startuml\nA -> B\n@enduml\n\n@startgantt gantt\n\n@endgantt\n')
+    expect(view().state.doc.lineAt(view().state.selection.main.head).number).toBe(6)
+    expect(q('.plantuml-editor__tab[aria-selected="true"]').textContent).toBe('gantt')
+  })
+
+  it('names a second one gantt-2', async () => {
+    await open()
+    await pickType('Gantt')
+    await pickType('Gantt')
+    expect(source()).toContain('@startgantt gantt-2\n')
+  })
+
+  it('names an Empty UML uml-2 beside an unnamed @startuml, whose tab reads uml', async () => {
+    await open()
+    await pickType('UML')
+    expect(source()).toContain('\n\n@startuml uml-2\n')
+  })
+
+  it('takes one undo to remove', async () => {
+    await open()
+    await pickType('Gantt')
+    undo(view())
+    expect(source()).toBe('@startuml\nA -> B\n@enduml\n')
+  })
+
+  it('is one undo step of its own, never merged with the typing just before or after it', async () => {
+    await open()
+    const typeAt = (at, insert) => view().dispatch({ changes: { from: at, insert }, selection: { anchor: at + insert.length }, userEvent: 'input.type' })
+    typeAt(view().state.doc.length, "' x")
+    await pickType('Gantt')
+    typeAt(view().state.selection.main.head, 'y')
+
+    undo(view())
+    expect(source()).toBe("@startuml\nA -> B\n@enduml\n' x\n\n@startgantt gantt\n\n@endgantt")
+    undo(view())
+    expect(source()).toBe("@startuml\nA -> B\n@enduml\n' x")
+  })
+
+  it('is saved as any change is', async () => {
+    seams.saveFile.mockResolvedValue('"put"')
+    await open()
+    vi.useFakeTimers()
+    await pickType('Gantt')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(seams.saveFile).toHaveBeenCalledWith('/Diagrams/Order flow.puml', expect.stringContaining('@startgantt gantt'), '"get"')
+  })
+
+  it('shows the ▾ half open while its menu is', async () => {
+    await open()
+    typeButton().click()
+    await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())
+    expect(typeButton().getAttribute('aria-expanded')).toBe('true')
+    typeButton().click()
+    // The click reaches the menu through the loaded chunk's promise, a tick later.
+    await vi.waitFor(() => expect(q('.plantuml-add__menu')).toBeNull())
+    expect(typeButton().getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('leaves the editor open when Escape closes the menu', async () => {
+    await open()
+    typeButton().click()
+    await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await settle()
+    expect(q('.plantuml-add__menu')).toBeNull()
+    expect(q('.plantuml-editor')).not.toBeNull()
+  })
+
+  // Last in the file: it loads a new editor whose add chunk fails once.
+  it('tries the chunk again after it failed to load: the next click opens the menu', async () => {
+    vi.resetModules()
+    let failures = 1
+    vi.doMock('../../src/editor/add/index.js', async (importOriginal) => {
+      if (failures-- > 0) {
+        throw new Error('offline')
+      }
+      return importOriginal()
+    })
+    try {
+      await import('../../src/editor.js')
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+      await open()
+
+      typeButton().click()
+      await vi.waitFor(() => expect(error).toHaveBeenCalledWith('[plantuml] could not load Add diagram', expect.any(Error)))
+      expect(q('.plantuml-add__menu')).toBeNull()
+      typeButton().click()
+
+      await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())
+    } finally {
+      vi.doUnmock('../../src/editor/add/index.js')
+    }
   })
 })

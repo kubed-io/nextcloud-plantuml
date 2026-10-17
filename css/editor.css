@@ -221,6 +221,83 @@
 	height: 20px;
 }
 
+/* A1: the Add diagram split button (board library / add diagram). */
+.plantuml-editor__add {
+	display: inline-flex;
+	flex: none;
+	align-items: stretch;
+	height: var(--default-clickable-area, 34px);
+	box-sizing: border-box;
+	border: 1px solid var(--color-border-dark);
+	border-radius: var(--border-radius-pill, 100px);
+	overflow: hidden;
+}
+
+.plantuml-editor__add[hidden] {
+	display: none;
+}
+
+.plantuml-editor__add:has(:focus-visible) {
+	border-color: var(--color-primary-element);
+	box-shadow: inset 0 0 0 1px var(--color-primary-element);
+}
+
+/* button.* outranks core's button:not(.button-vue, …) pill background. */
+.plantuml-editor__add button.plantuml-editor__add-new,
+.plantuml-editor__add button.plantuml-editor__add-type {
+	display: flex;
+	align-items: center;
+	min-height: 0;
+	height: auto;
+	margin: 0;
+	border: none;
+	border-radius: var(--border-radius-pill, 100px);
+	background: transparent;
+	color: var(--color-main-text);
+	cursor: pointer;
+}
+
+.plantuml-editor__add button.plantuml-editor__add-new {
+	width: 36px;
+	padding: 0 4px 0 8px;
+}
+
+.plantuml-editor__add button.plantuml-editor__add-type {
+	width: 28px;
+	padding: 0 8px 0 4px;
+}
+
+.plantuml-editor__add button.plantuml-editor__add-new:hover,
+.plantuml-editor__add button.plantuml-editor__add-type:hover {
+	background: var(--color-background-hover);
+}
+
+.plantuml-editor__add--open button.plantuml-editor__add-type,
+.plantuml-editor__add--open button.plantuml-editor__add-type:hover {
+	background: var(--color-primary-element-light);
+}
+
+.plantuml-editor__add button:focus-visible {
+	outline: none;
+}
+
+.plantuml-editor__add-new svg {
+	width: 24px;
+	height: 24px;
+}
+
+.plantuml-editor__add-type svg {
+	width: 16px;
+	height: 16px;
+}
+
+.plantuml-editor__add-divider {
+	align-self: center;
+	width: 1px;
+	height: 20px;
+	background: var(--color-border-dark);
+}
+
 .plantuml-editor__save[data-state="saving"] svg {
 	visibility: hidden;
 }
@@ -430,6 +507,34 @@
 .plantuml-editor__menu-type {
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85em;
+}
+
+/* A2: the type menu (board overlay / type-menu). */
+.plantuml-editor__menu.plantuml-add__menu {
+	width: 260px;
+	max-width: none;
+	padding: 4px 0;
+	border-radius: var(--border-radius-element, 8px);
+	box-shadow: 0 2px 12px var(--color-box-shadow);
+}
+
+.plantuml-add__menu button.plantuml-add__menu-item {
+	align-items: center;
+	justify-content: flex-start;
+	gap: 0;
+	min-height: 44px;
+	padding: 0 12px 0 6px;
+	border-radius: 0;
+	font-size: 15px;
+}
+
+.plantuml-add__menu-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	margin-right: 6px;
 }
 
 /* button.* outranks core's button pill, as in the bar. */

@@ -17,9 +17,11 @@
 import crelt from 'crelt'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
+import { isolateHistory } from '@codemirror/commands'
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from './files-helpers.js'
-import { diagramAt, diagramsOf } from './editor/blocks.js'
+import { blocksOf, diagramAt, diagramsOf, scan } from './editor/blocks.js'
+import { BRACED } from './editor/completion/directives.js'
 import { resetProfiles } from './editor/profiles/index.js'
 import { sourceExtensions } from './editor/extensions.js'
 import { createBreadcrumb } from './editor/breadcrumb.js'
@@ -31,7 +33,9 @@ import { createFileSession, replaceWith } from './editor/file-session.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { toInlineSvg } from './editor/inline-svg.js'
 import { createSplitter } from './editor/splitter.js'
-import { createTabs } from './editor/tabs.js'
+import { MOVES, createTabs } from './editor/tabs.js'
+import { createAddButton } from './editor/add/button.js'
+import { appendBlock, named, takenNames, uniqueName } from './editor/add/insert.js'
 import fileIcon from '../img/icons/plantuml.svg?raw'
 import closeIcon from '../img/icons/close.svg?raw'
 import checkIcon from '../img/icons/check.svg?raw'
@@ -69,13 +73,22 @@ export function openEditor(node, { diagram: openAt } = {}) {
     type: 'button', 'aria-label': t(APP_ID, 'Source'), title: t(APP_ID, 'Source'), 'aria-pressed': 'true', 'aria-controls': 'plantuml-editor-source', hidden: '',
   })
   sourceToggle.innerHTML = sourceIcon
+  // A1: the add chunk (menu, modal, template data) is loaded on the first click.
+  let adding = null
+  const addButton = createAddButton({
+    onAdd: () => withAdd((add) => add.openModal()),
+    onMenu: (anchor) => withAdd((add) => {
+      addButton.setMenuOpen(true)
+      add.openMenu(anchor, () => addButton.setMenuOpen(false))
+    }),
+  })
   // Text's indicator: a check when saved, a dot on it while not, a spinner while saving.
   const saveButton = crelt('button', { class: 'plantuml-editor__save', type: 'button', 'aria-label': t(APP_ID, 'Save'), hidden: '' })
   saveButton.innerHTML = checkIcon
   const closeButton = crelt('button', { class: 'plantuml-editor__close', type: 'button', 'aria-label': t(APP_ID, 'Close') })
   closeButton.innerHTML = closeIcon
   const bar = crelt('header', { class: 'plantuml-editor__bar' })
-  bar.append(icon, crumbs.element, status, reloadButton, copyButton, sourceToggle, refreshButton, saveButton, closeButton)
+  bar.append(icon, crumbs.element, status, reloadButton, copyButton, addButton.element, sourceToggle, refreshButton, saveButton, closeButton)
 
   const source = crelt('div', { class: 'plantuml-editor__source', id: 'plantuml-editor-source' })
   // The diagram is drawn inline, so its links work; to a screen reader it is one picture.
@@ -124,8 +137,29 @@ export function openEditor(node, { diagram: openAt } = {}) {
       follow(state, true)
       wantProfiles(diagrams, text)
     },
-    onChange: () => showCrumbs(),
+    onChange: (open) => {
+      showCrumbs()
+      // Dr K: Add diagram adds to the main file, so it is hidden while another file is open.
+      addButton.element.hidden = open
+      if (open) {
+        adding?.then((add) => add.destroy(), () => {})
+      }
+    },
   })
+
+  /** A failed load is forgotten, so the next click tries again. */
+  function withAdd(use) {
+    adding ??= import('./editor/add/index.js').then(
+      // add/index.js's Core: the chunk imports none of the editor's modules.
+      ({ createAdd }) => createAdd({ crelt, t, MOVES, blocksOf, scan, BRACED }, { container: overlay, onAdd: addTemplate }),
+      (e) => {
+        adding = null
+        throw e
+      },
+    )
+    // The chunk can arrive after the editor closed, or a linked file opened.
+    adding.then((add) => { if (!closed && !linkedMode.isOpen()) use(add) }, (e) => console.error(`[${APP_ID}] could not load Add diagram`, e))
+  }
 
   /** The main file's state, in the view or parked. */
   const mainState = () => linkedMode.mainState()
@@ -268,6 +302,24 @@ export function openEditor(node, { diagram: openAt } = {}) {
     focusAfterTab()
   }
 
+  /** A4: the template's block at the end, under a name of its own; its tab follows the cursor (B3). */
+  function addTemplate(template) {
+    if (!view || closed || linkedMode.isOpen()) {
+      return
+    }
+    const name = uniqueName(template.name, takenNames(diagrams))
+    const change = appendBlock(view.state.doc.toString(), named(template.text, name))
+    view.dispatch({
+      changes: { from: change.from, to: change.to, insert: change.insert },
+      selection: { anchor: change.cursor },
+      effects: EditorView.scrollIntoView(change.start, { y: 'start', yMargin: 20 }),
+      // One undo step, never merged with typing before or after it.
+      annotations: isolateHistory.of('full'),
+      userEvent: 'input.add',
+    })
+    view.focus()
+  }
+
   /** Where the focus goes from an activated tab: the one place to keep it on the tab instead. */
   function focusAfterTab() {
     if (!overlay.classList.contains('plantuml-editor--diagram-only')) {
@@ -331,6 +383,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     window.removeEventListener('focus', drawAgain)
     window.removeEventListener('beforeunload', onBeforeUnload)
     tabs.destroy()
+    adding?.then((add) => add.destroy(), () => {})
     view?.destroy()
     overlay.remove()
     for (const sibling of inerted) {
@@ -421,6 +474,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
       }),
     }
     saveButton.hidden = refreshButton.hidden = sourceToggle.hidden = false
+    addButton.element.hidden = false
     showButtons()
     main.session.start()
     document.addEventListener('visibilitychange', drawAgain)

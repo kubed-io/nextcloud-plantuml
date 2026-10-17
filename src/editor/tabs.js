@@ -13,7 +13,8 @@ import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../files-helpers.js'
 import { label } from './blocks.js'
 
-const MOVES = {
+/** The arrows, Home and End along the strip; the type menu (add/menu.js) moves by them too. */
+export const MOVES = {
   ArrowLeft: (i, count) => (i - 1 + count) % count,
   ArrowRight: (i, count) => (i + 1) % count,
   Home: () => 0,

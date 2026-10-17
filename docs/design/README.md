@@ -48,3 +48,7 @@ board. The spec's "The design" section says what each board shows and what the p
 | Files | the context menu on a .puml | [context-menu.png](context-menu.png) |
 | Readme | the README rendered above the list | [readme.png](readme.png) |
 | Readme | the README's source | [readme-source.png](readme-source.png) |
+| Linked files | the main file: a `<>` chip after each linked path | [linked-main.png](linked-main.png) |
+| Linked files | Ctrl held over the style file's path: underlined, the hand pointer | [linked-ctrl.png](linked-ctrl.png) |
+| Linked files | the style file open: the breadcrumb, the back button, the main file's diagram | [linked-style.png](linked-style.png) |
+| Linked files | the included .puml open: no chips of its own | [linked-include.png](linked-include.png) |

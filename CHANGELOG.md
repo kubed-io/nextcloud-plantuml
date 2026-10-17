@@ -14,9 +14,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Open a linked style or include file from its line with the `<>` chip or Ctrl/Cmd+click; the file takes over the source pane and a breadcrumb takes you back.
-- The diagram redraws live from a linked file's unsaved text.
-- A linked file saves, reloads and conflicts like the main file; a file you may only read opens read-only.
+- Open a diagram's linked style or include file from its `<>` chip or Ctrl/Cmd+click, and edit it in place while the diagram redraws live.
 - **+ New** reads **New puml File** and still makes `New diagram.puml`.
 - The Viewer shows every diagram of a `.puml` as tabs, a stack or a wall, drawn inline so their links work; the mode is not remembered, every open is Tabs.
 - Export from the Viewer to SVG, PNG, PDF, EPS or ASCII art: the diagram in view, the checked ones or all as a zip, except from a share that forbids download. `GET /apps/plantuml/export` does the same.

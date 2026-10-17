@@ -35,7 +35,7 @@ verb.
 | 8 | A file with several diagrams: the editor shows one tab each (editor spec B1–B8); a README image names the one it shows, `![](x.puml#login)` or `![](x.puml#2)`, else the first; a fence draws all of its diagrams | `readme/render.feature` (proposed, awaits Dr K) |
 | 9 | The Viewer shows every diagram of a file, as tabs, one after another or as a wall; exports one, some or all; opens the editor at one (shipped, viewer round) | `diagrams/view.feature` |
 | 10 | The editor adds a diagram from a template: built in, from the admin's template folder or from the user's Templates folder (agreed, TP1–TP5, editor spec A1–A9) | to propose to Dr K, `diagrams/edit.feature` |
-| 11 | The editor opens a file a diagram links to (`<style file=./x.css>`, `!include ./x.puml`) in place of the source, the diagram live beside it (shipped, editor spec R9–R18) | to propose to Dr K, `diagrams/edit.feature` |
+| 11 | The editor opens a file a diagram links to (`<style file=./x.css>`, `!include ./x.puml`) in place of the source, the diagram live beside it (shipped, editor spec R9–R18) | `diagrams/edit.feature` (four scenarios, live) |
 
 Delete, rename, move, copy, trash, restore, share: Nextcloud's, untouched. A `.puml` is
 an ordinary file.

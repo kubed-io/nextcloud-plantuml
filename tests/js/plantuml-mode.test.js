@@ -12,6 +12,7 @@ import { highlightTree, tagHighlighter, tags } from '@lezer/highlight'
 import { MAX_LINE, plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { underline } from '../../src/editor/lexicon/tags.js'
 import { tokensOf } from './helpers/tokens.js'
+import language from '../../src/editor/data/language-words.json'
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {
@@ -1350,6 +1351,48 @@ describe('numbers and calls (H14, H16)', () => {
 
 describe('declarations and class bodies (H15, H17)', () => {
   const types = (...lines) => tokens(...lines).filter(([, t]) => t === 'typeName')
+
+  it('reads an archimate element: the keyword, its layer colour, then the name or alias (T1, H15)', () => {
+    expect(tokens('archimate #Technology "VPN Server" as vpnServerA <<technology-device>>')).toEqual([
+      ['archimate', 'keyword'], ['#Technology', 'ColorLiteral'], ['"VPN Server"', 'string'], ['as', 'keyword'],
+      ['vpnServerA', 'typeName'], ['<<', 'angleBracket'], ['technology-device', 'annotation'], ['>>', 'angleBracket'],
+    ])
+    expect(tokens('archimate #Business customer')).toEqual([['archimate', 'keyword'], ['#Business', 'ColorLiteral'], ['customer', 'typeName']])
+  })
+
+  // relationship is chen's (T22), read by its profile, not a uml element.
+  it.each(language.types.filter((type) => type !== 'relationship'))('names the element type %s a keyword at a line\'s start (H24)', (type) => {
+    expect(tokens(`${type} Foo`)[0]).toEqual([type, 'keyword'])
+  })
+
+  it.each([
+    ['partition Checkout', 'partition'],
+    ['left to right direction', 'left to right direction'],
+    ['top to bottom direction', 'top to bottom direction'],
+    ['allowmixing', 'allowmixing'],
+    ['allow_mixing', 'allow_mixing'],
+    ['kill', 'kill'],
+    ['skin rose', 'skin'],
+    ['packetdiag {', 'packetdiag'],
+    ['endfork', 'endfork'],
+    ['endmerge', 'endmerge'],
+    ['endlegend', 'endlegend'],
+    ['endtitle', 'endtitle'],
+    ['endheader', 'endheader'],
+    ['endfooter', 'endfooter'],
+    ['endcaption', 'endcaption'],
+  ])('reads %s at a line\'s start as a keyword (H24)', (line, word) => {
+    expect(tokens(line)[0]).toEqual([word, 'keyword'])
+  })
+
+  it('reads floating note as a note, and repeatwhile with its condition (H24)', () => {
+    expect(tokens('floating note left: hi')[0]).toEqual(['floating note', 'keyword'])
+    expect(tokens('repeatwhile (more)').slice(0, 2)).toEqual([['repeatwhile', 'keyword'], ['(', 'paren']])
+  })
+
+  it('keeps a new kind plain where it starts a message (H15)', () => {
+    expect(tokens('process -> Bob : go')).toEqual([['->', 'LinkOperator'], ['go', 'labelName']])
+  })
 
   it('reads the name a line declares as a type', () => {
     expect(tokens('class Foo')).toEqual([['class', 'keyword'], ['Foo', 'typeName']])

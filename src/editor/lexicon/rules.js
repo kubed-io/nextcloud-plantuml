@@ -378,7 +378,7 @@ export const STRUCTURES = ['class', 'interface', 'abstract', 'enum', 'package', 
 
 // The element keywords (H15): those, with the kinds PlantUML adds. Longest first, so
 // `abstract class` is never `abstract` and a name `class`.
-const elements = [...PARTICIPANTS, ...STRUCTURES, 'abstract class', 'annotation', 'struct', 'protocol', 'map', 'json']
+const elements = [...PARTICIPANTS, ...STRUCTURES, 'abstract class', 'annotation', 'struct', 'protocol', 'map', 'json', 'action', 'analog', 'dataclass', 'exception', 'metaclass', 'process', 'record']
 const alternation = (words) => [...new Set(words)].sort((a, b) => b.length - a.length).map((word) => word.replace(' ', '\\s+')).join('|')
 
 /** The element keywords a line declares a name with, as one regex alternation. */
@@ -408,6 +408,12 @@ const aliased = `(?:${alias.regex.source.replace('\\b', '(\\s+)')})?`
 export const declarations = [
   { regex: new RegExp(`([ \\t]*)(${BODIED})(\\s+)${declared}${endsInBrace}`), sol: true, token: [null, 'keyword', null, ...declaredTokens], push: 'classHead' },
   { regex: new RegExp(`([ \\t]*)(${BODIED})(?=\\s.*\\{\\s*$)`), sol: true, token: [null, 'keyword'], push: 'classHead' },
+  // ArchiMate's layer colour comes before the name (CommandArchimate): `archimate #Technology "VPN" as v`.
+  {
+    regex: new RegExp(`([ \\t]*)(archimate)(\\s+)(?:(#\\w+)(\\s+))?(?:${declared}|${shown})${aliased}`),
+    sol: true,
+    token: [null, 'keyword', null, 'ColorLiteral', null, ...declaredTokens, 'string', 'tagName', null, null, 'keyword', null, 'typeName'],
+  },
   {
     regex: new RegExp(`([ \\t]*)(${DECLARING})(\\s+)(?:${declared}|${shown})${aliased}`),
     sol: true,

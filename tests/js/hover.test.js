@@ -89,6 +89,8 @@ describe('elementAt: known elements', () => {
     expect(on(['alt paid', 'end'], 'alt')).toEqual({ key: 'keyword:alt', type: 'uml', from: 0, to: 3 })
     expect(key(['note over A', 'text', 'end note'], 'end note')).toBe('keyword:end note')
     expect(key(['note over A', 'text', 'end  note'], 'end  note')).toBe('keyword:end note')
+    expect(key(['archimate #Business customer'], 'archimate')).toBe('keyword:archimate')
+    expect(key(['partition Checkout {'], 'partition')).toBe('keyword:partition')
   })
 
   it('reads a keyword lower-cased, as PlantUML reads its commands', () => {

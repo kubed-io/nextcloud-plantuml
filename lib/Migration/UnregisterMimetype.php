@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\PlantUml\Migration;
 
 use OC\Core\Command\Maintenance\Mimetype\GenerateMimetypeFileBuilder;
+use OCA\PlantUml\AppInfo\Application;
 use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IMimeTypeLoader;
 use OCP\Migration\IOutput;
@@ -32,7 +33,6 @@ use Psr\Log\LoggerInterface;
  * fail-soft: a half-present registration reverts cleanly.
  */
 final class UnregisterMimetype implements IRepairStep {
-	private const APP_MIMETYPE = 'text/x-plantuml';
 	private const APP_ICON_NAME = 'plantuml';
 	private const FILE_EXTENSIONS = ['puml', 'plantuml'];
 
@@ -60,11 +60,11 @@ final class UnregisterMimetype implements IRepairStep {
 		$ours = [];
 		try {
 			foreach (self::FILE_EXTENSIONS as $extension) {
-				if ($this->removeJsonKey($configDir . 'mimetypemapping.json', $extension, [self::APP_MIMETYPE])) {
+				if ($this->removeJsonKey($configDir . 'mimetypemapping.json', $extension, [Application::MIMETYPE])) {
 					$ours[] = $extension;
 				}
 			}
-			$this->removeJsonKey($configDir . 'mimetypealiases.json', self::APP_MIMETYPE);
+			$this->removeJsonKey($configDir . 'mimetypealiases.json', Application::MIMETYPE);
 		} catch (\Throwable $e) {
 			$this->logger->error('plantuml: failed to revert mimetype config', ['exception' => $e]);
 			$output->warning('plantuml: could not clean config/mimetype*.json (' . $e->getMessage() . ')');

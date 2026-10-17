@@ -36,7 +36,6 @@ use Psr\Log\LoggerInterface;
  * `/custom_apps/`: the app lives wherever it was installed or checked out.
  */
 final class RegisterMimetype implements IRepairStep {
-	private const APP_MIMETYPE = 'text/x-plantuml';
 	private const APP_ICON_NAME = 'plantuml';
 	private const FILE_EXTENSIONS = ['puml', 'plantuml'];
 
@@ -62,11 +61,11 @@ final class RegisterMimetype implements IRepairStep {
 		try {
 			$this->mergeJson(
 				$configDir . 'mimetypemapping.json',
-				array_fill_keys(self::FILE_EXTENSIONS, [self::APP_MIMETYPE]),
+				array_fill_keys(self::FILE_EXTENSIONS, [Application::MIMETYPE]),
 			);
 			$this->mergeJson(
 				$configDir . 'mimetypealiases.json',
-				[self::APP_MIMETYPE => self::APP_ICON_NAME],
+				[Application::MIMETYPE => self::APP_ICON_NAME],
 			);
 		} catch (\Throwable $e) {
 			$this->logger->error('plantuml: failed to merge mimetype config', ['exception' => $e]);
@@ -82,7 +81,7 @@ final class RegisterMimetype implements IRepairStep {
 		// extension matches. getAllMappings() forces the detector's lazy load now,
 		// after the config write; there is no public reset.
 		$this->detector->getAllMappings();
-		$id = $this->loader->getId(self::APP_MIMETYPE);
+		$id = $this->loader->getId(Application::MIMETYPE);
 		$touched = 0;
 		foreach (self::FILE_EXTENSIONS as $extension) {
 			$touched += $this->loader->updateFilecache($extension, $id);

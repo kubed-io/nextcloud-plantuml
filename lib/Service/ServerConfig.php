@@ -49,8 +49,23 @@ final class ServerConfig {
 		$parts = parse_url($url) ?: [];
 		$scheme = strtolower($parts['scheme'] ?? '');
 		if (!in_array($scheme, ['http', 'https'], true) || ($parts['host'] ?? '') === '') {
-			throw new \InvalidArgumentException('Server URL must be an http or https address, got: ' . $url);
+			$shown = self::redacted($url);
+			throw new \InvalidArgumentException('Server URL must be an http or https address' . ($shown === '' ? '' : ', got: ' . $shown));
 		}
 		$this->config->setValueString(Application::APP_ID, self::KEY_URL, $url);
+	}
+
+	/**
+	 * The URL as a log may hold it: `scheme://host[:port]`, without the userinfo
+	 * a basic-auth URL carries, nor a path or query that could hold a token.
+	 * Empty when there is no host to name.
+	 */
+	public static function redacted(string $url): string {
+		$parts = parse_url(trim($url)) ?: [];
+		$host = $parts['host'] ?? '';
+		if ($host === '') {
+			return '';
+		}
+		return strtolower($parts['scheme'] ?? '') . '://' . $host . (isset($parts['port']) ? ':' . $parts['port'] : '');
 	}
 }

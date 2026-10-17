@@ -25,6 +25,9 @@ use OCP\Files\Template\FileCreatedFromTemplateEvent;
  */
 final class Application extends App implements IBootstrap {
 	public const APP_ID = 'plantuml';
+	public const MIMETYPE = 'text/x-plantuml';
+	/** The longest error line sent on: as the server's own line is cut, so is ours. */
+	public const ERROR_MAX = 200;
 
 	public function __construct() {
 		parent::__construct(self::APP_ID);

@@ -20,6 +20,7 @@ use OCP\IAppConfig;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 /**
@@ -78,12 +79,12 @@ final class RenderServiceTest extends TestCase {
 		return $this->serviceWith($clients, $url);
 	}
 
-	private function serviceWith(IClientService $clients, string $url): RenderService {
+	private function serviceWith(IClientService $clients, string $url, ?LoggerInterface $logger = null): RenderService {
 		$config = $this->createStub(IAppConfig::class);
 		$config->method('getValueString')->willReturn($url);
 		$caches = $this->createStub(ICacheFactory::class);
 		$caches->method('createDistributed')->willReturn($this->cache);
-		return new RenderService(new ServerConfig($config), $clients, $caches, new NullLogger());
+		return new RenderService(new ServerConfig($config), $clients, $caches, $logger ?? new NullLogger());
 	}
 
 	/** `help themes` as plantuml/plantuml-server 1.2026.8 answers it, trailing padding trimmed. */
@@ -808,5 +809,52 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame('Server URL is not set', (new RenderException(RenderException::PROBLEM_NOT_SET))->adminMessage());
 		self::assertSame('Server is unreachable', (new RenderException(RenderException::PROBLEM_UNREACHABLE))->adminMessage());
 		self::assertSame('Server is not a PlantUML server', (new RenderException(RenderException::PROBLEM_NOT_PLANTUML))->adminMessage());
+	}
+
+	/** @return list<string> every message and context a render of the credentialed URL logged */
+	private function loggedFor(IResponse|\Throwable $answer, callable $call): array {
+		$logged = [];
+		$logger = $this->createStub(LoggerInterface::class);
+		foreach (['debug', 'info', 'notice', 'warning', 'error'] as $level) {
+			$logger->method($level)->willReturnCallback(static function ($message, array $context = []) use (&$logged): void {
+				$logged[] = $message . ' ' . print_r($context, true);
+			});
+		}
+		$clients = $this->createStub(IClientService::class);
+		$clients->method('newClient')->willReturn($this->clientAnswering($answer));
+		$service = $this->serviceWith($clients, 'https://user:secretpw@p.example.com:8443', $logger);
+		try {
+			$call($service);
+		} catch (RenderException) {
+		}
+		return $logged;
+	}
+
+	public function testAnUnreachableServerIsLoggedWithoutItsCredentials(): void {
+		$cause = new \RuntimeException('cURL error 7: Failed to connect to https://user:secretpw@p.example.com:8443/svg');
+		$logged = $this->loggedFor($cause, static fn (RenderService $s) => $s->render(self::SOURCE));
+
+		self::assertNotSame([], $logged);
+		self::assertStringContainsString('https://p.example.com:8443', implode("\n", $logged));
+		self::assertStringNotContainsString('secretpw', implode("\n", $logged));
+	}
+
+	public function testANonPlantUmlAnswerIsLoggedWithoutItsCredentials(): void {
+		$logged = $this->loggedFor($this->response(500, ''), static fn (RenderService $s) => $s->themes());
+
+		self::assertStringContainsString('txt answered help themes with HTTP 500', implode("\n", $logged));
+		self::assertStringContainsString('https://p.example.com:8443', implode("\n", $logged));
+		self::assertStringNotContainsString('secretpw', implode("\n", $logged));
+	}
+
+	public function testTheRequestStillGoesToTheStoredUrl(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::once())->method('post')
+			->with('https://user:secretpw@p.example.com:8443/txt', self::anything())
+			->willReturn($this->response(200, 'PlantUML 1.2026.8'));
+		$clients = $this->createStub(IClientService::class);
+		$clients->method('newClient')->willReturn($client);
+
+		$this->serviceWith($clients, 'https://user:secretpw@p.example.com:8443')->version();
 	}
 }

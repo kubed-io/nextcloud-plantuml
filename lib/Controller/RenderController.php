@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\PlantUml\Controller;
 
+use OCA\PlantUml\AppInfo\Application;
 use OCA\PlantUml\Exception\RenderException;
 use OCA\PlantUml\Service\Expanded;
 use OCA\PlantUml\Service\IncludeResolver;
@@ -47,11 +48,8 @@ use OCP\Lock\LockedException;
  * message goes percent-encoded past ASCII (and its `%`), as a header must be.
  */
 final class RenderController extends Controller {
-	public const MIMETYPE = 'text/x-plantuml';
 	/** A megabyte of source is far past any diagram; more is refused before it is read or sent on. */
 	public const MAX_SOURCE = 1048576;
-	/** As RenderService cuts the server's line: an included path makes ours longer. */
-	private const ERROR_MAX = 200;
 	/** A line the resolver would act on; without one the file goes as it is. */
 	private const NAMES_A_FILE = '/^[ \t]*(?:!(?:include|import)|<style\s+[\w-]+\s*=)/mi';
 
@@ -78,7 +76,7 @@ final class RenderController extends Controller {
 		$node = $userFolder === null ? null : self::readable($userFolder, $path);
 		// A text file would render as PlantUML's error image, and a 200 for it
 		// would tell the caller nothing.
-		if ($userFolder === null || $node === null || $node->getMimetype() !== self::MIMETYPE) {
+		if ($userFolder === null || $node === null || $node->getMimetype() !== Application::MIMETYPE) {
 			return new Response(Http::STATUS_NOT_FOUND);
 		}
 
@@ -146,74 +144,56 @@ final class RenderController extends Controller {
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function themes(): JSONResponse {
-		try {
-			return new JSONResponse(['themes' => $this->render->themes()]);
-		} catch (RenderException $e) {
-			return $this->problem($e);
-		}
+		return $this->listed(fn (): array => $this->render->themes(), 'themes');
 	}
 
 	/** The editor's line-start completion (X11): diagram kinds, element types, keywords. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function keywords(): JSONResponse {
-		try {
-			return new JSONResponse($this->render->keywords());
-		} catch (RenderException $e) {
-			return $this->problem($e);
-		}
+		return $this->listed(fn (): array => $this->render->keywords(), null);
 	}
 
 	/** The editor's font completion: the families the server can draw. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function fonts(): JSONResponse {
-		try {
-			return new JSONResponse(['fonts' => $this->render->fonts()]);
-		} catch (RenderException $e) {
-			return $this->problem($e);
-		}
+		return $this->listed(fn (): array => $this->render->fonts(), 'fonts');
 	}
 
 	/** The editor's `!include <…>` completion: each standard library with its version and source. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function stdlib(): JSONResponse {
-		try {
-			return new JSONResponse(['stdlib' => $this->render->stdlib()]);
-		} catch (RenderException $e) {
-			return $this->problem($e);
-		}
+		return $this->listed(fn (): array => $this->render->stdlib(), 'stdlib');
 	}
 
 	/** The editor's named colours (X14): each name with its hex. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function colors(): JSONResponse {
-		try {
-			return new JSONResponse(['colors' => $this->render->colors()]);
-		} catch (RenderException $e) {
-			return $this->problem($e);
-		}
+		return $this->listed(fn (): array => $this->render->colors(), 'colors');
 	}
 
 	/** The editor's `<&icon>` completion. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function icons(): JSONResponse {
-		try {
-			return new JSONResponse(['icons' => $this->render->icons()]);
-		} catch (RenderException $e) {
-			return $this->problem($e);
-		}
+		return $this->listed(fn (): array => $this->render->icons(), 'icons');
 	}
 
 	/** The editor's `<:emoji:>` completion. */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function emoji(): JSONResponse {
+		return $this->listed(fn (): array => $this->render->emoji(), 'emoji');
+	}
+
+	/** A list route: the server's list under `$key`, or as it is without one. */
+	private function listed(callable $read, ?string $key): JSONResponse {
 		try {
-			return new JSONResponse(['emoji' => $this->render->emoji()]);
+			$list = $read();
+			return new JSONResponse($key === null ? $list : [$key => $list]);
 		} catch (RenderException $e) {
 			return $this->problem($e);
 		}
@@ -223,7 +203,7 @@ final class RenderController extends Controller {
 		$headers = ['Content-Type' => $rendered->contentType];
 		[$error, $line] = self::mistake($rendered, $expanded);
 		if ($error !== '') {
-			$headers['X-PlantUML-Diagram-Error'] = self::encoded(mb_substr($error, 0, self::ERROR_MAX));
+			$headers['X-PlantUML-Diagram-Error'] = self::encoded(mb_substr($error, 0, Application::ERROR_MAX));
 			if ($line !== null) {
 				$headers['X-PlantUML-Diagram-Error-Line'] = (string)$line;
 			}

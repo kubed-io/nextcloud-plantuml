@@ -74,4 +74,22 @@ final class ServerConfigTest extends TestCase {
 		$this->expectException(\InvalidArgumentException::class);
 		(new ServerConfig($config))->setUrl('ftp://p.example.com');
 	}
+
+	public function testRedactedKeepsOnlySchemeHostAndPort(): void {
+		self::assertSame('https://h:8443', ServerConfig::redacted('https://user:pw@h:8443/p?q'));
+		self::assertSame('http://p.example.com', ServerConfig::redacted('HTTP://p.example.com/plantuml'));
+		self::assertSame('', ServerConfig::redacted('not a url'));
+		self::assertSame('', ServerConfig::redacted(''));
+	}
+
+	public function testARefusedUrlNeverCarriesItsPassword(): void {
+		$config = $this->createStub(IAppConfig::class);
+		try {
+			(new ServerConfig($config))->setUrl('ftp://user:secretpw@h/p');
+			self::fail('expected the URL to be refused');
+		} catch (\InvalidArgumentException $e) {
+			self::assertStringNotContainsString('secretpw', $e->getMessage());
+			self::assertStringContainsString('http or https', $e->getMessage());
+		}
+	}
 }

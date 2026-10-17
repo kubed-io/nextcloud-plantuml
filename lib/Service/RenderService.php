@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\PlantUml\Service;
 
+use OCA\PlantUml\AppInfo\Application;
 use OCA\PlantUml\Exception\RenderException;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
@@ -54,8 +55,6 @@ final class RenderService {
 	private const STDLIB_SOURCE = '#^Delivered by (https?://\S{1,200})$#';
 	/** The server's lists change only with its version. */
 	private const LISTS_TTL = 86400;
-	/** The error rides out as a response header, so it stays one short line. */
-	private const ERROR_MAX = 200;
 
 	public function __construct(
 		private readonly ServerConfig $config,
@@ -105,13 +104,9 @@ final class RenderService {
 	 * @throws RenderException
 	 */
 	private function readThemes(): array {
-		$response = $this->post('txt', self::THEMES_DIAGRAM);
-		if ($response->getStatusCode() >= 400) {
-			throw $this->notPlantUml('txt answered help themes with HTTP ' . $response->getStatusCode());
-		}
 		// Only what looks like a theme name: anything a later server prints after
 		// the list must not become a theme.
-		$themes = self::wordsAfter((string)$response->getBody(), self::THEMES_MARKER, '/^[\w-]{1,64}$/', self::THEMES_MAX);
+		$themes = self::wordsAfter($this->answer('txt', self::THEMES_DIAGRAM, 'help themes'), self::THEMES_MARKER, '/^[\w-]{1,64}$/', self::THEMES_MAX);
 		if ($themes === []) {
 			throw $this->notPlantUml('txt answered help themes without a list of themes');
 		}
@@ -129,21 +124,14 @@ final class RenderService {
 	 */
 	public function colors(): array {
 		return $this->cached('colors', function (): array {
-			$response = $this->post('txt', self::COLORS_DIAGRAM);
-			if ($response->getStatusCode() >= 400) {
-				throw $this->notPlantUml('txt answered help colors with HTTP ' . $response->getStatusCode());
-			}
-			$names = array_unique(self::wordsAfter((string)$response->getBody(), self::COLORS_MARKER, '/^[A-Za-z]\w{0,63}$/', self::COLORS_MAX));
+			$names = array_unique(self::wordsAfter($this->answer('txt', self::COLORS_DIAGRAM, 'help colors'), self::COLORS_MARKER, '/^[A-Za-z]\w{0,63}$/', self::COLORS_MAX));
 			if ($names === []) {
 				throw $this->notPlantUml('txt answered help colors without a list of colors');
 			}
-			$drawing = $this->post('svg', self::SWATCHES_DIAGRAM);
-			if ($drawing->getStatusCode() >= 400) {
-				throw $this->notPlantUml('svg answered colors with HTTP ' . $drawing->getStatusCode());
-			}
+			$drawing = $this->answer('svg', self::SWATCHES_DIAGRAM, 'colors');
 			preg_match_all(
 				'/<rect\b[^>]*\bfill="#([\dA-Fa-f]{6}|[\dA-Fa-f]{3})"[^>]*\/>\s*<text\b[^>]*>([^<]*)<\/text>/',
-				(string)$drawing->getBody(),
+				$drawing,
 				$pairs,
 				PREG_SET_ORDER,
 			);
@@ -171,9 +159,9 @@ final class RenderService {
 	 */
 	public function keywords(): array {
 		return $this->cached('keywords', function (): array {
-			$words = self::linesAfter($this->helpText(self::KEYWORDS_DIAGRAM, 'keywords'), self::KEYWORDS_MARKER);
+			$words = self::linesAfter($this->answer('txt', self::KEYWORDS_DIAGRAM, 'help keywords'), self::KEYWORDS_MARKER);
 			$types = array_slice(array_values(array_unique(
-				self::linesAfter($this->helpText(self::TYPES_DIAGRAM, 'types'), self::TYPES_MARKER),
+				self::linesAfter($this->answer('txt', self::TYPES_DIAGRAM, 'help types'), self::TYPES_MARKER),
 			)), 0, self::KEYWORDS_MAX);
 			$diagrams = [];
 			$keywords = [];
@@ -205,7 +193,7 @@ final class RenderService {
 	 */
 	public function fonts(): array {
 		return $this->cached('fonts', function (): array {
-			$lines = self::linesAfter($this->helpText(self::FONTS_DIAGRAM, 'font'), self::FONTS_MARKER, self::FONTS_LINE);
+			$lines = self::linesAfter($this->answer('txt', self::FONTS_DIAGRAM, 'help font'), self::FONTS_MARKER, self::FONTS_LINE);
 			$fonts = self::names($lines, self::FONTS_LINE, self::FONTS_MAX);
 			if ($fonts === []) {
 				throw $this->notPlantUml('txt answered help font without a list of fonts');
@@ -224,12 +212,8 @@ final class RenderService {
 	 */
 	public function stdlib(): array {
 		return $this->cached('stdlib', function (): array {
-			$response = $this->post('txt', self::STDLIB_DIAGRAM);
-			if ($response->getStatusCode() >= 400) {
-				throw $this->notPlantUml('txt answered stdlib with HTTP ' . $response->getStatusCode());
-			}
 			$lines = array_values(array_filter(
-				array_map('trim', explode("\n", (string)$response->getBody())),
+				array_map('trim', explode("\n", $this->answer('txt', self::STDLIB_DIAGRAM, 'stdlib'))),
 				static fn (string $line): bool => $line !== '',
 			));
 			$libraries = [];
@@ -251,11 +235,16 @@ final class RenderService {
 		});
 	}
 
-	/** @throws RenderException */
-	private function helpText(string $diagram, string $what): string {
-		$response = $this->post('txt', $diagram);
+	/**
+	 * The body of the server's answer to a diagram; `$what` names the question
+	 * in the log when the status says the server is not PlantUML.
+	 *
+	 * @throws RenderException
+	 */
+	private function answer(string $format, string $diagram, string $what): string {
+		$response = $this->post($format, $diagram);
 		if ($response->getStatusCode() >= 400) {
-			throw $this->notPlantUml("txt answered help {$what} with HTTP " . $response->getStatusCode());
+			throw $this->notPlantUml("{$format} answered {$what} with HTTP " . $response->getStatusCode());
 		}
 		return (string)$response->getBody();
 	}
@@ -307,11 +296,7 @@ final class RenderService {
 	 */
 	public function icons(): array {
 		return $this->cached('icons', function (): array {
-			$response = $this->post('svg', self::ICONS_DIAGRAM);
-			if ($response->getStatusCode() >= 400) {
-				throw $this->notPlantUml('svg answered listopeniconic with HTTP ' . $response->getStatusCode());
-			}
-			preg_match_all('/<text\b[^>]*>([^<]*)<\/text>/', (string)$response->getBody(), $m);
+			preg_match_all('/<text\b[^>]*>([^<]*)<\/text>/', $this->answer('svg', self::ICONS_DIAGRAM, 'listopeniconic'), $m);
 			$texts = array_map(static fn (string $text): string => html_entity_decode(trim($text)), $m[1]);
 			$icons = self::names($texts, '/^[a-z0-9-]{1,64}$/', self::ICONS_MAX);
 			if ($icons === []) {
@@ -402,16 +387,12 @@ final class RenderService {
 	 */
 	private function emojiBlock(string $block): string {
 		$command = $block === '' ? 'emoji' : "emoji {$block}";
-		$response = $this->post('txt', "@startuml\n{$command}\n@enduml\n");
-		if ($response->getStatusCode() >= 400) {
-			throw $this->notPlantUml("txt answered emoji {$block} with HTTP " . $response->getStatusCode());
-		}
-		return (string)$response->getBody();
+		return $this->answer('txt', "@startuml\n{$command}\n@enduml\n", "emoji {$block}");
 	}
 
 	private static function oneLine(string $text): string {
 		$line = trim((string)preg_replace('/[\x00-\x1f\x7f]+/', ' ', $text));
-		return mb_substr($line, 0, self::ERROR_MAX);
+		return mb_substr($line, 0, Application::ERROR_MAX);
 	}
 
 	/**
@@ -422,11 +403,7 @@ final class RenderService {
 	 * @throws RenderException
 	 */
 	public function version(): string {
-		$response = $this->post('txt', self::VERSION_DIAGRAM);
-		if ($response->getStatusCode() >= 400) {
-			throw $this->notPlantUml('txt answered HTTP ' . $response->getStatusCode());
-		}
-		if (preg_match('/PlantUML\s+(\d+\.\d+\.\d+)/', (string)$response->getBody(), $m) !== 1) {
+		if (preg_match('/PlantUML\s+(\d+\.\d+\.\d+)/', $this->answer('txt', self::VERSION_DIAGRAM, 'version'), $m) !== 1) {
 			throw $this->notPlantUml('txt answered without a PlantUML version');
 		}
 		return $m[1];
@@ -450,14 +427,19 @@ final class RenderService {
 				'nextcloud' => ['allow_local_address' => true],
 			]);
 		} catch (\Throwable $e) {
-			$this->logger->info('PlantUML server at {url} is unreachable', ['url' => $url, 'exception' => $e]);
+			// Guzzle's message names the URL it called, userinfo and all.
+			$this->logger->info('PlantUML server at {url} is unreachable: {error}', [
+				'url' => ServerConfig::redacted($url),
+				'error' => (string)preg_replace('#(?<=//)[^/@\s]*@#', '', str_replace($url, ServerConfig::redacted($url), $e->getMessage())),
+				'class' => $e::class,
+			]);
 			throw new RenderException(RenderException::PROBLEM_UNREACHABLE, $e);
 		}
 	}
 
 	private function notPlantUml(string $cause): RenderException {
 		$this->logger->info('PlantUML server at {url} is not a PlantUML server: {cause}', [
-			'url' => $this->config->getUrl(),
+			'url' => ServerConfig::redacted($this->config->getUrl()),
 			'cause' => $cause,
 		]);
 		return new RenderException(RenderException::PROBLEM_NOT_PLANTUML);

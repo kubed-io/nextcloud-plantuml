@@ -1023,6 +1023,22 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(self::TOO_LARGE, $response->getData());
 	}
 
+	/** JSON's key "2024" reaches PHP as the int 2024, and it still names a file. */
+	public function testAnAllDigitOverrideKeyNamesItsFile(): void {
+		$source = "@startuml\n<style file=2024>\nA -> B\n@enduml\n";
+		$files = [
+			'Diagrams/Order flow.puml' => $this->diagram('text/x-plantuml', $source),
+			'Diagrams/2024' => $this->diagram('text/plain', "a {}\n", 'css1', '2024'),
+		];
+		$overrides = json_decode('{"2024": "b {}\\n"}', true);
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $files)->bySource($source, 0, '/Diagrams/Order flow.puml', $overrides);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame("@startuml\n<style>\nb {}\n</style>\nA -> B\n@enduml\n", $sent);
+	}
+
 	/** @return iterable<string, array{array<string, string>|null}> */
 	public static function noOverrides(): iterable {
 		yield 'null' => [null];

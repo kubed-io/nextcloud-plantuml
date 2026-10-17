@@ -125,14 +125,14 @@ final class RenderController extends Controller {
 			return new Response(Http::STATUS_BAD_REQUEST);
 		}
 		$overrides ??= [];
-		if (!is_array($overrides) || ($overrides !== [] && $path === '') || count($overrides) > self::MAX_OVERRIDES) {
+		// A list is no set of paths; a JSON key "2024" reaches PHP as the int 2024, still a path.
+		if (!is_array($overrides) || ($overrides !== [] && ($path === '' || array_is_list($overrides))) || count($overrides) > self::MAX_OVERRIDES) {
 			return new Response(Http::STATUS_BAD_REQUEST);
 		}
 		$bytes = strlen($source);
 		$texts = [];
 		foreach ($overrides as $written => $text) {
-			// PHP keeps a JSON key "1" as the int 1, so a list is refused here too.
-			if (!is_string($written) || !is_string($text)) {
+			if (!is_string($text)) {
 				return new Response(Http::STATUS_BAD_REQUEST);
 			}
 			$texts[$written] = $text;

@@ -230,6 +230,17 @@ final class IncludeResolverTest extends TestCase {
 		self::assertSame([['line' => 2, 'message' => 'f.puml is already included']], $expanded->mistakes);
 	}
 
+	/** `"a!b"!c` is the file a!b's block c, `a!b!c` the file a's block b!c: two includes, each once. */
+	public function testIncludeOnceTellsAQuotedBangFromASelectorsBang(): void {
+		$expanded = $this->expand("!include_once \"a!b\"!c\n!include_once a!b!c\n", [
+			'docs/a!b' => "@startuml(id=c)\nfrom a!b\n@enduml\n",
+			'docs/a' => "@startuml(id=b!c)\nfrom a\n@enduml\n",
+		]);
+
+		self::assertSame("from a!b\nfrom a\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
 	public function testIncludesubCollectsEverySectionOfThatName(): void {
 		$file = "@startuml\n!startsub BASIC\nA -> B\n!endsub\nskipped\n!startsub OTHER\nnot this\n!endsub\n!startsub BASIC\nB -> C\n!endsub\n@enduml\n";
 		$expanded = $this->expand("!includesub f.puml!BASIC\n", ['docs/f.puml' => $file]);

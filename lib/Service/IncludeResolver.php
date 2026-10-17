@@ -114,8 +114,9 @@ final class IncludeResolver {
 	 *
 	 * @param File|null $self the diagram's own file, so including it is a cycle from the start
 	 * @param bool $ownersText the source is `$self`'s stored text, or a part of it, so the share's owner wrote it
-	 * @param array<string, string> $overrides texts read in place of the files they name, once those are found readable:
-	 *                                         a path as written, from `$base`, or from the root when it starts `/`
+	 * @param array<array-key, string> $overrides texts read in place of the files they name, once those are found readable:
+	 *                                            a path as written, from `$base`, or from the root when it starts `/`
+	 *                                            (PHP keeps an all-digit path as an int key)
 	 */
 	public function expand(string $source, Folder $base, Folder $root, ?File $self = null, bool $ownersText = false, array $overrides = []): Expanded {
 		$run = new self();
@@ -129,7 +130,7 @@ final class IncludeResolver {
 		}
 		$run->ownShare = $self === null || !$ownersText ? null : self::readOnlyShareOf($self);
 		foreach ($overrides as $written => $text) {
-			$path = str_replace('\\', '/', $written);
+			$path = str_replace('\\', '/', (string)$written);
 			if (preg_match('/[\x00-\x1f]/', $path) === 1) {
 				continue;
 			}
@@ -229,7 +230,8 @@ final class IncludeResolver {
 		if ($found === null) {
 			return;
 		}
-		$key = $found['id'] . '!' . ($selector ?? '');
+		// No path or selector holds a NUL, so `"a!b"!c` and `a!b!c` stay two keys.
+		$key = $found['id'] . "\0" . ($selector ?? '');
 		if (in_array($found['id'], $this->stack, true)) {
 			$this->keep($at, end($this->stack) === $found['id'] ? "$shown includes itself" : "$shown is included in a cycle");
 			return;

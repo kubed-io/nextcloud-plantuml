@@ -88,6 +88,9 @@ All notable changes to this project are documented here. The format follows
 - The editor is faster on long documents: hovering a name, typing and completing no longer rescan the whole text.
 - Completion no longer offers `ExportedName`, `Image` and `ImagePosition`, which PlantUML does not read.
 - notify_push loads only on servers that have it, as its own file, so the editor opens lighter everywhere else.
+- A click on a card in the Wall does nothing; open a diagram from Tabs.
+- A linked file's path is always underlined, no key needed; Ctrl/Cmd+click opens it.
+- The built-in templates each say in a line what they make.
 
 ### Fixed
 
@@ -106,6 +109,15 @@ All notable changes to this project are documented here. The format follows
 - A quoted multiplicity or role after a link (`A *-- "many" B`) is coloured as a string.
 - A sub-diagram's indented lines read as the server reads them: an indented `#highlight` is highlighted, a `<style>` inside is a style block, and one left open in a class or description body ends at the body's own closer, never at a `}` or `]` of its own content.
 - A salt button holding a `]` reads as PlantUML draws it, and so does a tree with text after its `{T` (`{T{`): that text and the tree's first `}` line are rows.
+- A linked style file's pencils open their choosers: fonts after `FontStyle`, colours on `FontColor`.
+- The Wall's cards sit centred, with equal gaps on both sides.
+- A double-click in the Viewer selects no text.
+- `archimate` and the other element keywords are coloured as keywords, and a line's declared name is moss.
+- Focus no longer falls to the page: a bar button that disappears hands it on, and closing the editor returns it to the file's row.
+- A drawing that failed is asked for again on retry, with a spinner; a refused answer is not.
+- Edit opens nothing once the Viewer has moved on, and a Viewer whose editor will not load stays and says so.
+- A failed Add diagram load says so, and the line clears on a later success.
+- The editor's bar fits a phone.
 
 ### Security
 

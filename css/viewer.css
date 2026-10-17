@@ -306,7 +306,9 @@
  * kept, so a scrollbar coming or going never changes the columns' width. */
 .plantuml-viewer__stage--wall {
 	display: grid;
-	grid-template-columns: repeat(var(--plantuml-wall-columns, 1), minmax(0, 1fr));
+	grid-template-columns: repeat(var(--plantuml-wall-columns, 1), var(--plantuml-wall-column, minmax(0, 1fr)));
+	justify-content: safe center;
+	background: #000;
 	grid-auto-rows: 8px;
 	column-gap: 16px;
 	align-items: start;

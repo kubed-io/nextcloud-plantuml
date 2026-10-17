@@ -259,15 +259,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
       box.setAttribute('aria-describedby', sheet.id)
     }
     node.append(caption, sheet)
-    // The caption is a <label>: a click on its text toggles the box, so it counts as the checkbox.
-    // A diagram's link opens in a new tab (inline-svg.js) and leaves the Wall as it is.
-    node.addEventListener('click', (event) => {
-      if (state.mode === 'wall' && !caption.contains(event.target) && !event.target.closest?.('a')) {
-        state.mode = 'tabs'
-        state.active = index
-        show()
-      }
-    })
+    // A click on the card does nothing (VW5); the caption is a <label>, so its text toggles the box.
     return node
   }
 
@@ -351,13 +343,14 @@ export function createDiagramView(root, { path, basename, onReady }) {
     if (sizes.some(Boolean)) {
       remember(path, etag, sizes)
     }
-    const { columns, placements } = pack(sizes, { width })
+    const { used, columnWidth, placements } = pack(sizes, { width })
     const cards = [...stage.children]
     const byIndex = new Map(cards.map((node) => [positions.get(node) - 1, node]))
     const before = animate && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       ? new Map(cards.map((node) => [node, node.getBoundingClientRect()]))
       : null
-    stage.style.setProperty('--plantuml-wall-columns', String(columns))
+    stage.style.setProperty('--plantuml-wall-columns', String(used))
+    stage.style.setProperty('--plantuml-wall-column', `${columnWidth}px`)
     placements.forEach((placed, index) => place(byIndex.get(index), placed))
     reorder(visualOrder(placements).map((index) => byIndex.get(index)))
     if (before) {

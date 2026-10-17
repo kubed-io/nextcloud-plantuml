@@ -334,17 +334,16 @@ describe('Stack and Wall', () => {
     expect(cards()[1].classList.contains('plantuml-viewer__card--checked')).toBe(false)
   })
 
-  it('opens a Wall card in Tabs on a click outside its checkbox', async () => {
+  it('stays in the Wall on a click on a card outside its checkbox (VW5)', async () => {
     await open(THREE)
     mode('Wall')
     await settle()
     cards()[1].querySelector('.plantuml-viewer__sheet').click()
     await settle()
 
-    expect(root.querySelector('[role="tab"][aria-selected="true"]').textContent).toBe('login')
-    expect(shown(root)).toEqual(['login'])
-    expect(root.querySelector('.plantuml-viewer__tabbar').hidden).toBe(false)
-    expect(root.querySelector('.plantuml-viewer__toolbar [aria-pressed="true"]').getAttribute('aria-label')).toBe('Tabs')
+    expect(root.querySelector('.plantuml-viewer__toolbar [aria-pressed="true"]').getAttribute('aria-label')).toBe('Wall')
+    expect(root.querySelector('.plantuml-viewer__tabbar').hidden).toBe(true)
+    expect(cards()).toHaveLength(3)
   })
 
   it("stays in the Wall when a link in a card's diagram is clicked", async () => {
@@ -600,7 +599,8 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
     wide()
     mode('Wall')
 
-    expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('5')
+    expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('3')
+    expect(stage().style.getPropertyValue('--plantuml-wall-column')).toBe('233.6px')
     expect(cards().map(placeOf)).toEqual([['1 / span 1', '1 / span 38'], ['2 / span 1', '1 / span 38'], ['3 / span 1', '1 / span 38']])
     expect(cards().map((card) => card.style.getPropertyValue('--plantuml-wall-height'))).toEqual(['240px', '240px', '240px'])
   })

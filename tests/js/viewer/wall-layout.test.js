@@ -91,6 +91,19 @@ describe('a card', () => {
 })
 
 describe('the packing', () => {
+  it('says how many columns the cards use, and how wide a column is', () => {
+    const four = pack(Array.from({ length: 4 }, () => ({ width: 200, height: 150 })), { width: 1863 })
+    expect(four.columns).toBe(7)
+    expect(four.used).toBe(4)
+    expect(four.columnWidth).toBe((1863 - 6 * 16) / 7)
+
+    const wide = pack([{ width: 5000, height: 150 }], { width: 1863 })
+    expect(wide.placements[0].span).toBe(wide.columns)
+    expect(wide.used).toBe(wide.columns)
+
+    expect(pack([null, null, null], { width: 1863 }).used).toBe(3)
+  })
+
   it('places the tallest first, each in the first free spot', () => {
     const { placements } = pack([{ width: 100, height: 100 }, { width: 100, height: 300 }, { width: 100, height: 200 }], { width: 536 })
 
@@ -192,6 +205,13 @@ describe('the Wall\'s CSS', () => {
     expect(rule('.plantuml-viewer__stage--wall .plantuml-viewer__sheet')).toMatch(/padding: 16px;/)
     expect(rule('.plantuml-viewer__stage--wall .plantuml-viewer__sheet')).toMatch(/height: var\(--plantuml-wall-height, 240px\);/)
     expect(rule('.plantuml-viewer__stage--wall')).toMatch(/grid-auto-rows: 8px;[\s\S]*column-gap: 16px;/)
+  })
+
+  it('centres the used columns on an opaque stage', () => {
+    const wall = rule('.plantuml-viewer__stage--wall')
+    expect(wall).toContain('grid-template-columns: repeat(var(--plantuml-wall-columns, 1), var(--plantuml-wall-column, minmax(0, 1fr)));')
+    expect(wall).toContain('justify-content: safe center;')
+    expect(wall).toContain('background: #000;')
   })
 
   it('cuts a long name short in the caption with an ellipsis', () => {

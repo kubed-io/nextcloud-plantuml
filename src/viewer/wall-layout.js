@@ -50,7 +50,7 @@ export function columnsFor(width, { column = COLUMN, gap = GAP } = {}) {
 /**
  * @param {Array<{ width: number, height: number }|null>} items each diagram's drawn size, in file order; null when not known
  * @param {{ width: number, column?: number, gap?: number, rowUnit?: number }} options the stage's inner width, px
- * @return {{ columns: number, placements: Placement[] }} a placement per item, in file order
+ * @return {{ columns: number, used: number, columnWidth: number, placements: Placement[] }} a placement per item, in file order; used is the columns the cards reach, columnWidth one column's px
  */
 export function pack(items, { width, column = COLUMN, gap = GAP, rowUnit = ROW_UNIT }) {
   const columns = columnsFor(width, { column, gap })
@@ -132,7 +132,8 @@ export function pack(items, { width, column = COLUMN, gap = GAP, rowUnit = ROW_U
       put(index, waiting)
     }
   })
-  return { columns, placements }
+  const used = Math.max(1, ...placements.map((placed) => placed.column + placed.span))
+  return { columns, used, columnWidth, placements }
 }
 
 /**

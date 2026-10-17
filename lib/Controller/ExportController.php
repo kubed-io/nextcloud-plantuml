@@ -195,16 +195,21 @@ final class ExportController extends Controller {
 		return self::stem($base . ' - ' . mb_substr(Diagrams::label($diagram), 0, self::MAX_LABEL)) . ".{$format}";
 	}
 
-	/** `safe()`, cut at MAX_STEM bytes on a character's edge, and trimmed again after the cut. */
+	/**
+	 * `safe()`, cut at MAX_STEM bytes on a character's edge, and trimmed again after the cut: the
+	 * spaces, hyphens and joiners at its edges go, so a name of joiners alone is `diagram`.
+	 */
 	private static function stem(string $name): string {
-		$cut = rtrim(mb_strcut(self::safe($name), 0, self::MAX_STEM, 'UTF-8'), ' -');
+		$cut = (string)preg_replace('/^[ \-\x{200C}\x{200D}]+|[ \-\x{200C}\x{200D}]+$/u', '', mb_strcut(self::safe($name), 0, self::MAX_STEM, 'UTF-8'));
 		return $cut !== '' ? $cut : 'diagram';
 	}
 
 	/**
 	 * Each run of unsafe characters, with the spaces around it, becomes ` - `: `Login / Sign-up` is
 	 * `Login - Sign-up`. Unsafe: what a file system or a header refuses, and the invisible ones (C0
-	 * and C1 controls, and `\p{Cf}` such as a bidi override, which shows a name backwards). The joiners U+200C and U+200D stay: Persian and Indic words and emoji sequences are written with them.
+	 * and C1 controls, and `\p{Cf}` such as a bidi override, which shows a name backwards). The
+	 * joiners U+200C and U+200D stay: Persian and Indic words and emoji sequences are written
+	 * with them.
 	 */
 	private static function safe(string $name): string {
 		$name = trim((string)preg_replace(['/\s*(?:[\/\\\\:*?"<>|\p{Cc}]|[^\P{Cf}\x{200C}\x{200D}])+\s*/u', '/ {2,}/'], [' - ', ' '], $name), ' -');

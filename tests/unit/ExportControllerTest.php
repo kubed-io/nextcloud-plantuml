@@ -244,6 +244,15 @@ final class ExportControllerTest extends TestCase {
 		self::assertStringEndsWith("; filename*=UTF-8''" . rawurlencode($stem . '.svg'), (string)self::header($only, 'Content-Disposition'));
 	}
 
+	/** A name of joiners alone is none, and a cut never leaves a joiner dangling at the end. */
+	public function testJoinersAtTheEdgesOfAStemGo(): void {
+		$only = $this->controller($this->drawing(), "\u{200D}\u{200C}.puml", "@startuml\n@enduml\n")->export("Diagrams/\u{200D}\u{200C}.puml", 'svg');
+		self::assertStringEndsWith("; filename*=UTF-8''diagram.svg", (string)self::header($only, 'Content-Disposition'));
+		$file = str_repeat('a', 197) . "\u{200D}b.puml";
+		$cut = $this->controller($this->drawing(), $file, "@startuml\n@enduml\n")->export("Diagrams/{$file}", 'svg');
+		self::assertStringEndsWith("; filename*=UTF-8''" . str_repeat('a', 197) . '.svg', (string)self::header($cut, 'Content-Disposition'));
+	}
+
 	/** A label past 150 characters is cut there, for the download and for the zip entry alike. */
 	public function testALongLabelIsCutAt150Characters(): void {
 		$long = str_repeat('x', 140) . str_repeat('ö', 20) . 'tail';

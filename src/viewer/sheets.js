@@ -13,7 +13,13 @@ import { translate as t } from '@nextcloud/l10n'
 import { APP_ID, renderUrl } from '../files-helpers.js'
 import { toInlineSvg } from '../editor/inline-svg.js'
 
-function jsonProblem(body) {
+/**
+ * The route's own words for a refusal, `{"problem": …}`, or '' for any other body.
+ *
+ * @param {string} body
+ * @return {string}
+ */
+export function jsonProblem(body) {
   try {
     const problem = JSON.parse(body)?.problem
     return typeof problem === 'string' ? problem : ''

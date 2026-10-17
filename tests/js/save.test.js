@@ -16,7 +16,7 @@ vi.mock('@nextcloud/files/dav', () => ({
 
 import { resetOnce } from '../../src/editor/once.js'
 
-const { ConflictError, currentEtag, listFolder, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
+const { ConflictError, canDownload, currentEtag, listFolder, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
 
 /** webdav's handleResponseCode: an Error carrying the status. */
 function davError(status) {
@@ -68,6 +68,43 @@ describe('currentEtag', () => {
     client.stat.mockRejectedValue(failure)
 
     await expect(currentEtag('/Diagrams/Order flow.puml')).rejects.toBe(failure)
+  })
+})
+
+describe('canDownload', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  /** webdav's stat with details: the props under data, the property's JSON as Nextcloud sends it. */
+  const answering = (attributes) => client.stat.mockResolvedValue({ data: { props: attributes === undefined ? {} : { 'share-attributes': attributes } } })
+
+  // IncludeResolverTest's downloadRules, as the DAV property carries them.
+  it.each([
+    ['not on a share', undefined, true],
+    ['a share that forbids download', '[{"scope":"permissions","key":"download","value":false}]', false],
+    ['a share that allows it', '[{"scope":"permissions","key":"download","value":true}]', true],
+    ['a share that says nothing', '[]', true],
+    ['a property that is not JSON', 'nonsense', true],
+    ['a property already parsed, forbidding download', [{ scope: 'permissions', key: 'download', value: false }], false],
+  ])('reads %s as the server does', async (_what, attributes, allowed) => {
+    answering(attributes)
+    await expect(canDownload('/Shared/S.puml')).resolves.toBe(allowed)
+  })
+
+  it('asks for the share attributes alone, of the file and nothing under it', async () => {
+    answering('[]')
+    await canDownload('/Shared/S.puml')
+
+    expect(client.stat).toHaveBeenCalledTimes(1)
+    const [davPath, options] = client.stat.mock.calls[0]
+    expect(davPath).toBe('/files/drk/Shared/S.puml')
+    expect(options.details).toBe(true)
+    expect(options.data).toMatch(/xmlns:nc="http:\/\/nextcloud.org\/ns"/)
+    expect(options.data.match(/<d:prop>(.*)<\/d:prop>/s)[1].replace(/\s/g, '')).toBe('<nc:share-attributes/>')
+  })
+
+  it('passes a failed look on to its caller', async () => {
+    client.stat.mockRejectedValue(davError(500))
+    await expect(canDownload('/Shared/S.puml')).rejects.toThrow()
   })
 })
 

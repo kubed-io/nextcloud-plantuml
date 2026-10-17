@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { APP_ID, MIMETYPE, canEditDiagram, canOpenAsText, editorBundleUrl, isDiagram, renderUrl } from '../../src/files-helpers.js'
+import { APP_ID, MIMETYPE, canEditDiagram, canOpenAsText, editorBundleUrl, exportUrl, isDiagram, renderUrl } from '../../src/files-helpers.js'
 
 describe('files-helpers', () => {
   it('names the app', () => {
@@ -42,6 +42,25 @@ describe('renderUrl', () => {
 
   it('leaves the diagram out when none is named', () => {
     expect(renderUrl('/D/S.puml')).toBe('/index.php/apps/plantuml/render?path=%2FD%2FS.puml')
+  })
+})
+
+describe('exportUrl', () => {
+  // OC is the page global Nextcloud injects; node has none, so one is lent here.
+  beforeEach(() => {
+    globalThis.OC = { generateUrl: (url) => `/index.php${url}` }
+  })
+  afterEach(() => {
+    delete globalThis.OC
+  })
+
+  it('asks to export the diagrams at the places given, counted from 0', () => {
+    expect(exportUrl('/D/S.puml', 'png', [0, 2]))
+      .toBe('/index.php/apps/plantuml/export?path=%2FD%2FS.puml&format=png&index%5B%5D=0&index%5B%5D=2')
+  })
+
+  it('asks for every diagram when no place is given', () => {
+    expect(exportUrl('/D/S.puml', 'txt', [])).toBe('/index.php/apps/plantuml/export?path=%2FD%2FS.puml&format=txt')
   })
 })
 

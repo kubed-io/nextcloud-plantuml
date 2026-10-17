@@ -55,6 +55,32 @@ export async function currentEtag(path) {
   return `"${stat.etag}"`
 }
 
+const SHARE_PROPFIND = `<?xml version="1.0"?>
+<d:propfind xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns"><d:prop><nc:share-attributes/></d:prop></d:propfind>`
+
+/**
+ * Whether the file may be downloaded: false when it is on a share whose owner
+ * forbids it, which Nextcloud tells as `nc:share-attributes` (the share's
+ * attributes as JSON). The server refuses the same files
+ * (IncludeResolver::forbidsDownload). A failed look rejects; the caller decides.
+ *
+ * @param {string} path
+ * @return {Promise<boolean>}
+ */
+export async function canDownload(path) {
+  const { data } = await getClient().stat(getRootPath() + path, { details: true, data: SHARE_PROPFIND })
+  let attributes = data?.props?.['share-attributes']
+  if (typeof attributes === 'string') {
+    try {
+      attributes = JSON.parse(attributes)
+    } catch {
+      attributes = []
+    }
+  }
+  return !(Array.isArray(attributes)
+    && attributes.some((a) => a?.scope === 'permissions' && a?.key === 'download' && a?.value === false))
+}
+
 /**
  * @param {string} path
  * @param {string} content

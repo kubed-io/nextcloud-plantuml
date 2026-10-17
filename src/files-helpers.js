@@ -50,6 +50,21 @@ export function renderUrl(path, { diagram, index } = {}) {
 }
 
 /**
+ * The export route for some diagrams of a file, by their 0-based places among
+ * the file's diagrams; none is every diagram. `index[]` is PHP's repeatable
+ * parameter.
+ *
+ * @param {string} path
+ * @param {string} format svg, png, pdf, eps or txt
+ * @param {number[]} indexes
+ * @return {string}
+ */
+export function exportUrl(path, format, indexes) {
+  return OC.generateUrl(`/apps/${APP_ID}/export`) + '?path=' + encodeURIComponent(path) + '&format=' + encodeURIComponent(format)
+    + indexes.map((index) => `&index%5B%5D=${index}`).join('')
+}
+
+/**
  * The editor bundle, which files.js adds to the page the first time it is needed.
  * `query` is the `?v=…` Nextcloud put on the Files bundle: without it the server
  * caches the file for months and an upgrade never reaches the browser. `hash` is

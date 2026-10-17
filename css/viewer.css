@@ -98,8 +98,10 @@
 	font-size: 16px;
 }
 
-/* The toolbar (src/viewer/toolbar.js), centred in the head over the tab bar. */
+/* The toolbar (src/viewer/toolbar.js), centred in the head over the tab bar.
+ * Relative: the Export menu opens under it. */
 .plantuml-viewer__toolbar {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 4px;
@@ -160,6 +162,80 @@
 	width: 1px;
 	height: 20px;
 	background: var(--color-border);
+}
+
+/* A failed export's line, between the toolbar and the tab bar. */
+.plantuml-viewer__notice {
+	margin: 0;
+	color: #ffffff;
+	font-size: 14px;
+}
+
+.plantuml-viewer__notice[hidden] {
+	display: none;
+}
+
+/* The Export menu (src/viewer/menu.js): under Export, its left edge on Export's. */
+.plantuml-viewer__menu {
+	position: absolute;
+	top: calc(100% + 4px);
+	z-index: 1;
+	width: 260px;
+	padding: 4px 0;
+	box-sizing: border-box;
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
+	background: var(--color-main-background);
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.plantuml-viewer__menu[hidden] {
+	display: none;
+}
+
+.plantuml-viewer__menu-heading {
+	display: flex;
+	align-items: center;
+	height: 34px;
+	padding: 0 16px;
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.plantuml-viewer__menu button.plantuml-viewer__menu-item {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	height: 44px;
+	min-height: 0;
+	margin: 0;
+	padding: 0 12px 0 6px;
+	border: none;
+	border-radius: 0;
+	background: transparent;
+	color: var(--color-main-text);
+	font-size: 15px;
+	font-weight: 400;
+}
+
+.plantuml-viewer__menu button.plantuml-viewer__menu-item:hover,
+.plantuml-viewer__menu button.plantuml-viewer__menu-item:focus-visible {
+	background: var(--color-background-hover);
+}
+
+.plantuml-viewer__menu-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 32px;
+	height: 32px;
+}
+
+.plantuml-viewer__menu-icon svg {
+	width: 24px;
+	height: 24px;
 }
 
 /* Stack: the cards one under another, 32px below the toolbar (the head's 16px

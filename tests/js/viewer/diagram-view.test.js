@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const seams = vi.hoisted(() => ({ loadFile: vi.fn() }))
-vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile }))
+const seams = vi.hoisted(() => ({ loadFile: vi.fn(), canDownload: vi.fn(), openEditor: vi.fn(), serverConfigured: true }))
+vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile, canDownload: seams.canDownload }))
+vi.mock('../../../src/open-editor.js', () => ({ openEditor: seams.openEditor }))
+vi.mock('@nextcloud/initial-state', () => ({ loadState: () => seams.serverConfigured }))
 const { createDiagramView } = await import('../../../src/viewer/diagram-view.js')
 
 const SCREENS = '@startuml nodes\nA -> B\n@enduml\n@startuml login\nC -> D\n@enduml\n'
@@ -25,14 +27,26 @@ beforeEach(() => {
     return new Response(svg(['nodes', 'login', 'p3'][index]), { status: 200 })
   })
   vi.stubGlobal('fetch', fetch)
+  seams.canDownload.mockResolvedValue(true)
+  seams.serverConfigured = true
+  window.OCA = { Viewer: { close: vi.fn() } }
   root = document.createElement('div')
   document.body.append(root)
 })
 afterEach(() => {
   root.remove()
+  delete window.OCA
   vi.unstubAllGlobals()
   vi.resetAllMocks()
 })
+
+const open = async (content) => {
+  seams.loadFile.mockResolvedValue({ content, etag: '"e"' })
+  createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+  await settle()
+}
+const mode = (name) => root.querySelector(`.plantuml-viewer__toolbar [aria-label="${name}"]`).click()
+const cards = () => [...root.querySelectorAll('.plantuml-viewer__card')]
 
 describe('the Viewer, in Tabs', () => {
   it('reads the file once and gives each diagram a tab', async () => {
@@ -221,22 +235,15 @@ describe('the Viewer, in Tabs', () => {
 })
 
 describe('Stack and Wall', () => {
-  const open = async (content) => {
-    seams.loadFile.mockResolvedValue({ content, etag: '"e"' })
-    createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
-    await settle()
-  }
-  const mode = (name) => root.querySelector(`.plantuml-viewer__toolbar [aria-label="${name}"]`).click()
-  const cards = () => [...root.querySelectorAll('.plantuml-viewer__card')]
   const caption = (card) => card.querySelector('label').textContent
   // The 1-based place of each drawing still asked for; the route is asked by 0-based index.
   const waiting = (pending) => pending.map(({ url }) => String(Number(new URL(url, 'https://x').searchParams.get('index')) + 1))
 
-  it('puts the toolbar in the head, above the tab bar', async () => {
+  it('puts the toolbar in the head, above the export notice and the tab bar', async () => {
     await open(THREE)
 
     expect([...root.querySelector('.plantuml-viewer__head').children].map((child) => child.className))
-      .toEqual(['plantuml-viewer__toolbar', 'plantuml-viewer__tabbar'])
+      .toEqual(['plantuml-viewer__toolbar', 'plantuml-viewer__notice', 'plantuml-viewer__tabbar'])
   })
 
   it('stacks every diagram as a card, captioned with a checkbox', async () => {
@@ -260,6 +267,20 @@ describe('Stack and Wall', () => {
     expect(shown(root)).toEqual(['login'])
     expect(root.querySelector('.plantuml-viewer__tabbar').hidden).toBe(false)
     expect(root.querySelector('.plantuml-viewer__toolbar [aria-pressed="true"]').getAttribute('aria-label')).toBe('Tabs')
+  })
+
+  it("stays in the Wall when a link in a card's diagram is clicked", async () => {
+    // A diagram's link opens in a new tab (inline-svg.js); the Wall stays as it was.
+    fetch.mockImplementation(async () => new Response('<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.org/"><text>go</text></a></svg>', { status: 200 }))
+    await open(THREE)
+    mode('Wall')
+    await settle()
+    const link = cards()[1].querySelector('.plantuml-viewer__sheet a')
+    link.addEventListener('click', (event) => event.preventDefault())
+    link.querySelector('text').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+
+    expect(cards()).toHaveLength(3)
+    expect(root.querySelector('.plantuml-viewer__toolbar [aria-pressed="true"]').getAttribute('aria-label')).toBe('Wall')
   })
 
   it('stays in the Wall when a checkbox is clicked', async () => {
@@ -310,5 +331,255 @@ describe('Stack and Wall', () => {
     pending.shift().resolve(new Response(svg('d2')))
     await settle()
     expect(waiting(pending)).toEqual(['3', '4', '5'])
+  })
+})
+
+const exportButton = () => root.querySelector('.plantuml-viewer__export')
+const exportLabel = () => exportButton().getAttribute('aria-label')
+const menuShown = () => root.querySelector('.plantuml-viewer__menu')
+const heading = () => root.querySelector('.plantuml-viewer__menu-heading').textContent
+const pick = (format) => root.querySelector(`[role="menuitem"][data-value="${format}"]`).click()
+const check = (index) => cards()[index].querySelector('input').click()
+const notice = () => root.querySelector('.plantuml-viewer__notice')
+const exportsAsked = () => fetch.mock.calls.map(([url]) => url).filter((url) => url.includes('/apps/plantuml/export'))
+  .map((url) => [...new URL(url, 'https://x').searchParams.entries()])
+
+describe('Export', () => {
+  let saved
+  let exportAnswer
+  const { createObjectURL, revokeObjectURL } = URL
+  beforeEach(() => {
+    saved = []
+    exportAnswer = () => new Response('BYTES', {
+      status: 200,
+      headers: { 'Content-Type': 'image/png', 'Content-Disposition': "attachment; filename=\"S - login.png\"; filename*=UTF-8''S%20-%20login.png" },
+    })
+    const render = fetch.getMockImplementation()
+    fetch.mockImplementation(async (url, init) => (url.includes('/apps/plantuml/export') ? exportAnswer() : render(url, init)))
+    URL.createObjectURL = vi.fn(() => 'blob:export')
+    URL.revokeObjectURL = vi.fn()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+      saved.push({ href: this.href, name: this.download })
+    })
+  })
+  afterEach(() => {
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
+    vi.restoreAllMocks()
+  })
+
+  it('exports the diagram of the open tab, saved under the name the route gives', async () => {
+    await open(THREE)
+    root.querySelectorAll('[role="tab"]')[1].click()
+    exportButton().click()
+
+    expect(exportLabel()).toBe('Export')
+    expect(heading()).toBe('login')
+    pick('png')
+    await settle()
+
+    expect(exportsAsked()).toEqual([[['path', '/D/S.puml'], ['format', 'png'], ['index[]', '1']]])
+    expect(saved).toEqual([{ href: 'blob:export', name: 'S - login.png' }])
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:export')
+  })
+
+  it('saves under the plain name when the route gives no UTF-8 one', async () => {
+    exportAnswer = () => new Response('BYTES', { status: 200, headers: { 'Content-Disposition': 'attachment; filename="S - nodes.svg"' } })
+    await open(THREE)
+    exportButton().click()
+    pick('svg')
+    await settle()
+
+    expect(saved).toEqual([{ href: 'blob:export', name: 'S - nodes.svg' }])
+  })
+
+  it('exports what is checked, in file order, as a zip of them', async () => {
+    await open(THREE)
+    mode('Stack')
+    check(2)
+    check(1)
+
+    expect(exportLabel()).toBe('Export 2')
+    exportButton().click()
+    expect(heading()).toBe('2 diagrams, as .zip')
+    pick('svg')
+    await settle()
+    expect(exportsAsked()).toEqual([[['path', '/D/S.puml'], ['format', 'svg'], ['index[]', '1'], ['index[]', '2']]])
+  })
+
+  it('exports one checked card under its own name', async () => {
+    await open(THREE)
+    mode('Wall')
+    check(2)
+
+    expect(exportLabel()).toBe('Export 1')
+    exportButton().click()
+    expect(heading()).toBe('p3')
+  })
+
+  it('exports every diagram when nothing is checked', async () => {
+    await open(THREE)
+    mode('Wall')
+
+    expect(exportLabel()).toBe('Export all')
+    exportButton().click()
+    expect(heading()).toBe('3 diagrams, as .zip')
+    pick('txt')
+    await settle()
+    expect(exportsAsked()).toEqual([[['path', '/D/S.puml'], ['format', 'txt']]])
+  })
+
+  it('reads Export again back in Tabs, whatever is checked', async () => {
+    await open(THREE)
+    mode('Stack')
+    check(1)
+    mode('Tabs')
+
+    expect(exportLabel()).toBe('Export')
+  })
+
+  it('offers the five formats, in order', async () => {
+    await open(THREE)
+    exportButton().click()
+
+    expect([...root.querySelectorAll('[role="menuitem"]')].map((item) => item.dataset.value)).toEqual(['svg', 'png', 'pdf', 'eps', 'txt'])
+    expect([...root.querySelectorAll('.plantuml-viewer__menu-label')].map((label) => label.textContent))
+      .toEqual(['SVG', 'PNG', 'PDF', 'EPS', 'ASCII art'])
+  })
+
+  it('names a lone unnamed diagram after its file', async () => {
+    await open('@startuml\nA -> B\n@enduml\n')
+    exportButton().click()
+    expect(heading()).toBe('S')
+  })
+
+  it('closes its menu on a second click', async () => {
+    await open(THREE)
+    exportButton().click()
+    exportButton().click()
+
+    expect(menuShown().hidden).toBe(true)
+    expect(exportButton().getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('saves nothing when the export is refused, and says why', async () => {
+    exportAnswer = () => new Response('{"problem":"The export is too large"}', { status: 413 })
+    await open(THREE)
+    exportButton().click()
+    pick('png')
+    await settle()
+
+    expect(saved).toEqual([])
+    expect(notice().hidden).toBe(false)
+    expect(notice().textContent).toBe('The export is too large')
+  })
+
+  it('says it could not export for any other failure, and clears that on the next', async () => {
+    exportAnswer = () => new Response('', { status: 404 })
+    await open(THREE)
+    exportButton().click()
+    pick('png')
+    await settle()
+    expect(saved).toEqual([])
+    expect(notice().textContent).toBe('Could not export the diagram')
+
+    exportAnswer = () => new Response('BYTES', { status: 200 })
+    exportButton().click()
+    pick('png')
+    await settle()
+    expect(notice().hidden).toBe(true)
+  })
+
+  it('says it could not export when the request itself fails', async () => {
+    exportAnswer = () => Promise.reject(new TypeError('Failed to fetch'))
+    await open(THREE)
+    exportButton().click()
+    pick('png')
+    await settle()
+
+    expect(saved).toEqual([])
+    expect(notice().textContent).toBe('Could not export the diagram')
+  })
+
+  it("offers no Export when the file's share forbids download", async () => {
+    seams.canDownload.mockResolvedValue(false)
+    await open(THREE)
+    expect(seams.canDownload).toHaveBeenCalledWith('/D/S.puml')
+    expect(exportButton()).toBeNull()
+  })
+
+  it('offers Export when the share cannot be asked, and leaves it to the route', async () => {
+    seams.canDownload.mockRejectedValue(new Error('PROPFIND failed'))
+    await open(THREE)
+    expect(exportButton()).not.toBeNull()
+  })
+
+  it("keeps a menu's Escape from the Viewer, for its own menu and the tabs' All diagrams", async () => {
+    await open(Array.from({ length: 40 }, (_, i) => `@startuml d${i + 1}\n@enduml\n`).join(''))
+    const seen = vi.fn()
+    window.addEventListener('keydown', seen)
+    try {
+      exportButton().click()
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      expect(menuShown().hidden).toBe(true)
+
+      // jsdom lays nothing out: make the strip overflow, as tabs.test.js does, then redraw it.
+      const list = root.querySelector('[role="tablist"]')
+      Object.defineProperty(list, 'scrollWidth', { configurable: true, value: 4000 })
+      Object.defineProperty(list, 'clientWidth', { configurable: true, value: 600 })
+      root.querySelectorAll('[role="tab"]')[1].click()
+      root.querySelector('.plantuml-editor__more-button').click()
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+
+      expect(root.querySelector('.plantuml-editor__menu').hidden).toBe(true)
+      expect(seen).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener('keydown', seen)
+    }
+  })
+
+  it("drops an open menu's listener on the page with the view", async () => {
+    seams.loadFile.mockResolvedValue({ content: THREE, etag: '"e"' })
+    const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+    await settle()
+    exportButton().click()
+    const removed = vi.spyOn(document, 'removeEventListener')
+    view.destroy()
+
+    expect(removed).toHaveBeenCalledWith('pointerdown', expect.any(Function), true)
+  })
+})
+
+describe('Edit', () => {
+  const edit = () => root.querySelector('.plantuml-viewer__edit').click()
+
+  it('opens the editor at the open tab, the Viewer closed', async () => {
+    await open(THREE)
+    root.querySelectorAll('[role="tab"]')[1].click()
+    edit()
+    expect(window.OCA.Viewer.close).toHaveBeenCalled()
+    expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 1 })
+  })
+
+  it('opens at the first checked card', async () => {
+    await open(THREE)
+    mode('Stack')
+    check(2)
+    check(1)
+    edit()
+    expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 1 })
+  })
+
+  it('opens at the first diagram when nothing is checked', async () => {
+    await open(THREE)
+    mode('Wall')
+    edit()
+    expect(seams.openEditor).toHaveBeenCalledWith({ path: '/D/S.puml', basename: 'S.puml' }, { diagram: 0 })
+  })
+
+  it('is not offered without a server', async () => {
+    seams.serverConfigured = false
+    await open(THREE)
+    expect(root.querySelector('.plantuml-viewer__edit')).toBeNull()
   })
 })

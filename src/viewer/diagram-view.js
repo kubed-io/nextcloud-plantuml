@@ -4,18 +4,22 @@
  *
  * The Viewer's diagrams (VW1–VW8), on a root the Vue component hands over. The
  * file is read once and split as the editor's tabs split it; every open starts
- * in Tabs on the first diagram (VW8). The head (toolbar, tab bar) sits outside
- * the scrolling stage, so neither moves when a diagram changes size (VW3).
+ * in Tabs on the first diagram (VW8). The head (toolbar, export notice, tab
+ * bar) sits outside the scrolling stage, so none moves when a diagram changes
+ * size (VW3).
  * Stack and Wall (VW4, VW5) show every diagram as a card with a checkbox; what
- * is checked lasts while the view does, across modes.
+ * is checked lasts while the view does, across modes. Export (VW6) and Edit
+ * (VW7) act on the open tab, or in Stack and Wall on the checked cards.
  */
-import { translate as t } from '@nextcloud/l10n'
+import { n, translate as t } from '@nextcloud/l10n'
 import { loadState } from '@nextcloud/initial-state'
-import { APP_ID } from '../files-helpers.js'
-import { loadFile } from '../editor/save.js'
+import { APP_ID, exportUrl } from '../files-helpers.js'
+import { canDownload, loadFile } from '../editor/save.js'
 import { label, scan } from '../editor/blocks.js'
 import { createTabs } from '../editor/tabs.js'
-import { createSheets } from './sheets.js'
+import { openEditor } from '../open-editor.js'
+import { createMenu } from './menu.js'
+import { createSheets, jsonProblem } from './sheets.js'
 import { createToolbar } from './toolbar.js'
 
 // The Viewer keeps the file before mounted, hidden, beside the one shown: each
@@ -34,6 +38,28 @@ function element(tag, className) {
   return node
 }
 
+// Each label a literal, so the translation tooling finds it.
+const formats = () => [
+  { label: t(APP_ID, 'SVG'), value: 'svg' },
+  { label: t(APP_ID, 'PNG'), value: 'png' },
+  { label: t(APP_ID, 'PDF'), value: 'pdf' },
+  { label: t(APP_ID, 'EPS'), value: 'eps' },
+  { label: t(APP_ID, 'ASCII art'), value: 'txt' },
+]
+
+/** The name a download is saved under: the UTF-8 one, else the plain one, from Content-Disposition. */
+function filenameOf(disposition) {
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition ?? '')?.[1]
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded)
+    } catch {
+      // Not percent-encoding after all: the plain name below.
+    }
+  }
+  return /filename="([^"]*)"/i.exec(disposition ?? '')?.[1] ?? ''
+}
+
 /**
  * @param {HTMLElement} root
  * @param {{ path: string, basename: string, onReady: () => void }} options
@@ -46,6 +72,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
   let diagrams = []
   let sheets = null
   let toolbar = null
+  let menu = null
   let destroyed = false
   let ready = false
   const settle = () => {
@@ -56,6 +83,10 @@ export function createDiagramView(root, { path, basename, onReady }) {
   }
 
   const head = element('div', 'plantuml-viewer__head')
+  // A failed export says why here, under the toolbar, until the next export.
+  const notice = element('p', 'plantuml-viewer__notice')
+  notice.setAttribute('role', 'status')
+  notice.hidden = true
   const tabBar = element('div', 'plantuml-viewer__tabbar')
   tabBar.hidden = true
   const stage = element('div', 'plantuml-viewer__stage')
@@ -69,7 +100,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     controls: stageId,
   })
   tabBar.append(tabs.element)
-  head.append(tabBar)
+  head.append(notice, tabBar)
   root.replaceChildren(head, stage)
 
   root.addEventListener('keydown', (event) => {
@@ -80,12 +111,74 @@ export function createDiagramView(root, { path, basename, onReady }) {
     }
   })
 
-  /** Task 9: the Export label follows what is checked. */
-  function afterCheck() {}
-  /** Task 9: Export's menu. */
-  function exportMenu() {}
-  /** Task 9: the editor at the diagram in view. */
-  function edit() {}
+  /** The 0-based places Export and Edit act on, in file order; none in Stack or Wall is every diagram. */
+  function chosen() {
+    return state.mode === 'tabs' ? [state.active] : [...state.checked].sort((a, b) => a - b)
+  }
+
+  /** The Export label follows what is checked. */
+  function afterCheck() {
+    const count = state.checked.size
+    toolbar?.setExportLabel(state.mode === 'tabs'
+      ? t(APP_ID, 'Export')
+      : count === 0 ? t(APP_ID, 'Export all') : n(APP_ID, 'Export %n', 'Export %n', count))
+  }
+
+  /** What the menu exports: the one diagram's label, else how many go in the zip. */
+  function exportHeading() {
+    const indexes = chosen()
+    const count = indexes.length || diagrams.length
+    if (count > 1) {
+      return n(APP_ID, '%n diagrams, as .zip', '%n diagrams, as .zip', count)
+    }
+    const one = diagrams[indexes[0] ?? 0]
+    // A file of one unnamed diagram is named after the file (the export-menu-single board).
+    return diagrams.length === 1 && !one.name ? basename.replace(/\.(?:puml|plantuml)$/i, '') : label(one)
+  }
+
+  function say(problem) {
+    notice.textContent = problem
+    notice.hidden = problem === ''
+  }
+
+  /** Fetched, then saved through a blob: URL: a link straight to the route would save a refusal's JSON as the file. */
+  async function download(format) {
+    say('')
+    try {
+      const res = await fetch(exportUrl(path, format, chosen()), { credentials: 'same-origin' })
+      if (!res.ok) {
+        say(jsonProblem(await res.text()) || t(APP_ID, 'Could not export the diagram'))
+        return
+      }
+      const url = URL.createObjectURL(await res.blob())
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filenameOf(res.headers.get('Content-Disposition'))
+      document.body.append(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      say(t(APP_ID, 'Could not export the diagram'))
+    }
+  }
+
+  /** A second click on Export closes its menu, as the tabs' "All diagrams" does. */
+  function exportMenu() {
+    menu ??= createMenu({ anchor: toolbar.exportButton, heading: exportHeading, items: formats(), onPick: download })
+    if (toolbar.exportButton.getAttribute('aria-expanded') === 'true') {
+      menu.close()
+    } else {
+      menu.open()
+    }
+  }
+
+  /** The editor at the diagram in view; the Viewer closes first, as the editor opens over Files. */
+  function edit() {
+    const index = chosen()[0] ?? 0
+    window.OCA?.Viewer?.close()
+    openEditor({ path, basename }, { diagram: index })
+  }
 
   function card(index) {
     const node = element('div', 'plantuml-viewer__card')
@@ -106,8 +199,9 @@ export function createDiagramView(root, { path, basename, onReady }) {
     node.classList.toggle('plantuml-viewer__card--checked', box.checked)
     node.append(caption, sheets.sheet(index + 1))
     // The caption is a <label>: a click on its text toggles the box, so it counts as the checkbox.
+    // A diagram's link opens in a new tab (inline-svg.js) and leaves the Wall as it is.
     node.addEventListener('click', (event) => {
-      if (state.mode === 'wall' && !caption.contains(event.target)) {
+      if (state.mode === 'wall' && !caption.contains(event.target) && !event.target.closest?.('a')) {
         state.mode = 'tabs'
         state.active = index
         show()
@@ -144,14 +238,15 @@ export function createDiagramView(root, { path, basename, onReady }) {
     head.prepend(toolbar.element)
   }
 
-  loadFile(path).then(({ content }) => {
+  // A failed look at the share leaves Export to the route, which refuses what it must.
+  Promise.all([loadFile(path), canDownload(path).catch(() => true)]).then(([{ content }, exportable]) => {
     if (destroyed) {
       return
     }
     // CodeMirror reads any line ending for the editor; scan() splits on \n alone.
     diagrams = scan(content.replace(/\r\n?/g, '\n'))
     sheets = createSheets(path, { labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
-    build({ exportable: true })
+    build({ exportable })
     sheets.sheet(1).addEventListener('plantuml-viewer:settled', settle, { once: true })
     show()
   }, () => {
@@ -167,6 +262,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
   return {
     destroy() {
       destroyed = true
+      menu?.destroy()
       sheets?.destroy()
       tabs.destroy()
       root.replaceChildren()

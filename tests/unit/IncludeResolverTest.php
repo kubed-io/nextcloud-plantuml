@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\PlantUml\Tests\Unit;
 
 use OCA\PlantUml\Service\Expanded;
+use OCA\PlantUml\Service\FileReader;
 use OCA\PlantUml\Service\IncludeResolver;
 use OCP\Constants;
 use OCP\Files\File;
@@ -782,35 +783,21 @@ final class IncludeResolverTest extends TestCase {
 	}
 
 	/** @return array<string, array{\Closure, bool}> */
-	public static function downloadRules(): array {
+	public static function sharesOfBothKinds(): array {
 		return [
 			'not on a share' => [fn (self $t): IStorage => $t->createStub(IStorage::class), false],
 			'a share that forbids download' => [fn (self $t): IStorage => $t->shareStorage(false), true],
 			'a share that allows it' => [fn (self $t): IStorage => $t->shareStorage(true), false],
-			'a share that says nothing' => [fn (self $t): IStorage => $t->shareStorage(null), false],
 		];
 	}
 
-	#[DataProvider('downloadRules')]
-	public function testForbidsDownloadAsItsShareSays(\Closure $storage, bool $forbidden): void {
-		$file = $this->createStub(File::class);
-		$file->method('getStorage')->willReturn($storage($this));
-		self::assertSame($forbidden, IncludeResolver::forbidsDownload($file));
-	}
-
-	public function testAFileWhoseStorageCannotBeAskedForbidsDownload(): void {
-		$file = $this->createStub(File::class);
-		$file->method('getStorage')->willThrowException(new \Exception('no storage'));
-		self::assertTrue(IncludeResolver::forbidsDownload($file));
-	}
-
 	/** One rule for both: an export is refused exactly where an include of the same file is (the diagram on no share). */
-	#[DataProvider('downloadRules')]
+	#[DataProvider('sharesOfBothKinds')]
 	public function testAnIncludeIsRefusedExactlyWhereADownloadIs(\Closure $storage, bool $forbidden): void {
 		$file = $this->file('Shared/notes.puml', "shared\n", null, $storage($this));
 		$expanded = $this->expand("!include /Shared/notes.puml\n", ['Shared/notes.puml' => $file]);
 
-		self::assertSame($forbidden, IncludeResolver::forbidsDownload($file));
+		self::assertSame($forbidden, FileReader::downloadForbidden($file));
 		self::assertSame($forbidden ? "!include /Shared/notes.puml\n" : "shared\n", $expanded->source);
 	}
 

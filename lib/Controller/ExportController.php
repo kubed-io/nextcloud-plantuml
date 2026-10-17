@@ -13,7 +13,7 @@ use OCA\PlantUml\Exception\FileRefusal;
 use OCA\PlantUml\Exception\RenderException;
 use OCA\PlantUml\Service\DiagramFiles;
 use OCA\PlantUml\Service\Diagrams;
-use OCA\PlantUml\Service\IncludeResolver;
+use OCA\PlantUml\Service\FileReader;
 use OCA\PlantUml\Service\Rendered;
 use OCA\PlantUml\Service\RenderService;
 use OCP\AppFramework\Controller;
@@ -83,7 +83,7 @@ final class ExportController extends Controller {
 		} catch (FileRefusal $e) {
 			return $e->response;
 		}
-		if (IncludeResolver::forbidsDownload($file->file)) {
+		if (FileReader::downloadForbidden($file->file)) {
 			return new Response(Http::STATUS_NOT_FOUND);
 		}
 		$all = Diagrams::scan($file->text);

@@ -11,11 +11,9 @@ namespace OCA\PlantUml\Service;
 
 use OCA\Files_Sharing\SharedStorage;
 use OCP\Constants;
-use OCP\Files\ConnectionLostException;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\ForbiddenException;
-use OCP\Files\GenericFileException;
 use OCP\Files\InvalidPathException;
 use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
@@ -335,7 +333,7 @@ final class IncludeResolver {
 			$this->keep($at, "$shown is past the limit of " . self::MAX_FILES . ' files');
 			return;
 		}
-		$size = self::fileSize($found['file']);
+		$size = FileReader::size($found['file']);
 		if ($size !== null && $size > self::MAX_LIBRARY_BYTES) {
 			$this->keep($at, "$shown is past the limit of 8 MB for a library");
 			return;
@@ -345,7 +343,7 @@ final class IncludeResolver {
 			$this->keep($at, "$shown is past the limit of 16 MB of libraries in all");
 			return;
 		}
-		$content = $size === null ? null : self::content($found['file'], min(self::MAX_LIBRARY_BYTES, $remaining));
+		$content = $size === null ? null : FileReader::read($found['file'], min(self::MAX_LIBRARY_BYTES, $remaining));
 		if ($content !== null && strlen($content) > self::MAX_LIBRARY_BYTES) {
 			$this->keep($at, "$shown is past the limit of 8 MB for a library");
 			return;
@@ -368,7 +366,7 @@ final class IncludeResolver {
 			'dir' => $found['context']['dir'],
 			'caller' => $context['caller'],
 			// Found for the caller, it forbids no download; found for the owner, only the exemption let it through.
-			'exempt' => self::forbidsDownload($found['file']),
+			'exempt' => FileReader::downloadForbidden($found['file']),
 		];
 		$this->take();
 	}
@@ -596,7 +594,7 @@ final class IncludeResolver {
 	/** @param Found $found */
 	private function size(array $found): ?int {
 		if ($found['file'] !== null) {
-			return self::fileSize($found['file']);
+			return FileReader::size($found['file']);
 		}
 		$stat = $this->imports[(int)$found['zip']]['zip']->statIndex($found['entry']);
 		return $stat === false ? null : (int)$stat['size'];
@@ -610,7 +608,7 @@ final class IncludeResolver {
 	 */
 	private function fetch(array $found, int $limit): ?string {
 		if ($found['file'] !== null) {
-			return self::content($found['file'], $limit);
+			return FileReader::read($found['file'], $limit);
 		}
 		$content = $this->imports[(int)$found['zip']]['zip']->getFromIndex($found['entry'], $limit + 1);
 		return $content === false ? null : $content;
@@ -811,28 +809,12 @@ final class IncludeResolver {
 	}
 
 	/**
-	 * A file on a share whose owner forbids download, decided as files_sharing's
-	 * ViewOnly decides it; a storage that cannot be asked is a refusal too. The
-	 * export refuses such a file outright, since an export is a download.
-	 */
-	public static function forbidsDownload(File $file): bool {
-		try {
-			$storage = $file->getStorage();
-			return $storage->instanceOfStorage(SharedStorage::class)
-				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false;
-		} catch (\Throwable) {
-			// Core throws a bare Exception for a node without storage; unreadable, as a refusal is.
-			return true;
-		}
-	}
-
-	/**
-	 * A file that forbids download (above), which a picture of its text would get
+	 * A file that forbids download (`FileReader::downloadForbidden`), which a picture of its text would get
 	 * around, unless the diagram is on that same share, may not write to it and is
 	 * the owner's text, and the lookup is not for the caller's (`$caller`).
 	 */
 	private function viewOnly(File $file, bool $caller): bool {
-		return self::forbidsDownload($file) && ($this->ownShare === null || $caller || self::shareOf($file) !== $this->ownShare);
+		return FileReader::downloadForbidden($file) && ($this->ownShare === null || $caller || self::shareOf($file) !== $this->ownShare);
 	}
 
 	/**
@@ -863,35 +845,6 @@ final class IncludeResolver {
 			return null;
 		}
 		return self::shareOf($self);
-	}
-
-	private static function fileSize(File $file): ?int {
-		try {
-			return (int)$file->getSize();
-		} catch (InvalidPathException|NotFoundException|StorageNotAvailableException|StorageInvalidException|ForbiddenException) {
-			return null;
-		}
-	}
-
-	/**
-	 * At most `$limit` + 1 bytes, read through a stream: a stored size can be
-	 * wrong. Null when there is no stream, rather than a read of any size.
-	 */
-	private static function content(File $file, int $limit): ?string {
-		try {
-			$handle = $file->fopen('r');
-			if (!is_resource($handle)) {
-				return null;
-			}
-			try {
-				$content = stream_get_contents($handle, $limit + 1);
-			} finally {
-				fclose($handle);
-			}
-			return $content === false ? null : $content;
-		} catch (NotPermittedException|GenericFileException|LockedException|NotFoundException|InvalidPathException|StorageNotAvailableException|StorageInvalidException|ForbiddenException|ConnectionLostException) {
-			return null;
-		}
 	}
 
 	/**

@@ -15,7 +15,7 @@
  * server refuses it.
  */
 export default (core) => {
-  const { common, escapedString, table } = core.lex
+  const { comma, common, escapedString, table } = core.lex
   const strings = escapedString()
   const lines = common({ all: false, title: true })
   const word = /[^\s{}[\]()=,:"]+/
@@ -24,7 +24,7 @@ export default (core) => {
   const values = [
     ...strings.rules,
     { regex: /[=:]/, token: 'definitionOperator' },
-    { regex: /,/, token: 'separator' },
+    comma,
     { regex: /\{/, token: 'brace', push: 'object' },
     { regex: /\[/, token: 'squareBracket', push: 'array' },
     { regex: /\(/, token: 'paren', push: 'args' },

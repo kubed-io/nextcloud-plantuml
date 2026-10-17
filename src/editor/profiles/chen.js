@@ -13,7 +13,7 @@
  * list. The common lines, `left to right direction` among them, are the lexicon's (G4).
  */
 export default (core) => {
-  const { colours, common, stereotypeState, stereotypes, table, tagStates } = core.lex
+  const { colours, comma, common, paren, stereotypeState, stereotypes, string, table, tagStates } = core.lex
   const lines = common()
   const code = /[\w.%]+/
   const number = { regex: /\w+/, token: 'number' }
@@ -21,7 +21,7 @@ export default (core) => {
   const attribute = [
     { regex: /\}/, token: 'brace', pop: true },
     { regex: /(")([^"]*)(")(\s+)(as)(?=\s)/, token: ['string', 'string', 'string', null, 'keyword'] },
-    { regex: /"[^"]*"/, token: 'string' },
+    string,
     ...stereotypes,
     ...colours,
     { regex: /\{/, token: 'brace', push: 'body' },
@@ -43,7 +43,7 @@ export default (core) => {
     // `entity "Display" as CODE <<stereotype>> #colour {`, the code a classifier.
     header: [
       { regex: /\{/, token: 'brace', next: 'body' },
-      { regex: /"[^"]*"/, token: 'string' },
+      string,
       { regex: /as(?=\s)/, token: 'keyword' },
       ...stereotypes,
       ...colours,
@@ -52,8 +52,8 @@ export default (core) => {
     body: attribute,
     cardinality: [
       { regex: /[-=]/, token: 'LinkOperator', pop: true },
-      { regex: /[()]/, token: 'paren' },
-      { regex: /,/, token: 'separator' },
+      paren,
+      comma,
       number,
     ],
     subclass: [
@@ -64,7 +64,7 @@ export default (core) => {
     ],
     subclasses: [
       { regex: /\}/, token: 'brace', pop: true },
-      { regex: /,/, token: 'separator' },
+      comma,
       { regex: /[^\s,}]+/, token: null },
     ],
     stereotype: stereotypeState,

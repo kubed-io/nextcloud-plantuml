@@ -11,7 +11,7 @@
  * escapes. G4's common lines win at a line's start.
  */
 export default (core) => {
-  const { common, table } = core.lex
+  const { comma, common, paren, table } = core.lex
   const lines = common()
   // A name: letters, digits and `_`, and `-` after the first character.
   const word = /[\p{L}\p{N}_][-\p{L}\p{N}_]*/u.source
@@ -20,7 +20,7 @@ export default (core) => {
     { regex: /"[^"]*"|'[^']*'|\?[^?]*\?/, token: 'string' },
     { regex: /(\})(-)/, token: ['brace', 'Quantifier'] },
     { regex: /\{|\}/, token: 'brace' },
-    { regex: /[()]/, token: 'paren' },
+    paren,
     { regex: /[[\]]/, token: 'squareBracket' },
     { regex: /=/, token: 'definitionOperator' },
     { regex: /\|/, token: 'logicOperator' },
@@ -29,7 +29,7 @@ export default (core) => {
     { regex: /\*/, token: 'Quantifier' },
     // A rule ends at its `;` (strings are taken above), what follows on the line is not a rule.
     { regex: /;/, token: 'separator', ...end },
-    { regex: /,/, token: 'separator' },
+    comma,
     { regex: /[-\p{L}\p{N}_]+/u, token: null },
   ]
   const mode = table({

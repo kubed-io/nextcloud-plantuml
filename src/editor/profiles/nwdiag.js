@@ -12,7 +12,7 @@
  * colour), a bare `name;` too; a link is `a -- b`; `//` at a line's start is a comment.
  */
 export default (core) => {
-  const { atNextLine, attributeList, common, number, patterns, quotedColour, table } = core.lex
+  const { atNextLine, attributeList, common, number, patterns, quotedColour, string, table } = core.lex
   const lines = common()
   const name = /[-.\w]+/.source
   const colour = `#?${patterns.colourPart}`
@@ -38,14 +38,14 @@ export default (core) => {
     colour: [
       atNextLine({ next: 'start' }),
       { regex: new RegExp(quoted.source), token: quoted.token },
-      { regex: /"[^"]*"/, token: 'string' },
+      string,
       { regex: new RegExp(`${colour}(?![\\w.])`), token: 'ColorLiteral' },
       { regex: /;/, token: 'separator' },
       { regex: /./, token: null },
     ],
     value: [
       atNextLine({ next: 'start' }),
-      { regex: /"[^"]*"/, token: 'string' },
+      string,
       { regex: /full(?!\w)/, token: 'atom' },
       number,
       { regex: /;/, token: 'separator' },

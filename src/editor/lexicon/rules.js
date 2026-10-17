@@ -15,6 +15,12 @@
  */
 import preprocessor from '../data/directives.json'
 
+/** The tokens every grammar reads alike: a double-quoted string, either quote, a paren and a comma. */
+export const string = { regex: /"[^"]*"/, token: 'string' }
+export const quoted = { regex: /"[^"]*"|'[^']*'/, token: 'string' }
+export const paren = { regex: /[()]/, token: 'paren' }
+export const comma = { regex: /,/, token: 'separator' }
+
 const arrowAttr = /\[[^[\]]*\]/.source
 const arrowDirection = /(?:[drlu]|do|down|le|left|ri|right|up)/.source
 const arrowBody = `(?:-+${arrowDirection}-+|\\.+${arrowDirection}\\.+|-+(?:${arrowAttr}-*)?|${arrowAttr}-+|\\.+(?:${arrowAttr}\\.*)?|${arrowAttr}\\.+|=+|~+)`
@@ -165,7 +171,7 @@ export const attributes = (end) => [
   // A namespaced name (`xlink:href`) is one.
   { regex: /[\w:-]+(?=\s*=)/, token: 'attributeName' },
   { regex: /=/, token: 'definitionOperator' },
-  { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+  quoted,
   { regex: /[^\s>"',}]+/, token: 'string' },
   { regex: /./, token: null },
 ]
@@ -184,7 +190,7 @@ export const tagStates = {
     { regex: /\s+/, token: null },
     { regex: /(\})(>)(?!>)/, token: ['brace', 'tagName'], pop: true },
     { regex: /\}/, token: 'brace', pop: true },
-    { regex: /,/, token: 'separator' },
+    comma,
     ...attributes(/(?=[\s,}>]|$)/.source),
   ],
 }
@@ -222,7 +228,7 @@ export const stereotypeState = [
   { regex: /\$[\w.-]+/, token: 'tagName' },
   { regex: /\*\d+(?:\.\d+)?/, token: 'number' },
   { regex: /\{/, token: 'brace', push: 'tagBraces' },
-  { regex: /,/, token: 'separator' },
+  comma,
   { regex: /(?:[^>\s,{]|>(?!>))+/, token: 'annotation' },
 ]
 
@@ -237,9 +243,6 @@ export const numbers = [
   { regex: /(\|\|)(\d+)(\|\|)/, token: ['separator', 'number', 'separator'] },
   number,
 ]
-
-/** A comma between arguments. */
-export const comma = { regex: /,/, token: 'separator' }
 
 /** The preprocessor's operators by kind (H19), for a `!` line and a call's arguments. */
 export const operators = [
@@ -262,7 +265,7 @@ export const argsState = [
   { regex: /\)/, token: 'paren', pop: true },
   { regex: /\(/, token: 'paren', push: 'args' },
   comma,
-  { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+  quoted,
   ...names,
   ...numbers,
   // A name before `=` is an attribute (`id=fun`).
@@ -433,7 +436,7 @@ export const classStates = {
   classHead: [
     { regex: /\{(?=\s*$)/, token: 'brace' },
     alias,
-    { regex: /"[^"]*"/, token: 'string' },
+    string,
     ...stereotypes,
     ...colours,
     { regex: /\w+/, token: null },
@@ -449,7 +452,7 @@ export const classStates = {
     { regex: /(\s*)(:)(\s*)([A-Za-z_][\w.<>[\],]*)/, token: [null, 'separator', null, 'typeName'] },
     ...calls,
     ...callNames,
-    { regex: /"[^"]*"/, token: 'string' },
+    string,
     ...stereotypes,
     { regex: /\w+/, token: null },
   ],
@@ -470,7 +473,7 @@ export const head = [
 export const toColon = (next) => [
   { regex: /\s*:\s*/, token: null, next },
   // A multiplicity or role, as the one before the link is a string.
-  { regex: /"[^"]*"/, token: 'string' },
+  string,
   ...names,
   { regex: /[^:$%"]+|"/, token: null },
 ]
@@ -532,7 +535,7 @@ const command = (pattern, next) => ({ regex: new RegExp(`([ \\t]*)(${pattern})`,
 const commonArgs = [
   atNextLine({ next: 'start' }),
   ...colours,
-  { regex: /"[^"]*"/, token: 'string' },
+  string,
   number,
   { regex: /\w+/, token: null },
 ]
@@ -726,8 +729,8 @@ export const attributeList = (extra = []) => [
   { regex: /\]/, token: 'squareBracket', pop: true },
   { regex: /[A-Za-z_]\w*(?=\s*=)/, token: 'attributeName' },
   { regex: /=/, token: 'definitionOperator' },
-  { regex: /"[^"]*"/, token: 'string' },
-  { regex: /,/, token: 'separator' },
+  string,
+  comma,
   { regex: /[^\s,\]="]+/, token: null },
   { regex: /./, token: null },
 ]

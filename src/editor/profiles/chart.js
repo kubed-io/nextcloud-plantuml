@@ -9,7 +9,7 @@
  * pushed (a list, a stereotype) ends with its line. The common lines are the lexicon's (G4).
  */
 export default (core) => {
-  const { colours, common, stereotypeState, stereotypes, table, tagStates } = core.lex
+  const { colours, common, paren, stereotypeState, stereotypes, string, table, tagStates } = core.lex
   const lines = common({ legend: 'line' })
   const word = (list) => new RegExp(`(?:${list})(?![\\w-])`)
   const number = { regex: /-?(?:\d+\.?\d*|\.\d+)(?![\w.])/, token: 'number' }
@@ -21,22 +21,22 @@ export default (core) => {
       { regex: word('h-axis|x-axis|v2-axis|y2-axis|v-axis|y-axis|bar|line|area|scatter|legend|stackMode|orientation|annotation|at|ticks|spacing'), token: 'keyword' },
       { regex: word('labels|grid|label-right|label-top|v2|y2'), token: 'modifier' },
       { regex: word('left|right|top|bottom|grouped|stacked|vertical|horizontal'), token: 'atom' },
-      { regex: /"[^"]*"/, token: 'string' },
+      string,
       ...stereotypes,
       ...colours,
       { regex: /-{1,2}>/, token: 'separator' },
       number,
       { regex: /\[/, token: 'squareBracket', push: 'data' },
-      { regex: /[()]/, token: 'paren' },
+      paren,
       { regex: /[\w-]+/, token: null },
     ],
     // Data, labels and ticks: a bare label is plain, `0:"Poor"`'s colon a separator.
     data: [
       { regex: /\]/, token: 'squareBracket', pop: true },
-      { regex: /"[^"]*"/, token: 'string' },
+      string,
       number,
       { regex: /[,:]/, token: 'separator' },
-      { regex: /[()]/, token: 'paren' },
+      paren,
       { regex: /[^\]\s,:"()]+/, token: null },
     ],
     stereotype: stereotypeState,

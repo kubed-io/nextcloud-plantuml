@@ -25,7 +25,7 @@ const copyOf = (state) => Object.fromEntries(Object.entries(state).map(([key, va
 
 /** @param {import('./index.js').Core} core */
 export default (core) => {
-  const { common, stereotypes, stereotypeState, table } = core.lex
+  const { common, stereotypes, stereotypeState, string, table } = core.lex
   const lines = common()
   const common_ = table({
     start: [
@@ -41,7 +41,7 @@ export default (core) => {
       { regex: HIGHLIGHT_LINE, sol: true, token: 'keyword' },
       { regex: /\s+/, token: null },
       { regex: /\//, token: 'separator' },
-      { regex: /"[^"]*"/, token: 'string' },
+      string,
       { regex: new RegExp(`\\*\\*?${PART_END}`), token: 'atom' },
       { regex: new RegExp(`\\d+${PART_END}`), token: 'number' },
       ...stereotypes,

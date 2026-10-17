@@ -28,8 +28,8 @@
 import { StreamLanguage } from '@codemirror/language'
 import {
   argsState, arrow, atLineStart, blockComment, body, box, callNames, calls, classStates, comma, codeLines, colours, comments, creole,
-  declarations, directive, directiveLine, head, hex, lines, named, names, number, numbers, operators, patterns, paths, spriteLines, spriteStates, startLine, stereotypeState,
-  stereotypes, styledClose, styledOpen, tagStates, toColon,
+  declarations, directive, directiveLine, head, hex, lines, named, names, number, numbers, operators, paren, patterns, paths, quoted, spriteLines, spriteStates, startLine, stereotypeState,
+  stereotypes, styledClose, styledOpen, string, tagStates, toColon,
 } from './lexicon/rules.js'
 import { registerParser } from './docs/top-level.js'
 import { table } from './lexicon/table.js'
@@ -94,7 +94,7 @@ const states = {
     atLineStart(`#(?![\\dA-Fa-f]+(?!\\w))\\w+`, null),
     // A sprite definition (T16): its header is read by `spriteHead`, its pixel rows by `spriteRows`.
     ...spriteLines,
-    { regex: /"[^"]*"/, token: 'string' },
+    string,
     { regex: /\[\[[^\]]*\]\]/, token: 'link' },
     // A colon with a space beside it starts text, as a link's does (a link is read by `afterLink`).
     { regex: /\s+:\s*|:\s+/, token: null, next: 'colonText' },
@@ -121,14 +121,14 @@ const states = {
   boxText: activity.boxText,
   boxLast: activity.boxLast,
   // An element line's text after ` : ` is text (H14): a colour and a string keep their look.
-  colonText: [...colours, { regex: /"[^"]*"/, token: 'string' }, ...creole(null)],
+  colonText: [...colours, string, ...creole(null)],
   stereotype: stereotypeState,
   args: argsState,
   // A condition, to its `)`; it ends with its line, see `lineStates`.
   condition: [
     { regex: /\)/, token: 'paren', pop: true },
     { regex: /\(/, token: 'paren', push: 'condition' },
-    { regex: /"[^"]*"/, token: 'string' },
+    string,
     paths.url,
     ...colours,
     ...callNames,
@@ -141,11 +141,11 @@ const states = {
   classBody: [...bang, ...classStates.classBody],
   // The rest of a `!` line; it ends with its line, see `lineStates`.
   preprocessor: [
-    { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+    quoted,
     ...names,
     number,
     ...operators,
-    { regex: /[()]/, token: 'paren' },
+    paren,
     comma,
     { regex: /\w+/, token: null },
   ],
@@ -158,7 +158,7 @@ const states = {
   // A theme's name is plain; what comes after `from` is a path.
   theme: [
     { regex: /(\s+from\s+)(?=[^\s'$%])/, token: null, next: 'themePath' },
-    { regex: /"[^"]*"|'[^']*'/, token: 'string' },
+    quoted,
     ...names,
     { regex: /\s+|[^\s"'$%]+|./, token: null },
   ],

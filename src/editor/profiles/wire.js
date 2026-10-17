@@ -11,12 +11,12 @@
  * common lines are the lexicon's (G4).
  */
 export default (core) => {
-  const { atLineStart, atNextLine, colours, comma, common, creole, creoleStates, table } = core.lex
+  const { atLineStart, atNextLine, colours, comma, common, creole, creoleStates, paren, string, table } = core.lex
   const lines = common()
   const coordinate = { regex: /-?\d+(?:%(?:[+-]\d+)?)?(?![\w.])/, token: 'number' }
   // A spot's or a link's `(x, y)`.
   const coordinates = [
-    { regex: /[()]/, token: 'paren' },
+    paren,
     comma,
     coordinate,
   ]
@@ -74,7 +74,7 @@ export default (core) => {
     args: [
       { regex: /\)/, token: 'paren', pop: true },
       comma,
-      { regex: /"[^"]*"/, token: 'string' },
+      string,
       coordinate,
       { regex: /[^)\d",-]+|./, token: null },
     ],

@@ -23,7 +23,8 @@ use OCP\Util;
  * server is set, so the bundle can hide what would only answer "not set".
  *
  * The editor bundle is left to `plantuml-files`, which adds it the first time
- * the editor opens; its stylesheet is small and loads here, ready for the overlay.
+ * the editor opens; its stylesheet is small and loads here, ready for the overlay,
+ * and so does the Viewer's, for the diagrams drawn in the lightbox.
  *
  * Wired to {@see LoadAdditionalScriptsEvent}, which the Files app fires once per
  * page render right before its `<script>` tags are emitted.
@@ -49,6 +50,7 @@ final class LoadFilesScriptListener implements IEventListener {
 		// back out of js/ into the vite output (see vite.config.js).
 		Util::addScript(Application::APP_ID, '../dist/' . Application::APP_ID . '-files');
 		Util::addStyle(Application::APP_ID, 'editor');
+		Util::addStyle(Application::APP_ID, 'viewer');
 		Util::addScript(Application::APP_ID, '../dist/' . Application::APP_ID . '-readme');
 	}
 }

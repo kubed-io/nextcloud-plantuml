@@ -1,0 +1,99 @@
+/* SPDX-FileCopyrightText: 2026 kubed-io
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* The Viewer's diagrams (src/viewer/), drawn after the Penpot viewer boards:
+ * under the Viewer's 50px bar, a column with a 16px gap and 40px bottom
+ * padding, the head over the scrolling stage. The backdrop is black in both
+ * themes. */
+.plantuml-viewer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	width: 100%;
+	height: 100%;
+	padding: 16px 0 40px;
+	box-sizing: border-box;
+}
+
+.plantuml-viewer__head {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	flex: none;
+	align-self: stretch;
+	min-width: 0;
+}
+
+.plantuml-viewer__tabbar {
+	display: flex;
+	box-sizing: border-box;
+	max-width: calc(100% - 32px);
+	height: 44px;
+	padding: 0 8px;
+	border: 1px solid var(--color-border-maxcontrast);
+	border-radius: 8px;
+	background: var(--color-main-background);
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.plantuml-viewer__tabbar[hidden] {
+	display: none;
+}
+
+/* tabs.js's strip, styled for the editor's pane by editor.css (which every
+ * Files page loads): kept inside the pill, at the board's tab size. */
+.plantuml-viewer__tabbar .plantuml-editor__tabbar {
+	min-width: 0;
+	height: 100%;
+	margin: 0;
+	border: 0;
+	align-self: auto;
+}
+
+.plantuml-viewer__tabbar .plantuml-editor__tabs {
+	padding: 0;
+}
+
+.plantuml-viewer__tabbar .plantuml-editor__tabs button.plantuml-editor__tab {
+	padding: 0 16px;
+	font-size: 15px;
+}
+
+.plantuml-viewer__stage {
+	display: flex;
+	flex: 1;
+	width: 100%;
+	min-height: 0;
+	overflow: auto;
+}
+
+/* Centred by auto margins, not align-items: centring a sheet taller than the
+ * stage would push its top out of reach of the scrollbar. */
+.plantuml-viewer__stage > .plantuml-viewer__sheet {
+	margin: auto;
+}
+
+.plantuml-viewer__sheet {
+	max-width: calc(100% - 80px);
+	padding: 40px;
+	border-radius: 8px;
+	background: #ffffff;
+}
+
+.plantuml-viewer__sheet svg {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+
+.plantuml-viewer__sheet--problem {
+	background: none;
+}
+
+.plantuml-viewer__problem {
+	margin: 0;
+	color: #ffffff;
+	font-size: 16px;
+}

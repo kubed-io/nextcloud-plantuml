@@ -55,7 +55,7 @@ final class LoadFilesScriptListenerTest extends TestCase {
 		);
 	}
 
-	public function testAddsTheEditorStylesheet(): void {
+	public function testAddsTheEditorThenTheViewerStylesheet(): void {
 		$listener = new LoadFilesScriptListener(
 			$this->createStub(ServerConfig::class),
 			$this->createStub(IInitialState::class),
@@ -63,7 +63,7 @@ final class LoadFilesScriptListenerTest extends TestCase {
 
 		$listener->handle(new LoadAdditionalScriptsEvent());
 
-		self::assertSame(['plantuml/css/editor'], Util::getStyles());
+		self::assertSame(['plantuml/css/editor', 'plantuml/css/viewer'], Util::getStyles());
 	}
 
 	public function testIgnoresAnyOtherEvent(): void {

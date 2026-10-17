@@ -22,9 +22,10 @@
 - UI copy, exactly: "Add diagram" (the + half's label and title, the modal's title), "Add a diagram of a type" (the ▾ half's label), "Search" (placeholder), "Close", "Shared · " and "Yours · " (description prefixes), "Templates", "Diagrams everyone can start from, in Add diagram", "Template folder", "In <actor>'s files · N templates in M files".
 - Built-in templates never use `skinparam`; any styling is a `<style>` block (TP5, A8).
 - The types (A6), in this order, `type` → display name → icon (A7): uml UML shape-outline, bpm BPM cog-transfer-outline, board Board view-column-outline, chart Chart chart-bar, chen Chen ER relation-one-to-many, creole Creole format-text, dot DOT graph-outline, ditaa Ditaa draw, ebnf EBNF alphabetical-variant, files Files file-tree-outline, flow Flow transit-connection-variant, gantt Gantt chart-gantt, git Git source-branch, hcl HCL code-equal, json JSON code-json, latex LaTeX sigma, math Math math-integral, mindmap MindMap head-lightbulb-outline, project Project calendar-range-outline, regex Regex regex, salt Salt application-outline, sprites Sprites checkerboard, wbs WBS sitemap-outline, wire Wire connection, yaml YAML format-indent-increase, nwdiag nwdiag lan, packetdiag packetdiag table-row.
-- Never edit a `.feature` file; Gherkin goes to Dr K as a proposal. Never write a real name or a homelab hostname into a file; the maintainer is Dr K; a fixture user is `drk`.
+- **`.feature` files, this round only (Dr K, 2026-10-17: "do touch .feature files and write the test definitions"):** remove `@unbuilt` from the four approved template scenarios in `features/diagrams/edit.feature` once their definitions are written (Task 5), and change a step's wording only if a definition truly cannot be written for it, recording why in `features/AGENTS.md`. No other `.feature` edit; a new scenario is still proposed to Dr K. This round writes every step definition it needs.
+- Never write a real name or a homelab hostname into a file; the maintainer is Dr K; fixture users are `drk` and `alice`.
 - Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- **Shared ground with the other two rounds of 2026-10-17** (planned order: Viewer → Linked files → Add diagram). The Viewer round adds `lib/Service/Diagrams.php` (B1 on the server); the Linked-files round turns the bar's name into a breadcrumb, adds `openLinked`/`goBack` to `src/editor.js` and changes `IncludeResolver` (`overrides`). If either has landed first: keep the split button just before the Source toggle whatever the name became, hide it while a linked file is open (Task 9 Steps 5–8, Dr K's ruling), and make Task 1's move on top of its `IncludeResolver`. `TemplateLibrary::blocks()` stays its own: it counts only A6's types, which `Diagrams` does not. The Viewer round also splits `IncludeResolver::forbidsDownload()` out of `viewOnly()` (used by `ExportController`): Task 1 moves it into `FileReader` as `downloadForbidden` and points `ExportController` at it, so one helper decides for drawings, exports and templates.
+- **Shared ground with the other two rounds of 2026-10-17** (planned order: Viewer → Linked files → Add diagram). The Viewer round adds `lib/Service/Diagrams.php` (B1 on the server); the Linked-files round turns the bar's name into a breadcrumb, adds `openLinked`/`goBack` to `src/editor.js` and changes `IncludeResolver` (`overrides`). If either has landed first: keep the split button just before the Source toggle whatever the name became, hide it while a linked file is open (Task 10 Steps 5–8, Dr K's ruling), and make Task 1's move on top of its `IncludeResolver`. `TemplateLibrary::blocks()` stays its own: it counts only A6's types, which `Diagrams` does not. The Viewer round also splits `IncludeResolver::forbidsDownload()` out of `viewOnly()` (used by `ExportController`): Task 1 moves it into `FileReader` as `downloadForbidden` and points `ExportController` at it, so one helper decides for drawings, exports and templates.
 
 ## Rulings (where the spec is silent, or the boards say more)
 
@@ -44,11 +45,11 @@
 
 ## Review Focus
 
-1. **Escape inside the menu or the modal** closes only that, never the editor: `src/editor.js`'s document `keydown` closes the editor on any Escape not `defaultPrevented`. Pinned in Tasks 9 and 10.
+1. **Escape inside the menu or the modal** closes only that, never the editor: `src/editor.js`'s document `keydown` closes the editor on any Escape not `defaultPrevented`. Pinned in Tasks 10 and 11.
 2. **A download-forbidden file in the template folder** (a view-only share someone made to the actor) must not be served to every user as text, as `IncludeResolver::viewOnly` refuses it in a drawing. Pinned in Task 2.
 3. **No actor** (an empty `admin` group, a `template_actor` naming a deleted user): the route still answers with the user's own templates, the card has no status line, `show-config` prints `template_actor: (none)`. Pinned in Tasks 2 and 4.
 4. **A folder setting that climbs or runs through a file** (`../x`, `a/./b`, `a` being a file): refused on save with the reason logged; no folder made. Pinned in Task 2.
-5. **A file with no closed block, or a name the file already has** (`class-diagram` twice, or an unnamed `@startuml` and Empty UML): no template from an unclosed block; the second add is `class-diagram-2`, the Empty `uml-2`. Pinned in Tasks 7, 8 and 9.
+5. **A file with no closed block, or a name the file already has** (`class-diagram` twice, or an unnamed `@startuml` and Empty UML): no template from an unclosed block; the second add is `class-diagram-2`, the Empty `uml-2`. Pinned in Tasks 8, 9 and 10.
 6. **Settings pages for everyone**: the Templates form's schema is built for every user on every settings page; a non-admin's build reads no file and makes no folder. Pinned in Task 4.
 
 ---
@@ -61,7 +62,8 @@
 | `lib/Service/TemplateLibrary.php` (new) | TP1–TP3: the folder setting, the actor, making the folder, the template files within the caps. |
 | `lib/Controller/TemplatesController.php` (new) | `GET /templates`. |
 | `lib/Settings/TemplateSettings.php` (new) | TP4's card. |
-| `lib/Command/ShowConfig.php`, `lib/AppInfo/Application.php`, `appinfo/routes.php`, `tests/ocp-stubs.php` | Two lines; the card registered; the route; four stub methods. |
+| `lib/Command/ShowConfig.php`, `lib/AppInfo/Application.php`, `appinfo/routes.php`, `tests/ocp-stubs.php` | Two lines; the card registered; the route; five stub methods. |
+| `tests/integration/bootstrap/Steps/TemplateSteps.php` (new), `FeatureContext.php`, `Steps/ShareSteps.php`, `features/diagrams/edit.feature`, `features/AGENTS.md` | The four approved scenarios' step definitions; `@unbuilt` off them; their note. |
 | `src/editor/data/template-icons.js` (new) | A7's 36 paths and `iconSvg()`. |
 | `src/editor/data/templates.json` (new) | A8's nine UML built-ins. |
 | `src/editor/add/types.js` (new) | A6's 27 types. |
@@ -1433,7 +1435,326 @@ git commit -m "Admin: the template folder, and what it holds"
 
 ---
 
-### Task 5: The editor's template data (A6, A7, A8)
+### Task 5: The four approved scenarios run (Behat)
+
+Dr K approved four scenarios on 2026-10-17, now in `features/diagrams/edit.feature` under the RULE comment "templates come from the admin's folder and the user's own", each tagged `@api @unbuilt`:
+
+```gherkin
+  @api @unbuilt
+  Scenario: The admin's template folder is offered to everyone
+    Given the admin's template folder holds a diagram file "Flows.puml"
+    When "drk" asks for the templates to start from
+    Then "drk" is offered "Flows.puml" as a shared template
+
+  @api @unbuilt
+  Scenario: A user's own Templates folder is offered to them alone
+    Given "drk" keeps a diagram file "Retro.puml" in their Templates folder
+    When "alice" asks for the templates to start from
+    Then "alice" is not offered "Retro.puml"
+
+  @api @unbuilt
+  Scenario: A file shared view-only into the template folder is not offered
+    Given someone shares "Secret.puml" view-only into the admin's template folder
+    When "drk" asks for the templates to start from
+    Then "drk" is not offered "Secret.puml"
+
+  @api @unbuilt
+  Scenario: Setting the template folder makes it
+    Given the admin's files hold no folder "Diagrams/Templates"
+    When the admin sets the template folder to "Diagrams/Templates"
+    Then the admin's files hold a folder "Diagrams/Templates"
+```
+
+This task writes every step definition and removes `@unbuilt` from these four. Dr K approved `.feature` edits this round: removing the tag, and changing a step's wording only if a definition truly cannot be written for it, with why recorded in `features/AGENTS.md`. **Behat runs in CI only** (never in the pod, never locally against the live instance); the three `bin/check-*.sh` scripts run locally.
+
+**Files:**
+- Create: `tests/integration/bootstrap/Steps/TemplateSteps.php`
+- Modify: `tests/integration/bootstrap/FeatureContext.php` (`use TemplateSteps;`), `tests/integration/bootstrap/Steps/ShareSteps.php` (the received-share lookup becomes a method both traits use), `features/diagrams/edit.feature` (the four `@unbuilt` tags), `features/AGENTS.md` (`## diagrams/edit`)
+
+**Interfaces:**
+- Consumes: `GET /apps/plantuml/templates` (Task 3), the `templates` form's `template_folder` field (Task 4), `ShareSteps::ocsAs()`, `WebDavTrait::davClient()`, `davPath()`, `davPut()`, `davDelete()`, `davExists()`, `davEnsureFolder()`, `OccTrait::occ()`, `appConfigDelete()`.
+- Produces: `ShareSteps::receivedShareTarget(string $id): string` — where a share made to the admin sits in the admin's files, accepted first when the server holds it as pending.
+
+- [ ] **Step 1: Run the checks to see the four undefined**
+
+Remove `@unbuilt` from the four scenarios (leave `@api`), then:
+
+Run: `tests/integration/bin/check-step-definitions.sh`
+Expected: FAIL, naming the four scenarios' steps as undefined.
+
+- [ ] **Step 2: Give ShareSteps' lookup a name**
+
+In `ShareSteps::aColleagueSharedATextFileWithMeThatMayBeViewedButNotDownloaded()`, the two `foreach` loops and the throw after them become `$this->sharedPath = $this->receivedShareTarget($id);`, and the trait gains:
+
+```php
+	/** Where share `$id`, made to me, sits in my files; accepted first when the server holds it as pending. */
+	private function receivedShareTarget(string $id): string {
+		foreach ($this->ocsAs($this->adminUser, $this->adminPass, 'GET', 'apps/files_sharing/api/v1/shares/pending') as $pending) {
+			if ((string)($pending['id'] ?? '') === $id) {
+				$this->ocsAs($this->adminUser, $this->adminPass, 'POST', "apps/files_sharing/api/v1/shares/pending/{$id}");
+			}
+		}
+		foreach ($this->ocsAs($this->adminUser, $this->adminPass, 'GET', 'apps/files_sharing/api/v1/shares', ['shared_with_me' => 'true']) as $received) {
+			if ((string)($received['id'] ?? '') === $id) {
+				return (string)$received['file_target'];
+			}
+		}
+		throw new \RuntimeException("share {$id} is not among the shares I received");
+	}
+```
+
+- [ ] **Step 3: Write the step definitions**
+
+`tests/integration/bootstrap/Steps/TemplateSteps.php`:
+
+```php
+<?php
+
+/**
+ * SPDX-FileCopyrightText: 2026 kubed-io
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace OCA\PlantUml\Tests\Integration\Steps;
+
+use GuzzleHttp\Client;
+
+/**
+ * Where Add diagram's templates come from (app spec TP1–TP4): the admin's
+ * template folder, offered to every user, and each user's own Templates
+ * folder, offered to them alone. Users are made through the provisioning API
+ * as ShareSteps makes its colleague, and go after the scenario with all they own.
+ */
+trait TemplateSteps {
+	/** The user whose view-only share lands in the admin's template folder. */
+	private const SHARER = 'plantuml-sharer';
+	/** One closed block: one template. */
+	private const TEMPLATE_TEXT = "@startuml\nA -> B\n@enduml\n";
+
+	/** @var array<string, string> uid => password, the users this scenario made */
+	private array $templateUsers = [];
+	/** @var list<string> paths in the admin's files this scenario made */
+	private array $templatePaths = [];
+	private string $offeredTo = '';
+	/** @var list<array{source: string, path: string, text: string}> */
+	private array $offered = [];
+
+	/** @Given /^the admin's template folder holds a diagram file "([^"]*)"$/ */
+	public function theAdminsTemplateFolderHoldsADiagramFile(string $name): void {
+		$this->useTheDefaultTemplateFolder();
+		$path = "Templates/{$name}";
+		$status = $this->davPut($path, self::TEMPLATE_TEXT)->getStatusCode();
+		if ($status >= 300) {
+			throw new \RuntimeException("PUT {$path} answered HTTP {$status}");
+		}
+		$this->templatePaths[] = $path;
+	}
+
+	/** @Given /^"([^"]*)" keeps a diagram file "([^"]*)" in their Templates folder$/ */
+	public function keepsADiagramFileInTheirTemplatesFolder(string $user, string $name): void {
+		$dav = $this->davAs($user);
+		// Made already when the server copied its skeleton on the user's first visit; 405 then.
+		$dav->request('MKCOL', 'Templates');
+		$status = $dav->put('Templates/' . rawurlencode($name), ['body' => self::TEMPLATE_TEXT])->getStatusCode();
+		if ($status >= 300) {
+			throw new \RuntimeException("PUT Templates/{$name} as {$user} answered HTTP {$status}");
+		}
+		// What Files' "Templates folder" setting writes, and ITemplateManager::getTemplatePath() reads.
+		$set = $this->occ(sprintf('user:setting %s core templateDirectory %s', escapeshellarg($user), escapeshellarg('/Templates')));
+		if ($set['exit'] !== 0) {
+			throw new \RuntimeException("user:setting failed (exit {$set['exit']}):\n{$set['output']}");
+		}
+	}
+
+	/** @Given /^someone shares "([^"]*)" view-only into the admin's template folder$/ */
+	public function someoneSharesViewOnlyIntoTheAdminsTemplateFolder(string $name): void {
+		$this->useTheDefaultTemplateFolder();
+		$password = $this->templateUser(self::SHARER);
+		$status = $this->davAs(self::SHARER)->put(rawurlencode($name), ['body' => "@startuml\nsecret\n@enduml\n"])->getStatusCode();
+		if ($status >= 300) {
+			throw new \RuntimeException("PUT {$name} as " . self::SHARER . " answered HTTP {$status}");
+		}
+		$share = $this->ocsAs(self::SHARER, $password, 'POST', 'apps/files_sharing/api/v1/shares', [
+			'path' => "/{$name}",
+			'shareType' => 0,
+			'shareWith' => $this->adminUser,
+			'permissions' => 1,
+			'attributes' => '[{"scope":"permissions","key":"download","value":false}]',
+		]);
+		$target = $this->receivedShareTarget((string)($share['id'] ?? ''));
+		// A received share is moved in my files as any file of mine is.
+		$moved = $this->davClient()->request('MOVE', $this->davPath($target), [
+			'headers' => ['Destination' => $this->baseUrl . '/remote.php/dav/files/' . rawurlencode($this->adminUser) . '/' . $this->davPath("Templates/{$name}")],
+		])->getStatusCode();
+		if ($moved >= 300 || !$this->davExists("Templates/{$name}")) {
+			throw new \RuntimeException("moving the share {$target} into Templates answered HTTP {$moved}");
+		}
+	}
+
+	/** @Given /^the admin's files hold no folder "([^"]*)"$/ */
+	public function theAdminsFilesHoldNoFolder(string $path): void {
+		$this->davDelete($path);
+		if ($this->davExists($path)) {
+			throw new \RuntimeException("{$path} is still in the admin's files");
+		}
+		$this->templatePaths[] = $path;
+	}
+
+	/** @When /^"([^"]*)" asks for the templates to start from$/ */
+	public function asksForTheTemplatesToStartFrom(string $user): void {
+		$password = $this->templateUser($user);
+		$response = (new Client(['auth' => [$user, $password], 'http_errors' => false]))
+			->get($this->baseUrl . '/index.php/apps/plantuml/templates', ['headers' => ['Accept' => 'application/json']]);
+		$files = json_decode((string)$response->getBody(), true)['files'] ?? null;
+		if ($response->getStatusCode() !== 200 || !is_array($files)) {
+			throw new \RuntimeException("GET /templates as {$user} answered HTTP {$response->getStatusCode()}:\n" . substr((string)$response->getBody(), 0, 500));
+		}
+		$this->offeredTo = $user;
+		$this->offered = $files;
+	}
+
+	/**
+	 * As the admin card saves it: core's declarative settings API, which hands
+	 * the value to TemplateSettings::setValue. It answers `data: null`, so its
+	 * status is checked here rather than through ocsAs().
+	 *
+	 * @When /^the admin sets the template folder to "([^"]*)"$/
+	 */
+	public function theAdminSetsTheTemplateFolderTo(string $path): void {
+		$response = (new Client(['auth' => [$this->adminUser, $this->adminPass], 'http_errors' => false]))
+			->post($this->baseUrl . '/ocs/v2.php/settings/api/declarative/value', [
+				'form_params' => ['app' => self::APP_ID, 'formId' => 'templates', 'fieldId' => 'template_folder', 'value' => $path],
+				'headers' => ['OCS-APIRequest' => 'true', 'Accept' => 'application/json'],
+			]);
+		if ($response->getStatusCode() !== 200) {
+			throw new \RuntimeException("saving the template folder answered HTTP {$response->getStatusCode()}:\n" . substr((string)$response->getBody(), 0, 500));
+		}
+	}
+
+	/** @Then /^"([^"]*)" is offered "([^"]*)" as a shared template$/ */
+	public function isOfferedAsASharedTemplate(string $user, string $name): void {
+		foreach ($this->offeredBy($user) as $file) {
+			if ($file['source'] === 'shared' && basename($file['path']) === $name && $file['text'] === self::TEMPLATE_TEXT) {
+				return;
+			}
+		}
+		throw new \RuntimeException("{$user} was not offered {$name} as a shared template; offered: " . json_encode(array_column($this->offered, 'path')));
+	}
+
+	/** @Then /^"([^"]*)" is not offered "([^"]*)"$/ */
+	public function isNotOffered(string $user, string $name): void {
+		foreach ($this->offeredBy($user) as $file) {
+			if (basename($file['path']) === $name) {
+				throw new \RuntimeException("{$user} was offered {$name} ({$file['source']} {$file['path']})");
+			}
+		}
+	}
+
+	/** @Then /^the admin's files hold a folder "([^"]*)"$/ */
+	public function theAdminsFilesHoldAFolder(string $path): void {
+		if (!$this->davExists($path)) {
+			throw new \RuntimeException("{$path} is not in the admin's files");
+		}
+	}
+
+	/** @AfterScenario */
+	public function removeWhatTheTemplateStepsMade(): void {
+		foreach (array_keys($this->templateUsers) as $user) {
+			$this->removeTemplateUser($user);
+		}
+		foreach (array_reverse($this->templatePaths) as $path) {
+			$this->davDelete($path);
+		}
+		if ($this->templateUsers !== [] || $this->templatePaths !== []) {
+			$this->appConfigDelete('template_folder');
+		}
+		$this->templateUsers = [];
+		$this->templatePaths = [];
+		$this->offeredTo = '';
+		$this->offered = [];
+	}
+
+	/** The template folder at its default, in the admin's files (the CI admin is the `admin` group's one member). */
+	private function useTheDefaultTemplateFolder(): void {
+		$this->appConfigDelete('template_folder');
+		$this->appConfigDelete('template_actor');
+		$this->davEnsureFolder('Templates');
+	}
+
+	/** @return list<array{source: string, path: string, text: string}> */
+	private function offeredBy(string $user): array {
+		if ($this->offeredTo !== $user) {
+			throw new \RuntimeException("{$user} has not asked for the templates in this scenario");
+		}
+		return $this->offered;
+	}
+
+	/** A user of this scenario, made the first time it is named; its password. */
+	private function templateUser(string $user): string {
+		if (!isset($this->templateUsers[$user])) {
+			// Left behind by a run that died before its cleanup.
+			$this->removeTemplateUser($user);
+			$password = 'Pu-' . bin2hex(random_bytes(12));
+			$this->ocsAs($this->adminUser, $this->adminPass, 'POST', 'cloud/users', ['userid' => $user, 'password' => $password]);
+			$this->templateUsers[$user] = $password;
+		}
+		return $this->templateUsers[$user];
+	}
+
+	private function davAs(string $user): Client {
+		return new Client([
+			'base_uri' => $this->baseUrl . '/remote.php/dav/files/' . rawurlencode($user) . '/',
+			'auth' => [$user, $this->templateUser($user)],
+			'http_errors' => false,
+		]);
+	}
+
+	/** Their files and shares go with them. */
+	private function removeTemplateUser(string $user): void {
+		(new Client(['auth' => [$this->adminUser, $this->adminPass], 'http_errors' => false]))
+			->delete($this->baseUrl . '/ocs/v2.php/cloud/users/' . rawurlencode($user), ['headers' => ['OCS-APIRequest' => 'true']]);
+	}
+}
+```
+
+In `FeatureContext.php`: `use OCA\PlantUml\Tests\Integration\Steps\TemplateSteps;` with the other imports, and `use TemplateSteps;` between `use ShareSteps;` and `use WebDavTrait;`.
+
+- [ ] **Step 4: Note the rule**
+
+`features/AGENTS.md`, `## diagrams/edit`, after the "AN OPEN LINKED FILE IS DRAWN BEFORE IT IS SAVED" paragraph:
+
+```markdown
+TEMPLATES COME FROM THE ADMIN'S FOLDER AND THE USER'S OWN (app spec TP1–TP4).
+The admin's folder is read as its owner, so every user is offered its files
+without a share; a user's own Templates folder is offered to them alone. A file
+shared view-only into the admin's folder is never offered, as an include of it
+is never drawn: its text would reach every user. Setting the folder makes it.
+The steps ask `GET /templates` as each user and set the folder through core's
+declarative settings API, as the admin card does; the users they make (`drk`,
+`alice`, `plantuml-sharer`) go after each scenario with everything they own.
+```
+
+- [ ] **Step 5: Run the checks to verify they pass**
+
+Run: `tests/integration/bin/check-step-definitions.sh && tests/integration/bin/check-suites.sh && tests/integration/bin/check-notes-anchors.sh`
+Expected: all three pass: no undefined, duplicate or unused step; the suites and tag filter unchanged; every anchor in `features/AGENTS.md` resolves.
+Run: `php -l tests/integration/bootstrap/Steps/TemplateSteps.php && php -l tests/integration/bootstrap/Steps/ShareSteps.php`
+Expected: `No syntax errors detected` twice.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add tests/integration/bootstrap features/diagrams/edit.feature features/AGENTS.md
+git commit -m "Behat: the four template scenarios run"
+```
+
+The scenarios' first run is CI's, on the push after merge (`diagrams` suite). A red run there is fixed in the step definitions, never by putting `@unbuilt` back.
+
+---
+
+### Task 6: The editor's template data (A6, A7, A8)
 
 **Files:**
 - Create: `src/editor/data/template-icons.js`, `src/editor/data/templates.json`, `src/editor/add/types.js`, `img/icons/plus.svg`, `img/icons/chevron-down.svg`
@@ -1623,7 +1944,7 @@ git commit -m "Add diagram: the types, their icons and the built-in UML template
 
 ---
 
-### Task 6: The built-ins are drawn in CI (A8)
+### Task 7: The built-ins are drawn in CI (A8)
 
 **Files:**
 - Create: `scripts/template-examples.mjs`, `tests/js/template-examples.test.js`
@@ -1631,7 +1952,7 @@ git commit -m "Add diagram: the types, their icons and the built-in UML template
 - Test: `tests/js/scripts-lib.test.js`
 
 **Interfaces:**
-- Consumes: `TYPES` (`src/editor/add/types.js`, Task 5, a plain module Node can import).
+- Consumes: `TYPES` (`src/editor/add/types.js`, Task 6, a plain module Node can import).
 - Produces: `drawProblem(server: string, source: string): Promise<string>` in `scripts/lib.mjs` (moved from `doc-examples.mjs`'s `problem()`); `sources(templates, own, types): { key, source }[]` in `scripts/template-examples.mjs` — every built-in (`uml:<title>`) and every listed type's Example (`example:<type>`).
 
 - [ ] **Step 1: Write the failing test**
@@ -1787,7 +2108,7 @@ git commit -m "CI: the built-in templates are drawn on the server"
 
 ---
 
-### Task 7: The catalog (A5, A8, A9)
+### Task 8: The catalog (A5, A8, A9)
 
 **Files:**
 - Create: `src/editor/add/catalog.js`
@@ -1795,7 +2116,7 @@ git commit -m "CI: the built-in templates are drawn on the server"
 - Test: `tests/js/add-catalog.test.js`
 
 **Interfaces:**
-- Consumes: `TYPES` (Task 5), `templates.json` (Task 5), `scan`, `blocksOf` (`src/editor/blocks.js`), `BRACED` (`directives.js`).
+- Consumes: `TYPES` (Task 6), `templates.json` (Task 6), `scan`, `blocksOf` (`src/editor/blocks.js`), `BRACED` (`directives.js`).
 - Produces: `@typedef Template { type, title, name, description, text, icon, source: 'builtin'|'shared'|'yours' }`; `emptyText(type): string`; `builtins(own): Template[]`; `fromFiles(files): Template[]`; `arrange(builtins, files): Map<string, Template[]>`; `matching(arranged, query): string[]`.
 
 - [ ] **Step 1: Write the failing test**
@@ -2044,7 +2365,7 @@ git commit -m "Add diagram: every template, by type and in order"
 
 ---
 
-### Task 8: Appending a template (A4)
+### Task 9: Appending a template (A4)
 
 **Files:**
 - Create: `src/editor/add/insert.js`
@@ -2221,7 +2542,7 @@ git commit -m "Add diagram: a block appended one blank line down, under a name o
 
 ---
 
-### Task 9: The split button, the type menu, and adding (A1, A2, A4)
+### Task 10: The split button, the type menu, and adding (A1, A2, A4)
 
 *Board* (`library / add diagram`, `overlay / type-menu`): the split button is 65 × 34 (`--default-clickable-area`), a pill with a 1 px inner `--color-border-dark` stroke; **+** half 36 wide, padding `0 4px 0 8px`, the 24 px `plus`; a 1 × 20 divider in `--color-border-dark`; **▾** half 28 wide, padding `0 8px 0 4px`, a 16 px chevron. HoverAdd puts `--color-background-hover` on the + half; Open puts `--color-primary-element-light` on the ▾ half; Focus makes the stroke 2 px `--color-primary-element`. The menu is 260 wide, `--color-main-background`, a 1 px `--color-border` stroke, `--border-radius-element` (8 px), `--box-shadow-popover`, padding `4px 0`; a row is 44 high with a 32 px icon slot holding the 24 px icon and the label at 15 px; 12 rows show (536 px in all) and the rest scroll.
 
@@ -2231,12 +2552,12 @@ git commit -m "Add diagram: a block appended one blank line down, under a name o
 - Test: `tests/js/add-menu.test.js`, `tests/js/editor.test.js`
 
 **Interfaces:**
-- Consumes: Tasks 5, 7, 8.
+- Consumes: Tasks 6, 8, 9.
 - Produces:
   - `createAddButton({ onAdd, onMenu }): { element: HTMLElement, menuButton: HTMLButtonElement, setMenuOpen(open: boolean): void }`;
   - `fetchTemplates(): Promise<{ source, path, text }[]>`;
   - `openTypeMenu({ container, anchor, types, onPick, onClose }): { close(): void }`;
-  - `createAdd({ container, onAdd }): { openMenu(anchor, onClose): void, openModal(): void, destroy(): void }` — `openModal` is Task 10's, a stub that does nothing until then.
+  - `createAdd({ container, onAdd }): { openMenu(anchor, onClose): void, openModal(): void, destroy(): void }` — `openModal` is Task 11's, a stub that does nothing until then.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2598,7 +2919,7 @@ export function openTypeMenu({ container, anchor, types, onPick, onClose }) {
 }
 ```
 
-`src/editor/add/index.js` (Task 10 fills `openModal`):
+`src/editor/add/index.js` (Task 11 fills `openModal`):
 
 ```js
 /**
@@ -2884,7 +3205,7 @@ git commit -m "Add diagram: the split button, and a type's Empty from its menu"
 
 ---
 
-### Task 10: The Add diagram modal (A3)
+### Task 11: The Add diagram modal (A3)
 
 *Board* (`screens / add-modal-uml`, `-mindmap`, `-hover`, `overlay / class-preview`, `library / add diagram`): a black backdrop at 50 % over the editor; the dialog 880 × 600, centred, `--color-main-background`, `--border-radius-large` (8 px), `--box-shadow-popover`. Header 58 high, padding `12px 24px`, the title "Add diagram" at 18/600 and a 34 px pill close button with the 24 px `close` icon. Body: a left column 288 wide, padding `0 16px 16px`, gap 8 — the search field 44 high, `--border-radius-element`, a 1 px `--color-border-maxcontrast` stroke, placeholder "Search" at 15 px in `--color-text-maxcontrast` — then the type rows; a 1 px `--color-border` divider; the right column, padding `0 16px 16px`, gap 4, the template rows. A type row: 40 high, padding `0 12px`, gap 12, radius 8, the 24 px icon, the name at 14 px, the count at 13 px in `--color-text-maxcontrast`; hover `--color-background-hover`; selected `--color-primary-element-light`, its icon, name (600) and count in `--color-primary-element-light-text`. A template row: 64 high, padding 12, gap 16, radius 8, a 40 px tile on `--color-background-dark` (radius 8) holding the 24 px icon, the title at 15/600 over the description at 13 px in `--color-text-maxcontrast`, gap 4; hover `--color-background-hover`. The preview card: 220 wide at least, 16 px right of the dialog and level with its row, `--color-main-background`, a 1 px `--color-border` stroke, radius 8, `--box-shadow-popover`, padding 12, the text at 13 px in the source font (`var(--font-face-monospace, monospace)`).
 
@@ -2894,7 +3215,7 @@ git commit -m "Add diagram: the split button, and a type's Empty from its menu"
 - Test: `tests/js/add-modal.test.js`, `tests/js/editor.test.js`
 
 **Interfaces:**
-- Consumes: `arrange`, `builtins`, `fromFiles`, `matching` (Task 7), `iconSvg`, `TYPES`, `fetchTemplates` (Task 9), `DOC_HOVER.hoverTime` (500 ms, `src/editor/docs/hover.js`).
+- Consumes: `arrange`, `builtins`, `fromFiles`, `matching` (Task 8), `iconSvg`, `TYPES`, `fetchTemplates` (Task 10), `DOC_HOVER.hoverTime` (500 ms, `src/editor/docs/hover.js`).
 - Produces: `openAddModal({ container, arranged, onPick, onClose }): { update(arranged): void, close(): void }`; `createAdd`'s `openModal()` and `destroy()` close it too.
 
 - [ ] **Step 1: Write the failing test**
@@ -3530,32 +3851,50 @@ git commit -m "Add diagram: the modal, with a type's templates and their text"
 
 ---
 
-### Task 11: Docs, deploy and the live check
+### Task 12: Docs, deploy and the live check
 
 **Files:**
-- Modify: `CHANGELOG.md`, `features/AGENTS.md`, `README.md` (only if its feature list names editor features)
+- Modify: `CHANGELOG.md`, `features/AGENTS.md`, `README.md` (only if its feature list names editor features), `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`, `docs/superpowers/specs/2026-10-14-editor-design.md`
 
 - [ ] **Step 1: Write the docs**
 
-`CHANGELOG.md`, Unreleased → Added: `- Add diagram in the editor: a type's empty diagram from ▾, or any template from +, built in, from the admin's template folder or from your own Templates folder.` `features/AGENTS.md`, `diagrams/edit` notes: one line each for `GET /templates` and where the built-ins live (`src/editor/data/templates.json`, drawn in CI by `scripts/template-examples.mjs`). `README.md`: at most one advertising line, no explanation.
+`CHANGELOG.md`, Unreleased → Added: `- Add diagram in the editor: a type's empty diagram from ▾, or any template from +, built in, from the admin's template folder or from your own Templates folder.` `features/AGENTS.md`, `diagrams/edit` notes (after Task 5's paragraph): one line each for `GET /templates` and where the built-ins live (`src/editor/data/templates.json`, drawn in CI by `scripts/template-examples.mjs`). `README.md`: at most one advertising line, no explanation.
 
-- [ ] **Step 2: Run everything**
+- [ ] **Step 2: Mark the round shipped in the specs**
+
+In `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`:
+- the table of features, row 10: `(agreed, TP1–TP5, editor spec A1–A9)` → `(shipped, add-diagram round; TP1–TP5, editor spec A1–A9)`, and its last cell `to propose to Dr K, \`diagrams/edit.feature\`` → `` `diagrams/edit.feature` ``;
+- the unit rows: `` `Controller/TemplatesController`, `Service/TemplateLibrary` (agreed) `` → `(shipped, add-diagram round)`, adding `Settings/TemplateSettings` to that row's name cell; the `Settings/InstanceSettings` row's `the Templates section (TP4, agreed)` → `the Templates section (TP4) is its own form, \`Settings/TemplateSettings\`, priority 20 so it sits under Test connection`;
+- the route row `` `GET /apps/plantuml/templates` (agreed, TP3) `` → `(shipped, TP3)`;
+- the heading `## Templates (agreed 2026-10-17, add-diagram round)` → `## Templates (agreed 2026-10-17, shipped in the add-diagram round)`, and TP1–TP5's status cell `agreed (add-diagram round)` → `shipped (add-diagram round)`.
+
+In `docs/superpowers/specs/2026-10-14-editor-design.md`: A1–A9's status cell `agreed (add-diagram round)` → `shipped (add-diagram round)`.
+
+Check: `grep -c "agreed (add-diagram round)" docs/superpowers/specs/*.md` → `0` for both files.
+
+- [ ] **Step 3: Record the rulings in the specs**
+
+App spec, a paragraph after the TP table, `**Rulings (add-diagram round, 2026-10-17).**`, one sentence each, as the plan's Rulings section words them: the second declarative form at priority 20; the status line worked out only for an admin, once per page, and reading never making the folder; N counting closed blocks of A6's types (`TemplateLibrary::TYPES`, kept equal to the editor's by a test); a file template's `path` being its path in its owner's files; a folder setting that climbs, runs through a file or cannot be made being refused with the reason logged; a download-forbidden file in the folder never being offered.
+
+Editor spec, a paragraph after the A table, `**Rulings (add-diagram round, 2026-10-17).**`: the built-ins' names (`<title>-diagram`; Empty's and Example's the type's word); Example's description its first body line; an added block dropping its `(id=…)`; the file's final newline kept; an unnamed block's type word counting as a taken name; the menu not asking `GET /templates`; the modal built by hand at 880 × 600; the split button hidden while a linked file is open (Dr K); Empties not drawn in CI, the built-ins and the Examples drawn by `scripts/template-examples.mjs`.
+
+- [ ] **Step 4: Run everything**
 
 Run: `composer run test:unit && npx vitest run && npm run lint && npm run build && ! grep -Eq "(^|[;}])import *([^(\"']*from *)?[\"']\./chunks/" dist/plantuml-editor.js`
 Expected: all green.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add CHANGELOG.md features/AGENTS.md README.md
+git add CHANGELOG.md features/AGENTS.md README.md docs/superpowers/specs
 git commit -m "Docs: Add diagram"
 ```
 
-- [ ] **Step 4: Deploy**
+- [ ] **Step 6: Deploy**
 
 As the previous rounds did: `P=$(kubectl -n cloud get pod -l app.kubernetes.io/name=nextcloud -o name | head -1)`, the `tar -C . --exclude=node_modules --exclude=vendor --exclude=.git --exclude=.superpowers --exclude=.signing --exclude='*.map' --exclude=./docs -cf - . | kubectl -n cloud exec -i $P -c nextcloud -- tar -C /var/www/html/custom_apps/plantuml -xf -` pipe, then `chown -R www-data:www-data` on the app folder; compare the md5 sums of this build's `dist/plantuml-*.js dist/chunks/*.js` only. In the pod: `php -l` on the new PHP files and `occ plantuml:show-config`; never Behat, psalm or cs-fixer there.
 
-- [ ] **Step 5: Live check**
+- [ ] **Step 7: Live check**
 
 In the shared `claudecode` selenium-flow browser (signed in with the `grafana` secret, which allows the Nextcloud site), against the boards:
 - the split button in light and dark;

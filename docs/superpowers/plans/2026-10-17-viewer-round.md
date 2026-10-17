@@ -8,15 +8,15 @@
 
 **Tech Stack:** PHP 8.4 (Nextcloud 34 OCP, PHPUnit), plain ES modules in the IIFE Files bundle (Vite 8 / Rolldown), DOMPurify, vitest + jsdom.
 
-**Spec:** `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md` (VW1–VW8; the `GET /render … &diagram=` row, agreed round 4; the `GET /export` row; the `Controller/ExportController` row) and `docs/superpowers/specs/2026-10-14-editor-design.md` (B1–B5, D1, D4, O1). Both carry uncommitted edits from another agent: read them, never edit or stage them.
+**Spec:** `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md` (VW1–VW8; the `GET /render … &diagram=` row, agreed round 4; the `GET /export` row; the `Controller/ExportController` row) and `docs/superpowers/specs/2026-10-14-editor-design.md` (B1–B5, D1, D4, O1). Both are committed; this round's docs task (Task 11) flips their statuses.
 
 **Built with (kb MCP skills):** `skill://superpowers/writing-plans/SKILL.md`, `skill://superpowers/test-driven-development/SKILL.md` and its `writing-good-tests.md`, `skill://penpot/penpot-router/SKILL.md` (read-only discovery of the Penpot file "NXT PlantUML": `library / viewer`, `screens / viewer*`, `overlay / export-menu-*`). The design values in Global Constraints were read off those boards on 2026-10-17.
 
 ## Global Constraints
 
 - Work on a branch `viewer-round` in its own worktree; never on `main`.
-- Never edit `features/**/*.feature`. Gherkin is proposed to Dr K in chat.
-- Never stage `docs/superpowers/specs/*` (another agent's uncommitted work).
+- `.feature` files (Dr K, 2026-10-17: "do touch .feature files and write the test definitions. I approve of them this round"): this round removes `@unbuilt` from the six approved scenarios in `features/diagrams/view.feature` once their steps exist, adds a `# notes:` breadcrumb under each of their two RULE comments, and writes every step definition they need. A step's wording changes only when a definition truly cannot be written for it, and the reason goes in `features/AGENTS.md`. No other Gherkin changes; a new scenario is still proposed in chat.
+- Behat runs in CI only, never in the code-server pod or the Nextcloud pod; locally run `tests/integration/bin/check-step-definitions.sh`, `check-suites.sh` and `check-notes-anchors.sh`.
 - The maintainer is **Dr K**; SPDX headers say `kubed-io`; fixture users are `drk`; no homelab hostnames in any file.
 - PHP: `declare(strict_types=1)`, tabs, `final` classes, logged-in routes only (no `#[PublicPage]`).
 - The Viewer component stays a Vue 2 options object drawn with `render(h)` that imports no Vue. Viewer stable34 mounts the previous and next files' components too, hidden and without `active` (`src/views/Viewer.vue`, read 2026-10-17); the view is built only while `active` is true.
@@ -67,6 +67,7 @@ Each as `Ruling: <what> — <why> — <cost if wrong>`.
 - Ruling: a failed export shows "Could not export the diagram", or the route's problem, under the toolbar; the download goes through `fetch` and a `blob:` URL — an `<a download>` on the route would save a 404 or 503 JSON body as the file — new copy Dr K may want worded otherwise.
 - Ruling: the toolbar shows Export unless the file's `nc:share-attributes` forbid download; a failed look shows it, and the route decides — hiding Export on a network hiccup would read as a missing feature — a user on a forbidden share may see Export and get the refusal line.
 - Ruling: Edit shows only with `server_configured`, as O1's file action — VW7 does not say — none.
+- Ruling: "the request is refused" keeps its words for the export of an unknown format, and asserts the refusal that request should get: 404 by default, 400 after an export naming a format the server does not draw — the spec gives the format refusal a 400, and the approved scenario reads "refused" — none; the step stays exact for every other refusal.
 
 ---
 
@@ -835,8 +836,8 @@ git commit -m "Render: reading a stored diagram is one service the routes share"
 ### Task 3: `GET /render?path=…&diagram=`
 
 **Files:**
-- Modify: `lib/Controller/RenderController.php` (`byPath`), `src/files-helpers.js:41`
-- Test: `tests/unit/RenderControllerTest.php`, `tests/js/files-helpers.test.js`
+- Modify: `lib/Controller/RenderController.php` (`byPath`), `src/files-helpers.js:41`, `tests/integration/bootstrap/Steps/RenderApiSteps.php`, `features/diagrams/view.feature` (two `@unbuilt` tags, one breadcrumb), `features/AGENTS.md`
+- Test: `tests/unit/RenderControllerTest.php`, `tests/js/files-helpers.test.js`; Behat in CI: "Asking for one diagram of a file that holds several", "Asking for a diagram a file does not hold is refused"
 
 **Interfaces:**
 - Consumes: `Diagrams::scan`, `Diagrams::find`, `Diagrams::missing` (Task 1); `DiagramFiles::open` (Task 2).
@@ -950,10 +951,67 @@ export function renderUrl(path, diagram) {
 Run: `composer run test:unit && npx vitest run`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: The Behat steps for one diagram, and the two scenarios live**
+
+`tests/integration/bootstrap/Steps/RenderApiSteps.php`, two steps added after `iRequestTheImageOf` (the Given `"…" holds the diagrams "…" and "…"` and the Then `I receive the diagram "…"` already exist, in `DiagramFileSteps` and here):
+
+```php
+	/** @When /^I request the image of the diagram "([^"]*)" of "([^"]*)"$/ */
+	public function iRequestTheImageOfTheDiagramOf(string $diagram, string $path): void {
+		$this->renderResponse = $this->httpClient()->get($this->baseUrl . '/index.php/apps/plantuml/render', [
+			'query' => ['path' => $path, 'diagram' => $diagram],
+		]);
+	}
+
+	/** @Then /^the answer says there is no diagram named "([^"]*)"$/ */
+	public function theAnswerSaysThereIsNoDiagramNamed(string $name): void {
+		$body = (string)$this->lastRenderResponse()->getBody();
+		$answer = json_decode($body, true);
+		$problem = is_array($answer) ? ($answer['problem'] ?? null) : null;
+		if ($problem !== "no diagram named {$name}") {
+			throw new \RuntimeException("expected the problem 'no diagram named {$name}', got: " . substr($body, 0, 300));
+		}
+	}
+```
+
+`features/diagrams/view.feature`: under `# ── RULE: a client can ask for one diagram of a file`, add the line `    # notes: ../AGENTS.md#asking-for-one-diagram-of-a-file`, and take `@unbuilt` off the two scenarios under it, leaving `@api`:
+
+```gherkin
+    # ── RULE: a client can ask for one diagram of a file ──────────────────────
+    # notes: ../AGENTS.md#asking-for-one-diagram-of-a-file
+
+  @api
+  Scenario: Asking for one diagram of a file that holds several
+```
+
+and the same `@api` for "Asking for a diagram a file does not hold is refused". No step's wording changes.
+
+`features/AGENTS.md`, under `## diagrams/view`, after "### Asking for a diagram file by its path":
+
+```markdown
+### Asking for one diagram of a file
+
+A FILE OF SEVERAL DIAGRAMS DRAWS THE ONE ASKED FOR, by name or by its place
+counted from 1, pages included, as the editor's tabs count them; a name wins over
+a number. The server splits the file as the tabs do (`lib/Service/Diagrams.php`,
+held to `src/editor/blocks.js` by one fixture), from the file as stored, never
+from its includes. A name or number the file does not hold is a 404 naming what
+was missing (`no diagram named signup`, `no diagram 9`), never the first diagram
+in its place: a wrong picture is worse than none. The Viewer draws each of its
+tabs this way.
+
+Both scenarios are asked over HTTP as the admin.
+```
+
+- [ ] **Step 6: Check the harness**
+
+Run: `bash tests/integration/bin/check-step-definitions.sh && bash tests/integration/bin/check-suites.sh && bash tests/integration/bin/check-notes-anchors.sh`
+Expected: all three pass: both scenarios' steps defined, no step defined twice or unused, the breadcrumb resolving. Behat itself runs in CI.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add lib/Controller/RenderController.php src/files-helpers.js tests/unit/RenderControllerTest.php tests/js/files-helpers.test.js
+git add lib/Controller/RenderController.php src/files-helpers.js tests/unit/RenderControllerTest.php tests/js/files-helpers.test.js tests/integration/bootstrap/Steps/RenderApiSteps.php features/diagrams/view.feature features/AGENTS.md
 git commit -m "Render: a file of several diagrams draws the one asked for by name or number"
 ```
 
@@ -1067,7 +1125,9 @@ git commit -m "Render: the server's diagram in SVG, PNG, PDF, EPS or text"
 **Files:**
 - Create: `lib/Controller/ExportController.php`
 - Modify: `appinfo/routes.php`, `lib/Service/IncludeResolver.php:756-770` (`viewOnly` splits out `forbidsDownload`)
-- Test: `tests/unit/ExportControllerTest.php`, `tests/unit/IncludeResolverTest.php`
+- Create: `tests/integration/bootstrap/Steps/ExportSteps.php`
+- Modify: `tests/integration/bootstrap/Steps/RenderApiSteps.php` (the refusal step), `tests/integration/bootstrap/FeatureContext.php`, `features/diagrams/view.feature` (four `@unbuilt` tags, one breadcrumb), `features/AGENTS.md`
+- Test: `tests/unit/ExportControllerTest.php`, `tests/unit/IncludeResolverTest.php`; Behat in CI: the four "Exporting …" scenarios
 
 **Interfaces:**
 - Consumes: `DiagramFiles::open`, `Diagrams::scan/find/label/missing`, `RenderService::render(…, $format)`, `RenderService::FORMATS`.
@@ -1574,10 +1634,158 @@ final class ExportController extends Controller {
 Run: `composer run test:unit && composer run psalm && composer run cs:check`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: The Behat steps for export, and the four scenarios live**
+
+"The request is refused" today means a 404, and an export of a format the server does not draw is a 400 (the spec's export row). Ruling: the step keeps its words and asserts the refusal the last request's route gives for that request: 404 by default, 400 after an export that named a format outside SVG, PNG, PDF, EPS and ASCII art. The export step records which; no scenario's wording changes, and the step stays exact, so a 404 for `notes.txt` still fails where a 400 would be wrong.
+
+`tests/integration/bootstrap/Steps/RenderApiSteps.php`, the refusal step:
+
+```php
+	/** The status a refusal of the last request is: 404, or 400 for an export of a format the server does not draw (ExportSteps). */
+	private int $refusal = 404;
+
+	/** @Then the request is refused */
+	public function theRequestIsRefused(): void {
+		$status = $this->lastRenderResponse()->getStatusCode();
+		if ($status !== $this->refusal) {
+			throw new \RuntimeException("expected HTTP {$this->refusal}, got {$status}");
+		}
+	}
+```
+
+`tests/integration/bootstrap/Steps/ExportSteps.php`:
+
+```php
+<?php
+
+/**
+ * SPDX-FileCopyrightText: 2026 kubed-io
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace OCA\PlantUml\Tests\Integration\Steps;
+
+/**
+ * GET /export, as the Viewer's Export asks for it: one diagram, or every one,
+ * in a format; the answer lands in RenderApiSteps' last response, so its
+ * refusal step reads it.
+ */
+trait ExportSteps {
+	/** The words a scenario names a format by, and the route's names for them. */
+	private const EXPORT_FORMATS = ['SVG' => 'svg', 'PNG' => 'png', 'PDF' => 'pdf', 'EPS' => 'eps', 'ASCII art' => 'txt'];
+
+	/** How each kind of file a download may be starts. */
+	private const EXPORT_MAGIC = ['svg' => '<svg', 'png' => "\x89PNG", 'pdf' => '%PDF', 'eps' => '%!PS', 'txt' => '', 'zip' => "PK\x03\x04"];
+
+	/** @When /^I export the diagram "([^"]*)" of "([^"]*)" as (\w+(?: art)?)$/ */
+	public function iExportTheDiagramOfAs(string $diagram, string $path, string $format): void {
+		$this->export($path, $format, [$diagram]);
+	}
+
+	/** @When /^I export "([^"]*)" as (\w+(?: art)?)$/ */
+	public function iExportAs(string $path, string $format): void {
+		$this->export($path, $format, []);
+	}
+
+	/** @Then /^I download "([^"]*)"$/ */
+	public function iDownload(string $name): void {
+		$response = $this->lastRenderResponse();
+		$body = (string)$response->getBody();
+		$named = preg_match("/filename\\*=UTF-8''([^;]+)/", $response->getHeaderLine('Content-Disposition'), $m) === 1 ? rawurldecode($m[1]) : '';
+		$magic = self::EXPORT_MAGIC[strtolower(pathinfo($name, PATHINFO_EXTENSION))] ?? null;
+		if ($response->getStatusCode() !== 200 || $named !== $name || $magic === null || !str_contains(substr($body, 0, 512), $magic)) {
+			throw new \RuntimeException(sprintf(
+				"expected a 200 download named '%s', got HTTP %d named '%s' (%s), starting: %s",
+				$name,
+				$response->getStatusCode(),
+				$named,
+				$response->getHeaderLine('Content-Type'),
+				bin2hex(substr($body, 0, 16)),
+			));
+		}
+	}
+
+	/** @Then /^it holds "([^"]*)" and "([^"]*)"$/ */
+	public function itHolds(string $first, string $second): void {
+		$entries = self::zipEntries((string)$this->lastRenderResponse()->getBody());
+		foreach ([$first, $second] as $name) {
+			if (!in_array($name, $entries, true)) {
+				throw new \RuntimeException("the zip holds no '{$name}'; it holds: " . implode(', ', $entries));
+			}
+		}
+	}
+
+	/** @param list<string> $diagrams none for every diagram */
+	private function export(string $path, string $format, array $diagrams): void {
+		$this->refusal = isset(self::EXPORT_FORMATS[$format]) ? 404 : 400;
+		$query = 'path=' . rawurlencode($path) . '&format=' . rawurlencode(self::EXPORT_FORMATS[$format] ?? strtolower($format))
+			. implode('', array_map(static fn (string $d): string => '&diagram%5B%5D=' . rawurlencode($d), $diagrams));
+		$this->renderResponse = $this->httpClient()->get($this->baseUrl . '/index.php/apps/plantuml/export?' . $query);
+	}
+
+	/** @return list<string> the entry names */
+	private static function zipEntries(string $zip): array {
+		$path = (string)tempnam(sys_get_temp_dir(), 'export');
+		file_put_contents($path, $zip);
+		try {
+			$archive = new \ZipArchive();
+			if ($archive->open($path) !== true) {
+				throw new \RuntimeException('the download is not a zip: ' . bin2hex(substr($zip, 0, 16)));
+			}
+			$entries = [];
+			for ($i = 0; $i < $archive->numFiles; $i++) {
+				$entries[] = (string)$archive->getNameIndex($i);
+			}
+			$archive->close();
+			return $entries;
+		} finally {
+			unlink($path);
+		}
+	}
+}
+```
+
+The integration workflow's PHP already loads `zip` (`.github/workflows/integration.yml`, setup-php `extensions`).
+
+`tests/integration/bootstrap/FeatureContext.php`: `use OCA\PlantUml\Tests\Integration\Steps\ExportSteps;` with the other imports, and `use ExportSteps;` in the class, in alphabetical place after `EditSteps`.
+
+`features/diagrams/view.feature`: under `# ── RULE: a diagram file can be saved in another format`, add `    # notes: ../AGENTS.md#saving-a-diagram-file-in-another-format`, and take `@unbuilt` off its four scenarios, leaving `@api`. No step's wording changes.
+
+`features/AGENTS.md`, under `## diagrams/view`, after the section Task 3 added:
+
+```markdown
+### Saving a diagram file in another format
+
+EXPORT IS A DOWNLOAD of what the Viewer shows: SVG, PNG, PDF, EPS or ASCII art,
+the formats the server draws. One diagram is one file, `<file> - <diagram>.<ext>`
+(`<file>.<ext>` when the file holds one diagram); several, or every diagram when
+none is named, are `<file>.zip`. It is a zip on every system: core's own zip
+helper sends macOS a tar. The file is read as the picture route reads it, so it
+refuses what that route refuses (404), and a file on a share whose owner forbids
+download as well, since an export is a copy of it.
+
+A format the server does not draw is a 400, not a 404: the file is there, the
+request is wrong. "The request is refused" asserts whichever of the two the last
+request should get, so the scenario reads the same for both.
+
+The route takes `diagram[]=` for several diagrams; PHP keeps only the last of a
+repeated plain `diagram=`. At most 100 diagrams and 50 MiB per export (413
+beyond).
+
+All four scenarios are asked over HTTP as the admin.
+```
+
+- [ ] **Step 6: Check the harness**
+
+Run: `bash tests/integration/bin/check-step-definitions.sh && bash tests/integration/bin/check-suites.sh && bash tests/integration/bin/check-notes-anchors.sh`
+Expected: all three pass: every step of the six scenarios defined, none twice (`I export "…" as …` and `I export the diagram "…" of "…" as …` are distinct, the second starting with `the diagram`), none unused, both breadcrumbs resolving. Behat itself runs in CI.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add lib/Controller/ExportController.php lib/Service/IncludeResolver.php appinfo/routes.php tests/unit/ExportControllerTest.php tests/unit/IncludeResolverTest.php
+git add lib/Controller/ExportController.php lib/Service/IncludeResolver.php appinfo/routes.php tests/unit/ExportControllerTest.php tests/unit/IncludeResolverTest.php tests/integration/bootstrap/Steps/ExportSteps.php tests/integration/bootstrap/Steps/RenderApiSteps.php tests/integration/bootstrap/FeatureContext.php features/diagrams/view.feature features/AGENTS.md
 git commit -m "Export: one diagram, some or all, in the format asked for"
 ```
 
@@ -3774,7 +3982,7 @@ git commit -m "Files: the + New entry reads New puml File"
 ### Task 11: Build, live check and docs
 
 **Files:**
-- Modify: `CHANGELOG.md` (`## [Unreleased]`), `AGENTS.md` (repo map and routes row), `README.md` (one line), `features/AGENTS.md` (`#diagramsview` notes), `docs/design/README.md`
+- Modify: `CHANGELOG.md` (`## [Unreleased]`), `AGENTS.md` (repo map and routes row), `README.md` (one line), `docs/design/README.md`, `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md` (status flips and the round's rulings)
 - Create: PNGs under `docs/design/`
 
 - [ ] **Step 1: Build and measure**
@@ -3807,13 +4015,42 @@ Deploy as AGENTS.md "Trying it on the live instance" says, and compare the md5 s
 
 With the kb Penpot skills (`skill://penpot/penpot-router`), export `screens / viewer`, `screens / viewer-order-flow`, `screens / viewer-config`, `screens / viewer-stack`, `screens / viewer-wall`, `screens / viewer-single` and the six `overlay / export-menu-…` boards as PNGs into `docs/design/`, named as the existing ones (`viewer-stack.png`, `export-menu-all.png`, …), and list them in `docs/design/README.md`.
 
-- [ ] **Step 5: Docs**
+- [ ] **Step 5: Specs**
 
-CHANGELOG, one user-facing line each: the + New entry reads New puml File; the Viewer shows every diagram as tabs, a stack or a wall; export to SVG, PNG, PDF, EPS or ASCII art, one diagram, the checked ones or all as a zip, except from a share that forbids download; Edit opens the editor at the diagram in view; `GET /render` takes `diagram`. AGENTS.md: the map gains `Diagrams`, `DiagramFiles`, `ExportController`, `src/viewer/`, `src/open-editor.js`; the routes row gains `/export`. README: one advertising line. `features/AGENTS.md`: the `diagram` parameter and export under the view notes. Leave the specs alone: their status flips wait until the other agent's edits are committed.
+The specs are committed now, so this round flips its own rows. In `docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md`:
+- Row 9 of the behaviour table: `(agreed, VW1–VW8)` becomes `(shipped, viewer round)`, and its feature cell `to propose to Dr K, \`diagrams/view.feature\`` becomes `` `diagrams/view.feature` ``.
+- The units table: `` `Controller/ExportController` (agreed) `` becomes `` `Controller/ExportController` (shipped, viewer round) ``, and its text names `ZipArchive` where it says "core's `ZipStreamer`": "answers one file or a zip (PHP's `ZipArchive`: core's `ZipStreamer` sends macOS a tar)".
+- The routes table: the `&diagram=` row's `(agreed, round 4)` becomes `(shipped, viewer round)`; the export row's heading `` `GET /apps/plantuml/export?path=<path>&format=<f>&diagram=<n>` (agreed, VW6) `` becomes `` `GET /apps/plantuml/export?path=<path>&format=<f>&diagram[]=<n>` (shipped, viewer round) ``, its text "One `diagram` (repeatable, …)" becomes "One `diagram[]` (repeatable, …)", and its refusals cell gains "; `404` for a file on a share that forbids download; `413 {"problem": "The export is too large"}` past 100 diagrams or 50 MiB".
+- The `viewer-component.js` unit row: the "**Agreed (viewer round):**" sentence becomes "**Shipped (viewer round):** VW1–VW8, drawn by `src/viewer/` (`diagram-view.js`, `sheets.js`, `toolbar.js`, `menu.js`)."
+- VW1–VW8: each Status cell `agreed (viewer round)` becomes `shipped (viewer round)`; the section heading `## The Viewer (agreed 2026-10-17, viewer round)` becomes `## The Viewer (shipped 2026-10-17, viewer round)`.
+- Known limitations: "The Viewer gets it in the viewer round (VW1, agreed)." becomes "The Viewer has it since the viewer round (VW1)."
+- After the VW table, a paragraph of this round's rulings:
 
-- [ ] **Step 6: Commit**
+```markdown
+**Rulings (viewer round, Dr K approved 2026-10-17).** `GET /export` takes several
+diagrams as `diagram[]=` (PHP keeps only the last of a repeated plain
+`diagram=`); one `diagram=` still works. Asked diagrams are drawn in file order,
+each once; a set of one is one file. Zips are PHP's `ZipArchive`, since core's
+`ZipStreamer` answers macOS with a tar. At most 100 diagrams and 50 MiB drawn per
+export, else 413 "The export is too large"; no time cap beyond each render's 10 s.
+A file on a share whose owner forbids download has no Export in the Viewer and
+`GET /export` answers 404 for it (`IncludeResolver::forbidsDownload`, the rule
+includes already follow). A repeated name in a zip gets ` (2)`; unsafe
+characters become ` - `. A failed export says so under the toolbar ("Could not
+export the diagram", or the route's problem) and saves nothing. The toolbar's
+icons are the Penpot components'.
+```
+
+Run: `git diff --stat docs/superpowers/specs/`
+Expected: only `2026-10-13-nextcloud-plantuml-design.md` changed; the editor spec has no row of this round to flip (B1–B5, D1, D4, O1 are already shipped).
+
+- [ ] **Step 6: Docs**
+
+CHANGELOG, one user-facing line each: the + New entry reads New puml File; the Viewer shows every diagram as tabs, a stack or a wall; export to SVG, PNG, PDF, EPS or ASCII art, one diagram, the checked ones or all as a zip, except from a share that forbids download; Edit opens the editor at the diagram in view; `GET /render` takes `diagram`. AGENTS.md: the map gains `Diagrams`, `DiagramFiles`, `ExportController`, `src/viewer/`, `src/open-editor.js`; the routes row gains `/export`. README: one advertising line. `features/AGENTS.md`'s view notes were written in Tasks 3 and 5.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add CHANGELOG.md AGENTS.md README.md features/AGENTS.md docs/design
+git add CHANGELOG.md AGENTS.md README.md features/AGENTS.md docs/design docs/superpowers/specs/2026-10-13-nextcloud-plantuml-design.md
 git commit -m "Docs: the Viewer round"
 ```

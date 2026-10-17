@@ -10,10 +10,6 @@ import { inStyleBody } from '../regions.js'
 import { PARTICIPANTS, STRUCTURES } from '../lexicon/rules.js'
 import { serverKeywords } from './server-list.js'
 
-// The element keywords are the lexicon's, which makes a declared name a type (H15); `names.js`
-// and `colors.js` read declarations with them too.
-export { PARTICIPANTS, STRUCTURES }
-
 const SEQUENCE = ['alt', 'else', 'opt', 'loop', 'par', 'break', 'critical', 'group', 'end', 'note', 'ref', 'activate', 'deactivate', 'destroy', 'return', 'autonumber', 'title', 'header', 'footer', 'legend', 'skinparam', 'hide', 'show', 'left', 'right', 'top', 'bottom']
 
 const ACTIVITY = ['start', 'stop', 'if', 'then', 'elseif', 'endif', 'while', 'endwhile', 'repeat', 'fork', 'end fork']

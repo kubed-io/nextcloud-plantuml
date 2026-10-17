@@ -8,7 +8,7 @@
  * a directive or preprocessor line, a string, an arrow's message, a Creole
  * tag, after a `#` or `colors`, or in a style block, where a name is not wanted.
  */
-import { arrow } from '../plantuml-mode.js'
+import { arrow } from '../lexicon/rules.js'
 import { inStyleBody } from '../regions.js'
 import { ELEMENT_KINDS } from './apply.js'
 

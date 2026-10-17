@@ -318,7 +318,7 @@ export const body = (key, closer, token = 'keyword', extra = []) => ({
 })
 
 /** An activity box's closer (H18): `;`, or an SDL shape's `|`, `<`, `>`, `/`, `\`, `]`, `}`, ending the line. */
-export const activityCloser = /[;|<>/\\\]}](?=\s*$)/
+const activityCloser = /[;|<>/\\\]}](?=\s*$)/
 
 /**
  * A box (H18): `:` opening a line, after an optional `#colour`, and `closer` at a line's end are
@@ -381,7 +381,7 @@ const elements = [...PARTICIPANTS, ...STRUCTURES, 'abstract class', 'annotation'
 const alternation = (words) => [...new Set(words)].sort((a, b) => b.length - a.length).map((word) => word.replace(' ', '\\s+')).join('|')
 
 /** The element keywords a line declares a name with, as one regex alternation. */
-export const DECLARING = alternation(elements)
+const DECLARING = alternation(elements)
 
 // The kinds whose `{` opens members (H17).
 const BODIED = alternation(['class', 'interface', 'enum', 'abstract class', 'abstract', 'annotation', 'entity', 'struct', 'protocol', 'object', 'map'])

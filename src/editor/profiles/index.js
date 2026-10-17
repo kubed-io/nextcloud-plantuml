@@ -14,7 +14,6 @@
  * chunk too; what it needs of the editor's comes in `Core`.
  *
  * @typedef {object} Core
- * @property {typeof scan} scan
  * @property {typeof diagramsOf} diagrams the scan of a document, read once per version
  * @property {typeof styleRegions} styleBlocks the style blocks of a document, read once per version
  * @property {typeof translate} t @nextcloud/l10n's translate, called with the
@@ -33,7 +32,7 @@
 import { EditorState } from '@codemirror/state'
 import { translate } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
-import { diagramsOf, scan } from '../blocks.js'
+import { diagramsOf } from '../blocks.js'
 import { lex } from '../lexicon/index.js'
 import { plantumlLanguage } from '../plantuml-mode.js'
 import { styleRegions } from '../regions.js'
@@ -114,7 +113,7 @@ export function needed(diagrams, text) {
 }
 
 /** @type {Core} what every profile's factory is given */
-export const core = { scan, diagrams: diagramsOf, styleBlocks: styleRegions, t: translate, lex, subDiagrams: subDiagramsOf }
+export const core = { diagrams: diagramsOf, styleBlocks: styleRegions, t: translate, lex, subDiagrams: subDiagramsOf }
 const loading = new Map() // type → Promise<Profile|null>, for the page
 const failed = new Set()
 

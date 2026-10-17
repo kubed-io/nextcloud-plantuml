@@ -202,7 +202,7 @@ describe('our own lines for diagram types, directives and functions', () => {
     language,
     vocabulary: data('vocabulary'),
   })
-  const types = language.keywords.filter((word) => word.startsWith('@start')).map((word) => `diagram:${word.slice(6)}`)
+  const types = data('language-words').keywords.filter((word) => word.startsWith('@start')).map((word) => `diagram:${word.slice(6)}`)
   const directives = data('directives').directives.map((word) => `directive:${word}`)
   const functions = builtins.map(({ name }) => `function:${name}`)
   const missing = (keys, fields) => keys.filter((key) => fields.some((field) => !real.get(key)?.[field]))
@@ -254,7 +254,7 @@ describe('our own lines for diagram types, directives and functions', () => {
   })
 
   const HOMES = ['sequence', 'activity', 'class', 'component', 'state', 'usecase', 'timing', 'object', 'deployment', 'any']
-  const words = [...new Set([...KEYWORDS, ...language.keywords.filter((word) => !word.startsWith('@'))])]
+  const words = [...new Set([...KEYWORDS, ...data('language-words').keywords.filter((word) => !word.startsWith('@'))])]
 
   it('gives every keyword a summary and an example, plain or for a block type', () => {
     expect(words.length).toBeGreaterThan(150)
@@ -350,7 +350,7 @@ describe('our own lines for types, tags, connectors, commands and style properti
   const tags = [...creole.matchAll(/^ {2}\['<(\w+)/gm)].map(([, tag]) => `tag:${tag}`)
 
   it('gives every element type a summary and an example', () => {
-    const types = data('language').types.map((word) => `keyword:${word}`)
+    const types = data('language-words').types.map((word) => `keyword:${word}`)
     expect(types).toHaveLength(53)
     expect(lacking(types)).toEqual([])
   })

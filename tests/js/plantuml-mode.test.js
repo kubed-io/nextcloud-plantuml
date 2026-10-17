@@ -9,7 +9,8 @@ import { toggleComment } from '@codemirror/commands'
 import { closeBrackets, insertBracket } from '@codemirror/autocomplete'
 import { StringStream, ensureSyntaxTree } from '@codemirror/language'
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight'
-import { MAX_LINE, plantumlLanguage, plantumlMode, underline } from '../../src/editor/plantuml-mode.js'
+import { MAX_LINE, plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
+import { underline } from '../../src/editor/lexicon/tags.js'
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {

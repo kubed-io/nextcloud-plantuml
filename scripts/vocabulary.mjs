@@ -149,7 +149,7 @@ async function builtins() {
   }))
   return [...byName.values()]
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-    .map(({ name, args, min, max }) => ({ name, args, min, max, description: rows.get(name)?.description ?? '', example: rows.get(name)?.example ?? '' }))
+    .map(({ name, min, max }) => ({ name, min, max, description: rows.get(name)?.description ?? '', example: rows.get(name)?.example ?? '' }))
 }
 
 async function style() {
@@ -299,7 +299,9 @@ async function stdlib() {
 
 async function language() {
   const url = `${process.env.PLANTUML_URL ?? 'http://plantuml.flow.svc'}/language`
-  return { plantuml: VERSION, ...languageLists(await fetchText(url)) }
+  const { types, keywords, skinparameters } = languageLists(await fetchText(url))
+  // The editor reads the skinparameters; the other two lists are for the scripts and tests, and never ship.
+  return { 'language.json': { plantuml: VERSION, skinparameters }, 'language-words.json': { types, keywords } }
 }
 
 async function docsSource() {
@@ -348,8 +350,12 @@ async function write({ file, folder, build }) {
     console.info(`${folder}/: ${entries.length} folders (${links} links), ${files} files`)
     return
   }
+  if (file === 'language.json') {
+    for (const [name, part] of Object.entries(data)) await save(name, part)
+    const { 'language.json': { skinparameters }, 'language-words.json': { types, keywords } } = data
+    return void console.info(`language.json, language-words.json: ${types.length} types, ${keywords.length} keywords, ${skinparameters.length} skinparameters`)
+  }
   await save(file, data)
-  if (file === 'language.json') return void console.info(`${file}: ${data.types.length} types, ${data.keywords.length} keywords, ${data.skinparameters.length} skinparameters`)
   if (file === 'docs/source.json') return void console.info(`${file}: ${Object.keys(data.themes).length} themes, ${Object.keys(data.libraries).length} libraries`)
   const counts = Array.isArray(data) ? { entries: data } : data.style ?? data.asciimath ?? { directives: data.directives }
   console.info(`${file}: ${Object.entries(counts).map(([k, v]) => `${v.length} ${k}`).join(', ')}`)

@@ -338,6 +338,10 @@ describe('style', () => {
     expect(run(apply(doc, diagnostic))).toEqual([])
   })
 
+  it('still accepts the properties PlantUML takes and never reads (I8)', () => {
+    expect(run('<style>\nnode {\n  ExportedName shop\n  Image logo.png\n  ImagePosition top\n}\n</style>\n')).toEqual([])
+  })
+
   it('matches a property whatever its case', () => {
     expect(run('<style>\nnode {\n  fontsize 12\n  BACKGROUNDCOLOR red; linecolor #FFF\n}\n</style>\n')).toEqual([])
   })

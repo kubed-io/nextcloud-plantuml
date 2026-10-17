@@ -6,7 +6,7 @@
  * the web-scheme options and the element kinds a line can start with.
  */
 import { insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete'
-import { PARTICIPANTS, STRUCTURES } from './keywords.js'
+import { PARTICIPANTS, STRUCTURES } from '../lexicon/rules.js'
 
 /**
  * An `apply` that inserts the label and `suffix` at every cursor, then opens the list again for the

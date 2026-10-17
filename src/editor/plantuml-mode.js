@@ -37,10 +37,6 @@ import { tokenTable } from './lexicon/tags.js'
 import { styleClose, styleImport, styleOneLine, styleOpen } from './regions.js'
 import { EDGE as diagramEdge, SUB_OPEN, subBodies, subReader } from './sub-diagrams.js'
 
-// The rule and tags importers took from here before the lexicon held them.
-export { arrow }
-export { spriteData, underline, variable } from './lexicon/tags.js'
-
 const { colourPart, notStylePart } = patterns
 
 // `== Section ==`, and a delay: `...` alone or `... 5 minutes later ...`.

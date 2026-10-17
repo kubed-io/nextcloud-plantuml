@@ -49,7 +49,10 @@ const depth = {
 const GENERAL = ['root', 'element', 'document']
 const DIAGRAMS = new Set([...Object.values(DIAGRAM_SELECTORS), ...selectors.filter((name) => name.endsWith('Diagram'))])
 
-const propertyOptions = properties.map((label) => ({ label, type: 'property', boost: 10, docKey: `property:${label.toLowerCase()}` }))
+/** Accepted by PlantUML 1.2026.8 and never read (the "Accepted but unused" cards in own.json, I8): the lint knows them, the popup does not offer them. */
+const UNREAD = ['ExportedName', 'Image', 'ImagePosition']
+
+const propertyOptions = properties.filter((label) => !UNREAD.includes(label)).map((label) => ({ label, type: 'property', boost: 10, docKey: `property:${label.toLowerCase()}` }))
 
 /** The selectors, the enclosing diagram's first, then the elements, then the other diagrams. */
 function selectorOptions(type) {

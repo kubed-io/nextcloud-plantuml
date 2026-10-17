@@ -13,6 +13,7 @@ import { inStyleBody, styleRegions } from '../../src/editor/regions.js'
 import { plantumlCompletion, sources } from '../../src/editor/completion/index.js'
 import { directives } from '../../src/editor/completion/directives.js'
 import { keywords } from '../../src/editor/completion/keywords.js'
+import { PARTICIPANTS, STRUCTURES } from '../../src/editor/lexicon/rules.js'
 import { names } from '../../src/editor/completion/names.js'
 import { snippets } from '../../src/editor/completion/snippets.js'
 import { values } from '../../src/editor/completion/values.js'
@@ -35,7 +36,7 @@ import { elementAt } from '../../src/editor/docs/element.js'
 import { core, profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
-import language from '../../src/editor/data/language.json'
+import language from '../../src/editor/data/language-words.json'
 import docSource from '../../src/editor/data/docs/source.json'
 import preprocessor from '../../src/editor/data/directives.json'
 import { filePath } from '../../src/editor/lint/state.js'
@@ -937,8 +938,8 @@ describe('the server\'s keywords', () => {
     await serving(answering(ANSWER))
 
     expect(module.KEYWORDS).toEqual(HAND.filter((label) => !label.includes(' ')))
-    expect(module.PARTICIPANTS).toEqual(HAND.slice(0, 8))
-    expect(module.STRUCTURES).toEqual(HAND.slice(8, 23))
+    expect(PARTICIPANTS).toEqual(HAND.slice(0, 8))
+    expect(STRUCTURES).toEqual(HAND.slice(8, 23))
     expect(module.HELPER_HEADS).toEqual(['colors', 'help'])
   })
 })
@@ -1178,13 +1179,25 @@ describe('style', () => {
     expect(labels(complete(style, '<style>mind|</style>'))).toContain('mindmapDiagram')
   })
 
+  // PlantUML 1.2026.8 accepts these and never reads them (I8): the lint knows them, the popup does not offer them.
+  const unread = ['ExportedName', 'Image', 'ImagePosition']
+  const offered = properties.filter((name) => !unread.includes(name))
+
   it('offers the properties first after a { and indentation, in their own case', async () => {
     const result = complete(style, '<style>\nnode {\n  |\n}\n</style>')
 
-    expect(labels(result)).toEqual(expect.arrayContaining(properties))
+    expect(offered).toHaveLength(27)
+    expect(labels(result)).toEqual(expect.arrayContaining(offered))
     expect(labels(result)).toContain('BackGroundColor')
     const shown = await popup('<style>\nnode {\n  |\n}\n</style>')
-    expect(shown.slice(0, properties.length).sort()).toEqual([...properties].sort())
+    expect(shown.slice(0, offered.length).sort()).toEqual([...offered].sort())
+  })
+
+  it.each(['<style>\n|', '<style>\nnode {\n  |\n}\n</style>', '<style>\nnode {\n  I|\n}\n</style>'])('does not offer the properties PlantUML never reads (%j)', (marked) => {
+    const shown = labels(complete(style, marked, true))
+    for (const name of unread) {
+      expect(shown).not.toContain(name)
+    }
   })
 
   it('replaces the word being typed with a property', () => {

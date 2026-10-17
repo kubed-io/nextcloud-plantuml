@@ -13,7 +13,7 @@ import { directiveLine } from './lexicon/rules.js'
 export const SUB_OPEN = /^([ \t]*)(\{\{)(\w*)[ \t]*$/
 
 /** A sub-diagram's last line. */
-export const SUB_CLOSE = /^([ \t]*)(\}\})[ \t]*$/
+const SUB_CLOSE = /^([ \t]*)(\}\})[ \t]*$/
 
 /** The types the live server drew inside a note (2026-10-15), besides uml. */
 export const SUB_TYPES = ['salt', 'json', 'yaml', 'wbs', 'mindmap', 'gantt', 'regex', 'ebnf', 'chronology']

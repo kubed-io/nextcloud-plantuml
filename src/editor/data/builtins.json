@@ -1,7 +1,6 @@
 [
   {
     "name": "%and",
-    "args": 2,
     "min": 2,
     "max": null,
     "description": "",
@@ -9,7 +8,6 @@
   },
   {
     "name": "%backslash",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -17,7 +15,6 @@
   },
   {
     "name": "%boolval",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Convert a value _(String, Integer, JSON value)_ to boolean value",
@@ -25,7 +22,6 @@
   },
   {
     "name": "%breakline",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Return a newline in the PlantUML source code. _See more documentation on the newline page_",
@@ -33,7 +29,6 @@
   },
   {
     "name": "%call_user_func",
-    "args": 1,
     "min": 1,
     "max": null,
     "description": "Invoke a return function by its name with given arguments.",
@@ -41,7 +36,6 @@
   },
   {
     "name": "%chr",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return a character from a give Unicode value",
@@ -49,7 +43,6 @@
   },
   {
     "name": "%darken",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "Return a darken color of a given color with some ratio",
@@ -57,7 +50,6 @@
   },
   {
     "name": "%date",
-    "args": 3,
     "min": 0,
     "max": 3,
     "description": "Retrieve current date. You can provide an optional format for the date",
@@ -65,7 +57,6 @@
   },
   {
     "name": "%dec2hex",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return the hexadecimal string (String) of a decimal value (Int)",
@@ -73,7 +64,6 @@
   },
   {
     "name": "%dirpath",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Retrieve current dirpath",
@@ -81,7 +71,6 @@
   },
   {
     "name": "%dollar",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -89,7 +78,6 @@
   },
   {
     "name": "%eval",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "",
@@ -97,7 +85,6 @@
   },
   {
     "name": "%false",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Return always false",
@@ -105,7 +92,6 @@
   },
   {
     "name": "%feature",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Check if some feature is available in the current PlantUML running version",
@@ -113,7 +99,6 @@
   },
   {
     "name": "%file_exists",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Check if a file exists on the local filesystem",
@@ -121,7 +106,6 @@
   },
   {
     "name": "%filedate",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -129,7 +113,6 @@
   },
   {
     "name": "%filename",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Retrieve current filename",
@@ -137,7 +120,6 @@
   },
   {
     "name": "%filename_no_extension",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -145,7 +127,6 @@
   },
   {
     "name": "%function_exists",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Check if a function exists",
@@ -153,7 +134,6 @@
   },
   {
     "name": "%get_all_stdlib",
-    "args": 1,
     "min": 0,
     "max": 1,
     "description": "Retreive a JSON Array of all PlantUML stdlib names",
@@ -161,7 +141,6 @@
   },
   {
     "name": "%get_all_theme",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Retreive a JSON Array of all PlantUML theme",
@@ -169,7 +148,6 @@
   },
   {
     "name": "%get_current_theme",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -177,7 +155,6 @@
   },
   {
     "name": "%get_json_keys",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "",
@@ -185,7 +162,6 @@
   },
   {
     "name": "%get_json_type",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "",
@@ -193,7 +169,6 @@
   },
   {
     "name": "%get_stdlib",
-    "args": 1,
     "min": 0,
     "max": 2,
     "description": "",
@@ -201,7 +176,6 @@
   },
   {
     "name": "%get_variable_value",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Retrieve some variable value",
@@ -209,7 +183,6 @@
   },
   {
     "name": "%getenv",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Retrieve environment variable value",
@@ -217,7 +190,6 @@
   },
   {
     "name": "%hex2dec",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return the decimal value (Int) of a hexadecimal string (String)",
@@ -225,7 +197,6 @@
   },
   {
     "name": "%hsl_color",
-    "args": 3,
     "min": 3,
     "max": 4,
     "description": "Return the RGBa color from a HSL color %hsl_color(h, s, l) or %hsl_color(h, s, l, a)",
@@ -233,7 +204,6 @@
   },
   {
     "name": "%intval",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Convert a String to Int",
@@ -241,7 +211,6 @@
   },
   {
     "name": "%invoke_procedure",
-    "args": 1,
     "min": 1,
     "max": null,
     "description": "Dynamically invoke a procedure by its name, passing optional arguments to the called procedure.",
@@ -249,7 +218,6 @@
   },
   {
     "name": "%is_dark",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Check if a color is a dark one",
@@ -257,7 +225,6 @@
   },
   {
     "name": "%is_light",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Check if a color is a light one",
@@ -265,7 +232,6 @@
   },
   {
     "name": "%json_add",
-    "args": 3,
     "min": 2,
     "max": 3,
     "description": "",
@@ -273,7 +239,6 @@
   },
   {
     "name": "%json_key_exists",
-    "args": 1,
     "min": 2,
     "max": 2,
     "description": "",
@@ -281,7 +246,6 @@
   },
   {
     "name": "%json_merge",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "",
@@ -289,7 +253,6 @@
   },
   {
     "name": "%json_remove",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "",
@@ -297,7 +260,6 @@
   },
   {
     "name": "%json_set",
-    "args": 3,
     "min": 2,
     "max": 3,
     "description": "",
@@ -305,7 +267,6 @@
   },
   {
     "name": "%left_align",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -313,7 +274,6 @@
   },
   {
     "name": "%lighten",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "Return a lighten color of a given color with some ratio",
@@ -321,7 +281,6 @@
   },
   {
     "name": "%load_json",
-    "args": 3,
     "min": 1,
     "max": 3,
     "description": "Load JSON data from local file or external URL",
@@ -329,7 +288,6 @@
   },
   {
     "name": "%lower",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return a lowercase string",
@@ -337,7 +295,6 @@
   },
   {
     "name": "%mod",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "Return the remainder of division of two integers (modulo division)",
@@ -345,7 +302,6 @@
   },
   {
     "name": "%n",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Return a newline in rendered text, similar to %newline. _See more documentation on the newline page_",
@@ -353,7 +309,6 @@
   },
   {
     "name": "%nand",
-    "args": 2,
     "min": 2,
     "max": null,
     "description": "",
@@ -361,7 +316,6 @@
   },
   {
     "name": "%newline",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Return a newline in rendered text, similar to %n. _See more documentation on the newline page_",
@@ -369,7 +323,6 @@
   },
   {
     "name": "%nor",
-    "args": 2,
     "min": 2,
     "max": null,
     "description": "",
@@ -377,7 +330,6 @@
   },
   {
     "name": "%not",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return the logical negation of an expression",
@@ -385,7 +337,6 @@
   },
   {
     "name": "%now",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Return the current epoch time",
@@ -393,7 +344,6 @@
   },
   {
     "name": "%nxor",
-    "args": 2,
     "min": 2,
     "max": null,
     "description": "",
@@ -401,7 +351,6 @@
   },
   {
     "name": "%or",
-    "args": 2,
     "min": 2,
     "max": null,
     "description": "",
@@ -409,7 +358,6 @@
   },
   {
     "name": "%ord",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return a Unicode value from a given character",
@@ -417,7 +365,6 @@
   },
   {
     "name": "%percent",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -425,7 +372,6 @@
   },
   {
     "name": "%random",
-    "args": 2,
     "min": 0,
     "max": 2,
     "description": "",
@@ -433,7 +379,6 @@
   },
   {
     "name": "%retrieve_procedure",
-    "args": 1,
     "min": 1,
     "max": null,
     "description": "",
@@ -441,7 +386,6 @@
   },
   {
     "name": "%reverse_color",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Reverse a color using RGB",
@@ -449,7 +393,6 @@
   },
   {
     "name": "%reverse_hsluv_color",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Reverse a color using HSLuv",
@@ -457,7 +400,6 @@
   },
   {
     "name": "%right_align",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -465,7 +407,6 @@
   },
   {
     "name": "%set_variable_value",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "Set a global variable",
@@ -473,7 +414,6 @@
   },
   {
     "name": "%size",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return the size of any string or JSON structure",
@@ -481,7 +421,6 @@
   },
   {
     "name": "%splitstr",
-    "args": 3,
     "min": 2,
     "max": 2,
     "description": "Split a string into an array based on a specified delimiter.",
@@ -489,7 +428,6 @@
   },
   {
     "name": "%splitstr_regex",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "Split a string into an array based on a specified REGEX.",
@@ -497,7 +435,6 @@
   },
   {
     "name": "%str2json",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "",
@@ -505,7 +442,6 @@
   },
   {
     "name": "%string",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Convert an expression to String",
@@ -513,7 +449,6 @@
   },
   {
     "name": "%strlen",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Calculate the length of a String",
@@ -521,7 +456,6 @@
   },
   {
     "name": "%strpos",
-    "args": 2,
     "min": 2,
     "max": 2,
     "description": "Search a substring in a string",
@@ -529,7 +463,6 @@
   },
   {
     "name": "%substr",
-    "args": 3,
     "min": 2,
     "max": 3,
     "description": "Extract a substring. Takes 2 or 3 arguments",
@@ -537,7 +470,6 @@
   },
   {
     "name": "%tab",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "",
@@ -545,7 +477,6 @@
   },
   {
     "name": "%true",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Return always true",
@@ -553,7 +484,6 @@
   },
   {
     "name": "%upper",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Return an uppercase string",
@@ -561,7 +491,6 @@
   },
   {
     "name": "%variable_exists",
-    "args": 1,
     "min": 1,
     "max": 1,
     "description": "Check if a variable exists",
@@ -569,7 +498,6 @@
   },
   {
     "name": "%version",
-    "args": 0,
     "min": 0,
     "max": 0,
     "description": "Return PlantUML current version",
@@ -577,7 +505,6 @@
   },
   {
     "name": "%xargs",
-    "args": 0,
     "min": 1,
     "max": 1,
     "description": "",
@@ -585,7 +512,6 @@
   },
   {
     "name": "%xor",
-    "args": 2,
     "min": 2,
     "max": null,
     "description": "",

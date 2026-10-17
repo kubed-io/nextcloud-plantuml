@@ -223,7 +223,7 @@ async function main() {
     if (pages[name]) console.info(`${name}: ${pages[name].length} sections`)
   }
   const source = {
-    language: await readData('data/language.json'),
+    language: { ...await readData('data/language.json'), ...await readData('data/language-words.json') },
     directives: await readData('data/directives.json'),
     builtins: await readData('data/builtins.json'),
     vocabulary: await readData('data/vocabulary.json'),

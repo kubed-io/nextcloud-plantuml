@@ -20,7 +20,7 @@ const NEWPAGE = /^\s*newpage(?:\s.*)?$/
  * @param {string} line
  * @returns {{ type: string, id: string|null, name: string }|null}
  */
-export function startOf(line) {
+function startOf(line) {
   const open = START.exec(line)
   if (!open) {
     return null

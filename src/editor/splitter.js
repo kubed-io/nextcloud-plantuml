@@ -11,8 +11,8 @@ import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../files-helpers.js'
 
 export const STORAGE_KEY = 'plantuml.editor.split'
-export const MIN = 20
-export const MAX = 80
+const MIN = 20
+const MAX = 80
 const STEP = 5
 const DEFAULT = 50
 

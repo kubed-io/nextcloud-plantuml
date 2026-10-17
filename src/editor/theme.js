@@ -9,8 +9,7 @@
 import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { spriteData, underline, variable } from './plantuml-mode.js'
-import { diagramName, inactive } from './lexicon/tags.js'
+import { diagramName, inactive, spriteData, underline, variable } from './lexicon/tags.js'
 
 /**
  * A status element colour pulled a quarter of the way to the text colour: the

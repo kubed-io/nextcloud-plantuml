@@ -242,7 +242,7 @@ const colourValue = {
 }
 
 /** @type {ValueEntry[]} */
-export const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue, valignValue, tagNumberValue, spaceValue, fontFamilyValue, colourValue, iconValue, emojiValue]
+const coreValues = [themeValue, skinparamValue, scaleValue, sizeValue, valignValue, tagNumberValue, spaceValue, fontFamilyValue, colourValue, iconValue, emojiValue]
 
 /**
  * The values on line `number`, in the order they sit.

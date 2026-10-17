@@ -597,8 +597,9 @@ export function openEditor(node) {
             if (update.docChanged) {
               failure = notice = ''
               showState()
-              diagrams = diagramsOf(update.state.doc)
-              wantProfiles(diagrams, update.state.doc.toString())
+              const text = update.state.doc.toString()
+              diagrams = diagramsOf(update.state.doc, text)
+              wantProfiles(diagrams, text)
               if (!conflict) {
                 autosave.schedule()
               }
@@ -617,9 +618,10 @@ export function openEditor(node) {
     document.addEventListener('visibilitychange', drawAgain)
     window.addEventListener('focus', drawAgain)
     view.focus()
-    diagrams = diagramsOf(view.state.doc)
+    const text = view.state.doc.toString()
+    diagrams = diagramsOf(view.state.doc, text)
     follow(view.state, true)
-    wantProfiles(diagrams, view.state.doc.toString())
+    wantProfiles(diagrams, text)
   }, (e) => {
     console.error(`[${APP_ID}] could not open ${currentPath}`, e)
     fail(t(APP_ID, 'Could not open the file'))

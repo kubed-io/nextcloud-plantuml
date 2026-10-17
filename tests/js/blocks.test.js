@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EditorState, Text } from '@codemirror/state'
 import { blocksOf, diagramAt, diagramsOf, diagramsWithout, label, scan } from '../../src/editor/blocks.js'
 
@@ -163,6 +163,15 @@ describe('diagramsOf, one scan per document version', () => {
   it('is the scan of the document, the same array each time it is asked', () => {
     expect(diagramsOf(doc)).toEqual(scan(doc.toString()))
     expect(diagramsOf(doc)).toBe(diagramsOf(doc))
+  })
+
+  it('scans the text the caller already read, without reading the document again', () => {
+    const fresh = Text.of(['@startjson', '{}', '@endjson'])
+    const text = fresh.sliceString(0)
+    const read = vi.spyOn(fresh, 'toString')
+
+    expect(diagramsOf(fresh, text)).toEqual(scan(text))
+    expect(read).not.toHaveBeenCalled()
   })
 
   it('reads an edited document afresh and keeps the version before it', () => {

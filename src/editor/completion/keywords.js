@@ -58,6 +58,24 @@ const options = labels.map((label) => ({ label, type: 'keyword', boost: 1, docKe
 /** The multi-word labels, such as `end fork`, as their words. */
 const PHRASES = [...labels, ...HELPERS].filter((label) => label.includes(' ')).map((label) => label.split(' '))
 
+// Built once per server answer, so `withDocs` finds the same arrays again (F5).
+const answered = new WeakMap() // server answer → { phrases, offered, withHelpers }
+
+/** The server's words beside the hand-kept ones: its phrases, the options, and those with the helpers. */
+function fromServer(server) {
+  if (!answered.has(server)) {
+    const known = new Set(labels)
+    const extra = [...new Set([...server.types, ...server.keywords])].filter((label) => !known.has(label))
+    const offered = [...options, ...extra.map((label) => ({ label, type: 'keyword', docKey: keyOf(label) }))]
+    answered.set(server, {
+      phrases: [...PHRASES, ...extra.filter((label) => label.includes(' ')).map((label) => label.split(' '))],
+      offered,
+      withHelpers: [...offered, ...helpers],
+    })
+  }
+  return answered.get(server)
+}
+
 /** Whether some phrase starts with `words`, each one complete. */
 function startsAPhrase(words, phrases) {
   return phrases.some((phrase) => words.every((word, index) => phrase[index] === word) && phrase.length > words.length)
@@ -79,17 +97,13 @@ export async function keywords(context) {
   if (!word && !context.explicit) {
     return null
   }
-  const server = await serverKeywords()
-  const known = new Set(labels)
-  const extra = [...new Set([...server.types, ...server.keywords])].filter((label) => !known.has(label))
+  const { phrases, offered, withHelpers } = fromServer(await serverKeywords())
   const before = word.split(' ').slice(0, -1)
-  const phrases = [...PHRASES, ...extra.filter((label) => label.includes(' ')).map((label) => label.split(' '))]
   if (before.length && !startsAPhrase(before, phrases)) {
     return null
   }
   const line = context.state.doc.lineAt(context.pos)
   const alone = line.text.slice(context.pos - line.from).trim() === ''
   const offerHelpers = alone && helpers.some(({ label }) => label.startsWith(word)) && inUml(context.state, line.number)
-  const offered = [...options, ...extra.map((label) => ({ label, type: 'keyword', docKey: keyOf(label) }))]
-  return { from: typed.to - word.length, options: offerHelpers ? [...offered, ...helpers] : offered, validFor: /^[\w-]*(?: [\w-]*)*$/ }
+  return { from: typed.to - word.length, options: offerHelpers ? withHelpers : offered, validFor: /^[\w-]*(?: [\w-]*)*$/ }
 }

@@ -52,11 +52,11 @@ const check = (doc, first, last, indented, fallback) => {
 }
 
 /** @param {{ diagrams: typeof import('../blocks.js').diagramsOf, subDiagrams: typeof import('../sub-diagrams.js').subDiagramsOf }} core */
-export const jsonLint = ({ diagrams: diagramsOf, subDiagrams }) => (state) => {
+export const jsonLint = ({ diagrams, subDiagrams }) => (state) => {
   const { doc } = state
   const found = []
-  const diagrams = diagramsOf(doc)
-  for (const d of diagrams) {
+  const all = diagrams(doc)
+  for (const d of all) {
     if (d.type !== 'json' || d.page !== 1 || d.start === null) {
       continue
     }
@@ -70,7 +70,7 @@ export const jsonLint = ({ diagrams: diagramsOf, subDiagrams }) => (state) => {
     if (s.type !== 'json' || s.end === null) {
       continue
     }
-    if (!diagrams.some((d) => d.type === 'uml' && d.start !== null && d.start < s.start && s.end <= d.to)) {
+    if (!all.some((d) => d.type === 'uml' && d.start !== null && d.start < s.start && s.end <= d.to)) {
       continue
     }
     const mark = check(doc, s.start + 1, s.end - 1, true, s.start)

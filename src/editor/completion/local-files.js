@@ -70,7 +70,8 @@ function namesIn(text, pattern) {
 
 /** The ids of the blocks in `content`, then their indexes, each with the block's name or type beside it. */
 function blockOptions(content) {
-  const blocks = blocksOf(scan(content))
+  // The server's resolver reads a CRLF file's lines without their `\r`; a `@startuml\r` opens nothing here.
+  const blocks = blocksOf(scan(content.replace(/\r\n?/g, '\n')))
   const detail = (block) => block.name || block.type
   const ids = new Map()
   for (const block of blocks) {

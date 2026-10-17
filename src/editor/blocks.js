@@ -118,11 +118,12 @@ const scanned = new WeakMap()
  * every reader of that version (the editor, folding, completion, lint, hover) shares the array.
  *
  * @param {import('@codemirror/state').Text} doc
+ * @param {string} [text] `doc`'s own text, when the caller has read it already
  * @returns {Diagram[]}
  */
-export function diagramsOf(doc) {
+export function diagramsOf(doc, text) {
   if (!scanned.has(doc)) {
-    scanned.set(doc, scan(doc.toString()))
+    scanned.set(doc, scan(text ?? doc.toString()))
   }
   return scanned.get(doc)
 }

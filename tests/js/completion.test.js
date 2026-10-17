@@ -29,7 +29,7 @@ import { protocols } from '../../src/editor/completion/protocols.js'
 import { subDiagrams } from '../../src/editor/completion/sub-diagrams.js'
 import { colors } from '../../src/editor/completion/colors.js'
 import { styleCompletion } from '../../src/editor/completion/style.js'
-import { diagramsOf, scan } from '../../src/editor/blocks.js'
+import { diagramsOf, diagramsWithout, scan } from '../../src/editor/blocks.js'
 import { elementAt } from '../../src/editor/docs/element.js'
 import { profileExtension } from '../../src/editor/profiles/index.js'
 import styleProfile from '../../src/editor/profiles/style.js'
@@ -46,7 +46,7 @@ vi.mock('../../src/editor/save.js', () => ({ listFolder: vi.fn(), loadFile: vi.f
 // The real scan and its memo, counted: a document version is scanned once.
 vi.mock('../../src/editor/blocks.js', async (original) => {
   const real = await original()
-  return { ...real, scan: vi.fn(real.scan), diagramsOf: vi.fn(real.diagramsOf) }
+  return { ...real, scan: vi.fn(real.scan), diagramsOf: vi.fn(real.diagramsOf), diagramsWithout: vi.fn(real.diagramsWithout) }
 })
 vi.mock('../../src/editor/docs/index.js', async (original) => {
   const real = await original()
@@ -1477,6 +1477,14 @@ describe('sections and blocks of an included file', () => {
     expect(labels(result)).not.toContain('foo')
   })
 
+  it('reads the blocks of a file with CRLF line ends, as the server\'s resolver does', async () => {
+    vi.mocked(loadFile).mockResolvedValue({ content: '@startuml(id=bar) Bar diagram\r\nA -> B\r\n@enduml\r\n@startsalt\r\n{\r\n}\r\n@endsalt\r\n', etag: 'e' })
+
+    const result = await completeAt('!include ./crlf.puml!|')
+
+    expect(result.options.map((option) => [option.label, option.detail])).toEqual([['bar', 'Bar diagram'], ['0', 'Bar diagram'], ['1', 'salt']])
+  })
+
   it('offers an id written with spaces around the =, once', async () => {
     vi.mocked(loadFile).mockResolvedValue({ content: '@startuml(id = legend)\n@enduml\n@startuml(id=legend)\n@enduml\n', etag: 'e' })
 
@@ -1956,6 +1964,28 @@ describe('the docs beside the completion list', () => {
     expect(first.options[0].detail).toBe('Alternatives, one drawn per else')
     expect(mindmap.options).not.toBe(first.options)
   })
+
+  it('describes against the index it is given, not one it described with before', async () => {
+    const options = [{ label: 'alt', type: 'keyword', docKey: 'keyword:alt' }]
+    const source = () => ({ from: 0, options })
+    const first = await withDocs(source)(context('A |'))
+    loadDocs.mockResolvedValueOnce({ get: () => ({ summary: 'Another index' }) })
+    const other = await withDocs(source)(context('A |'))
+
+    expect(other.options).not.toBe(first.options)
+    expect(other.options[0].detail).toBe('Another index')
+  })
+
+  it('describes the keywords once while the server\'s answer stands', async () => {
+    const first = await docd(keywords, '@startuml\nal|', true)
+    const again = await docd(keywords, '@startuml\nal|', true)
+    const helpers = await docd(keywords, '@startuml\nco|', true)
+
+    expect(again.options).toBe(first.options)
+    expect(labels(helpers)).toContain('colors')
+    expect(helpers.options).not.toBe(first.options)
+    expect((await docd(keywords, '@startuml\nco|', true)).options).toBe(helpers.options)
+  })
 })
 
 describe('one block scan per document version (F2)', () => {
@@ -1964,15 +1994,18 @@ describe('one block scan per document version (F2)', () => {
     const { state, pos } = stateAt(marked)
     scan.mockClear()
     diagramsOf.mockClear()
+    diagramsWithout.mockClear()
 
     const results = await Promise.all(state.languageDataAt('autocomplete', pos).map((source) => source(new CompletionContext(state, pos, true))))
     expect(results.filter(Boolean).flatMap(labels)).toContain('colors')
     expect(elementAt(state, marked.indexOf('alt') + 1, 1)).toMatchObject({ key: 'keyword:alt', type: 'uml' })
 
-    // Each scan the memo runs is a fresh array, so one array is one scan.
+    // Each scan the memo runs is a fresh array, so one array is one scan; the typed line reads it too.
     expect(scan).not.toHaveBeenCalled()
     expect(diagramsOf.mock.calls.length).toBeGreaterThan(1)
-    expect(new Set(diagramsOf.mock.results.map((result) => result.value)).size).toBe(1)
+    expect(diagramsWithout).toHaveBeenCalled()
+    const read = [...diagramsOf.mock.results, ...diagramsWithout.mock.results].map((result) => result.value)
+    expect(new Set(read).size).toBe(1)
   })
 })
 

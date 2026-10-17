@@ -22,14 +22,18 @@ function described(options, docs, type) {
   })
 }
 
-// Mapped once per options array and block type: most sources answer with a module constant.
-const mapped = new WeakMap() // options → Map<type, described options>
+// Mapped once per index, options array and block type: most sources answer with a module constant.
+const mapped = new WeakMap() // docs → WeakMap<options, Map<type, described options>>
 
 function describedOnce(options, docs, type) {
-  if (!mapped.has(options)) {
-    mapped.set(options, new Map())
+  if (!mapped.has(docs)) {
+    mapped.set(docs, new WeakMap())
   }
-  const byType = mapped.get(options)
+  const byOptions = mapped.get(docs)
+  if (!byOptions.has(options)) {
+    byOptions.set(options, new Map())
+  }
+  const byType = byOptions.get(options)
   if (!byType.has(type)) {
     byType.set(type, described(options, docs, type))
   }

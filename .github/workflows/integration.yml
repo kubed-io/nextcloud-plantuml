@@ -287,6 +287,16 @@ jobs:
           const elapsed = ((Date.now() - started) / 1000).toFixed(1);
           core.setFailed(`PlantUML did not answer ${url} within ${elapsed}s (${attempts} attempts)`);
 
+    # A8: every built-in template, the Examples included, draws on the server the suite runs
+    # against. Once per server version, in the diagrams leg; the runner's own Node runs it, as the
+    # script needs nothing but fetch, fs and the app's own modules.
+    - name: Draw the built-in templates
+      if: matrix.suite == 'diagrams'
+      working-directory: apps/${{ env.APP_ID }}
+      env:
+        PLANTUML_URL: ${{ env.PLANTUML_URL }}
+      run: node scripts/template-examples.mjs
+
     # Behat runs from the integration dir; OCC points back at the server root so
     # `occ` resolves. Formatters (pretty → stdout, junit → junit/) are configured
     # in behat.dist.yml, so no --format flags are needed here.

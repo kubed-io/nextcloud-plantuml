@@ -41,3 +41,17 @@ export async function writeData(path, data) {
   await mkdir(dirname(fileURLToPath(file)), { recursive: true })
   await writeFile(file, JSON.stringify(data, null, 2) + '\n')
 }
+
+/** The reason the PlantUML server at `server` gives for refusing `source`, or '' when it draws. */
+export async function drawProblem(server, source) {
+  const response = await fetch(`${server}/svg`, { method: 'POST', body: source })
+  const text = await response.text()
+  const error = response.headers.get('X-PlantUML-Diagram-Error')
+  if (error) {
+    return `line ${Number(response.headers.get('X-PlantUML-Diagram-Error-Line')) + 1}: ${error}`
+  }
+  if (!response.ok) {
+    return `status ${response.status}`
+  }
+  return /Syntax Error|not supported/i.test(text) ? 'drawn as an error' : ''
+}

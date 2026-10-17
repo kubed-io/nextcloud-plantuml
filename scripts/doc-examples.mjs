@@ -5,7 +5,7 @@
 // whose answer is an error; exits 1 if any.
 //
 //   PLANTUML_URL=http://plantuml.flow.svc node scripts/doc-examples.mjs
-import { isMain, readData } from './lib.mjs'
+import { drawProblem, isMain, readData } from './lib.mjs'
 
 const server = process.env.PLANTUML_URL ?? 'http://plantuml.flow.svc'
 
@@ -40,20 +40,6 @@ export function sourceOf(key, example) {
   return `@start${type}\n${body}\n@end${type}`
 }
 
-/** The reason the server gives for refusing a source, or '' when it draws. */
-async function problem(source) {
-  const response = await fetch(`${server}/svg`, { method: 'POST', body: source })
-  const text = await response.text()
-  const error = response.headers.get('X-PlantUML-Diagram-Error')
-  if (error) {
-    return `line ${Number(response.headers.get('X-PlantUML-Diagram-Error-Line')) + 1}: ${error}`
-  }
-  if (!response.ok) {
-    return `status ${response.status}`
-  }
-  return /Syntax Error|not supported/i.test(text) ? 'drawn as an error' : ''
-}
-
 async function main() {
   const own = await readData('data/docs/own.json')
   let failed = 0
@@ -61,7 +47,7 @@ async function main() {
     if (!example || UNDRAWN.has(key)) {
       continue
     }
-    const reason = await problem(sourceOf(key, example))
+    const reason = await drawProblem(server, sourceOf(key, example))
     if (reason) {
       failed++
       console.info(`${key}: ${reason}`)

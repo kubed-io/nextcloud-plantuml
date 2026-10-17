@@ -1228,4 +1228,36 @@ final class IncludeResolverTest extends TestCase {
 		self::assertStringNotContainsString('Q4', $expanded->source);
 		self::assertSame([['line' => 1, 'message' => 'In ../Mine/mine.zip/c.puml, line 1: Cannot read /Shared/notes.txt']], $expanded->mistakes);
 	}
+
+	/** @return iterable<string, array{string, string, string}> an override keyed as a zip entry's id, the include and the entry's text */
+	public static function zipEntrySpellings(): iterable {
+		yield 'an entry' => ['lib.zip!shown.puml', 'shown.puml', "Shown\n"];
+		yield 'an entry in a folder' => ['lib.zip!sub/x.puml', 'sub/x.puml', "Sub\n"];
+	}
+
+	/** An override stands in for a file in a folder only, never for a zip's entry, whatever its key spells. */
+	#[DataProvider('zipEntrySpellings')]
+	public function testAnOverrideNeverStandsInForAZipEntry(string $key, string $entry, string $text): void {
+		$library = $this->file('Shared/lib.zip', self::zip(['shown.puml' => "Shown\n", 'sub/x.puml' => "Sub\n"]), null, $this->shareStorage(false));
+
+		$expanded = $this->drawnInShare(
+			Constants::PERMISSION_READ,
+			overrides: [$key => "!include notes.txt\n"],
+			source: "!import lib.zip\n!include $entry\n",
+			more: ['Shared/lib.zip' => $library],
+		);
+
+		self::assertSame($text, $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
+
+	/** A file whose name spells a zip's entry is read as itself, and the entry as the zip's. */
+	public function testAFileNamedLikeAZipEntryIsNotThatEntry(): void {
+		$files = ['docs/lib.zip' => self::zip(['shown.puml' => "Shown\n"]), 'docs/lib.zip!shown.puml' => "Beside\n"];
+
+		$expanded = $this->expand("!import lib.zip\n!include \"lib.zip!shown.puml\"\n!include shown.puml\n", $files);
+
+		self::assertSame("Beside\nShown\n", $expanded->source);
+		self::assertSame([], $expanded->mistakes);
+	}
 }

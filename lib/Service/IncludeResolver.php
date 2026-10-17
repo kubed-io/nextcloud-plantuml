@@ -82,7 +82,7 @@ final class IncludeResolver {
 	private array $stack = [];
 	/** @var array<string, string> */
 	private array $contents = [];
-	/** @var array<string, true> ids of the files whose text the caller sent: what that text names is the caller's to read */
+	/** @var array<string, string> the caller's texts by the id of the folder file each stands in for: what they name is the caller's to read */
 	private array $overridden = [];
 	/**
 	 * `caller`: imported by the caller's text, so its entries are the caller's too;
@@ -138,10 +138,8 @@ final class IncludeResolver {
 			if ($segments === null || $segments === []) {
 				continue;
 			}
-			// read() takes contents by the found id, so only once lookUp() and viewOnly() have let the file through.
-			$id = 'files:' . implode('/', $segments);
-			$run->contents[$id] = $text;
-			$run->overridden[$id] = true;
+			// read() takes it by a found folder file's id, so only once lookUp() and viewOnly() have let the file through.
+			$run->overridden['files:' . implode('/', $segments)] = $text;
 		}
 		try {
 			$run->walk(explode("\n", $source), ['dir' => $run->baseDir, 'zip' => null, 'zipDir' => [], 'caller' => false], 0, null, null);
@@ -392,7 +390,9 @@ final class IncludeResolver {
 			return null;
 		}
 		$remaining = self::MAX_BYTES - $this->bytes;
-		$content = $this->contents[$found['id']] ?? null;
+		// An override stands in for a file in a folder only, never for a zip's entry.
+		$override = $found['file'] === null ? null : ($this->overridden[$found['id']] ?? null);
+		$content = $override ?? $this->contents[$found['id']] ?? null;
 		$size = $content === null ? $this->size($found) : strlen($content);
 		if ($size !== null && $size > $remaining) {
 			$this->keep($at, "$path is past the limit of 1 MB in all");
@@ -407,7 +407,9 @@ final class IncludeResolver {
 			$this->keep($at, "$path is past the limit of 1 MB in all");
 			return null;
 		}
-		$this->contents[$found['id']] = $content;
+		if ($override === null) {
+			$this->contents[$found['id']] = $content;
+		}
 		$this->bytes += strlen($content);
 		return $content;
 	}
@@ -579,7 +581,8 @@ final class IncludeResolver {
 			return null;
 		}
 		return [
-			'id' => $this->imports[$n]['id'] . '!' . $name,
+			// No path holds a NUL (find() refuses it), so no file in a folder has an entry's id.
+			'id' => $this->imports[$n]['id'] . "\0" . $name,
 			'display' => $this->imports[$n]['display'] . '/' . $name,
 			'context' => ['dir' => $this->imports[$n]['dir'], 'zip' => $n, 'zipDir' => array_slice($segments, 0, -1), 'caller' => $caller || $this->imports[$n]['caller']],
 			'file' => null,

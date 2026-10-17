@@ -225,6 +225,73 @@ describe('the editor overlay', () => {
   })
 })
 
+describe('the focus after closing (O3)', () => {
+  const rowsHtml = '<table><tbody>'
+    + '<tr data-cy-files-list-row-fileid="7" data-cy-files-list-row-name="Other.puml"><td data-cy-files-list-row-name=""><button class="files-list__row-name-link" data-cy-files-list-row-name-link="" id="other-link">Other</button></td></tr>'
+    + '<tr data-cy-files-list-row-fileid="9" data-cy-files-list-row-name="Order flow.puml"><td data-cy-files-list-row-name=""><button class="files-list__row-name-link" data-cy-files-list-row-name-link="" id="row-link">Order flow</button></td></tr>'
+    + '</tbody></table>'
+  const closeNow = async () => {
+    q('.plantuml-editor__close').click()
+    await settle()
+  }
+  const openWith = async (node) => {
+    q('#opener').focus()
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Order flow.puml', basename: 'Order flow.puml', ...node })
+    await settle()
+  }
+
+  it('returns the focus to the file\'s row when what opened the editor is gone (O3)', async () => {
+    document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+    await openWith({ fileid: 9 })
+    q('#opener').remove()
+
+    await closeNow()
+
+    expect(document.activeElement).toBe(q('#row-link'))
+  })
+
+  it('finds the row by name when the fileid is not known', async () => {
+    document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+    await openWith({})
+    q('#opener').remove()
+
+    await closeNow()
+
+    expect(document.activeElement).toBe(q('#row-link'))
+  })
+
+  it('treats the body as no opener', async () => {
+    document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+    document.activeElement?.blur()
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Order flow.puml', basename: 'Order flow.puml', fileid: 9 })
+    await settle()
+
+    await closeNow()
+
+    expect(document.activeElement).toBe(q('#row-link'))
+  })
+
+  it('falls back to the list\'s first name link when the file has no row', async () => {
+    document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+    await openWith({ fileid: 404, basename: 'Order flow.puml', path: '/Diagrams/Gone.puml' })
+    q('#opener').remove()
+    q('tr[data-cy-files-list-row-fileid="9"]').remove()
+
+    await closeNow()
+
+    expect(document.activeElement).toBe(q('#other-link'))
+  })
+
+  it('keeps the opener when it is still there', async () => {
+    document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+    await openWith({ fileid: 9 })
+
+    await closeNow()
+
+    expect(document.activeElement).toBe(q('#opener'))
+  })
+})
+
 describe('Escape', () => {
   const escape = () => q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
 

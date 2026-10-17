@@ -41,6 +41,7 @@
 
 .plantuml-editor__name {
 	flex: 1;
+	min-width: 0;
 	margin: 0;
 	overflow: hidden;
 	font-size: 16px;
@@ -135,12 +136,17 @@
 }
 
 .plantuml-editor__status {
+	min-width: 0;
+	overflow: hidden;
 	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 /* The way out of a conflict, shown beside its status. */
 .plantuml-editor__reload,
 .plantuml-editor__copy {
+	flex-shrink: 0;
 	min-height: var(--default-clickable-area, 34px);
 	margin: 0;
 	padding: 0 16px;
@@ -174,6 +180,7 @@
 .plantuml-editor__bar button.plantuml-editor__close {
 	position: relative;
 	display: flex;
+	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
 	width: var(--default-clickable-area, 34px);
@@ -924,4 +931,34 @@
 
 .plantuml-editor__source .cm-editor .cm-line {
 	padding: 0 16px;
+}
+
+/* L10: at phone width the bar takes a second row for the status and the way out of a
+ * conflict, so × stays on screen. The ::after is the break; an empty status takes no row. */
+@media (max-width: 600px) {
+	.plantuml-editor__bar {
+		flex-wrap: wrap;
+		height: auto;
+		min-height: 50px;
+	}
+
+	.plantuml-editor__bar::after {
+		content: '';
+		order: 1;
+		flex-basis: 100%;
+	}
+
+	.plantuml-editor__status,
+	.plantuml-editor__reload,
+	.plantuml-editor__copy {
+		order: 2;
+	}
+
+	.plantuml-editor__status {
+		flex: 1 1 0;
+	}
+
+	.plantuml-editor__status:empty {
+		display: none;
+	}
 }

@@ -196,7 +196,7 @@ You'll need PHP 8.4 (matches prod/CI), Composer, Node from `.nvmrc`. Then:
 ```sh
 composer install
 npm ci
-npm run build   # dist/plantuml-{editor,files,readme}.js + dist/chunks/ (ship both)
+npm run build   # dist/plantuml-{editor,files,push,readme}.js + dist/chunks/ (ship both)
 ```
 
 ---

@@ -5,12 +5,14 @@
  * Style blocks: a property PlantUML does not know is a warning, with the
  * nearest one it does as the fix; PlantUML matches them whatever their case.
  * Selectors are never checked, as stereotype classes are free-form. A
- * `<style>` no `</style>` closes is an error. The style profile's rule, made
- * from the core it is given, `replaceAction` among it (`lint/actions.js` is
- * the blocks rule's too, so a core module): importing a core module, or a library the editor
- * also uses (@nextcloud/l10n), would make it a chunk the editor imports
- * statically. `t` is called with the app id written out, for the string
- * extractor, and without sanitizing, which would strip `</style>`.
+ * `<style>` no `</style>` closes is an error.
+ *
+ * It is the style profile's rule, so it takes what it needs from the core it
+ * is given: `t`, `styleBlocks` and `replaceAction`. It imports no core module
+ * (`lint/actions.js` is one, as the blocks rule uses it too) and no library
+ * the editor also uses (@nextcloud/l10n): either would make it a chunk the
+ * editor imports statically. `t` is called with the app id written out, for
+ * the string extractor, and without sanitizing, which would strip `</style>`.
  */
 import vocabulary from '../data/vocabulary.json'
 import { readStyle } from '../profiles/style-grammar.js'

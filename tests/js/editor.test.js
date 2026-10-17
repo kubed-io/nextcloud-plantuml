@@ -1550,6 +1550,65 @@ describe('the Source toggle', () => {
   })
 })
 
+describe('Enter on the editor\'s buttons', () => {
+  // Files' file rows each hold useHotKey('Enter', …, { prevent, stop }) on window: it
+  // cancels the button's own Enter click and opens the active file in the Viewer
+  // underneath. This stand-in does the same, on document, which the key reaches first.
+  let files
+  const enter = (target) => {
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    target.dispatchEvent(event)
+    return event
+  }
+
+  beforeEach(() => {
+    files = vi.fn((event) => event.preventDefault())
+    document.addEventListener('keydown', files)
+    seams.loadFile.mockResolvedValue({ content: '@startuml first\nA -> B\n@enduml\n@startuml second\nB -> C\n@enduml\n', etag: '"get"' })
+  })
+
+  afterEach(() => {
+    document.removeEventListener('keydown', files)
+  })
+
+  it('never reaches Files from the bar, the tabs or their menu, the button\'s click left to the browser', async () => {
+    await open()
+    const buttons = [...document.querySelectorAll('.plantuml-editor button')]
+    for (const name of ['add-new', 'add-type', 'source-toggle', 'refresh', 'save', 'close', 'tab', 'more-button', 'menu-item']) {
+      expect(buttons.some((b) => b.classList.contains(`plantuml-editor__${name}`))).toBe(true)
+    }
+
+    for (const button of buttons) {
+      // Not cancelled: the browser's own Enter click on a button is what does its action.
+      expect(enter(button).defaultPrevented).toBe(false)
+    }
+    expect(files).not.toHaveBeenCalled()
+    expect(q('.plantuml-editor')).not.toBeNull()
+  })
+
+  it('never reaches Files from the Add diagram modal\'s buttons', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ files: [] }), { status: 200 }))
+    await open()
+    q('.plantuml-editor__add-new').click()
+    await vi.waitFor(() => expect(q('.plantuml-add__dialog')).not.toBeNull())
+
+    enter(q('.plantuml-add__close'))
+    enter(q('.plantuml-add__type:not([aria-selected="true"])'))
+
+    expect(files).not.toHaveBeenCalled()
+  })
+
+  it('still breaks a line in the source', async () => {
+    await open()
+    const view = EditorView.findFromDOM(q('.cm-editor'))
+    view.dispatch({ selection: { anchor: '@startuml first'.length } })
+
+    expect(enter(q('.cm-content')).defaultPrevented).toBe(true)
+
+    expect(view.state.doc.toString()).toMatch(/^@startuml first\n\nA -> B\n/)
+  })
+})
+
 const selectedTab = () => q('.plantuml-editor__tab[aria-selected="true"]').textContent
 const view = () => EditorView.findFromDOM(q('.cm-editor'))
 const cursorLine = () => view().state.doc.lineAt(view().state.selection.main.head)

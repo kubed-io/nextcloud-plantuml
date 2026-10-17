@@ -405,7 +405,7 @@ export const surfaceRules = {
   '.cm-plantuml-link-chip:hover': { color: 'var(--color-main-text)' },
   // R10: a linked path is always underlined like a hyperlink; the hand comes only while Ctrl (Cmd) is held.
   '.cm-plantuml-link, .cm-plantuml-link *': {
-    color: 'var(--color-primary-element)', textDecoration: 'underline', textDecorationColor: 'var(--color-primary-element)',
+    color: 'var(--color-primary-element)', textDecorationLine: 'underline', textDecorationColor: 'var(--color-primary-element)',
   },
   '&.cm-plantuml-ctrl .cm-plantuml-link:hover, &.cm-plantuml-ctrl .cm-plantuml-link:hover *': { cursor: 'pointer' },
 

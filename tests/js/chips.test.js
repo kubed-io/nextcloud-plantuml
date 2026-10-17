@@ -104,7 +104,7 @@ describe('the linked-file chip', () => {
     expect(passed).not.toHaveBeenCalled()
   })
 
-  it('marks a linked path whether or not Ctrl is held (R10)', async () => {
+  it('a linked path is marked as a link, with no key held', async () => {
     await editor()
 
     const path = view.contentDOM.querySelector('.cm-plantuml-link[data-linked-path="/Diagrams/UML_Fun.css"]')

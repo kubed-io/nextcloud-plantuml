@@ -202,9 +202,19 @@ describe('the editor surface', () => {
 
     expect(link.color).toBe('var(--color-primary-element)')
     expect(link.textDecorationColor).toBe('var(--color-primary-element)')
-    expect(link.textDecoration).toBe('underline')
+    expect(link.textDecorationLine).toBe('underline')
+    expect(link).not.toHaveProperty('textDecoration')
     expect(link).not.toHaveProperty('cursor')
     expect(surfaceRules['&.cm-plantuml-ctrl .cm-plantuml-link:hover, &.cm-plantuml-ctrl .cm-plantuml-link:hover *']).toEqual({ cursor: 'pointer' })
+  })
+
+  it('leaves a lint range on a linked path its own wavy decoration (R10)', () => {
+    const keys = Object.keys(surfaceRules)
+
+    expect(keys.indexOf('.cm-plantuml-link, .cm-plantuml-link *')).toBeLessThan(keys.indexOf('.cm-lintRange, .cm-lintRange-error, .cm-lintRange-warning, .cm-lintRange-info, .cm-lintRange-hint'))
+    expect(surfaceRules['.cm-lintRange, .cm-lintRange-error, .cm-lintRange-warning, .cm-lintRange-info, .cm-lintRange-hint'].textDecorationLine).toBe('underline')
+    expect(surfaceRules['.cm-plantuml-link, .cm-plantuml-link *']).not.toHaveProperty('textDecoration')
+    expect(surfaceRules['.cm-lintRange-error']).toHaveProperty('textDecorationColor')
   })
 
   it.each([

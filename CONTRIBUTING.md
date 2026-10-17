@@ -45,7 +45,7 @@ review.**
 | [psalm.xml](psalm.xml), [.php-cs-fixer.dist.php](.php-cs-fixer.dist.php) | Static analysis + coding standard config, from the sibling apps. |
 | [.devcontainer/](.devcontainer/) | One-shot dev environment (PHP 8.3 + Node + GH CLI + docker-out-of-docker). |
 | [.github/workflows/](.github/workflows/) | `pr.yml`, `tests.yml`, `quality.yml`, `integration.yml` (the three-leg Behat matrix), `publish.yml`, `package.yml`, `copilot-setup-steps.yml`. |
-| [vite.config.js](vite.config.js) | Frontend build config, one build per `src/` entry, chosen by `ENTRY`: the editor is an ES module whose diagram-type profiles are chunks in `dist/chunks/`; the files and readme bundles are IIFEs. |
+| [vite.config.js](vite.config.js) | Frontend build config, one build per `src/` entry (`files`, `readme`, `editor`, `push`), chosen by `ENTRY`: the editor is an ES module whose diagram-type profiles are chunks in `dist/chunks/`; the push bundle (`dist/plantuml-push.js`, notify_push with axios) is an ES module the editor loads by URL only where the server has notify_push; the files and readme bundles are IIFEs. |
 
 ---
 

@@ -109,7 +109,7 @@ decides whether it goes in.
 | `lib/Migration/` | `RegisterMimetype` / `UnregisterMimetype` |
 | `lib/Listener/` | `LoadFilesScriptListener` (the Files bundles and their initial state), `NewDiagramListener` (a new `.puml`'s starting lines) |
 | `src/` | `files.js` (Viewer handler, actions, + New), `editor.js` (the overlay, lazily loaded), `readme.js` (workspace observer) |
-| `src/editor/` | The editor's parts: save, watch, autosave, preview, inline SVG, splitter, theme, the PlantUML mode; `completion/` and `lint/` hold one file per source or rule |
+| `src/editor/` | The editor's parts: save, watch, autosave, preview, inline SVG, splitter, theme, `push.js` (notify_push, loaded by URL), `once.js`, the PlantUML mode and its helpers (`blocks`, `folding`, `tabs`, `sub-diagrams`, `regions.js`); `lexicon/` (the shared grammar rules), `docs/` (hover cards and the docs index), `profiles/` (one module per diagram type, loaded on demand), `values/` (the registry of values the chooser, stepper and completion read), `swatches.js`; `completion/` and `lint/` hold one file per source or rule (`completion/apply.js` and `lint/actions.js` are their shared helpers) |
 | `features/` | The spec; `README.md` is the map, `AGENTS.md` the notes |
 | `tests/unit/`, `tests/js/`, `tests/integration/` | PHPUnit, vitest, Behat |
 | `docs/superpowers/` | Spec and plan |

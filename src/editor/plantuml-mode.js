@@ -5,8 +5,8 @@
  * PlantUML for CodeMirror 6, as a simple-mode rule table. The rules are ported
  * from Prism's `plant-uml` grammar (components/prism-plant-uml.js at v1.30.0,
  * MIT, Copyright (c) 2012 Lea Verou): its comments, preprocessor lines,
- * @start/@enduml, arrows, strings and keywords. Its times and punctuation are
- * left plain. Added here: a `!` line's parts, the preprocessor's names on every
+ * @start/@enduml, arrows, strings and keywords. Added here: times, brackets, separators and
+ * operators (each a token of its own), a `!` line's parts, the preprocessor's names on every
  * line (`$variable`, `$procedure(`, `%builtin(`), headless links (`--`, `..`,
  * `~~`, `==`), bodies of `=` and `~`, a link's label, separator lines, colours (hex,
  * named, gradients and automatic: each a `ColorLiteral`, the node the colour

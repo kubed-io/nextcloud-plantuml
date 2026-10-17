@@ -76,6 +76,9 @@ All notable changes to this project are documented here. The format follows
 - Every `@start…` and `@end…` line is coloured, whatever the diagram type.
 - A warmer orange for attributes.
 - `!include file!NAME` picks a block by its index or its `@startuml(id=NAME)` only, as PlantUML documents; a block named only `@startuml NAME` is now a mistake that says to add `(id=NAME)`.
+- The editor is faster on long documents: hovering a name, typing and completing no longer rescan the whole text.
+- Completion no longer offers `ExportedName`, `Image` and `ImagePosition`, which PlantUML does not read.
+- notify_push loads only on servers that have it, as its own file, so the editor opens lighter everywhere else.
 
 ### Fixed
 
@@ -94,3 +97,10 @@ All notable changes to this project are documented here. The format follows
 - A quoted multiplicity or role after a link (`A *-- "many" B`) is coloured as a string.
 - A sub-diagram's indented lines read as the server reads them: an indented `#highlight` is highlighted, a `<style>` inside is a style block, and one left open in a class or description body ends at the body's own closer, never at a `}` or `]` of its own content.
 - A salt button holding a `]` reads as PlantUML draws it, and so does a tree with text after its `{T` (`{T{`): that text and the tree's first `}` line are rows.
+
+### Security
+
+- A diagram source over 1 MiB is refused ("The diagram is too large to draw"), whether posted or read from a file.
+- A file shared as view-only cannot be read out through an include, `!import` or `<style file=>` in your own diagram.
+- The PlantUML server's address is logged and reported without its user, password, path or query.
+- Rendered images carry a strict Content-Security-Policy, `nosniff` and an inline Content-Disposition.

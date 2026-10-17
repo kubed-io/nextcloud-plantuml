@@ -102,7 +102,10 @@ function diagnosticsIn(state, from, to, keep = () => true) {
 /** Each drawn action button's message and action name, which a redraw finds it again by. */
 const actionOf = new WeakMap()
 
-/** Lint messages as `@codemirror/lint` draws them in its tooltip, each action applied where its message is now. */
+/**
+ * Lint messages as `@codemirror/lint` draws them in its tooltip, each action applied where its message is now.
+ * A copy of that package's internal `renderDiagnostic` (@codemirror/lint 6.9.7): recheck it on an upgrade.
+ */
 function lintSection(view, found) {
   const list = crelt('ul', { class: 'cm-tooltip-lint' })
   for (const { diagnostic } of found) {

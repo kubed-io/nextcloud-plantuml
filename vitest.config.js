@@ -2,8 +2,8 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Vitest config, kept separate from vite.config.js (which is a lib/IIFE *build*
- * config, not a test config).
+ * Vitest config, kept separate from vite.config.js (the *build* config, one
+ * build per ENTRY, not a test config).
  *
  * Two projects. A suite that needs a DOM opts into jsdom with a
  * `// @vitest-environment jsdom` pragma and runs isolated, in a worker of its

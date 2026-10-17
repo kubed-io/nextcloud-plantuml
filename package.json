@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "comment": "Three bundles, one per surface: dist/plantuml-files.js (Viewer handler, file actions, + New) and dist/plantuml-readme.js (the Text workspace observer) are single-file IIFEs, the sibling apps' shape; dist/plantuml-editor.js (CodeMirror split pane) is an ES module that imports each diagram type's profile from dist/chunks/ when a file needs it. One vite config, selected by ENTRY.",
+  "comment": "Four bundles: dist/plantuml-files.js (Viewer handler, file actions, + New) and dist/plantuml-readme.js (the Text workspace observer) are single-file IIFEs, the sibling apps' shape; dist/plantuml-editor.js (CodeMirror split pane) is an ES module that imports each diagram type's profile from dist/chunks/ when a file needs it; dist/plantuml-push.js (notify_push, all inlined) is an ES module the editor loads by URL only where the server has notify_push. One vite config, selected by ENTRY; push builds first.",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.12.0",

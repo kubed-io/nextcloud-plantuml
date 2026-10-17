@@ -46,7 +46,6 @@ import sourceIcon from '../img/icons/code-tags.svg?raw'
 // "Saved n min ago" counts minutes: the bar redraws twice a minute.
 const TICK_MS = 30000
 
-/** Opens the editor on a Files node, at the diagram index asked for; a second call while one is open does nothing. */
 /**
  * O3: the focus goes back to a real opener, else to the file's row in the Files list, else to
  * the list's first name link; never to the page body. The row is the `tr` (the name cell carries
@@ -65,6 +64,7 @@ function returnFocus(opener, node) {
   target?.focus()
 }
 
+/** Opens the editor on a Files node, at the diagram index asked for; a second call while one is open does nothing. */
 export function openEditor(node, { diagram: openAt } = {}) {
   if (document.querySelector('.plantuml-editor')) {
     return

@@ -5,10 +5,17 @@ import { describe, expect, it } from 'vitest'
 
 // L10: the editor bar at phone width. Comments out; media blocks are read apart from the base rules.
 const css = readFileSync('css/editor.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-// The media block is the last thing in the file; its inner rules are tab-indented.
-const at = css.indexOf('@media (max-width: 600px) {')
-const media = at < 0 ? '' : css.slice(at + '@media (max-width: 600px) {'.length)
-const base = at < 0 ? css : css.slice(0, at)
+// The media block is cut out by balanced braces, so a rule or a second @media after it is not read as part of it.
+const OPEN = '@media (max-width: 600px) {'
+const at = css.indexOf(OPEN)
+let depth = 1
+let end = at + OPEN.length
+while (at >= 0 && depth && end < css.length) {
+  const c = css[end++]
+  depth += c === '{' ? 1 : c === '}' ? -1 : 0
+}
+const media = at < 0 ? '' : css.slice(at + OPEN.length, end - 1)
+const base = at < 0 ? css : css.slice(0, at) + css.slice(end)
 
 const rulesOf = (text) => [...text.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, selector, body]) => ({
   selectors: selector.split(',').map((s) => s.trim()),
@@ -55,6 +62,7 @@ describe('the editor bar at phone width (L10)', () => {
       expect(has(declared(media, `.plantuml-editor__${name}`), 'order', '2')).toBe(true)
     }
     expect(has(declared(media, '.plantuml-editor__status'), 'flex', '1 1 0')).toBe(true)
+    expect(has(declared(base, '.plantuml-editor__bar'), 'flex-wrap', 'wrap')).toBe(false)
   })
 
   it('hides an empty status, so a saved bar stays one row', () => {

@@ -17,8 +17,10 @@ All notable changes to this project are documented here. The format follows
 - Open a diagram's linked style or include file from its `<>` chip or Ctrl/Cmd+click, and edit it in place while the diagram redraws live.
 - **+ New** reads **New puml File** and still makes `New diagram.puml`.
 - The Viewer shows every diagram of a `.puml` as tabs, a stack or a wall, drawn inline so their links work; the mode is not remembered, every open is Tabs.
-- Export from the Viewer to SVG, PNG, PDF, EPS or ASCII art: the diagram in view, the checked ones or all as a zip, except from a share that forbids download. `GET /apps/plantuml/export` does the same.
+- Export from the Viewer to SVG, PNG, PDF, EPS or ASCII art: the diagram in view, the checked ones or all as a zip, named so every file system takes them, except from a share that forbids download. `GET /apps/plantuml/export` does the same.
 - **Edit** in the Viewer opens the editor at the diagram in view.
+- The Viewer shows a spinner on each diagram until it is drawn, draws a stack or wall as you scroll to it, and shows a diagram it drew before on the same page at once.
+- In the Viewer, ← and → step to the previous and next `.puml` in the folder.
 - `GET /apps/plantuml/render` takes `diagram` (a name or a place) and `index`, for one diagram of a file.
 - `.puml` and `.plantuml` files are their own file type, with the app's icon. Removing the app reverts that and leaves alone a mapping you set yourself in `config/mimetypemapping.json`; repair warns when it cannot write `core/js/mimetypelist.js`.
 - Admin settings: point the app at a PlantUML server and test the connection, which names the server's PlantUML version or says what is wrong; `occ plantuml:set-url`, `test-connection` and `show-config` do the same from the command line.

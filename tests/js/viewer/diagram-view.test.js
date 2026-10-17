@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FakeIntersectionObserver } from '../helpers/intersection.js'
 
 const seams = vi.hoisted(() => ({ loadFile: vi.fn(), canDownload: vi.fn(), openEditor: vi.fn(), serverConfigured: true }))
 vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile, canDownload: seams.canDownload }))
 vi.mock('../../../src/open-editor.js', () => ({ openEditor: seams.openEditor }))
 vi.mock('@nextcloud/initial-state', () => ({ loadState: () => seams.serverConfigured }))
 const { createDiagramView } = await import('../../../src/viewer/diagram-view.js')
+const { pageCache } = await import('../../../src/viewer/page-cache.js')
 
 const SCREENS = '@startuml nodes\nA -> B\n@enduml\n@startuml login\nC -> D\n@enduml\n'
 const THREE = SCREENS + '@startuml p3\nE -> F\n@enduml\n'
@@ -20,11 +22,13 @@ const asked = (fetch) => fetch.mock.calls.map(([url]) => new URL(url, 'https://x
 let root
 let fetch
 beforeEach(() => {
+  // Drawings are kept for the page: each test starts with none.
+  pageCache.clear()
   vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-  // Each index answers the drawing of its own name, as the route would.
+  // Each index answers the drawing of its own name, with its ETag, as the route would.
   fetch = vi.fn(async (url) => {
     const index = Number(new URL(url, 'https://x').searchParams.get('index'))
-    return new Response(svg(['nodes', 'login', 'p3'][index]), { status: 200 })
+    return new Response(svg(['nodes', 'login', 'p3'][index]), { status: 200, headers: { ETag: '"srv"' } })
   })
   vi.stubGlobal('fetch', fetch)
   seams.canDownload.mockResolvedValue(true)
@@ -40,10 +44,12 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-const open = async (content) => {
-  seams.loadFile.mockResolvedValue({ content, etag: '"e"' })
-  createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+/** A view of /D/S.puml, its file read and its first sheet asked for. */
+const open = async (content, { etag = '"e"', onReady = vi.fn() } = {}) => {
+  seams.loadFile.mockResolvedValue({ content, etag })
+  const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady })
   await settle()
+  return view
 }
 const mode = (name) => root.querySelector(`.plantuml-viewer__toolbar [aria-label="${name}"]`).click()
 const cards = () => [...root.querySelectorAll('.plantuml-viewer__card')]
@@ -234,6 +240,43 @@ describe('the Viewer, in Tabs', () => {
   })
 })
 
+describe('drawings kept for the page (VW11)', () => {
+  const ifNoneMatch = (call) => new Headers(fetch.mock.calls[call][1].headers).get('If-None-Match')
+
+  it('draws a file opened again from memory at once, then checks it with the server', async () => {
+    (await open(SCREENS)).destroy()
+    // The check never answers: the drawing does not wait for it.
+    fetch.mockImplementation(() => new Promise(() => {}))
+    const onReady = vi.fn()
+    await open(SCREENS, { onReady })
+
+    expect(shown(root)).toEqual(['nodes'])
+    expect(onReady).toHaveBeenCalledOnce()
+    expect(asked(fetch)).toEqual(['0', '0'])
+    expect(ifNoneMatch(1)).toBe('"srv"')
+  })
+
+  it('asks again for a file changed since, its ETag new', async () => {
+    (await open(SCREENS)).destroy()
+    await open(SCREENS, { etag: '"f"' })
+
+    expect(asked(fetch)).toEqual(['0', '0'])
+    expect(ifNoneMatch(1)).toBeNull()
+  })
+
+  it('switches modes with no request for a sheet already drawn', async () => {
+    await open(THREE)
+    mode('Stack')
+    await settle()
+    mode('Tabs')
+    root.querySelectorAll('[role="tab"]')[2].click()
+    await settle()
+
+    expect(asked(fetch)).toEqual(['0', '1', '2'])
+    expect(shown(root)).toEqual(['p3'])
+  })
+})
+
 describe('Stack and Wall', () => {
   const caption = (card) => card.querySelector('label').textContent
   // The 1-based place of each drawing still asked for; the route is asked by 0-based index.
@@ -254,6 +297,32 @@ describe('Stack and Wall', () => {
     expect(cards().map(caption)).toEqual(['nodes', 'login', 'p3'])
     expect(shown(root)).toEqual(['nodes', 'login', 'p3'])
     expect(root.querySelector('.plantuml-viewer__tabbar').hidden).toBe(true)
+  })
+
+  it('draws its checkbox as the boards do, over the native one kept for the keyboard and screen readers', async () => {
+    await open(THREE)
+    mode('Stack')
+    const [first] = cards()
+    const box = first.querySelector('input[type="checkbox"]')
+
+    expect(box.nextElementSibling.classList.contains('plantuml-viewer__check')).toBe(true)
+    expect(box.nextElementSibling.getAttribute('aria-hidden')).toBe('true')
+    expect(first.querySelector('label').textContent).toBe('nodes')
+    box.click()
+    expect(box.checked).toBe(true)
+  })
+
+  it('disables the checkbox of a diagram the server draws no image for, described by its sheet', async () => {
+    await open('@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n')
+    mode('Stack')
+    const [first, second] = cards().map((card) => card.querySelector('input[type="checkbox"]'))
+
+    expect(first.disabled).toBe(false)
+    expect(second.disabled).toBe(true)
+    expect(second.getAttribute('aria-describedby')).toBe(cards()[1].querySelector('.plantuml-viewer__sheet').id)
+    second.click()
+    expect(second.checked).toBe(false)
+    expect(cards()[1].classList.contains('plantuml-viewer__card--checked')).toBe(false)
   })
 
   it('opens a Wall card in Tabs on a click outside its checkbox', async () => {
@@ -334,8 +403,131 @@ describe('Stack and Wall', () => {
   })
 })
 
+describe('Stack and Wall draw what is on screen (VW10)', () => {
+  const FORTY = Array.from({ length: 40 }, (_, i) => `@startuml d${i + 1}\n@enduml\n`).join('')
+  const observer = () => FakeIntersectionObserver.last()
+  let pending
+  const answerOne = async () => {
+    pending.shift().resolve(new Response(svg('d')))
+    await settle()
+  }
+
+  beforeEach(() => {
+    FakeIntersectionObserver.made = []
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
+    pending = []
+    fetch.mockImplementation((url) => new Promise((resolve) => pending.push({ url, resolve })))
+  })
+
+  it('watches every card from the scrolling stage, a stage height ahead', async () => {
+    await open(THREE)
+    mode('Stack')
+
+    expect(observer().options).toEqual({ root: root.querySelector('.plantuml-viewer__stage'), rootMargin: '100%' })
+    expect(observer().observed()).toEqual(cards())
+  })
+
+  it('asks only for the cards near what is in view, in file order, three at a time', async () => {
+    await open(FORTY)
+    await answerOne()
+    mode('Wall')
+    await settle()
+    expect(asked(fetch)).toEqual(['0'])
+
+    observer().enter(...cards().slice(0, 6).reverse())
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3'])
+    await answerOne()
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '4'])
+  })
+
+  it('lets a card go that scrolled away before its turn', async () => {
+    await open(FORTY)
+    await answerOne()
+    mode('Stack')
+    observer().enter(...cards().slice(1, 8))
+    observer().leave(...cards().slice(4, 8))
+    observer().enter(cards()[30])
+    await answerOne()
+
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '30'])
+  })
+
+  it('asks for nothing more while the view is hidden, and goes on once it is shown', async () => {
+    seams.loadFile.mockResolvedValue({ content: FORTY, etag: '"e"' })
+    const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+    await settle()
+    await answerOne()
+    mode('Stack')
+    observer().enter(...cards().slice(1, 8))
+    const watched = observer()
+
+    view.setActive(false)
+    expect(watched.disconnected).toBe(true)
+    await answerOne()
+    await answerOne()
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3'])
+
+    view.setActive(true)
+    expect(observer()).not.toBe(watched)
+    observer().enter(...cards().slice(1, 8))
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '4', '5'])
+  })
+
+  it('asks for nothing while hidden before its file is read, and is ready once shown and drawn', async () => {
+    let read
+    seams.loadFile.mockReturnValue(new Promise((resolve) => { read = resolve }))
+    const onReady = vi.fn()
+    const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady })
+    view.setActive(false)
+    read({ content: THREE, etag: '"e"' })
+    await settle()
+    expect(fetch).not.toHaveBeenCalled()
+
+    view.setActive(true)
+    expect(asked(fetch)).toEqual(['0'])
+    await answerOne()
+    expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('stops watching the cards back in Tabs, and asks only for the open tab', async () => {
+    await open(FORTY)
+    await answerOne()
+    mode('Stack')
+    observer().enter(...cards().slice(1, 8))
+    const watched = observer()
+    mode('Tabs')
+    root.querySelectorAll('[role="tab"]')[20].click()
+    await answerOne()
+    await answerOne()
+    await answerOne()
+
+    expect(watched.disconnected).toBe(true)
+    expect(asked(fetch)).toEqual(['0', '1', '2', '3', '20'])
+  })
+
+  it('stops watching when destroyed', async () => {
+    seams.loadFile.mockResolvedValue({ content: THREE, etag: '"e"' })
+    const view = createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+    await settle()
+    mode('Wall')
+    view.destroy()
+
+    expect(observer().disconnected).toBe(true)
+  })
+
+  it('asks for every card where the browser has no IntersectionObserver', async () => {
+    vi.stubGlobal('IntersectionObserver', undefined)
+    await open(THREE)
+    await answerOne()
+    mode('Stack')
+
+    expect(asked(fetch)).toEqual(['0', '1', '2'])
+  })
+})
+
 const exportButton = () => root.querySelector('.plantuml-viewer__export')
 const exportLabel = () => exportButton().getAttribute('aria-label')
+const exportTitle = () => exportButton().title
 const menuShown = () => root.querySelector('.plantuml-viewer__menu')
 const heading = () => root.querySelector('.plantuml-viewer__menu-heading').textContent
 const pick = (format) => root.querySelector(`[role="menuitem"][data-value="${format}"]`).click()
@@ -374,6 +566,8 @@ describe('Export', () => {
     exportButton().click()
 
     expect(exportLabel()).toBe('Export')
+    expect(exportTitle()).toBe('Export')
+    expect(root.querySelector('.plantuml-viewer__label')).toBeNull()
     expect(heading()).toBe('login')
     pick('png')
     await settle()
@@ -419,6 +613,7 @@ describe('Export', () => {
     check(1)
 
     expect(exportLabel()).toBe('Export 2')
+    expect(exportTitle()).toBe('Export 2')
     exportButton().click()
     expect(heading()).toBe('2 diagrams, as .zip')
     pick('svg')
@@ -441,11 +636,28 @@ describe('Export', () => {
     mode('Wall')
 
     expect(exportLabel()).toBe('Export all')
+    expect(exportTitle()).toBe('Export all')
     exportButton().click()
     expect(heading()).toBe('3 diagrams, as .zip')
     pick('txt')
     await settle()
     expect(exportsAsked()).toEqual([[['path', '/D/S.puml'], ['format', 'txt']]])
+  })
+
+  it('counts in Export all only the diagrams the server draws, as its zip does', async () => {
+    await open(`${THREE}@startuml p4\nG -> H\n`)
+    mode('Stack')
+    exportButton().click()
+
+    expect(heading()).toBe('3 diagrams, as .zip')
+  })
+
+  it('names the one diagram Export all saves when the others have no image', async () => {
+    await open('@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n')
+    mode('Wall')
+    exportButton().click()
+
+    expect(heading()).toBe('a')
   })
 
   it('reads Export again back in Tabs, whatever is checked', async () => {

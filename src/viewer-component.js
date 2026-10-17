@@ -10,7 +10,7 @@
  * `filename`, `basename`, `active` and `doneLoading()`. The Viewer also mounts
  * the previous and next files' components, hidden and inactive, so the view is
  * built only once this one is the file shown, and is kept: a hidden one is inert,
- * so its active tab leaves the focus order.
+ * so its active tab leaves the focus order, and asks for no more drawings.
  */
 import { createDiagramView } from './viewer/diagram-view.js'
 
@@ -20,7 +20,9 @@ export default {
   watch: {
     active(now) {
       this.$el.toggleAttribute('inert', !now)
-      if (now) {
+      if (this.view) {
+        this.view.setActive(now)
+      } else if (now) {
         this.build()
       }
     },

@@ -63,6 +63,16 @@ function editorBundleRuns() {
   scripts()[0].dispatchEvent(new Event('load'))
 }
 
+describe('the Viewer handler', () => {
+  it('groups the diagram files, so the Viewer steps to the previous and next .puml of the folder', () => {
+    expect(window.OCA.Viewer.registerHandler).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'plantuml',
+      group: 'plantuml',
+      mimes: ['text/x-plantuml'],
+    }))
+  })
+})
+
 describe('Edit diagram', () => {
   it('adds no editor bundle to the page until it is used', () => {
     expect(scripts()).toHaveLength(0)

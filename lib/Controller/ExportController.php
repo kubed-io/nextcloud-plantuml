@@ -40,6 +40,8 @@ final class ExportController extends Controller {
 	public const MAX_BYTES = 52428800;
 	/** Characters of a diagram's label kept in a name: headers stay small, and zip entries short. */
 	public const MAX_LABEL = 150;
+	/** Bytes of a name before its extension: of the 255 a file system allows, room for ` (n)` and `.svg`. */
+	public const MAX_STEM = 200;
 
 	public function __construct(
 		string $appName,
@@ -136,7 +138,7 @@ final class ExportController extends Controller {
 		$base = (string)preg_replace('/\.(?:puml|plantuml)$/i', '', $file->file->getName());
 		if (count($drawn) === 1) {
 			[$d, $rendered] = $drawn[0];
-			$name = count($all) === 1 ? self::safe($base) . ".{$format}" : self::entry($base, $d, $format);
+			$name = count($all) === 1 ? self::stem($base) . ".{$format}" : self::entry($base, $d, $format);
 			return self::download($rendered->body, $name, RenderService::FORMATS[$format]);
 		}
 		return $this->zip($drawn, $base, $format);
@@ -185,21 +187,32 @@ final class ExportController extends Controller {
 			return new Response(Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 		// ITempManager removes the file at the end of the request.
-		return self::download((string)file_get_contents($path), self::safe($base) . '.zip', 'application/zip');
+		return self::download((string)file_get_contents($path), self::stem($base) . '.zip', 'application/zip');
 	}
 
 	/** @param Diagram $diagram */
 	private static function entry(string $base, array $diagram, string $format): string {
-		return self::safe($base . ' - ' . mb_substr(Diagrams::label($diagram), 0, self::MAX_LABEL)) . ".{$format}";
+		return self::stem($base . ' - ' . mb_substr(Diagrams::label($diagram), 0, self::MAX_LABEL)) . ".{$format}";
+	}
+
+	/**
+	 * `safe()`, cut at MAX_STEM bytes on a character's edge, and trimmed again after the cut: the
+	 * spaces, hyphens and joiners at its edges go, so a name of joiners alone is `diagram`.
+	 */
+	private static function stem(string $name): string {
+		$cut = (string)preg_replace('/^[ \-\x{200C}\x{200D}]+|[ \-\x{200C}\x{200D}]+$/u', '', mb_strcut(self::safe($name), 0, self::MAX_STEM, 'UTF-8'));
+		return $cut !== '' ? $cut : 'diagram';
 	}
 
 	/**
 	 * Each run of unsafe characters, with the spaces around it, becomes ` - `: `Login / Sign-up` is
 	 * `Login - Sign-up`. Unsafe: what a file system or a header refuses, and the invisible ones (C0
-	 * and C1 controls, and `\p{Cf}` such as a bidi override, which shows a name backwards).
+	 * and C1 controls, and `\p{Cf}` such as a bidi override, which shows a name backwards). The
+	 * joiners U+200C and U+200D stay: Persian and Indic words and emoji sequences are written
+	 * with them.
 	 */
 	private static function safe(string $name): string {
-		$name = trim((string)preg_replace(['/\s*[\/\\\\:*?"<>|\p{Cc}\p{Cf}]+\s*/u', '/ {2,}/'], [' - ', ' '], $name), ' -');
+		$name = trim((string)preg_replace(['/\s*(?:[\/\\\\:*?"<>|\p{Cc}]|[^\P{Cf}\x{200C}\x{200D}])+\s*/u', '/ {2,}/'], [' - ', ' '], $name), ' -');
 		return $name !== '' ? $name : 'diagram';
 	}
 

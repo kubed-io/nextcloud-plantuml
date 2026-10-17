@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2026 kubed-io
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * The Viewer's diagrams (VW1–VW8), on a root the Vue component hands over. The
+ * The Viewer's diagrams (VW1–VW11), on a root the Vue component hands over. The
  * file is read once and split as the editor's tabs split it; every open starts
  * in Tabs on the first diagram (VW8). The head (toolbar, export notice, tab
  * bar) sits outside the scrolling stage, so none moves when a diagram changes
@@ -10,6 +10,8 @@
  * Stack and Wall (VW4, VW5) show every diagram as a card with a checkbox; what
  * is checked lasts while the view does, across modes. Export (VW6) and Edit
  * (VW7) act on the open tab, or in Stack and Wall on the checked cards.
+ * Only what is on screen is drawn (VW10): the open tab, or the cards near the
+ * visible part of the stage; a hidden view asks for nothing.
  */
 import { n, translate as t } from '@nextcloud/l10n'
 import { loadState } from '@nextcloud/initial-state'
@@ -66,7 +68,7 @@ function filenameOf(disposition) {
 /**
  * @param {HTMLElement} root
  * @param {{ path: string, basename: string, onReady: () => void }} options
- * @return {{ destroy: () => void }}
+ * @return {{ setActive: (active: boolean) => void, destroy: () => void }}
  */
 export function createDiagramView(root, { path, basename, onReady }) {
   const prefix = `plantuml-viewer-${++views}-`
@@ -76,8 +78,12 @@ export function createDiagramView(root, { path, basename, onReady }) {
   let sheets = null
   let toolbar = null
   let menu = null
+  let observer = null
+  let active = true
   let destroyed = false
   let ready = false
+  // A card → the position of its sheet.
+  const positions = new WeakMap()
   const settle = () => {
     if (!ready && !destroyed) {
       ready = true
@@ -127,14 +133,17 @@ export function createDiagramView(root, { path, basename, onReady }) {
       : count === 0 ? t(APP_ID, 'Export all') : n(APP_ID, 'Export %n', 'Export %n', count))
   }
 
-  /** What the menu exports: the one diagram's label, else how many go in the zip. */
+  /**
+   * What the menu exports: the one diagram's label, else how many go in the zip. None chosen is
+   * every diagram the server draws an image for; it leaves out the rest (`drawn`).
+   */
   function exportHeading() {
     const indexes = chosen()
-    const count = indexes.length || diagrams.length
-    if (count > 1) {
-      return n(APP_ID, '%n diagrams, as .zip', '%n diagrams, as .zip', count)
+    const going = indexes.length ? indexes.map((index) => diagrams[index]) : diagrams.filter((diagram) => diagram.drawn)
+    if (going.length > 1) {
+      return n(APP_ID, '%n diagrams, as .zip', '%n diagrams, as .zip', going.length)
     }
-    const one = diagrams[indexes[0] ?? 0]
+    const one = going[0] ?? diagrams[0]
     // A file of one unnamed diagram is named after the file (the export-menu-single board).
     return diagrams.length === 1 && !one.name ? basename.replace(/\.(?:puml|plantuml)$/i, '') : label(one)
   }
@@ -186,8 +195,12 @@ export function createDiagramView(root, { path, basename, onReady }) {
   function card(index) {
     const node = element('div', 'plantuml-viewer__card')
     const caption = element('label', 'plantuml-viewer__caption')
+    // The native box takes the keys and the clicks, unseen; the mark after it is what is drawn (viewer.css).
     const box = document.createElement('input')
     box.type = 'checkbox'
+    box.className = 'plantuml-viewer__check-input'
+    const mark = element('span', 'plantuml-viewer__check')
+    mark.setAttribute('aria-hidden', 'true')
     box.checked = state.checked.has(index)
     box.addEventListener('change', () => {
       if (box.checked) {
@@ -198,9 +211,18 @@ export function createDiagramView(root, { path, basename, onReady }) {
       node.classList.toggle('plantuml-viewer__card--checked', box.checked)
       afterCheck()
     })
-    caption.append(box, label(diagrams[index]))
+    caption.append(box, mark, label(diagrams[index]))
+    positions.set(node, index + 1)
     node.classList.toggle('plantuml-viewer__card--checked', box.checked)
-    node.append(caption, sheets.sheet(index + 1))
+    const sheet = sheets.sheet(index + 1)
+    // A diagram the server draws no image for cannot be exported: its box stays off, so Export N
+    // never counts it, and its sheet (the route's problem line, once it lands) describes why.
+    if (!diagrams[index].drawn) {
+      sheet.id = `${prefix}sheet-${index + 1}`
+      box.disabled = true
+      box.setAttribute('aria-describedby', sheet.id)
+    }
+    node.append(caption, sheet)
     // The caption is a <label>: a click on its text toggles the box, so it counts as the checkbox.
     // A diagram's link opens in a new tab (inline-svg.js) and leaves the Wall as it is.
     node.addEventListener('click', (event) => {
@@ -213,6 +235,41 @@ export function createDiagramView(root, { path, basename, onReady }) {
     return node
   }
 
+  /**
+   * What the stage shows is asked for: the open tab, or in Stack and Wall each card once it comes
+   * within a stage's height of the visible part, watched from the scrolling stage, the nearest
+   * in file order. A card that leaves before its turn waits no more; a hidden view asks for nothing.
+   */
+  function want() {
+    observer?.disconnect()
+    observer = null
+    sheets.clear()
+    if (!active) {
+      return
+    }
+    if (state.mode === 'tabs') {
+      sheets.request(state.active + 1)
+      return
+    }
+    const shown = [...stage.children]
+    if (typeof IntersectionObserver === 'undefined') {
+      sheets.request(...shown.map((node) => positions.get(node)))
+      return
+    }
+    observer = new IntersectionObserver((entries) => {
+      const near = []
+      for (const { target, isIntersecting } of entries) {
+        if (isIntersecting) {
+          near.push(positions.get(target))
+        } else {
+          sheets.release(positions.get(target))
+        }
+      }
+      sheets.request(...near.sort((a, b) => a - b))
+    }, { root: stage, rootMargin: '100%' })
+    shown.forEach((node) => observer.observe(node))
+  }
+
   function show() {
     toolbar?.setMode(state.mode)
     tabBar.hidden = state.mode !== 'tabs' || diagrams.length < 2
@@ -223,6 +280,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     } else {
       stage.replaceChildren(...diagrams.map((_diagram, index) => card(index)))
     }
+    want()
     afterCheck()
   }
 
@@ -250,14 +308,15 @@ export function createDiagramView(root, { path, basename, onReady }) {
       waited = setTimeout(() => resolve(true), SHARE_WAIT)
     }),
   ]).finally(() => clearTimeout(waited))
-  Promise.all([loadFile(path), downloadable]).then(([{ content }, exportable]) => {
+  Promise.all([loadFile(path), downloadable]).then(([{ content, etag }, exportable]) => {
     if (destroyed) {
       return
     }
     // CodeMirror reads any line ending for the editor; scan() splits on \n alone.
     diagrams = scan(content.replace(/\r\n?/g, '\n'))
-    sheets = createSheets(path, { labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
+    sheets = createSheets(path, { etag, labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
     build({ exportable })
+    // Before show(): a drawing kept for the page settles the sheet as soon as it is asked for.
     sheets.sheet(1).addEventListener('plantuml-viewer:settled', settle, { once: true })
     show()
   }, () => {
@@ -271,8 +330,16 @@ export function createDiagramView(root, { path, basename, onReady }) {
   })
 
   return {
+    /** The Viewer shows this file (true) or keeps it hidden beside the one shown (false). */
+    setActive(now) {
+      active = now
+      if (sheets && !destroyed) {
+        want()
+      }
+    },
     destroy() {
       destroyed = true
+      observer?.disconnect()
       menu?.destroy()
       sheets?.destroy()
       tabs.destroy()

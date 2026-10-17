@@ -24,7 +24,7 @@ final class DiagramsTest extends TestCase {
 	 */
 	public static function cases(): array {
 		$expected = json_decode((string)file_get_contents(self::FIXTURES . 'expected.json'), true, 512, JSON_THROW_ON_ERROR);
-		$keep = array_flip(['index', 'type', 'name', 'id', 'page', 'pages', 'render']);
+		$keep = array_flip(['index', 'type', 'name', 'id', 'page', 'pages', 'render', 'drawn']);
 		$cases = [];
 		foreach ($expected as $file => $rows) {
 			$cases[$file] = [
@@ -35,10 +35,9 @@ final class DiagramsTest extends TestCase {
 		return $cases;
 	}
 
-	/** `drawn` is the server's own (see testMarksWhatIsDrawn); the rest is the editor's. */
 	#[DataProvider('cases')]
 	public function testScansAsTheEditorDoes(string $text, array $diagrams): void {
-		self::assertSame($diagrams, array_map(static fn (array $d): array => array_diff_key($d, ['drawn' => true]), Diagrams::scan($text)));
+		self::assertSame($diagrams, Diagrams::scan($text));
 	}
 
 	/** Of the shared fixtures, only the block left open after the last image has none of its own. */
@@ -84,6 +83,13 @@ final class DiagramsTest extends TestCase {
 		$id = 'x' . str_repeat(' ', 200000) . 'y';
 		$diagrams = Diagrams::scan("@startuml(id={$id}   )\n@enduml\n");
 		self::assertSame([$id, $id], [$diagrams[0]['id'], $diagrams[0]['name']]);
+	}
+
+	/** A long `@start` word cut by a line separator once exhausted PCRE's backtrack limit and threw. */
+	public function testALongStartWordCutByALineSeparatorOpensNoBlock(): void {
+		$diagrams = Diagrams::scan('@start' . str_repeat('a', 40000) . "\u{2028}x\n@enduml\n");
+		self::assertSame([''], array_column($diagrams, 'name'));
+		self::assertSame([1], array_column($diagrams, 'pages'));
 	}
 
 	/** Quotes stay out of a name: one inside it opens no block, as in the editor. */

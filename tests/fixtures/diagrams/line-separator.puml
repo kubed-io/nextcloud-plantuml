@@ -1,0 +1,15 @@
+@startuml first
+A -> B
+newpage 
+newpage x y
+B -> A
+@enduml
+@startuml second tail
+C -> D
+@enduml
+@startuml third 
+E -> F
+@enduml
+ @startuml x
+G -> H
+@enduml

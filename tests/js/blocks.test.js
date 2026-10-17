@@ -18,9 +18,13 @@ describe('scan', () => {
     })
   }
 
+  it('marks a block after a newpage, left open past the last image, as undrawn', () => {
+    expect(scan('@startuml a\n@enduml\n@startuml b\nA\nnewpage\nB\n').map((d) => d.drawn)).toEqual([true, false, false])
+  })
+
   it('gives an empty document one diagram', () => {
     expect(scan('')).toEqual([
-      { index: 0, type: 'uml', name: '', id: null, page: 1, pages: 1, from: 1, to: 1, start: null, end: null, render: 0 },
+      { index: 0, type: 'uml', name: '', id: null, page: 1, pages: 1, from: 1, to: 1, start: null, end: null, render: 0, drawn: true },
     ])
   })
 
@@ -154,6 +158,12 @@ describe('a @start line with a huge run of spaces', () => {
     const id = `x${' '.repeat(200000)}y`
     const [diagrams, ms] = timed(`@startuml(id=${id}   )\n@enduml`)
     expect(diagrams[0]).toMatchObject({ id, name: id })
+    expect(ms).toBeLessThan(200)
+  })
+
+  it('reads a 40,000-letter @start word cut by a line separator in under 200 ms', () => {
+    const [diagrams, ms] = timed(`@start${'a'.repeat(40000)}\u2028x\n@enduml`)
+    expect(diagrams.map((d) => d.start)).toEqual([null])
     expect(ms).toBeLessThan(200)
   })
 

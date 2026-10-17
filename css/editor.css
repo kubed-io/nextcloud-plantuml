@@ -782,8 +782,11 @@
 	white-space: nowrap;
 }
 
+/* No pointer: in a small window the card is clamped over the rows, and one
+ * that took the pointer from its row would hide on the row's pointerleave. */
 .plantuml-add__preview {
 	position: fixed;
+	pointer-events: none;
 	min-width: 220px;
 	max-width: 360px;
 	max-height: 60vh;

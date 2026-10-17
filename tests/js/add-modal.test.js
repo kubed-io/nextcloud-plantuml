@@ -458,6 +458,12 @@ describe('the Add diagram modal\'s styles', () => {
     expect(focus).toMatch(/box-shadow: none !important;/)
   })
 
+  it('lets the pointer through the text card, so a card clamped over its own row never makes the row lose the pointer', () => {
+    // In a small window place() puts the card over the rows: one that took the
+    // pointer would fire the row's pointerleave, hide, and show again 500 ms on.
+    expect(rule('.plantuml-add__preview')).toMatch(/pointer-events: none;/)
+  })
+
   it('shows no ring on the backdrop or the dialog, which take the focus only to keep it', () => {
     expect(rule('.plantuml-add:focus,\n.plantuml-add__dialog:focus')).toMatch(/outline: none;/)
   })

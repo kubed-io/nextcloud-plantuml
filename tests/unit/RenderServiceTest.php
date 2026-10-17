@@ -839,6 +839,21 @@ final class RenderServiceTest extends TestCase {
 		self::assertStringNotContainsString('secretpw', implode("\n", $logged));
 	}
 
+	/** The cause's message names the URL, userinfo and all, so it is not carried on to whoever logs the problem. */
+	public function testAnUnreachableServersProblemCarriesNoCause(): void {
+		$clients = $this->createStub(IClientService::class);
+		$clients->method('newClient')->willReturn($this->clientAnswering(new \RuntimeException('cURL error 7: Failed to connect to https://user:secretpw@p.example.com:8443/svg')));
+		$service = $this->serviceWith($clients, 'https://user:secretpw@p.example.com:8443');
+
+		try {
+			$service->render(self::SOURCE);
+			self::fail('no problem');
+		} catch (RenderException $e) {
+			self::assertSame(RenderException::PROBLEM_UNREACHABLE, $e->getProblem());
+			self::assertNull($e->getPrevious());
+		}
+	}
+
 	public function testANonPlantUmlAnswerIsLoggedWithoutItsCredentials(): void {
 		$logged = $this->loggedFor($this->response(500, ''), static fn (RenderService $s) => $s->themes());
 

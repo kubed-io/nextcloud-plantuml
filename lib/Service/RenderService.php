@@ -433,7 +433,8 @@ final class RenderService {
 				'error' => (string)preg_replace('#(?<=//)[^/@\s]*@#', '', str_replace($url, ServerConfig::redacted($url), $e->getMessage())),
 				'class' => $e::class,
 			]);
-			throw new RenderException(RenderException::PROBLEM_UNREACHABLE, $e);
+			// Nor kept as the cause, which would carry that message on to whoever logs this.
+			throw new RenderException(RenderException::PROBLEM_UNREACHABLE);
 		}
 	}
 

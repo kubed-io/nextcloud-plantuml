@@ -41,7 +41,9 @@ use OCP\Lock\LockedException;
  * GET takes a path, resolved in the caller's own folder: you can have drawn
  * exactly what you can read. POST takes text for the README fences and the
  * editor's preview; it grants nothing GET does not, since anyone who can send
- * text can upload it as a .puml, and it keeps the CSRF check. Both read the
+ * text can upload it as a .puml, and it keeps the CSRF check. The one thing a
+ * stored file has that sent text lacks, its owner's word, is checked: only the
+ * base's own text reads a view-only share it is on. Both read the
  * files a diagram includes from the caller's own folder (POST only when given
  * the file's path), and pass on PlantUML's error headers, moved to the
  * diagram's own line, which the editor turns into an underlined line. The
@@ -93,7 +95,7 @@ final class RenderController extends Controller {
 		if ($content === null) {
 			return $this->tooLarge();
 		}
-		$expanded = preg_match(self::NAMES_A_FILE, $content) === 1 ? $this->resolver->expand($content, $node->getParent(), $userFolder, $node) : null;
+		$expanded = preg_match(self::NAMES_A_FILE, $content) === 1 ? $this->resolver->expand($content, $node->getParent(), $userFolder, $node, true) : null;
 		$etag = $expanded === null ? $node->getEtag() : self::etag($node->getEtag(), $expanded);
 		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $etag) {
 			return $this->revalidated(new Response(Http::STATUS_NOT_MODIFIED), $etag);
@@ -130,7 +132,7 @@ final class RenderController extends Controller {
 				return new Response(Http::STATUS_NOT_FOUND);
 			}
 			if (preg_match(self::NAMES_A_FILE, $source) === 1) {
-				$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node);
+				$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node, self::ownersText($node, $source));
 			}
 		}
 		try {
@@ -284,6 +286,28 @@ final class RenderController extends Controller {
 			fclose($handle);
 		}
 		return $content === false || strlen($content) > self::MAX_SOURCE ? null : $content;
+	}
+
+	/**
+	 * Whether the text sent is the base's own, as stored, or for a README whole
+	 * lines of it (a fence): only text the share's owner wrote may read the
+	 * rest of a view-only share. The reader writes the rest.
+	 */
+	private static function ownersText(File $base, string $source): bool {
+		if (self::storedSize($base) > self::MAX_SOURCE) {
+			return false;
+		}
+		try {
+			$content = self::content($base);
+		} catch (\Throwable) {
+			return false;
+		}
+		if ($content === null) {
+			return false;
+		}
+		return $content === $source
+			|| ($base->getMimetype() === 'text/markdown'
+				&& str_contains("\n" . str_replace("\r\n", "\n", $content) . "\n", "\n$source\n"));
 	}
 
 	private function tooLarge(): JSONResponse {

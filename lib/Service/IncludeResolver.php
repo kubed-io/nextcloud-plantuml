@@ -83,6 +83,8 @@ final class IncludeResolver {
 	private array $nodes = [];
 	/** The read-only share the diagram is on, as `shareOf()` names it; its own files stay readable to it. */
 	private ?string $ownShare = null;
+	/** The diagram's own file, as `find()` names it: never read into itself. */
+	private ?string $self = null;
 	private int $files = 0;
 	private int $lookups = 0;
 	private int $bytes = 0;
@@ -93,18 +95,22 @@ final class IncludeResolver {
 	private static bool $hooked = false;
 
 	/**
+	 * Only the owner's text (`$ownersText`) may read the rest of a view-only share `$self` is on.
+	 *
 	 * @param File|null $self the diagram's own file, so including it is a cycle from the start
+	 * @param bool $ownersText the source is `$self`'s stored text, or a part of it, so the share's owner wrote it
 	 */
-	public function expand(string $source, Folder $base, Folder $root, ?File $self = null): Expanded {
+	public function expand(string $source, Folder $base, Folder $root, ?File $self = null, bool $ownersText = false): Expanded {
 		$run = new self();
 		$run->root = $root;
 		$rootPath = rtrim($root->getPath(), '/');
 		$run->baseDir = self::under($rootPath, $base->getPath());
 		$own = $self === null ? null : self::under($rootPath, $self->getPath());
 		if ($own !== null && $own !== []) {
-			$run->stack[] = 'files:' . implode('/', $own);
+			$run->self = 'files:' . implode('/', $own);
+			$run->stack[] = $run->self;
 		}
-		$run->ownShare = $self === null ? null : self::readOnlyShareOf($self);
+		$run->ownShare = $self === null || !$ownersText ? null : self::readOnlyShareOf($self);
 		try {
 			$run->walk(explode("\n", $source), ['dir' => $run->baseDir, 'zip' => null, 'zipDir' => []], 0, null, null);
 		} finally {
@@ -285,7 +291,7 @@ final class IncludeResolver {
 	private function import(string $path, array $at, array $context): void {
 		$shown = self::shown($path);
 		$found = $this->located($path, $context, false, $at);
-		if ($found === null || $found['file'] === null) {
+		if ($found === null || $found['file'] === null || $this->isSelf($found, $shown, $at)) {
 			return;
 		}
 		foreach ($this->imports as $import) {
@@ -333,6 +339,9 @@ final class IncludeResolver {
 	 * @param At $at
 	 */
 	private function read(array $found, string $path, array $at, int $depth): ?string {
+		if ($this->isSelf($found, $path, $at)) {
+			return null;
+		}
 		if ($depth + 1 > self::MAX_DEPTH) {
 			$this->keep($at, "$path is more than " . self::MAX_DEPTH . ' levels deep');
 			return null;
@@ -360,6 +369,21 @@ final class IncludeResolver {
 		$this->contents[$found['id']] = $content;
 		$this->bytes += strlen($content);
 		return $content;
+	}
+
+	/**
+	 * The diagram's own file, kept as a mistake: a style or an import of it would
+	 * draw a single-file share as text, as its own include would.
+	 *
+	 * @param Found $found
+	 * @param At $at
+	 */
+	private function isSelf(array $found, string $path, array $at): bool {
+		if ($found['id'] !== $this->self) {
+			return false;
+		}
+		$this->keep($at, "$path includes itself");
+		return true;
 	}
 
 	private function take(): void {
@@ -726,8 +750,8 @@ final class IncludeResolver {
 
 	/**
 	 * A file on a share whose owner forbids download, which a picture of its
-	 * text would get around, unless the diagram is on that same share and
-	 * may not write to it; decided as files_sharing's ViewOnly decides it.
+	 * text would get around, unless the diagram is on that same share, may not
+	 * write to it and is the owner's text; decided as files_sharing's ViewOnly decides it.
 	 */
 	private function viewOnly(File $file): bool {
 		try {

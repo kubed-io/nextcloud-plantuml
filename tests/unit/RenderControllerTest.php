@@ -17,6 +17,7 @@ use OCA\PlantUml\Service\RenderService;
 use OCP\AppFramework\Http\EmptyContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
+use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\InvalidPathException;
@@ -24,10 +25,13 @@ use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
+use OCP\Files\Storage\ISharedStorage;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Lock\LockedException;
+use OCP\Share\IAttributes;
+use OCP\Share\IShare;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -747,5 +751,103 @@ final class RenderControllerTest extends TestCase {
 		self::assertStringStartsWith('100%25 %C3%A9', $header);
 		self::assertSame('100% ' . str_repeat('é', 195), rawurldecode($header));
 		self::assertMatchesRegularExpression('/^[\x20-\x7e]*$/', $header);
+	}
+
+	/**
+	 * A file at `$path` on share S, as its recipient sees a share they may
+	 * only read and whose owner forbids download.
+	 */
+	private function onViewOnlyShare(string $path, string $content, string $mimetype = 'text/x-plantuml'): File {
+		$attributes = $this->createStub(IAttributes::class);
+		$attributes->method('getAttribute')->willReturnCallback(static fn (string $scope, string $key): ?bool => [$scope, $key] === ['permissions', 'download'] ? false : null);
+		$share = $this->createStub(IShare::class);
+		$share->method('getAttributes')->willReturn($attributes);
+		$share->method('getPermissions')->willReturn(Constants::PERMISSION_READ);
+		$share->method('getId')->willReturn('S');
+		$storage = $this->createStub(ISharedStorage::class);
+		$storage->method('instanceOfStorage')->willReturnCallback(static fn (string $class): bool => $class === 'OCA\Files_Sharing\SharedStorage');
+		$storage->method('getShare')->willReturn($share);
+		$storage->method('getId')->willReturn('shared::/S');
+		$parent = $this->createStub(Folder::class);
+		$parent->method('getPath')->willReturn('/drk/files' . (str_contains($path, '/') ? '/' . dirname($path) : ''));
+		$file = $this->createStub(File::class);
+		$file->method('getMimetype')->willReturn($mimetype);
+		$file->method('getEtag')->willReturn('etag:' . $path);
+		$file->method('getSize')->willReturn(strlen($content));
+		$file->method('fopen')->willReturnCallback(static function () use ($content) {
+			$handle = fopen('php://memory', 'r+');
+			self::assertIsResource($handle);
+			fwrite($handle, $content);
+			rewind($handle);
+			return $handle;
+		});
+		$file->method('getParent')->willReturn($parent);
+		$file->method('getPath')->willReturn("/drk/files/$path");
+		$file->method('getStorage')->willReturn($storage);
+		return $file;
+	}
+
+	private const FIGURES = "@startuml\nlegend\n!include secret.txt\nendlegend\n@enduml\n";
+	private const README = "# Figures\n\nIts line is !include secret.txt\n\n```plantuml\n@startuml\n!include ./secret.txt\n@enduml\n```\n";
+
+	/** @return array<string, array<string, File>> a view-only share S: a diagram, a README and the secret beside them */
+	private function viewOnlyShare(): array {
+		return [
+			'Shared/Figures.puml' => $this->onViewOnlyShare('Shared/Figures.puml', self::FIGURES),
+			'Shared/README.md' => $this->onViewOnlyShare('Shared/README.md', self::README, 'text/markdown'),
+			'Shared/secret.txt' => $this->onViewOnlyShare('Shared/secret.txt', "TOP SECRET\n", 'text/plain'),
+		];
+	}
+
+	/** @return array<string, array{string, string}> */
+	public static function foreignSources(): array {
+		return [
+			'a diagram as its base' => ["@startuml\nlegend\n!include secret.txt\nendlegend\n@enduml\nA -> B\n", 'Shared/Figures.puml'],
+			'a README as its base' => ["@startuml\nlegend\n!include secret.txt\nendlegend\n@enduml\n", 'Shared/README.md'],
+			'the end of a README line' => ['!include secret.txt', 'Shared/README.md'],
+		];
+	}
+
+	/** Z4: the reader writes what POST sends, so it takes nothing from the share its base is on. */
+	#[DataProvider('foreignSources')]
+	public function testBySourceOfTheReadersOwnTextCannotReadAViewOnlyShare(string $source, string $base): void {
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $this->viewOnlyShare())->bySource($source, 0, $base);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertStringNotContainsString('TOP SECRET', (string)$sent);
+		self::assertSame('Cannot read secret.txt', self::header($response, 'X-PlantUML-Diagram-Error'));
+	}
+
+	/** The editor's preview of a shared diagram left as it is draws as GET draws it. */
+	public function testBySourceOfTheBasesOwnContentReadsItsShare(): void {
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $this->viewOnlyShare())->bySource(self::FIGURES, 0, 'Shared/Figures.puml');
+
+		self::assertSame("@startuml\nlegend\nTOP SECRET\nendlegend\n@enduml\n", $sent);
+		self::assertNull(self::header($response, 'X-PlantUML-Diagram-Error'));
+	}
+
+	/** A fence of a shared README is the owner's text too, so it draws the files beside it. */
+	public function testBySourceOfAReadmesOwnFenceReadsItsShare(): void {
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $this->viewOnlyShare())->bySource("@startuml\n!include ./secret.txt\n@enduml", 0, 'Shared/README.md');
+
+		self::assertSame("@startuml\nTOP SECRET\n@enduml", $sent);
+		self::assertNull(self::header($response, 'X-PlantUML-Diagram-Error'));
+	}
+
+	/** Z4: a file shared on its own is never drawn as a style of itself (the resolver refuses its own file too). */
+	public function testBySourceNeverReadsItsBaseAsAStyle(): void {
+		$files = ['Figures.txt' => $this->onViewOnlyShare('Figures.txt', "TOP SECRET\n", 'text/plain')];
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $files)->bySource("@startuml\n<style file=Figures.txt>\n@enduml\n", 0, 'Figures.txt');
+
+		self::assertStringNotContainsString('TOP SECRET', (string)$sent);
+		self::assertSame('Cannot read Figures.txt', self::header($response, 'X-PlantUML-Diagram-Error'));
 	}
 }

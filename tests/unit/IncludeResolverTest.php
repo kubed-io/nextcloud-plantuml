@@ -956,13 +956,14 @@ final class IncludeResolverTest extends TestCase {
 
 	/**
 	 * A diagram on share `S` with `$permissions` and what `!include b.puml`
-	 * beside it gives, the sibling on `$sibling` (share S, read-only, by default).
+	 * beside it gives, the sibling on `$sibling` (share S, read-only, by default);
+	 * `$ownersText` as the route says whether the source is the diagram's own.
 	 */
-	private function drawnInShare(int $permissions, ?ISharedStorage $sibling = null): Expanded {
+	private function drawnInShare(int $permissions, ?ISharedStorage $sibling = null, bool $ownersText = true): Expanded {
 		$files = ['Shared/b.puml' => $this->file('Shared/b.puml', "beside\n", null, $sibling ?? $this->shareStorage(false))];
 		[$folder, $root] = $this->tree($files, 'Shared');
 		$self = $this->file('Shared/a.puml', "!include b.puml\n", null, $this->shareStorage(false, 'S', $permissions));
-		return (new IncludeResolver())->expand("!include b.puml\n", $folder, $root, $self);
+		return (new IncludeResolver())->expand("!include b.puml\n", $folder, $root, $self, $ownersText);
 	}
 
 	/** Viewing a shared diagram is unchanged, and so are the files beside it in that share. */
@@ -1018,5 +1019,35 @@ final class IncludeResolverTest extends TestCase {
 		$expanded = (new IncludeResolver())->expand("!include /S/notes.txt\n", $folder, $root, $self);
 
 		self::assertSame([['line' => 0, 'message' => 'Cannot read /S/notes.txt']], $expanded->mistakes);
+	}
+
+	/** Z4: text the reader sent, not the owner's, takes nothing from the share it names as its base. */
+	public function testASourceThatIsNotTheDiagramsOwnCannotReadItsShare(): void {
+		$expanded = $this->drawnInShare(Constants::PERMISSION_READ, null, false);
+
+		self::assertSame("!include b.puml\n", $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'Cannot read b.puml']], $expanded->mistakes);
+	}
+
+	/** @return iterable<string, array{string}> */
+	public static function selfLines(): iterable {
+		yield 'style' => ['<style file=Figures.txt>'];
+		yield 'includesub without a section' => ['!includesub Figures.txt'];
+		yield 'import' => ['!import Figures.txt'];
+	}
+
+	/**
+	 * Z4: a file shared on its own is the share; the diagram's own file is
+	 * never read into it, whatever the line, so it cannot be drawn as text.
+	 */
+	#[DataProvider('selfLines')]
+	public function testTheDiagramsOwnFileIsNeverReadOnASingleFileShare(string $line): void {
+		$self = $this->viewOnly('F');
+		$self->method('getPath')->willReturn(self::USER_ROOT . '/Figures.txt');
+		[$folder, $root] = $this->tree(['Figures.txt' => $self], '');
+		$expanded = (new IncludeResolver())->expand("$line\n", $folder, $root, $self, true);
+
+		self::assertSame("$line\n", $expanded->source);
+		self::assertSame([['line' => 0, 'message' => 'Figures.txt includes itself']], $expanded->mistakes);
 	}
 }

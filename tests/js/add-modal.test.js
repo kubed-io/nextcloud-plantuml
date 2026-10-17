@@ -153,6 +153,11 @@ describe('the Add diagram modal', () => {
     dialog.mockReturnValue({ top: 84, bottom: 684, left: 420, right: 1300, width: 880, height: 600 })
     window.dispatchEvent(new Event('resize'))
     expect(q('.plantuml-add__preview').style.maxWidth).toBe('')
+    expect(q('.plantuml-add__preview').style.left).toBe('1316px')
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1920)
+    dialog.mockReturnValue({ top: 84, bottom: 684, left: 276, right: 1156, width: 880, height: 600 })
+    window.dispatchEvent(new Event('resize'))
+    expect(q('.plantuml-add__preview').style.maxWidth).toBe('360px')
   })
 
   it('keeps the card within the dialog\'s height, level with its row where it fits', () => {

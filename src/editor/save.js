@@ -62,7 +62,7 @@ const ACCESS_PROPFIND = `<?xml version="1.0"?>
 /**
  * Whether a share's attributes (`nc:share-attributes`, JSON text as Sabre sends
  * it, or already parsed) forbid download. Unreadable ones forbid nothing: the
- * server stays the authority (IncludeResolver::forbidsDownload).
+ * server stays the authority (FileReader::downloadForbidden).
  *
  * @param {string|Array|undefined} attributes
  * @return {boolean}

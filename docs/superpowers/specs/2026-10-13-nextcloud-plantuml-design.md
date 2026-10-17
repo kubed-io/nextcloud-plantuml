@@ -334,7 +334,7 @@ each once; a set of one is one file. Zips are PHP's `ZipArchive`, since core's
 `ZipStreamer` answers macOS with a tar. At most 100 diagrams and 50 MiB drawn per
 export, else 413 "The export is too large"; no time cap beyond each render's 10 s.
 A file on a share whose owner forbids download has no Export in the Viewer and
-`GET /export` answers 404 for it (`IncludeResolver::forbidsDownload`, the rule
+`GET /export` answers 404 for it (`FileReader::downloadForbidden`, the rule
 includes already follow). A repeated name in a zip gets ` (2)`; unsafe
 characters become ` - `. A failed export says so under the toolbar ("Could not
 export the diagram", or the route's problem) and saves nothing. The toolbar's

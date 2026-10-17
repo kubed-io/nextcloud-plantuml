@@ -64,19 +64,30 @@ final class RenderService {
 	) {
 	}
 
+	/** The formats the server draws (checked on 1.2026.8), each with the type it answers. */
+	public const FORMATS = [
+		'svg' => 'image/svg+xml',
+		'png' => 'image/png',
+		'pdf' => 'application/pdf',
+		'eps' => 'application/postscript',
+		'txt' => 'text/plain',
+	];
+
 	/**
-	 * The server draws the n-th diagram of the file (0-based) at `svg/n`.
+	 * The server draws the n-th diagram of the file (0-based) at `<format>/n`.
 	 *
 	 * @throws RenderException
 	 */
-	public function render(string $source, int $index = 0): Rendered {
-		$response = $this->post($index === 0 ? 'svg' : 'svg/' . $index, $source);
-		// An image is a render whatever the status: PlantUML answers a mistake in
-		// the diagram with a 400 and the error drawn in. Anything that is not an
-		// image, a 200 page from a catch-all web server included, is not PlantUML.
+	public function render(string $source, int $index = 0, string $format = 'svg'): Rendered {
+		$expected = self::FORMATS[$format] ?? throw new \InvalidArgumentException("No such format: {$format}");
+		$response = $this->post($index === 0 ? $format : "{$format}/{$index}", $source);
+		// A drawing is a render whatever the status: PlantUML answers a mistake in
+		// the diagram with a 400 and the error drawn in. Anything else, a 200 page
+		// from a catch-all web server included, is not PlantUML.
 		$contentType = $response->getHeader('Content-Type');
-		if (!str_starts_with(strtolower($contentType), 'image/')) {
-			throw $this->notPlantUml(sprintf('svg answered HTTP %d %s', $response->getStatusCode(), $contentType));
+		$type = strtolower(trim(explode(';', $contentType)[0]));
+		if (str_starts_with($expected, 'image/') ? !str_starts_with($type, 'image/') : $type !== $expected) {
+			throw $this->notPlantUml(sprintf('%s answered HTTP %d %s', $format, $response->getStatusCode(), $contentType));
 		}
 		$line = $response->getHeader('X-PlantUML-Diagram-Error-Line');
 		return new Rendered(

@@ -19,6 +19,7 @@ use OCP\Http\Client\LocalServerException;
 use OCP\IAppConfig;
 use OCP\ICache;
 use OCP\ICacheFactory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -161,6 +162,47 @@ final class RenderServiceTest extends TestCase {
 			->willReturn($this->response(200, '<svg/>', ['Content-Type' => 'image/svg+xml']));
 
 		$this->service($client)->render(self::SOURCE, 0);
+	}
+
+	/** @return array<string, array{string, int, string, string}> */
+	public static function formats(): array {
+		return [
+			'svg' => ['svg', 0, 'image/svg+xml', '/svg'],
+			'png past the first' => ['png', 2, 'image/png', '/png/2'],
+			'pdf' => ['pdf', 1, 'application/pdf', '/pdf/1'],
+			'eps' => ['eps', 0, 'application/postscript', '/eps'],
+			'text with a charset' => ['txt', 3, 'text/plain;charset=utf-8', '/txt/3'],
+		];
+	}
+
+	#[DataProvider('formats')]
+	public function testDrawsInTheFormatAsked(string $format, int $index, string $answered, string $path): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::once())->method('post')
+			->with(self::URL . $path, self::anything())
+			->willReturn($this->response(200, 'BODY', ['Content-Type' => $answered]));
+
+		$rendered = $this->service($client)->render(self::SOURCE, $index, $format);
+
+		self::assertSame('BODY', $rendered->body);
+		self::assertSame($answered, $rendered->contentType);
+	}
+
+	public function testAPageWhereAPdfWasAskedIsNotPlantUml(): void {
+		$service = $this->service($this->clientAnswering($this->response(200, '<html>', ['Content-Type' => 'text/html'])));
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->render(self::SOURCE, 0, 'pdf')));
+	}
+
+	public function testAPastTheEndIndexIsNotPlantUml(): void {
+		$service = $this->service($this->clientAnswering($this->response(400, '', ['Content-Type' => 'text/html;charset=iso-8859-1'])));
+		self::assertSame(RenderException::PROBLEM_NOT_PLANTUML, $this->problemOf(fn () => $service->render(self::SOURCE, 5, 'pdf')));
+	}
+
+	public function testAnUnknownFormatIsNeverSent(): void {
+		$client = $this->createMock(IClient::class);
+		$client->expects(self::never())->method('post');
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service($client)->render(self::SOURCE, 0, 'latex');
 	}
 
 	public function testUnsetUrlIsNotSet(): void {

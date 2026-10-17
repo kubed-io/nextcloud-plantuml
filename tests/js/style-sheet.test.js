@@ -57,6 +57,29 @@ function spans(state) {
 }
 
 describe('a style file', () => {
+  it('gives a @startuml line and a skinparam line no card: nothing of a diagram leaks in', async () => {
+    const doc = '@startuml\nskinparam shadowing false\n' + SHEET
+    const view = new EditorView({ parent: document.body, state: await sheet(doc) })
+    await loadDocs()
+    try {
+      expect(docSource(view, doc.indexOf('@startuml') + 2, 1)).toBeNull()
+      expect(docSource(view, doc.indexOf('skinparam') + 2, 1)).toBeNull()
+    } finally {
+      view.destroy()
+    }
+  })
+
+  it('has no hover source without its profile, and does not throw', async () => {
+    await loadDocs()
+    const view = new EditorView({ parent: document.body, state: EditorState.create({ doc: SHEET, extensions: sheetExtension(null) }) })
+    try {
+      expect(() => docSource(view, 1, 1)).not.toThrow()
+      expect(docSource(view, 1, 1)).toBeNull()
+    } finally {
+      view.destroy()
+    }
+  })
+
   it('opens the hover cards the same lines open inside <style>: its selectors and properties', async () => {
     const view = new EditorView({ parent: document.body, state: await sheet(SHEET) })
     // The view asks for the docs as it opens; they are in once loadDocs answers.

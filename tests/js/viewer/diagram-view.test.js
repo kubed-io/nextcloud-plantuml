@@ -157,14 +157,18 @@ describe('the Viewer, in Tabs', () => {
     expect(tabs(root)).toEqual(['nodes', 'login'])
   })
 
-  it('is ready once, when the first sheet is drawn', async () => {
+  it('is ready once, when the file is read and its sheet shows its own spinner, before it is drawn', async () => {
+    fetch.mockImplementation(() => new Promise(() => {}))
     seams.loadFile.mockResolvedValue({ content: SCREENS, etag: '"e"' })
     const onReady = vi.fn()
     createDiagramView(root, { path: '/D/Screens.puml', basename: 'Screens.puml', onReady })
-    await settle()
-    root.querySelectorAll('[role="tab"]')[1].click()
+    expect(onReady).not.toHaveBeenCalled()
     await settle()
 
+    expect(root.querySelector('.plantuml-viewer__stage .plantuml-viewer__sheet--loading .plantuml-viewer__spinner')).not.toBeNull()
+    expect(onReady).toHaveBeenCalledOnce()
+    root.querySelectorAll('[role="tab"]')[1].click()
+    await settle()
     expect(onReady).toHaveBeenCalledOnce()
   })
 
@@ -191,7 +195,8 @@ describe('the Viewer, in Tabs', () => {
 
     expect(signal.aborted).toBe(true)
     expect(root.childElementCount).toBe(0)
-    expect(onReady).not.toHaveBeenCalled()
+    // Ready when its sheets showed, before the destroy; nothing since.
+    expect(onReady).toHaveBeenCalledOnce()
   })
 
   it('asks for nothing once destroyed before the file is read', async () => {
@@ -473,7 +478,7 @@ describe('Stack and Wall draw what is on screen (VW10)', () => {
     expect(asked(fetch)).toEqual(['0', '1', '2', '3', '4', '5'])
   })
 
-  it('asks for nothing while hidden before its file is read, and is ready once shown and drawn', async () => {
+  it('asks for nothing and is not ready while hidden before its file is read, and is both once shown', async () => {
     let read
     seams.loadFile.mockReturnValue(new Promise((resolve) => { read = resolve }))
     const onReady = vi.fn()
@@ -482,10 +487,28 @@ describe('Stack and Wall draw what is on screen (VW10)', () => {
     read({ content: THREE, etag: '"e"' })
     await settle()
     expect(fetch).not.toHaveBeenCalled()
+    expect(onReady).not.toHaveBeenCalled()
 
     view.setActive(true)
     expect(asked(fetch)).toEqual(['0'])
-    await answerOne()
+    expect(onReady).toHaveBeenCalledOnce()
+    view.setActive(false)
+    view.setActive(true)
+    expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('is ready once shown when the file could not be read while hidden', async () => {
+    let fail
+    seams.loadFile.mockReturnValue(new Promise((_resolve, reject) => { fail = reject }))
+    const onReady = vi.fn()
+    const view = createDiagramView(root, { path: '/D/Gone.puml', basename: 'Gone.puml', onReady })
+    view.setActive(false)
+    fail(new Error('404'))
+    await settle()
+    expect(onReady).not.toHaveBeenCalled()
+
+    view.setActive(true)
+    expect(root.textContent).toBe('Could not draw the diagram')
     expect(onReady).toHaveBeenCalledOnce()
   })
 

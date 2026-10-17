@@ -11,7 +11,9 @@
  * is checked lasts while the view does, across modes. Export (VW6) and Edit
  * (VW7) act on the open tab, or in Stack and Wall on the checked cards.
  * Only what is on screen is drawn (VW10): the open tab, or the cards near the
- * visible part of the stage; a hidden view asks for nothing.
+ * visible part of the stage; a hidden view asks for nothing. The view is ready
+ * (the Viewer's own spinner goes) once the file is read and its sheets, each
+ * with its spinner, are in place (VW9).
  */
 import { n, translate as t } from '@nextcloud/l10n'
 import { loadState } from '@nextcloud/initial-state'
@@ -82,10 +84,13 @@ export function createDiagramView(root, { path, basename, onReady }) {
   let active = true
   let destroyed = false
   let ready = false
+  // The file is read and its stage (or the problem line) shows.
+  let shown = false
   // A card → the position of its sheet.
   const positions = new WeakMap()
+  // Ready once shown, and only while the Viewer shows this file: a neighbour is ready once it is.
   const settle = () => {
-    if (!ready && !destroyed) {
+    if (shown && active && !ready && !destroyed) {
       ready = true
       onReady()
     }
@@ -316,9 +321,10 @@ export function createDiagramView(root, { path, basename, onReady }) {
     diagrams = scan(content.replace(/\r\n?/g, '\n'))
     sheets = createSheets(path, { etag, labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
     build({ exportable })
-    // Before show(): a drawing kept for the page settles the sheet as soon as it is asked for.
-    sheets.sheet(1).addEventListener('plantuml-viewer:settled', settle, { once: true })
     show()
+    // Each sheet has its own spinner: the Viewer's goes now, not once the first is drawn.
+    shown = true
+    settle()
   }, () => {
     if (destroyed) {
       return
@@ -326,6 +332,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     const line = element('p', 'plantuml-viewer__problem')
     line.textContent = t(APP_ID, 'Could not draw the diagram')
     root.replaceChildren(line)
+    shown = true
     settle()
   })
 
@@ -336,6 +343,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
       if (sheets && !destroyed) {
         want()
       }
+      settle()
     },
     destroy() {
       destroyed = true

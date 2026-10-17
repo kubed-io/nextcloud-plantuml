@@ -160,7 +160,10 @@ export function openEditor(node, { diagram: openAt } = {}) {
       },
     )
     // The chunk can arrive after the editor closed, or a linked file opened.
-    adding.then((add) => { if (!closed && !linkedMode.isOpen()) use(add) }, (e) => console.error(`[${APP_ID}] could not load Add diagram`, e))
+    adding.then((add) => { if (!closed && !linkedMode.isOpen()) use(add) }, (e) => {
+      console.error(`[${APP_ID}] could not load Add diagram`, e)
+      main?.session.say(t(APP_ID, 'Could not open Add diagram'))
+    })
   }
 
   /** The main file's state, in the view or parked. */
@@ -172,14 +175,35 @@ export function openEditor(node, { diagram: openAt } = {}) {
   /** The open file's session, which the bar shows and its buttons act on (R15); none before the file is read. */
   const openSession = () => (linkedMode.current() ?? main)?.session
 
+  /** L9: a focused bar button about to be hidden or disabled hands the focus to the source, else Save, else close. */
+  function handOn(leaving) {
+    if (!leaving.includes(document.activeElement)) {
+      return
+    }
+    const sourceShown = sourceToggle.getAttribute('aria-pressed') === 'true'
+    if (sourceShown && view) {
+      view.focus()
+    } else if (!saveButton.hidden && !leaving.includes(saveButton)) {
+      saveButton.focus()
+    } else {
+      closeButton.focus()
+    }
+  }
+
   /** The bar shows the open file's session's state; before the file is read there is none, and the bar stays as it is. */
   function showButtons() {
     const shown = openSession()?.status()
     if (!shown) {
       return
     }
+    const readOnly = Boolean(linkedMode.current()?.readOnly)
+    handOn([
+      ...(shown.busy ? [reloadButton, copyButton, refreshButton] : []),
+      ...(shown.conflict ? [] : [reloadButton, copyButton]),
+      ...(readOnly ? [saveButton] : []),
+    ])
     // R17: a file that may only be read is never saved, so there is no state to show.
-    saveButton.hidden = Boolean(linkedMode.current()?.readOnly)
+    saveButton.hidden = readOnly
     saveButton.dataset.state = shown.state
     saveButton.classList.toggle('icon-loading-small', shown.state === 'saving')
     saveButton.title = shown.title

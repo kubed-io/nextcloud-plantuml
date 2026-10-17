@@ -1551,6 +1551,90 @@ describe('the Source toggle', () => {
   })
 })
 
+describe('the focus in the bar (L9)', () => {
+  const inSource = () => EditorView.findFromDOM(q('.cm-editor')).contentDOM.contains(document.activeElement)
+
+  it('hands the focus to the source when Refresh, focused, is disabled while it reloads', async () => {
+    await open()
+    const held = deferred()
+    seams.loadFile.mockReturnValue(held.promise)
+    refreshButton().focus()
+
+    refreshButton().click()
+    await settle()
+
+    expect(refreshButton().disabled).toBe(true)
+    expect(inSource()).toBe(true)
+    held.resolve({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+  })
+
+  it('hands it to the source when Ctrl+S is pressed on a focused Refresh', async () => {
+    await open()
+    type("' mine\n")
+    const held = deferred()
+    seams.saveFile.mockReturnValue(held.promise)
+    refreshButton().focus()
+
+    refreshButton().dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true }))
+    await settle()
+
+    expect(refreshButton().disabled).toBe(true)
+    expect(inSource()).toBe(true)
+    held.resolve('"put"')
+  })
+
+  it('hands it to the source when Reload or Save as copy, focused, goes as the conflict clears', async () => {
+    const CONFLICT_FILE = '@startuml\nA -> C\n@enduml\n'
+    for (const button of [reloadButton, copyButton]) {
+      await open()
+      type("' mine\n")
+      seams.saveFile.mockRejectedValueOnce(new seams.ConflictError())
+      saveButton().click()
+      await settle()
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      seams.loadFile.mockResolvedValue({ content: CONFLICT_FILE, etag: '"theirs"' })
+      seams.saveCopy.mockResolvedValue({ node: { path: '/Diagrams/Order flow (copy).puml', basename: 'Order flow (copy).puml' }, etag: '"copy"' })
+      button().focus()
+      expect(document.activeElement).toBe(button())
+
+      button().click()
+      await settle()
+
+      expect(button().hidden).toBe(true)
+      expect(inSource()).toBe(true)
+      q('.plantuml-editor__close').click()
+      await settle()
+    }
+  })
+
+  it('hands it to Save when the source is hidden', async () => {
+    await open()
+    toggle().click()
+    const held = deferred()
+    seams.loadFile.mockReturnValue(held.promise)
+    refreshButton().focus()
+
+    refreshButton().click()
+    await settle()
+
+    expect(refreshButton().disabled).toBe(true)
+    expect(document.activeElement).toBe(saveButton())
+    held.resolve({ content: '@startuml\nA -> B\n@enduml\n', etag: '"get"' })
+  })
+
+  it('leaves the focus on a button that stays usable', async () => {
+    await open()
+    type("' mine\n")
+    seams.saveFile.mockResolvedValue('"put"')
+    saveButton().focus()
+
+    saveButton().click()
+    await settle()
+
+    expect(document.activeElement).toBe(saveButton())
+  })
+})
+
 describe('the editor as a key boundary', () => {
   // Files' hotkeys are useHotKey on window: Enter on a row (the Viewer), Delete,
   // F2, D, S, v, Alt+ArrowUp. Enter's cancels a button's own Enter click. These
@@ -1697,8 +1781,9 @@ describe('the editor as a key boundary', () => {
     pressOn(q('.cm-line'))
     expect(document.activeElement).toBe(q('.cm-content'))
 
-    pressOn(q('.plantuml-editor__refresh'))
-    expect(document.activeElement).toBe(q('.plantuml-editor__refresh'))
+    // Refresh would hand the focus on as it disables itself (L9); Save stays usable.
+    pressOn(q('.plantuml-editor__save'))
+    expect(document.activeElement).toBe(q('.plantuml-editor__save'))
   })
 
   it('shows no ring on the overlay itself, which takes the focus only to keep it', () => {
@@ -2638,6 +2723,7 @@ describe('Add diagram', () => {
       typeButton().click()
       await vi.waitFor(() => expect(error).toHaveBeenCalledWith('[plantuml] could not load Add diagram', expect.any(Error)))
       expect(q('.plantuml-add__menu')).toBeNull()
+      expect(status()).toBe('Could not open Add diagram')
       typeButton().click()
 
       await vi.waitFor(() => expect(q('.plantuml-add__menu')).not.toBeNull())

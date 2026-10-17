@@ -5,8 +5,8 @@
 // anchor and section title that cover it. Only links and section titles are kept; plantuml.com's prose is
 // copyrighted and never ships (I1, I7). Needs network; the tests never do.
 // Run: node scripts/doclinks.mjs
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { pathToFileURL } from 'node:url'
+import { readFile } from 'node:fs/promises'
+import { fetchText, isMain, readData, writeData } from './lib.mjs'
 
 const SITE = 'https://plantuml.com'
 
@@ -204,13 +204,7 @@ export function buildLinks(pages, source) {
   return out
 }
 
-async function page(name) {
-  const res = await fetch(`${SITE}/${name}`)
-  if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`)
-  return res.text()
-}
-
-const json = async (path) => JSON.parse(await readFile(new URL(`../src/editor/${path}`, import.meta.url), 'utf8'))
+const page = (name) => fetchText(`${SITE}/${name}`)
 
 async function main() {
   const spec = await page(SPEC)
@@ -229,20 +223,19 @@ async function main() {
     if (pages[name]) console.info(`${name}: ${pages[name].length} sections`)
   }
   const source = {
-    language: await json('data/language.json'),
-    directives: await json('data/directives.json'),
-    builtins: await json('data/builtins.json'),
-    vocabulary: await json('data/vocabulary.json'),
-    source: await json('data/docs/source.json'),
+    language: await readData('data/language.json'),
+    directives: await readData('data/directives.json'),
+    builtins: await readData('data/builtins.json'),
+    vocabulary: await readData('data/vocabulary.json'),
+    source: await readData('data/docs/source.json'),
     connectors: connectorWords(await readFile(new URL('../src/editor/completion/connectors.js', import.meta.url), 'utf8')),
     tags: tagWords(await readFile(new URL('../src/editor/completion/creole.js', import.meta.url), 'utf8')),
   }
   const links = buildLinks(pages, source)
-  await mkdir(new URL('../src/editor/data/docs/', import.meta.url), { recursive: true })
-  await writeFile(new URL('../src/editor/data/docs/links.json', import.meta.url), JSON.stringify({ read: new Date().toISOString().slice(0, 10), links }, null, 2) + '\n')
+  await writeData('data/docs/links.json', { read: new Date().toISOString().slice(0, 10), links })
   const kinds = {}
   for (const key of Object.keys(links)) kinds[key.split(':')[0]] = (kinds[key.split(':')[0]] ?? 0) + 1
   console.info(kinds)
 }
 
-if (pathToFileURL(process.argv[1]).href === import.meta.url) await main()
+if (isMain(import.meta.url)) await main()

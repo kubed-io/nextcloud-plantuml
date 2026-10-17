@@ -5,10 +5,9 @@
 // whose answer is an error; exits 1 if any.
 //
 //   PLANTUML_URL=http://plantuml.flow.svc node scripts/doc-examples.mjs
-import { readFileSync } from 'node:fs'
+import { isMain, readData } from './lib.mjs'
 
 const server = process.env.PLANTUML_URL ?? 'http://plantuml.flow.svc'
-const own = JSON.parse(readFileSync(new URL('../src/editor/data/docs/own.json', import.meta.url), 'utf8'))
 
 /**
  * Examples the server cannot draw on PlantUML 1.2026.8, so they cannot be checked: two types answer
@@ -55,15 +54,20 @@ async function problem(source) {
   return /Syntax Error|not supported/i.test(text) ? 'drawn as an error' : ''
 }
 
-let failed = 0
-for (const [key, { example }] of Object.entries(own)) {
-  if (!example || UNDRAWN.has(key)) {
-    continue
+async function main() {
+  const own = await readData('data/docs/own.json')
+  let failed = 0
+  for (const [key, { example }] of Object.entries(own)) {
+    if (!example || UNDRAWN.has(key)) {
+      continue
+    }
+    const reason = await problem(sourceOf(key, example))
+    if (reason) {
+      failed++
+      console.info(`${key}: ${reason}`)
+    }
   }
-  const reason = await problem(sourceOf(key, example))
-  if (reason) {
-    failed++
-    console.info(`${key}: ${reason}`)
-  }
+  process.exit(failed ? 1 : 0)
 }
-process.exit(failed ? 1 : 0)
+
+if (isMain(import.meta.url)) await main()

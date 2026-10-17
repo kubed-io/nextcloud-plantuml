@@ -6,8 +6,7 @@
 // the last commit before that release, its files or the folder its README links to (X5). Needs
 // network and the in-cluster PlantUML server (PLANTUML_URL); the tests never do.
 // Run: node scripts/vocabulary.mjs
-import { mkdir, writeFile } from 'node:fs/promises'
-import { pathToFileURL } from 'node:url'
+import { fetchText, isMain, writeData } from './lib.mjs'
 
 const VERSION = '1.2026.8'
 const REPO = 'plantuml/plantuml'
@@ -15,11 +14,8 @@ const BASE = `https://raw.githubusercontent.com/${REPO}/v${VERSION}/src/main/jav
 const BUILTIN = 'tim/builtin'
 const STDLIB = '7167ca0'
 
-async function source(path) {
-  const res = await fetch(`${BASE}/${path}`)
-  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`)
-  return res.text()
-}
+const source = (path) => fetchText(`${BASE}/${path}`)
+const fetchJson = async (url) => JSON.parse(await fetchText(url))
 
 /** Java source without its comments, so a commented-out declaration is not read. */
 const withoutComments = (java) => java.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
@@ -144,9 +140,7 @@ export function readmeRows(markdown) {
 
 async function builtins() {
   const api = `https://api.github.com/repos/${REPO}/contents/src/main/java/net/sourceforge/plantuml/${BUILTIN}?ref=v${VERSION}`
-  const res = await fetch(api)
-  if (!res.ok) throw new Error(`${api}: HTTP ${res.status}`)
-  const files = (await res.json()).map((f) => f.name).filter((n) => n.endsWith('.java'))
+  const files = (await fetchJson(api)).map((f) => f.name).filter((n) => n.endsWith('.java'))
   const [readme, ...classes] = await Promise.all([source(`${BUILTIN}/readme.md`), ...files.map((f) => source(`${BUILTIN}/${f}`))])
   const rows = readmeRows(readme)
   const byName = new Map(classes.flatMap((java) => {
@@ -289,15 +283,11 @@ export function stdlibEntries(tree, readmes) {
 // The stdlib tree and each folder's README text, shared by the file lists and the docs.
 async function stdlibTree() {
   const api = `https://api.github.com/repos/plantuml/plantuml-stdlib/git/trees/${STDLIB}?recursive=1`
-  const res = await fetch(api)
-  if (!res.ok) throw new Error(`${api}: HTTP ${res.status}`)
-  const tree = await res.json()
+  const tree = await fetchJson(api)
   if (tree.truncated) throw new Error(`${api}: truncated`)
   const readmes = await Promise.all(stdlibReadmes(tree).map(async (folder) => {
     const url = `https://raw.githubusercontent.com/plantuml/plantuml-stdlib/${STDLIB}/stdlib/${folder}/README.md`
-    const readme = await fetch(url)
-    if (!readme.ok) throw new Error(`${url}: HTTP ${readme.status}`)
-    return [folder, await readme.text()]
+    return [folder, await fetchText(url)]
   }))
   return { tree, readmes: Object.fromEntries(readmes) }
 }
@@ -309,22 +299,16 @@ async function stdlib() {
 
 async function language() {
   const url = `${process.env.PLANTUML_URL ?? 'http://plantuml.flow.svc'}/language`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)
-  return { plantuml: VERSION, ...languageLists(await res.text()) }
+  return { plantuml: VERSION, ...languageLists(await fetchText(url)) }
 }
 
 async function docsSource() {
   const dir = 'src/main/resources/themes'
   const api = `https://api.github.com/repos/${REPO}/contents/${dir}?ref=v${VERSION}`
-  const res = await fetch(api)
-  if (!res.ok) throw new Error(`${api}: HTTP ${res.status}`)
-  const files = (await res.json()).map((f) => f.name).filter((n) => /^puml-theme-.+\.puml$/.test(n))
+  const files = (await fetchJson(api)).map((f) => f.name).filter((n) => /^puml-theme-.+\.puml$/.test(n))
   const themes = Object.fromEntries(await Promise.all(files.map(async (file) => {
     const url = `https://raw.githubusercontent.com/${REPO}/v${VERSION}/${dir}/${file}`
-    const theme = await fetch(url)
-    if (!theme.ok) throw new Error(`${url}: HTTP ${theme.status}`)
-    const meta = frontMatter(await theme.text())
+    const meta = frontMatter(await fetchText(url))
     const name = file.slice('puml-theme-'.length, -'.puml'.length)
     return [name, { title: meta.display_name ?? name, summary: meta.description ?? '' }]
   })))
@@ -351,13 +335,12 @@ const artifacts = [
   { folder: 'stdlib', build: stdlib },
 ]
 
-const save = (file, data) => writeFile(new URL(`../src/editor/data/${file}`, import.meta.url), JSON.stringify(data, null, 2) + '\n')
+const save = (file, data) => writeData(`data/${file}`, data)
 
 async function write({ file, folder, build }) {
   const data = await build()
   if (folder) {
     // One file per entry, so each is its own chunk.
-    await mkdir(new URL(`../src/editor/data/${folder}/`, import.meta.url), { recursive: true })
     for (const [name, entry] of Object.entries(data)) await save(`${folder}/${name}.json`, entry)
     const entries = Object.values(data)
     const files = entries.reduce((sum, entry) => sum + (entry.files?.length ?? 0), 0)
@@ -365,7 +348,6 @@ async function write({ file, folder, build }) {
     console.info(`${folder}/: ${entries.length} folders (${links} links), ${files} files`)
     return
   }
-  await mkdir(new URL('../src/editor/data/docs/', import.meta.url), { recursive: true })
   await save(file, data)
   if (file === 'language.json') return void console.info(`${file}: ${data.types.length} types, ${data.keywords.length} keywords, ${data.skinparameters.length} skinparameters`)
   if (file === 'docs/source.json') return void console.info(`${file}: ${Object.keys(data.themes).length} themes, ${Object.keys(data.libraries).length} libraries`)
@@ -377,4 +359,4 @@ async function main() {
   for (const artifact of artifacts) await write(artifact)
 }
 
-if (pathToFileURL(process.argv[1]).href === import.meta.url) await main()
+if (isMain(import.meta.url)) await main()

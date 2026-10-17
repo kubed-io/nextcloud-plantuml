@@ -170,12 +170,21 @@ namespace OCP {
 	if (!interface_exists(IGroup::class, false)) {
 		interface IGroup {
 			public function getGID(): string;
+
+			// TemplateLibrary takes the first member of `admin` as its actor.
+			/** @return list<IUser> */
+			public function getUsers(): array;
 		}
 	}
 	if (!interface_exists(IGroupManager::class, false)) {
 		interface IGroupManager {
 			/** @return list<IGroup> */
 			public function search(string $search): array;
+
+			// TemplateLibrary's actor fallback, and TemplateSettings' status line (admins only).
+			public function get(string $gid): ?IGroup;
+
+			public function isAdmin(string $userId): bool;
 		}
 	}
 	// AdminSection's constructor deps. Nothing asserts on them yet, but the class
@@ -454,6 +463,13 @@ namespace OCP\Files {
 			public function newFolder(string $path): Folder;
 
 			public function newFile(string $path, mixed $content = null): File;
+
+			// TemplateLibrary lists a template folder's `.puml` files in one cache query,
+			// and names each by its path in its owner's files.
+			/** @return list<Node> */
+			public function searchByMime(string $mimetype): array;
+
+			public function getRelativePath(string $path): ?string;
 		}
 	}
 	// A mirrored `.penpot` file. It is written whole (a link body), read back a

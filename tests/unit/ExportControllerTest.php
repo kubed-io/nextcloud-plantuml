@@ -219,6 +219,31 @@ final class ExportControllerTest extends TestCase {
 		);
 	}
 
+	/** U+200C and U+200D join letters and emoji: format characters, yet part of the name as written. */
+	public function testNamesKeepTheJoiners(): void {
+		$persian = "\u{0645}\u{06CC}\u{200C}\u{062E}\u{0648}\u{0627}\u{0647}\u{0645}";
+		$coder = "\u{1F469}\u{200D}\u{1F4BB}";
+		$response = $this->controller($this->drawing(), 'Doc.puml', "@startuml {$persian}\n@enduml\n@startuml {$coder}\n@enduml\n")->export('Diagrams/Doc.puml', 'svg');
+		self::assertSame(["Doc - {$persian}.svg", "Doc - {$coder}.svg"], array_keys($this->entries($response->render())));
+	}
+
+	/**
+	 * A name is cut at 200 bytes before its extension, on a character's edge: the 255 bytes a file
+	 * system allows leave room for ` (n)` and the extension. The file's own name counts too.
+	 */
+	public function testANameIsCutAt200Bytes(): void {
+		$file = str_repeat('ö', 150) . '.puml';
+		$text = "@startuml\n@enduml\n@startuml\n@enduml\n";
+		$stem = str_repeat('ö', 100);
+		$all = $this->controller($this->drawing(), $file, $text)->export("Diagrams/{$file}", 'svg');
+		self::assertSame([$stem . '.svg', $stem . ' (2).svg'], array_keys($this->entries($all->render())));
+		self::assertStringEndsWith("; filename*=UTF-8''" . rawurlencode($stem . '.zip'), (string)self::header($all, 'Content-Disposition'));
+		$one = $this->controller($this->drawing(), $file, $text)->export("Diagrams/{$file}", 'svg', null, ['1']);
+		self::assertStringEndsWith("; filename*=UTF-8''" . rawurlencode($stem . '.svg'), (string)self::header($one, 'Content-Disposition'));
+		$only = $this->controller($this->drawing(), $file, "@startuml\n@enduml\n")->export("Diagrams/{$file}", 'svg');
+		self::assertStringEndsWith("; filename*=UTF-8''" . rawurlencode($stem . '.svg'), (string)self::header($only, 'Content-Disposition'));
+	}
+
 	/** A label past 150 characters is cut there, for the download and for the zip entry alike. */
 	public function testALongLabelIsCutAt150Characters(): void {
 		$long = str_repeat('x', 140) . str_repeat('ö', 20) . 'tail';

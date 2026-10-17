@@ -33,7 +33,7 @@ board. The spec's "The design" section says what each board shows and what the p
 | Style guide | the doc card: anatomy, hover and pinned, its timing and keys | [style-guide-doc-card.png](style-guide-doc-card.png) |
 | Files | the Diagrams folder | [files.png](files.png) |
 | Files | the Viewer on a diagram | [viewer.png](viewer.png) |
-| Files | the + New menu, with UML Diagram | [new-menu.png](new-menu.png) |
+| Files | the + New menu, with New puml File | [new-menu.png](new-menu.png) |
 | Files | the context menu on a .puml | [context-menu.png](context-menu.png) |
 | Readme | the README rendered above the list | [readme.png](readme.png) |
 | Readme | the README's source | [readme-source.png](readme-source.png) |

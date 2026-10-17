@@ -7,7 +7,7 @@
  *  - the Viewer handler for text/x-plantuml, which makes a plain click open the
  *    diagram in Nextcloud's image lightbox (the menu's "View", named by Nextcloud);
  *  - "Edit diagram" and "Open with text editor", for one diagram at a time;
- *  - "UML Diagram" in the + New menu, which asks Files' create endpoint for
+ *  - "New puml File" in the + New menu, which asks Files' create endpoint for
  *    "New diagram.puml" and opens the editor on it. The server writes the
  *    starting lines (lib/Listener/NewDiagramListener.php), so every client gets
  *    the same file; naming it is Nextcloud's own rename.
@@ -70,7 +70,7 @@ registerFileAction({
 
 addNewFileMenuEntry({
   id: 'plantuml-new',
-  displayName: t(APP_ID, 'UML Diagram'),
+  displayName: t(APP_ID, 'New puml File'),
   category: NewMenuEntryCategory.CreateNew,
   iconSvgInline: plantumlIcon,
   async handler(context, content) {

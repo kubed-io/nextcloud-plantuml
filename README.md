@@ -52,7 +52,7 @@ A file with several diagrams gets a tab for each: the picture follows your curso
 
 Prefer plain text? **Open with text editor** gives you Nextcloud's own editor on the source, as it would for any text file.
 
-**+ New → UML Diagram** starts one, already holding `@startuml` and `@enduml`, and opens the editor on it.
+**+ New → New puml File** starts one, already holding `@startuml` and `@enduml`, and opens the editor on it.
 
 ✍️ [`diagrams/edit.feature`](features/diagrams/edit.feature) · ➕ [`diagrams/create.feature`](features/diagrams/create.feature)
 

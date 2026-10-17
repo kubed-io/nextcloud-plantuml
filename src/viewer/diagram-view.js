@@ -29,7 +29,7 @@ import { openEditor } from '../open-editor.js'
 import { createMenu } from './menu.js'
 import { createSheets, jsonProblem } from './sheets.js'
 import { createToolbar } from './toolbar.js'
-import { pack } from './wall-layout.js'
+import { pack, visualOrder } from './wall-layout.js'
 import { recall, remember } from './wall-memory.js'
 
 // The Viewer keeps the file before mounted, hidden, beside the one shown: each
@@ -309,14 +309,16 @@ export function createDiagramView(root, { path, basename, onReady }) {
     const now = Date.now()
     since ||= now
     clearTimeout(repack)
-    repack = setTimeout(() => arrange(), Math.min(WALL_SETTLE, since + WALL_MOST - now))
+    repack = setTimeout(() => arrange(true), Math.min(WALL_SETTLE, since + WALL_MOST - now))
   }
 
   /**
-   * Every card of the Wall where wall-layout.js packs it, by the sizes drawn and those remembered;
-   * the sizes are remembered. Nothing changed, nothing is done; a hidden or 0 px stage packs nothing.
+   * Every card of the Wall where wall-layout.js packs it for the sizes drawn and the remembered
+   * sizes, then read in that order; the sizes are remembered, and a card that moves slides there
+   * when `animate`. A sheet showing a problem has no size. Nothing changed, nothing is done; a
+   * hidden or 0 px stage packs nothing.
    */
-  function arrange() {
+  function arrange(animate) {
     clearTimeout(repack)
     repack = 0
     since = 0
@@ -329,7 +331,9 @@ export function createDiagramView(root, { path, basename, onReady }) {
       return
     }
     recalled ??= recall(path, etag) ?? []
-    const sizes = diagrams.map((_diagram, index) => sheets.sizeOf(index + 1) ?? recalled[index] ?? null)
+    const sizes = diagrams.map((_diagram, index) => sheets.sizeOf(index + 1)
+      ?? (sheets.sheet(index + 1).classList.contains('plantuml-viewer__sheet--problem') ? null : recalled[index])
+      ?? null)
     const now = JSON.stringify([width, sizes])
     if (now === packed) {
       return
@@ -339,9 +343,17 @@ export function createDiagramView(root, { path, basename, onReady }) {
       remember(path, etag, sizes)
     }
     const { columns, placements } = pack(sizes, { width })
-    const byIndex = new Map([...stage.children].map((node) => [positions.get(node) - 1, node]))
+    const cards = [...stage.children]
+    const byIndex = new Map(cards.map((node) => [positions.get(node) - 1, node]))
+    const before = animate && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      ? new Map(cards.map((node) => [node, node.getBoundingClientRect()]))
+      : null
     stage.style.setProperty('--plantuml-wall-columns', String(columns))
     placements.forEach((placed, index) => place(byIndex.get(index), placed))
+    reorder(visualOrder(placements).map((index) => byIndex.get(index)))
+    if (before) {
+      slide(before)
+    }
   }
 
   /** A card at its packed place, its sheet at the packed height and its drawing at the packed width. */
@@ -357,6 +369,51 @@ export function createDiagramView(root, { path, basename, onReady }) {
     node.classList.toggle('plantuml-viewer__card--scroll', scroll)
   }
 
+  /**
+   * The cards in the stage in reading order, so Tab and a screen reader follow what is drawn. The
+   * card holding the focus is never moved, which would lose it: the others move around it.
+   */
+  function reorder(ordered) {
+    const now = [...stage.children]
+    if (ordered.every((node, index) => now[index] === node)) {
+      return
+    }
+    const held = ordered.find((node) => node.contains(document.activeElement))
+    if (!held) {
+      stage.append(...ordered)
+      return
+    }
+    const at = ordered.indexOf(held)
+    held.before(...ordered.slice(0, at))
+    held.after(...ordered.slice(at + 1))
+  }
+
+  /** Each moved card is drawn at its old place, then slides to its new one (viewer.css's transition). */
+  function slide(before) {
+    const cards = [...before.keys()]
+    // A slide under way stops; `before` read the card where it was.
+    cards.forEach((node) => {
+      node.style.transition = 'none'
+      node.style.transform = ''
+    })
+    const moves = cards.map((node) => {
+      const was = before.get(node)
+      const now = node.getBoundingClientRect()
+      return [node, was.left - now.left, was.top - now.top]
+    }).filter(([, dx, dy]) => dx || dy)
+    moves.forEach(([node, dx, dy]) => {
+      node.style.transform = `translate(${dx}px, ${dy}px)`
+    })
+    // The old places are styled before the transition comes back.
+    void stage.offsetWidth
+    cards.forEach((node) => {
+      node.style.transition = ''
+    })
+    moves.forEach(([node]) => {
+      node.style.transform = ''
+    })
+  }
+
   function show() {
     toolbar?.setMode(state.mode)
     tabBar.hidden = state.mode !== 'tabs' || diagrams.length < 2
@@ -367,7 +424,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     } else {
       stage.replaceChildren(...diagrams.map((_diagram, index) => card(index)))
       packed = ''
-      arrange()
+      arrange(false)
     }
     want()
     afterCheck()

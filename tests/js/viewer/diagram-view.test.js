@@ -12,6 +12,7 @@ vi.mock('@nextcloud/initial-state', () => ({ loadState: () => seams.serverConfig
 vi.mock('@nextcloud/auth', () => ({ getCurrentUser: () => ({ uid: 'drk' }) }))
 const { createDiagramView, WALL_SETTLE } = await import('../../../src/viewer/diagram-view.js')
 const { pageCache } = await import('../../../src/viewer/page-cache.js')
+const { recall } = await import('../../../src/viewer/wall-memory.js')
 
 const SCREENS = '@startuml nodes\nA -> B\n@enduml\n@startuml login\nC -> D\n@enduml\n'
 const THREE = SCREENS + '@startuml p3\nE -> F\n@enduml\n'
@@ -697,7 +698,160 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
 
     // Three columns, which neither packing had: every card where its size puts it, none drawn.
     expect(stage().style.getPropertyValue('--plantuml-wall-columns')).toBe('3')
-    expect(cards().map(placeOf)).toEqual([['2 / span 1', '44 / span 15'], ['2 / span 2', '1 / span 43'], ['1 / span 1', '1 / span 112']])
+    expect(['nodes', 'login', 'p3'].map((name) => placeOf(byName(name))))
+      .toEqual([['2 / span 1', '44 / span 15'], ['2 / span 2', '1 / span 43'], ['1 / span 1', '1 / span 112']])
+  })
+
+  it('reads the cards in the order they are drawn: by row, then column', async () => {
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+
+    expect(names()).toEqual(['p3', 'login', 'nodes'])
+  })
+
+  it('opens a remembered wall in its reading order at once', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    view.destroy()
+    pageCache.clear()
+    fetch.mockImplementation(() => new Promise(() => {}))
+    await open(THREE)
+    wide()
+    mode('Wall')
+
+    expect(names()).toEqual(['p3', 'login', 'nodes'])
+  })
+
+  it('keeps the focus on the checkbox it is on while the cards move around it', async () => {
+    await open(THREE)
+    wide()
+    mode('Wall')
+    const box = byName('nodes').querySelector('input')
+    box.focus()
+    await repacked()
+
+    expect(names()).toEqual(['p3', 'login', 'nodes'])
+    expect(document.activeElement).toBe(box)
+  })
+
+  describe('a move', () => {
+    // jsdom lays nothing out: a card's box follows its grid place, 100 px a column and 8 px a row.
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+        const [column, row] = [this.style.gridColumn, this.style.gridRow].map((place) => (Number.parseInt(place, 10) || 1) - 1)
+        return { left: column * 100, top: row * 8, width: 100, height: 100 }
+      })
+    })
+    afterEach(() => vi.restoreAllMocks())
+
+    /** Every style a card wore while the wall packed again. */
+    async function styles() {
+      const seen = []
+      const watch = new MutationObserver((records) => seen.push(...records.map((record) => record.oldValue ?? '')))
+      cards().forEach((card) => watch.observe(card, { attributes: true, attributeFilter: ['style'], attributeOldValue: true }))
+      await repacked()
+      watch.disconnect()
+      return seen.join(';')
+    }
+
+    it('slides a moved card from where it was', async () => {
+      await open(THREE)
+      wide()
+      mode('Wall')
+      const worn = await styles()
+
+      // p3 moved from the third column to the first: it was drawn 200 px to the right, then let go.
+      expect(worn).toContain('translate(200px, 0px)')
+      expect(byName('p3').style.transform).toBe('')
+    })
+
+    it('moves without a slide when motion is reduced', async () => {
+      vi.stubGlobal('matchMedia', (query) => ({ matches: query === '(prefers-reduced-motion: reduce)' }))
+      await open(THREE)
+      wide()
+      mode('Wall')
+      const worn = await styles()
+
+      expect(placeOf(byName('p3'))).toEqual(['1 / span 1', '1 / span 112'])
+      expect(worn).not.toContain('translate(')
+    })
+  })
+
+  it('keeps a card whose diagram cannot be drawn at the waiting slot, its remembered size neither taken nor written back', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    view.destroy()
+    // The same file, its ETag unchanged; this time the server refuses p3.
+    pageCache.clear()
+    fetch.mockImplementation(async (url) => {
+      const index = Number(new URL(url, 'https://x').searchParams.get('index'))
+      return index === 2 ? new Response('{"problem":"no diagram 3"}', { status: 400 }) : new Response(sized(index), { status: 200 })
+    })
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+
+    expect(byName('p3').querySelector('.plantuml-viewer__sheet--problem')).not.toBeNull()
+    expect(byName('p3').style.getPropertyValue('--plantuml-wall-height')).toBe('240px')
+    expect(recall('/D/S.puml', '"e"')).toEqual([{ width: 40, height: 20 }, { width: 600, height: 300 }, null])
+  })
+
+  it('packs at most 500 ms after the first size arrived, while sizes go on arriving', async () => {
+    // Six diagrams, each answered when the test says: one every 100 ms, never 150 ms apart.
+    const answers = []
+    fetch.mockImplementation((url) => new Promise((resolve) => {
+      const index = Number(new URL(url, 'https://x').searchParams.get('index'))
+      answers.push(() => resolve(new Response(sized(index), { status: 200 })))
+    }))
+    await open(Array.from({ length: 6 }, (_none, index) => `@startuml d${index}\n@enduml\n`).join(''))
+    vi.useFakeTimers()
+    const writes = vi.spyOn(Storage.prototype, 'setItem')
+    try {
+      wide()
+      mode('Wall')
+      for (const answer of [0, 1, 2, 3]) {
+        answers[answer]()
+        await vi.advanceTimersByTimeAsync(100)
+      }
+      answers[4]()
+      await vi.advanceTimersByTimeAsync(99)
+      expect(writes).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(writes).toHaveBeenCalledTimes(1)
+    } finally {
+      writes.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('packs nothing and writes nothing when a drawing settles again at the size it had', async () => {
+    await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    const writes = vi.spyOn(Storage.prototype, 'setItem')
+    const changes = []
+    const watch = new MutationObserver((records) => changes.push(...records))
+    watch.observe(stage(), { attributes: true, childList: true, subtree: true })
+    try {
+      byName('p3').querySelector('.plantuml-viewer__sheet')
+        .dispatchEvent(new CustomEvent('plantuml-viewer:settled', { detail: { size: { width: 100, height: 800 } } }))
+      await repacked()
+
+      expect(writes).not.toHaveBeenCalled()
+      expect(changes).toEqual([])
+    } finally {
+      watch.disconnect()
+      writes.mockRestore()
+    }
   })
 
   it('packs again at the new size when a kept drawing is drawn anew', async () => {

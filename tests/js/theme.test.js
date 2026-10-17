@@ -215,6 +215,23 @@ describe('the editor surface', () => {
     }
   })
 
+  // Core's `button:not(.button-vue, [class^="vs__"]):not(.app-navigation-entry-button)` is (0,2,1), comes
+  // later, and sets `margin: 3px; margin-inline-start: 0` on every button. EditorView.theme adds a scope class.
+  const specificity = (selector) => [(selector.match(/[.:][\w-]+/g) ?? []).length + 1, (selector.match(/(?:^|[\s>+~])[a-z]+/g) ?? []).length]
+  const ruleFor = (button) => Object.entries(surfaceRules).find(([selector]) => selector.split(', ')[0].endsWith(button))
+
+  it.each([
+    ['button.cm-plantuml-link-chip', { margin: '0', marginInlineStart: '4px' }],
+    ['button.cm-plantuml-chooser', { margin: '0', marginInlineStart: '2px' }],
+    ['.cm-plantuml-stepper button', { margin: '0' }],
+  ])('keeps %s\'s own margins over core\'s button margins, the one before it logical', (button, margins) => {
+    const [selector, rule] = ruleFor(button)
+
+    expect(specificity(selector.split(', ')[0])).toEqual([3, 1])
+    expect(rule).toMatchObject(margins)
+    expect(rule).not.toHaveProperty('marginLeft')
+  })
+
   it('takes every colour from Nextcloud theme variables, never a literal', () => {
     const coloured = declarations.filter(([, property]) => /color|background|shadow|outline|^border(?!Radius)/i.test(property))
     expect(coloured.length).toBeGreaterThan(0)

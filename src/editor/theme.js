@@ -388,16 +388,18 @@ export const surfaceRules = {
   },
 
   // The chooser (W1) and the stepper (W2) after a value on the cursor's line:
-  // quiet until pointed at.
-  [buttonStates('.cm-plantuml-chooser')]: { ...QUIET_BUTTON, display: 'inline-flex', width: '16px', height: '16px', marginLeft: '2px', verticalAlign: 'middle' },
+  // quiet until pointed at. Core's `button:not(.button-vue, [class^="vs__"]):not(.app-navigation-entry-button)`
+  // is (0,2,1), comes later and sets `margin: 3px; margin-inline-start: 0`: each button here is under
+  // `.cm-content`, (0,3,1), and its margin before it is logical, as core's is.
+  [buttonStates('.cm-content button.cm-plantuml-chooser')]: { ...QUIET_BUTTON, display: 'inline-flex', width: '16px', height: '16px', marginInlineStart: '2px', verticalAlign: 'middle' },
   '.cm-plantuml-chooser svg': { width: '12px', height: '12px' },
   '.cm-plantuml-stepper': { display: 'inline-flex', flexDirection: 'column', width: '12px', height: '18px', marginLeft: '2px', verticalAlign: 'middle' },
-  [buttonStates('.cm-plantuml-stepper button')]: { ...QUIET_BUTTON, width: '12px', height: '9px', fontSize: '7px', lineHeight: '1' },
+  [buttonStates('.cm-content .cm-plantuml-stepper button')]: { ...QUIET_BUTTON, width: '12px', height: '9px', fontSize: '7px', lineHeight: '1' },
   '.cm-plantuml-chooser, .cm-plantuml-stepper button': { color: 'var(--color-text-maxcontrast)' },
   '.cm-plantuml-chooser:hover, .cm-plantuml-stepper button:hover': { color: 'var(--color-main-text)' },
 
-  // R9: a linked file's chip, the chooser's size, 4 px after its path.
-  [buttonStates('.cm-plantuml-link-chip')]: { ...QUIET_BUTTON, display: 'inline-flex', width: '16px', height: '16px', marginLeft: '4px', verticalAlign: 'middle' },
+  // R9: a linked file's chip, the chooser's size, 4 px after its path; under `.cm-content`, as the chooser.
+  [buttonStates('.cm-content button.cm-plantuml-link-chip')]: { ...QUIET_BUTTON, display: 'inline-flex', width: '16px', height: '16px', marginInlineStart: '4px', verticalAlign: 'middle' },
   '.cm-plantuml-link-chip svg': { width: '12px', height: '12px' },
   '.cm-plantuml-link-chip': { color: 'var(--color-text-maxcontrast)' },
   '.cm-plantuml-link-chip:hover': { color: 'var(--color-main-text)' },

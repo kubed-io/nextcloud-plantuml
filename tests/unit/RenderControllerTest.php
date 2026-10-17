@@ -1006,7 +1006,6 @@ final class RenderControllerTest extends TestCase {
 
 	/** @return iterable<string, array{mixed}> */
 	public static function malformedOverrides(): iterable {
-		yield 'a list' => [['b {}']];
 		yield 'a number for text' => [['x.css' => 1]];
 		yield 'a string' => ['x.css'];
 		yield 'sixty-five of them' => [array_fill_keys(array_map(static fn (int $n): string => "f$n.css", range(1, 65)), '')];
@@ -1038,20 +1037,37 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(self::TOO_LARGE, $response->getData());
 	}
 
-	/** JSON's key "2024" reaches PHP as the int 2024, and it still names a file. */
-	public function testAnAllDigitOverrideKeyNamesItsFile(): void {
-		$source = "@startuml\n<style file=2024>\nA -> B\n@enduml\n";
+	/** @return iterable<string, array{string}> */
+	public static function digitFileNames(): iterable {
+		yield 'an int key' => ['2024'];
+		yield 'a key json_decode makes a list' => ['0'];
+	}
+
+	/** JSON's key "2024" reaches PHP as the int 2024, and "0" as the list [0 => …]: each still names a file. */
+	#[DataProvider('digitFileNames')]
+	public function testAnAllDigitOverrideKeyNamesItsFile(string $name): void {
+		$source = "@startuml\n<style file=$name>\nA -> B\n@enduml\n";
 		$files = [
 			'Diagrams/Order flow.puml' => $this->diagram('text/x-plantuml', $source),
-			'Diagrams/2024' => $this->diagram('text/plain', "a {}\n", 'css1', '2024'),
+			"Diagrams/$name" => $this->diagram('text/plain', "a {}\n", 'css1', $name),
 		];
-		$overrides = json_decode('{"2024": "b {}\\n"}', true);
+		$overrides = json_decode('{"' . $name . '": "b {}\\n"}', true);
 		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
 
 		$response = $this->controller($render, $files)->bySource($source, 0, '/Diagrams/Order flow.puml', $overrides);
 
 		self::assertSame(200, $response->getStatus());
 		self::assertSame("@startuml\n<style>\nb {}\n</style>\nA -> B\n@enduml\n", $sent);
+	}
+
+	/** A JSON list names the file `0`; with no such file linked it reads nothing, and the stored styles are drawn. */
+	public function testAListOfTextsNamesNoFileWhenNoFileIsNamedZero(): void {
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$response = $this->controller($render, $this->styledFiles())->bySource(self::STYLED, 0, '/Diagrams/Order flow.puml', ['b {}']);
+
+		self::assertSame(200, $response->getStatus());
+		self::assertSame("@startuml\n<style>\na {}\n</style>\nA -> B\n@enduml\n", $sent);
 	}
 
 	/** @return iterable<string, array{array<string, string>|null}> */

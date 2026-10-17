@@ -57,6 +57,8 @@ final class TemplateLibrary {
 
 	/**
 	 * Made in the actor's files at once (`mkdir -p`), as the siblings' ensureFolder.
+	 * An empty path resets to the default and never fails the save, whatever the
+	 * make of the default folder does (it is logged).
 	 *
 	 * @throws \InvalidArgumentException for a path that climbs, runs through a file, or cannot be made
 	 */
@@ -68,7 +70,7 @@ final class TemplateLibrary {
 			return;
 		}
 		$segments = explode('/', $path);
-		if (preg_match('/[\x00-\x1f]/', $path) === 1 || array_intersect($segments, ['', '.', '..']) !== []) {
+		if (preg_match('/[\x00-\x1f]/', $path) === 1 || array_intersect($segments, ['', '.', '..']) !== [] || str_contains($path, '\\')) {
 			throw new \InvalidArgumentException(self::REFUSED);
 		}
 		$actor = $this->actor();
@@ -220,6 +222,8 @@ final class TemplateLibrary {
 			if ($budget['files'] >= self::MAX_FILES) {
 				break;
 			}
+			// Every file looked at counts, kept or skipped: the cap bounds the work of a GET.
+			$budget['files']++;
 			$id = $file->getId();
 			if (isset($budget['seen'][$id]) || FileReader::downloadForbidden($file)) {
 				continue;
@@ -230,7 +234,6 @@ final class TemplateLibrary {
 				continue;
 			}
 			$budget['seen'][$id] = true;
-			$budget['files']++;
 			$budget['bytes'] += strlen($text);
 			$list[] = ['source' => $source, 'path' => (string)$path, 'text' => $text];
 		}

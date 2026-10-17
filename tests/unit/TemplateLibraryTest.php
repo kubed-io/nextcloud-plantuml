@@ -44,6 +44,7 @@ final class TemplateLibraryTest extends TestCase {
 	/** @var list<string> */
 	private array $made = [];
 	private int $ids = 0;
+	private int $opened = 0;
 	/** @var list<string> */
 	private array $admins = ['admin'];
 	private string $caller = 'drk';
@@ -121,7 +122,10 @@ final class TemplateLibraryTest extends TestCase {
 		$file->method('getId')->willReturn(++$this->ids);
 		$file->method('getPath')->willReturn($path);
 		$file->method('getStorage')->willReturn($storage ?? $own);
-		$file->method('fopen')->willReturnCallback(static fn () => $readable ? MemoryStream::of($text) : false);
+		$file->method('fopen')->willReturnCallback(function () use ($text, $readable) {
+			$this->opened++;
+			return $readable ? MemoryStream::of($text) : false;
+		});
 		$this->files[$path] = $file;
 		$this->folders[dirname($path)] = true;
 	}
@@ -139,6 +143,7 @@ final class TemplateLibraryTest extends TestCase {
 		$this->stored['plantuml/template_folder'] = 'Diagrams';
 		$this->library()->setFolder(' / ');
 		self::assertArrayNotHasKey('plantuml/template_folder', $this->stored);
+		self::assertSame(['/admin/files/Templates'], $this->made);
 	}
 
 	public function testSavingTheFolderMakesItInTheActorsFiles(): void {
@@ -153,6 +158,8 @@ final class TemplateLibraryTest extends TestCase {
 		yield 'here' => ['a/./b'];
 		yield 'empty segment' => ['a//b'];
 		yield 'control' => ["a\nb"];
+		yield 'backslash' => ['a\\b'];
+		yield 'backslash up' => ['..\\x'];
 	}
 
 	#[DataProvider('climbing')]
@@ -169,12 +176,17 @@ final class TemplateLibraryTest extends TestCase {
 
 	public function testAFolderThroughAFileIsRefused(): void {
 		$this->put('/admin/files/a', 'not a folder');
-		$this->expectException(\InvalidArgumentException::class);
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects(self::never())->method('warning');
+		$this->logger = $logger;
 		try {
 			$this->library()->setFolder('a/b');
-		} finally {
-			self::assertSame([], $this->stored);
+			self::fail('expected a refusal');
+		} catch (\InvalidArgumentException $e) {
+			self::assertSame("Template folder must be a folder in the actor's files", $e->getMessage());
 		}
+		self::assertSame([], $this->stored);
+		self::assertSame([], $this->made);
 	}
 
 	public function testAFolderTheActorCannotMakeIsRefusedAndLogged(): void {
@@ -233,6 +245,39 @@ final class TemplateLibraryTest extends TestCase {
 		$this->put('/admin/files/Templates/theirs.puml', "@startuml\nsecret\n@enduml", $this->shareStorage(false));
 		$this->put('/admin/files/Templates/a.puml', "@startuml\n@enduml");
 		self::assertSame(['shared Templates/a.puml'], $this->listed());
+	}
+
+	public function testAViewOnlyShareInYourOwnTemplatesIsLeftOutToo(): void {
+		$this->put('/drk/files/Templates/theirs.puml', "@startuml\nsecret\n@enduml", $this->shareStorage(false));
+		$this->put('/drk/files/Templates/x.puml', "@startuml\n@enduml");
+		self::assertSame(['yours Templates/x.puml'], $this->listed());
+	}
+
+	public function testTheFileCapHoldsAcrossBothSources(): void {
+		for ($i = 10; $i < 73; $i++) {
+			$this->put("/admin/files/Templates/t$i.puml", "@startuml\n@enduml");
+		}
+		$this->put('/drk/files/Templates/x1.puml', "@startuml\n@enduml");
+		$this->put('/drk/files/Templates/x2.puml', "@startuml\n@enduml");
+		$listed = $this->listed();
+		self::assertCount(64, $listed);
+		self::assertContains('yours Templates/x1.puml', $listed);
+		self::assertNotContains('yours Templates/x2.puml', $listed);
+	}
+
+	public function testTheByteCapHoldsAcrossBothSources(): void {
+		$this->put('/admin/files/Templates/a.puml', str_repeat('a', 600000));
+		$this->put('/drk/files/Templates/x.puml', str_repeat('x', 600000));
+		$this->put('/drk/files/Templates/y.puml', "@startuml\n@enduml");
+		self::assertSame(['shared Templates/a.puml', 'yours Templates/y.puml'], $this->listed());
+	}
+
+	public function testSeventyFilesThatAreSkippedAreStillOnlyReadSixtyFour(): void {
+		for ($i = 10; $i < 80; $i++) {
+			$this->put("/admin/files/Templates/t$i.puml", "\xff");
+		}
+		self::assertSame([], $this->listed());
+		self::assertSame(64, $this->opened);
 	}
 
 	public function testTheSixtyFifthFileIsLeftOut(): void {

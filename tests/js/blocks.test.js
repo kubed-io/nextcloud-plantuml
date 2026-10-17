@@ -183,6 +183,19 @@ describe('diagramsOf, one scan per document version', () => {
     expect(diagramsOf(after.doc)[0]).toMatchObject({ type: 'salt', name: 'b', start: 1, end: 3 })
     expect(diagramsOf(state.doc)).toBe(before)
   })
+
+  it('answers two editors holding the same text each for its own document', () => {
+    const lines = ['@startuml a', 'A -> B', '@enduml']
+    const one = EditorState.create({ doc: Text.of(lines) })
+    const two = EditorState.create({ doc: Text.of(lines) })
+    const first = diagramsOf(one.doc)
+    const { state: edited } = one.update({ changes: { from: 0, to: one.doc.line(1).to, insert: '@startsalt b' } })
+
+    expect(diagramsOf(two.doc)).not.toBe(first)
+    expect(diagramsOf(two.doc)).toEqual(first)
+    expect(diagramsOf(edited.doc)[0]).toMatchObject({ type: 'salt', name: 'b' })
+    expect(diagramsOf(two.doc)[0]).toMatchObject({ type: 'uml', name: 'a' })
+  })
 })
 
 describe('diagramsWithout, the diagrams around a line still being typed', () => {

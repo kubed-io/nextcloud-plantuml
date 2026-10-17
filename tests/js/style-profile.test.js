@@ -216,6 +216,18 @@ describe('the style blocks the core hands the profile', () => {
     expect(core.styleBlocks(doc)[0]).toMatchObject({ open: 2, body: [{ line: 3 }] })
   })
 
+  it('are each editor\'s own when two hold the same text', () => {
+    const one = EditorState.create({ doc: Text.of(['<style>', 'node', '</style>']) })
+    const two = EditorState.create({ doc: Text.of(['<style>', 'node', '</style>']) })
+    const first = styleRegions(one.doc)
+    const { doc: edited } = one.update({ changes: { from: 0, insert: 'x\n' } }).state
+
+    expect(styleRegions(two.doc)).not.toBe(first)
+    expect(styleRegions(two.doc)).toEqual(first)
+    expect(styleRegions(edited)[0]).toMatchObject({ open: 2, body: [{ line: 3 }] })
+    expect(styleRegions(two.doc)[0]).toMatchObject({ open: 1, body: [{ line: 2 }] })
+  })
+
   it('leave comment and ! lines to PlantUML in the profile\'s lint and completion', () => {
     const marked = "<style>\nnode {\n  FontSise 1\n' FontSise 2\n!FontSise 3\n  |\n}"
     const pos = marked.indexOf('|')

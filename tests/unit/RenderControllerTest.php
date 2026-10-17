@@ -185,6 +185,19 @@ final class RenderControllerTest extends TestCase {
 		self::assertSame(self::TOO_LARGE, $response->getData());
 	}
 
+	/** Review Focus 1: a stale size is no reason to read the rest; the read stops one byte past the limit. */
+	public function testByPathReadsAStreamLargerThanItsSizeOnlyToOnePastTheLimit(): void {
+		$file = $this->createStub(File::class);
+		$file->method('getMimetype')->willReturn('text/x-plantuml');
+		$file->method('getSize')->willReturn(10);
+		$file->method('fopen')->willReturnCallback(static fn () => CountingStream::open(str_repeat('a', 4 * RenderController::MAX_SOURCE)));
+
+		$response = $this->controller($this->renderingNothing(), $file)->byPath('Diagrams/liar.puml');
+
+		self::assertSame(413, $response->getStatus());
+		self::assertLessThanOrEqual(RenderController::MAX_SOURCE + 1 + CountingStream::CHUNK, CountingStream::$served);
+	}
+
 	public function testByPathOfExactlyAMegabyteIsRendered(): void {
 		$file = $this->sizedDiagram(RenderController::MAX_SOURCE, str_repeat('a', RenderController::MAX_SOURCE));
 

@@ -567,16 +567,18 @@ final class IncludeResolverTest extends TestCase {
 	}
 
 	public function testAFileLargerThanItsStoredSizeIsNotReadWhole(): void {
-		$content = str_repeat("' padding\n", 120000);
+		$content = str_repeat("' padding\n", 420000);
 		$file = $this->createMock(File::class);
 		$file->method('getSize')->willReturn(10);
-		$file->method('fopen')->willReturnCallback(static fn () => self::stream($content));
+		$file->method('fopen')->willReturnCallback(static fn () => CountingStream::open($content));
 		$file->method('getStorage')->willReturn($this->ownStorage());
 		$file->expects(self::never())->method('getContent');
 		$expanded = $this->expand("!include a.puml\n", ['docs/a.puml' => $file]);
 
 		self::assertSame("!include a.puml\n", $expanded->source);
 		self::assertSame([['line' => 0, 'message' => 'a.puml is past the limit of 1 MB in all']], $expanded->mistakes);
+		// Review Focus 1: one byte past the megabyte, not the 4 MB the stream holds.
+		self::assertLessThanOrEqual(1048576 + 1 + CountingStream::CHUNK, CountingStream::$served);
 	}
 
 	public function testABangInsideQuotesIsPartOfTheName(): void {

@@ -133,14 +133,17 @@ export function createDiagramView(root, { path, basename, onReady }) {
       : count === 0 ? t(APP_ID, 'Export all') : n(APP_ID, 'Export %n', 'Export %n', count))
   }
 
-  /** What the menu exports: the one diagram's label, else how many go in the zip. */
+  /**
+   * What the menu exports: the one diagram's label, else how many go in the zip. None chosen is
+   * every diagram the server draws an image for; it leaves out the rest (`drawn`).
+   */
   function exportHeading() {
     const indexes = chosen()
-    const count = indexes.length || diagrams.length
-    if (count > 1) {
-      return n(APP_ID, '%n diagrams, as .zip', '%n diagrams, as .zip', count)
+    const going = indexes.length ? indexes.map((index) => diagrams[index]) : diagrams.filter((diagram) => diagram.drawn)
+    if (going.length > 1) {
+      return n(APP_ID, '%n diagrams, as .zip', '%n diagrams, as .zip', going.length)
     }
-    const one = diagrams[indexes[0] ?? 0]
+    const one = going[0] ?? diagrams[0]
     // A file of one unnamed diagram is named after the file (the export-menu-single board).
     return diagrams.length === 1 && !one.name ? basename.replace(/\.(?:puml|plantuml)$/i, '') : label(one)
   }

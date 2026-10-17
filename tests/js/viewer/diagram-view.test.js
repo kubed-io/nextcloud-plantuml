@@ -613,6 +613,22 @@ describe('Export', () => {
     expect(exportsAsked()).toEqual([[['path', '/D/S.puml'], ['format', 'txt']]])
   })
 
+  it('counts in Export all only the diagrams the server draws, as its zip does', async () => {
+    await open(`${THREE}@startuml p4\nG -> H\n`)
+    mode('Stack')
+    exportButton().click()
+
+    expect(heading()).toBe('3 diagrams, as .zip')
+  })
+
+  it('names the one diagram Export all saves when the others have no image', async () => {
+    await open('@startuml a\nA -> B\n@enduml\n@startuml b\nC -> D\n')
+    mode('Wall')
+    exportButton().click()
+
+    expect(heading()).toBe('a')
+  })
+
   it('reads Export again back in Tabs, whatever is checked', async () => {
     await open(THREE)
     mode('Stack')

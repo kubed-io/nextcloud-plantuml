@@ -107,6 +107,25 @@ describe('the export menu', () => {
     expect(shown().hidden).toBe(false)
   })
 
+  it.each([
+    ['its heading', () => shown().firstElementChild],
+    ['its own padding', () => shown()],
+  ])('keeps the focus where it is on a press on %s, so Escape closes only the menu', (_what, target) => {
+    menu.open()
+    const press = new MouseEvent('pointerdown', { bubbles: true, cancelable: true })
+    target().dispatchEvent(press)
+
+    expect(press.defaultPrevented).toBe(true)
+  })
+
+  it('lets a press on an item go on, to be clicked', () => {
+    menu.open()
+    const press = new MouseEvent('pointerdown', { bubbles: true, cancelable: true })
+    shown().querySelector('[role="menuitem"] .plantuml-viewer__menu-label').dispatchEvent(press)
+
+    expect(press.defaultPrevented).toBe(false)
+  })
+
   it('leaves the page as it found it once destroyed', () => {
     menu.open()
     menu.destroy()

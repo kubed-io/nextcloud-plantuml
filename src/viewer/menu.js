@@ -75,6 +75,14 @@ export function createMenu({ anchor, heading, items, onPick, idPrefix = 'plantum
     }
   }
 
+  // A press on the heading or the padding would take the focus out of the menu, to the Viewer,
+  // whose Escape then closes the Viewer itself; on an item it goes on to the click.
+  element.addEventListener('pointerdown', (event) => {
+    if (!event.target.closest?.('[role="menuitem"]')) {
+      event.preventDefault()
+    }
+  })
+
   element.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.preventDefault()

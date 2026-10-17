@@ -93,3 +93,25 @@ describe('appendBlock', () => {
     }
   })
 })
+
+describe('line endings and separators', () => {
+  it('reads a CRLF template as \\n lines', () => {
+    expect(named('@startuml(id=L)\r\nA\r\n@enduml\r\n', 'x')).toBe('@startuml x\nA\n@enduml\n')
+    expect(apply('@enduml', appendBlock('@enduml', '@startuml\r\n@enduml'))).toBe('@enduml\n\n@startuml\n@enduml')
+  })
+
+  it('names a start line holding U+2028 without throwing', () => {
+    expect(named('@startuml a\u2028b\n@enduml', 'x')).toBe('@startuml x\n@enduml')
+  })
+
+  it('returns a block with no start line unchanged', () => {
+    expect(named('A\n@enduml', 'x')).toBe('A\n@enduml')
+  })
+
+  it('counts a last line of only U+2028 or NBSP as text, not blank', () => {
+    for (const mark of ['\u2028', '\u00a0']) {
+      const doc = `@enduml\n${mark}\n`
+      expect(apply(doc, appendBlock(doc, '@startuml\n@enduml'))).toBe(`@enduml\n${mark}\n\n@startuml\n@enduml\n`)
+    }
+  })
+})

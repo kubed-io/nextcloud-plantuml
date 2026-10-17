@@ -9,7 +9,10 @@
 import { tabName } from '../blocks.js'
 import { startCall } from '../lexicon/start.js'
 
-const START = /^(\s*@start\w+)(.*)$/
+const START = /^(\s*@start\w+)([^\n]*)$/
+// PlantUML ends a line at \n and \r only; the editor's document holds \n lines.
+const BLANK = /^[ \t]*$/
+const eol = (text) => text.replace(/\r\n?/g, '\n')
 const ID = /^\(\s*id\s*=/
 
 /** The names a new block may not take: each block's, or its type's word when unnamed, as its tab reads (B2). */
@@ -35,8 +38,12 @@ export function uniqueName(base, taken) {
  * arguments stay. What B1 cannot read as a name is dropped from `name`.
  */
 export function named(block, name) {
-  const [first, ...rest] = block.split('\n')
-  const [, lead, after] = START.exec(first)
+  const [first, ...rest] = eol(block).split('\n')
+  const open = START.exec(first)
+  if (!open) {
+    return eol(block)
+  }
+  const [, lead, after] = open
   const call = startCall.exec(after)?.[0] ?? ''
   const kept = ID.test(call) ? '' : call
   const clean = name.replace(/["“”{}\r\n]/g, '').trim()
@@ -47,15 +54,16 @@ export function named(block, name) {
  * The change that ends `doc` with one blank line, then `block`, then the final
  * newline `doc` had, if it had one; an empty file gets the block alone.
  */
-export function appendBlock(doc, block) {
+export function appendBlock(doc, text) {
+  const block = eol(text)
   const lines = doc.split('\n')
   let last = lines.length
-  while (last > 0 && !lines[last - 1].trim()) {
+  while (last > 0 && BLANK.test(lines[last - 1])) {
     last--
   }
   const from = last === 0 ? 0 : lines.slice(0, last).join('\n').length
-  const eol = last > 0 && doc.endsWith('\n') ? '\n' : ''
-  const insert = last === 0 ? block : `\n\n${block}${eol}`
+  const final = last > 0 && doc.endsWith('\n') ? '\n' : ''
+  const insert = last === 0 ? block : `\n\n${block}${final}`
   const start = last === 0 ? 0 : from + 2
   const newline = block.indexOf('\n')
   const cursor = newline === -1 ? start + block.length : start + newline + 1

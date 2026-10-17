@@ -45,7 +45,7 @@ const PREPROCESSOR = [...preprocessor.directives, '!$'].sort().map((label) => (
 const CONTINUES = ['!else', '!elseif', '!endif']
 
 /** Salt and JSON bodies are braces; every other type's is a blank line. */
-const BRACED = ['salt', 'json']
+export const BRACED = ['salt', 'json']
 
 /** Picking a start inserts the whole block: the name a field, then the body. */
 function startOption(label) {

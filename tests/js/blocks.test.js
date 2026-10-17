@@ -161,9 +161,9 @@ describe('a @start line with a huge run of spaces', () => {
     expect(ms).toBeLessThan(200)
   })
 
-  it('reads a 40,000-letter @start word cut by a line separator in under 200 ms', () => {
+  it('reads a 40,000-letter @start word with a line separator after it in under 200 ms, as PlantUML opens it', () => {
     const [diagrams, ms] = timed(`@start${'a'.repeat(40000)}\u2028x\n@enduml`)
-    expect(diagrams.map((d) => d.start)).toEqual([null])
+    expect(diagrams.map((d) => [d.start, d.name])).toEqual([[1, 'x']])
     expect(ms).toBeLessThan(200)
   })
 

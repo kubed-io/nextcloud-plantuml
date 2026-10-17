@@ -85,11 +85,11 @@ final class DiagramsTest extends TestCase {
 		self::assertSame([$id, $id], [$diagrams[0]['id'], $diagrams[0]['name']]);
 	}
 
-	/** A long `@start` word cut by a line separator once exhausted PCRE's backtrack limit and threw. */
-	public function testALongStartWordCutByALineSeparatorOpensNoBlock(): void {
+	/** A long `@start` word and a line separator once exhausted PCRE's backtrack limit and threw; PlantUML opens the block. */
+	public function testALongStartWordWithALineSeparatorAfterItOpensItsBlock(): void {
 		$diagrams = Diagrams::scan('@start' . str_repeat('a', 40000) . "\u{2028}x\n@enduml\n");
-		self::assertSame([''], array_column($diagrams, 'name'));
-		self::assertSame([1], array_column($diagrams, 'pages'));
+		self::assertSame(['x'], array_column($diagrams, 'name'));
+		self::assertSame([str_repeat('a', 40000)], array_column($diagrams, 'type'));
 	}
 
 	/** Quotes stay out of a name: one inside it opens no block, as in the editor. */

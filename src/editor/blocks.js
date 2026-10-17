@@ -7,11 +7,13 @@
  */
 import { startCall, startName, untailed } from './lexicon/start.js'
 
-// `(?=(\w+))\1` is a possessive `\w+`: a line that fails at `$` (a line separator after the word) is not
-// retried one letter shorter, which is quadratic. PHP's twin writes it `++`.
-const START = /^\s*@start(?=(\w+))\1(.*)$/
-const END = /^\s*@end\w*\s*$/
-const NEWPAGE = /^\s*newpage(?:\s.*)?$/
+// PlantUML (Java) splits lines at \n and \r only: U+2028 and U+2029 are ordinary characters, never
+// a line's end and never the indent before `@start`, `@end` or `newpage`, nor the space after
+// `newpage` (1.2026.8, checked 2026-10-17). `(?=(\w+))\1` is a possessive `\w+`, PHP's `++`: a
+// line that fails at `$` is not retried one letter shorter, which is quadratic.
+const START = /^[^\S\u2028\u2029]*@start(?=(\w+))\1([^\n\r]*)$/
+const END = /^[^\S\u2028\u2029]*@end\w*\s*$/
+const NEWPAGE = /^[^\S\u2028\u2029]*newpage(?:[^\S\u2028\u2029][^\n\r]*)?$/
 const ID = /^\s*id\s*=\s*/
 
 /**
@@ -33,9 +35,8 @@ function startOf(line) {
   const call = startCall.exec(rest)
   if (call) {
     const lead = ID.exec(call[1])?.[0]
-    // `.` stops at a line terminator, so an id with one inside is none, as the pattern read it.
     const value = lead === undefined ? '' : untailed(call[1].slice(lead.length), /\s/)
-    id = /[\r\u2028\u2029]/.test(value) ? null : value || null
+    id = value || null
     rest = rest.slice(call[0].length)
   }
   const named = startName(rest)

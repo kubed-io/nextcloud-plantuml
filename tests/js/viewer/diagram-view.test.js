@@ -737,6 +737,23 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
     expect(names()).toEqual(['p3', 'login', 'nodes'])
   })
 
+  it('takes no remembered size when the file now holds a different number of diagrams under the same ETag', async () => {
+    const view = await open(THREE)
+    wide()
+    mode('Wall')
+    await repacked()
+    view.destroy()
+    // The scanner now finds two diagrams under the same ETag; nothing is drawn, so only memory could size them.
+    pageCache.clear()
+    fetch.mockImplementation(() => new Promise(() => {}))
+    await open(SCREENS)
+    wide()
+    mode('Wall')
+
+    expect(cards().map((card) => card.style.getPropertyValue('--plantuml-wall-height'))).toEqual(['240px', '240px'])
+    expect(names()).toEqual(['nodes', 'login'])
+  })
+
   it('keeps the focus on the checkbox it is on while the cards move around it', async () => {
     await open(THREE)
     wide()

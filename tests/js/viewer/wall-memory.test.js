@@ -23,6 +23,17 @@ describe('the Wall\'s layout memory (VW13)', () => {
     expect(recall('/D/S.puml', '"e"')).toEqual(SIZES)
   })
 
+  it('stores no path, user or ETag in plain text: another account in this browser reads only hashes', () => {
+    remember('/Secret/Plans.puml', '"etag-1"', SIZES)
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+
+    expect(stored).not.toContain('Secret')
+    expect(stored).not.toContain('Plans')
+    expect(stored).not.toContain('etag-1')
+    expect(stored).not.toContain('drk')
+    expect(recall('/Secret/Plans.puml', '"etag-1"')).toEqual(SIZES)
+  })
+
   it('recalls nothing for another ETag or another file', () => {
     remember('/D/S.puml', '"e"', SIZES)
 
@@ -89,7 +100,9 @@ describe('the Wall\'s layout memory (VW13)', () => {
     window.localStorage.setItem(STORAGE_KEY, '{not json')
     expect(recall('/D/S.puml', '"e"')).toBeNull()
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([['x', 'y'], [JSON.stringify(['drk', '/D/S.puml', '"e"']), [[600, 300], [0, 1], 'z', null]]]))
+    remember('/D/S.puml', '"e"', SIZES)
+    const [[key]] = JSON.parse(window.localStorage.getItem(STORAGE_KEY))
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([['x', 'y'], [key, [[600, 300], [0, 1], 'z', null]]]))
     expect(recall('/D/S.puml', '"e"')).toEqual([{ width: 600, height: 300 }, null, null, null])
   })
 })

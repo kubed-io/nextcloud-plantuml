@@ -334,7 +334,11 @@ export function createDiagramView(root, { path, basename, onReady }) {
     if (width <= 0) {
       return
     }
-    recalled ??= recall(path, etag) ?? []
+    // A scanner that finds another number of diagrams under the same ETag shares no sizes with the memory.
+    recalled ??= recall(path, etag)
+    if (recalled?.length !== diagrams.length) {
+      recalled = []
+    }
     const sizes = diagrams.map((_diagram, index) => sheets.sizeOf(index + 1)
       ?? (sheets.sheet(index + 1).classList.contains('plantuml-viewer__sheet--problem') ? null : recalled[index])
       ?? null)

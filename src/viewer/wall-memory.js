@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * The Wall's layout memory (VW13): the drawn sizes a file's wall was last packed
- * with, kept in this browser by the file's path and the WebDAV ETag it was read
- * with, so the next open packs at once. Sizes, not places: the packing is the
+ * with, kept in this browser by a hash of the user, the file's path and the WebDAV ETag
+ * it was read with, so the next open packs at once. Sizes, not places: the packing is the
  * same for the same sizes at any width. Each wall is the signed-in user's, so a
  * browser shared by two accounts never recalls one's files for the other; no one
  * signed in, nothing is kept. At most LIMIT walls, the least recently packed
@@ -15,10 +15,25 @@ import { getCurrentUser } from '@nextcloud/auth'
 export const STORAGE_KEY = 'plantuml.viewer.wall'
 export const LIMIT = 50
 
+// cyrb53, a 53-bit string hash: the stored key reveals no file path to another account's devtools.
+// A collision costs one re-pack.
+function hash(text) {
+  let a = 0xdeadbeef
+  let b = 0x41c6ce57
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    a = Math.imul(a ^ code, 2654435761)
+    b = Math.imul(b ^ code, 1597334677)
+  }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909)
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909)
+  return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36)
+}
+
 // Null, no memory: no ETag, or no one signed in.
 const keyOf = (path, etag) => {
   const uid = getCurrentUser()?.uid
-  return etag && uid ? JSON.stringify([uid, path, etag]) : null
+  return etag && uid ? hash(JSON.stringify([uid, path, etag])) : null
 }
 const isSize = (pair) => Array.isArray(pair) && pair.length === 2 && pair.every((n) => Number.isFinite(n) && n > 0)
 

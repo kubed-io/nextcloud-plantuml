@@ -214,6 +214,10 @@ describe('the Wall\'s CSS', () => {
     expect(wall).toContain('background: #000;')
   })
 
+  it('gives a card no hand, since a click on it does nothing (VW5)', () => {
+    expect(css).not.toMatch(/\.plantuml-viewer__card[^{]*\{[^}]*cursor: pointer/)
+  })
+
   it('cuts a long name short in the caption with an ellipsis', () => {
     const name = rule('.plantuml-viewer__stage--wall .plantuml-viewer__caption-name')
     expect(name).toMatch(/min-width: 0;/)

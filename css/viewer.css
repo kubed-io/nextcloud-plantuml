@@ -339,7 +339,6 @@
  * that scrolls sideways within the columns it spans. */
 .plantuml-viewer__stage--wall .plantuml-viewer__card {
 	min-width: 0;
-	cursor: pointer;
 }
 
 /* A move slides from the old place (diagram-view.js), unless motion is reduced. */

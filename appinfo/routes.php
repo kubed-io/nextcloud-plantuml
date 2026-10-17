@@ -27,5 +27,7 @@ return [
 		['name' => 'render#fonts', 'url' => '/fonts', 'verb' => 'GET'],
 		// {"stdlib": [{name, version, source}]}, for !include <…> completion
 		['name' => 'render#stdlib', 'url' => '/stdlib', 'verb' => 'GET'],
+		// {"files": [{source, path, text}]}, what Add diagram can start from
+		['name' => 'templates#index', 'url' => '/templates', 'verb' => 'GET'],
 	],
 ];

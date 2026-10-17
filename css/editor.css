@@ -562,10 +562,8 @@
 .plantuml-add__dialog {
 	display: flex;
 	flex-direction: column;
-	width: 880px;
-	max-width: calc(100vw - 32px);
-	height: 600px;
-	max-height: calc(100vh - 32px);
+	width: min(880px, calc(100vw - 32px));
+	height: min(600px, calc(100vh - 32px));
 	border-radius: var(--border-radius-large, 8px);
 	background: var(--color-main-background);
 	box-shadow: 0 2px 12px var(--color-box-shadow);
@@ -627,12 +625,12 @@
 	min-height: 0;
 	box-sizing: border-box;
 	padding: 0 16px 16px;
-	overflow-y: auto;
 }
 
+/* Only the types scroll, so the search stays in view. */
 .plantuml-add__left {
 	flex: none;
-	width: 288px;
+	width: min(288px, 40%);
 	gap: 8px;
 }
 
@@ -640,6 +638,7 @@
 	flex: 1;
 	min-width: 0;
 	gap: 4px;
+	overflow-y: auto;
 }
 
 .plantuml-add__divider {
@@ -669,6 +668,12 @@
 .plantuml-add__templates {
 	display: flex;
 	flex-direction: column;
+}
+
+.plantuml-add__types {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .plantuml-add__templates {
@@ -711,7 +716,9 @@
 	font-size: 13px;
 }
 
-.plantuml-add button.plantuml-add__type[aria-selected="true"] {
+/* (0,4,1) and later than core's button:not(…):not(…):not(…):active, which would paint a pressed row
+ * in the main background; the hovers below are (0,4,1) and more for the same reason. */
+.plantuml-add .plantuml-add__dialog button.plantuml-add__type[aria-selected="true"] {
 	background: var(--color-primary-element-light);
 	color: var(--color-primary-element-light-text);
 	font-weight: 600;
@@ -728,8 +735,8 @@
 	padding: 12px;
 }
 
-.plantuml-add button.plantuml-add__type:hover:not([aria-selected="true"]),
-.plantuml-add button.plantuml-add__template:hover {
+.plantuml-add .plantuml-add__dialog button.plantuml-add__type:hover:not([aria-selected="true"]),
+.plantuml-add .plantuml-add__dialog button.plantuml-add__template:hover {
 	background: var(--color-background-hover);
 }
 

@@ -68,7 +68,7 @@ export function createAdd(core, { container, onAdd }) {
       if (modal === opened && files.length) {
         opened.update(arrange(builtIn, fromFiles(files, core)))
       }
-    })
+    }).catch((e) => console.error('[plantuml] could not read the templates', e)) // a file of the wrong shape: the built-ins stay
   }
 
   function destroy() {

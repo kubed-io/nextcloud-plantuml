@@ -51,6 +51,7 @@ describe('the Add diagram modal', () => {
   afterEach(() => {
     modal.close()
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it('opens titled, on UML, its templates in order, the search focused', () => {
@@ -63,6 +64,13 @@ describe('the Add diagram modal', () => {
     expect(titles().slice(0, 3)).toEqual(['Empty', 'Example', 'Sequence'])
     expect(document.activeElement).toBe(q('.plantuml-add__search'))
     expect(q('.plantuml-add__search').placeholder).toBe('Search')
+  })
+
+  it('names its two lists', () => {
+    expect(q('.plantuml-add__types').getAttribute('role')).toBe('listbox')
+    expect(q('.plantuml-add__types').getAttribute('aria-label')).toBe('Types')
+    expect(q('.plantuml-add__templates').getAttribute('role')).toBe('listbox')
+    expect(q('.plantuml-add__templates').getAttribute('aria-label')).toBe('Templates')
   })
 
   it('shows each type\'s template count', () => {
@@ -121,6 +129,7 @@ describe('the Add diagram modal', () => {
 
   it('shows it at once for a row reached with the keyboard, 16 px right of the dialog and level with the row', () => {
     vi.spyOn(q('.plantuml-add__dialog'), 'getBoundingClientRect').mockReturnValue({ top: 84, bottom: 684, left: 72, right: 952, width: 880, height: 600 })
+    vi.spyOn(q('.plantuml-add__right'), 'getBoundingClientRect').mockReturnValue({ top: 142, bottom: 684, left: 361, right: 952, width: 591, height: 542 })
     vi.spyOn(rows()[1], 'getBoundingClientRect').mockReturnValue({ top: 210, bottom: 274, left: 400, right: 936, width: 536, height: 64 })
     rows()[1].focus()
     expect(q('.plantuml-add__preview').hidden).toBe(false)
@@ -131,6 +140,31 @@ describe('the Add diagram modal', () => {
     expect(document.activeElement).toBe(rows()[2])
     expect(q('.plantuml-add__preview').textContent).toContain('@startuml\n')
     expect(q('.plantuml-add__preview').textContent).not.toBe(OWN['diagram:uml'].example)
+  })
+
+  it('keeps the card within the dialog\'s height, level with its row where it fits', () => {
+    vi.spyOn(q('.plantuml-add__dialog'), 'getBoundingClientRect').mockReturnValue({ top: 84, bottom: 684, left: 72, right: 952, width: 880, height: 600 })
+    vi.spyOn(q('.plantuml-add__right'), 'getBoundingClientRect').mockReturnValue({ top: 142, bottom: 684, left: 361, right: 952, width: 591, height: 542 })
+    vi.spyOn(rows()[3], 'getBoundingClientRect').mockReturnValue({ top: 610, bottom: 674, left: 377, right: 936, width: 559, height: 64 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function () { return this.classList.contains('plantuml-add__preview') ? 200 : 0 })
+    rows()[3].focus()
+    expect(q('.plantuml-add__preview').style.top).toBe(`${684 - 200}px`)
+    expect(q('.plantuml-add__preview').style.maxHeight).toBe('600px')
+  })
+
+  it('hides the card when its row scrolls out of view, and moves it with a row still in view', () => {
+    const rect = (top) => ({ top, bottom: top + 64, left: 377, right: 936, width: 559, height: 64 })
+    vi.spyOn(q('.plantuml-add__dialog'), 'getBoundingClientRect').mockReturnValue({ top: 84, bottom: 684, left: 72, right: 952, width: 880, height: 600 })
+    vi.spyOn(q('.plantuml-add__right'), 'getBoundingClientRect').mockReturnValue({ top: 142, bottom: 684, left: 361, right: 952, width: 591, height: 542 })
+    const at = vi.spyOn(rows()[1], 'getBoundingClientRect').mockReturnValue(rect(210))
+    rows()[1].focus()
+    at.mockReturnValue(rect(150))
+    q('.plantuml-add__right').dispatchEvent(new Event('scroll'))
+    expect(q('.plantuml-add__preview').hidden).toBe(false)
+    expect(q('.plantuml-add__preview').style.top).toBe('150px')
+    at.mockReturnValue(rect(40))
+    q('.plantuml-add__right').dispatchEvent(new Event('scroll'))
+    expect(q('.plantuml-add__preview').hidden).toBe(true)
   })
 
   it('picks a clicked row and closes', () => {
@@ -174,6 +208,26 @@ describe('the Add diagram modal', () => {
     document.removeEventListener('keydown', seen)
     expect(seen).not.toHaveBeenCalled()
     expect(q('.plantuml-add')).toBeNull()
+  })
+
+  it('closes on a click on the backdrop, the focus back on its opener', () => {
+    const mask = q('.plantuml-add')
+    mask.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    mask.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(q('.plantuml-add')).toBeNull()
+    expect(onPick).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(document.getElementById('plus'))
+  })
+
+  it.each([
+    ['a drag from the search ending on the backdrop', '.plantuml-add__search', '.plantuml-add'],
+    ['a press on the backdrop let go in the dialog', '.plantuml-add', '.plantuml-add__dialog'],
+    ['a click in the dialog', '.plantuml-add__dialog', '.plantuml-add__dialog'],
+  ])('stays open after %s', (_how, down, up) => {
+    q(down).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    // The browser sends a click to the two targets' nearest common ancestor.
+    q(up).dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(q('.plantuml-add')).not.toBeNull()
   })
 
   it('closes from its close button without picking', () => {
@@ -222,6 +276,15 @@ describe('the Add diagram modal', () => {
     key(document.activeElement, 'Tab', { shiftKey: true })
     key(document.activeElement, 'Tab')
     expect(document.activeElement).toBe(rows()[2])
+  })
+
+  it('tabs back to a template a mousedown focused', () => {
+    // A mousedown with no click (the pointer let go elsewhere) leaves the row focused.
+    rows()[3].focus()
+    key(document.activeElement, 'Tab')
+    expect(document.activeElement).toBe(q('.plantuml-add__close'))
+    key(document.activeElement, 'Tab', { shiftKey: true })
+    expect(document.activeElement).toBe(rows()[3])
   })
 
   it('selects a clicked type and lists its templates', () => {
@@ -296,6 +359,16 @@ describe('Add diagram\'s modal, opened from the chunk', () => {
     expect(q('.plantuml-add__dialog')).not.toBeNull()
   })
 
+  it('keeps the built-ins alone when the route answers a file of the wrong shape', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ files: [SHARED, null] }), { status: 200 })))
+    add.openModal(plus)
+    await vi.waitFor(() => expect(console.error).toHaveBeenCalledWith('[plantuml] could not read the templates', expect.any(TypeError)))
+    expect(titles()).toEqual(uml())
+    expect(fromAnyFile()).toHaveLength(0)
+    rows()[0].click()
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ type: 'uml', title: 'Empty' }))
+  })
+
   it('leaves a modal closed before a slow route answers closed, and asks again on reopening', async () => {
     let answer
     vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => { answer = resolve })))
@@ -349,10 +422,28 @@ describe('the Add diagram modal\'s styles', () => {
   const css = readFileSync('css/editor.css', 'utf8')
   const rule = (selector) => new RegExp(`^${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'm').exec(css)?.[1] ?? ''
 
-  it('is the board\'s: 880 × 600 on a black backdrop at 50 %', () => {
+  it('is the board\'s: 880 × 600 on a black backdrop at 50 %, smaller on a small screen', () => {
     expect(rule('.plantuml-add')).toMatch(/background: rgba\(0, 0, 0, 0\.5\);/)
-    expect(rule('.plantuml-add__dialog')).toMatch(/width: 880px;/)
-    expect(rule('.plantuml-add__dialog')).toMatch(/height: 600px;/)
+    expect(rule('.plantuml-add__dialog')).toMatch(/width: min\(880px, calc\(100vw - 32px\)\);/)
+    expect(rule('.plantuml-add__dialog')).toMatch(/height: min\(600px, calc\(100vh - 32px\)\);/)
+    expect(rule('.plantuml-add__left')).toMatch(/width: min\(288px, 40%\);/)
+  })
+
+  it('scrolls the types under the search, which stays in view', () => {
+    expect(rule('.plantuml-add__left,\n.plantuml-add__right')).not.toMatch(/overflow/)
+    expect(rule('.plantuml-add__left')).not.toMatch(/overflow/)
+    expect(rule('.plantuml-add__types')).toMatch(/overflow-y: auto;/)
+    expect(rule('.plantuml-add__types')).toMatch(/min-height: 0;/)
+    // Its own rule, not the second line of the shared one.
+    expect(css).toMatch(/(?<!,\n)^\.plantuml-add__right \{[^}]*overflow-y: auto;/m)
+  })
+
+  it('keeps a pressed row\'s own background over core\'s (0,4,1) :active one', () => {
+    expect(rule('.plantuml-add .plantuml-add__dialog button.plantuml-add__type[aria-selected="true"]')).toMatch(/background: var\(--color-primary-element-light\);/)
+    expect(rule('.plantuml-add .plantuml-add__dialog button.plantuml-add__type:hover:not([aria-selected="true"]),\n.plantuml-add .plantuml-add__dialog button.plantuml-add__template:hover')).toMatch(/background: var\(--color-background-hover\);/)
+    // Core's comes first in the page: the later of two (0,4,1) rules wins, and nothing weaker sets them.
+    expect(css).not.toMatch(/^\.plantuml-add button\.plantuml-add__type\[aria-selected="true"\] \{/m)
+    expect(css).not.toMatch(/^\.plantuml-add button\.plantuml-add__template:hover/m)
   })
 
   it('draws its own focus ring over core\'s !important one', () => {

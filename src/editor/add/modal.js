@@ -4,11 +4,11 @@
  *
  * The Add diagram modal (editor spec A3): the types on the left, the selected
  * type's templates on the right, the text a row adds in a card beside it.
- * NcModal's look built by hand, since the editor has no Vue. Every key it
- * handles stops here, so the editor's Escape never closes the editor; the
- * backdrop and the dialog take the focus a click on them would send to the
- * page, for the same reason. In the add chunk, so what it needs of the
- * editor's comes in `core` (index.js).
+ * NcModal's look and ways built by hand, since the editor has no Vue: a click
+ * on the backdrop closes it too. Every key it handles stops here, so the
+ * editor's Escape never closes the editor; the backdrop and the dialog take the
+ * focus a click on them would send to the page, for the same reason. In the
+ * add chunk, so what it needs of the editor's comes in `core` (index.js).
  */
 import { iconSvg } from '../data/template-icons.js'
 import { matching } from './catalog.js'
@@ -30,13 +30,14 @@ export function openAddModal({ container, arranged, onPick, onClose, core: { cre
   let timer = 0
   let shown = null // the row whose text the card shows
   let open = true
+  let downOnMask = false // a press that began on the backdrop, so a drag ending there does not close it
 
   const title = crelt('h2', { class: 'plantuml-add__title', id: 'plantuml-add-title' }, t('plantuml', 'Add diagram'))
   const closeButton = crelt('button', { class: 'plantuml-add__close', type: 'button', 'aria-label': t('plantuml', 'Close') })
   closeButton.innerHTML = closeIcon
   const search = crelt('input', { class: 'plantuml-add__search', type: 'search', placeholder: t('plantuml', 'Search'), 'aria-label': t('plantuml', 'Search') })
-  const typeList = crelt('div', { class: 'plantuml-add__types', role: 'listbox' })
-  const templateList = crelt('div', { class: 'plantuml-add__templates', role: 'listbox' })
+  const typeList = crelt('div', { class: 'plantuml-add__types', role: 'listbox', 'aria-label': t('plantuml', 'Types') })
+  const templateList = crelt('div', { class: 'plantuml-add__templates', role: 'listbox', 'aria-label': t('plantuml', 'Templates') })
   const right = crelt('div', { class: 'plantuml-add__right' }, templateList)
   const dialog = crelt('div', { class: 'plantuml-add__dialog', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': title.id, tabindex: '-1' },
     crelt('header', { class: 'plantuml-add__header' }, title, closeButton),
@@ -84,7 +85,11 @@ export function openAddModal({ container, arranged, onPick, onClose, core: { cre
           hidePreview()
         }
       })
-      row.addEventListener('focus', () => showPreview(row, template))
+      // A mousedown focuses a row too: Tab comes back to it either way.
+      row.addEventListener('focus', () => {
+        rove(templateList, row)
+        showPreview(row, template)
+      })
       row.addEventListener('blur', hidePreview)
       return row
     }))
@@ -108,14 +113,21 @@ export function openAddModal({ container, arranged, onPick, onClose, core: { cre
     place()
   }
 
-  /** 16 px right of the dialog, level with its row, kept on screen. */
+  /** 16 px right of the dialog, level with its row, kept on screen and within the dialog's height; gone with a row scrolled out of view. */
   function place() {
     if (!shown) {
       return
     }
     const box = dialog.getBoundingClientRect()
+    const row = shown.getBoundingClientRect()
+    const view = right.getBoundingClientRect()
+    if (row.bottom < view.top || row.top > view.bottom) {
+      hidePreview()
+      return
+    }
+    preview.style.maxHeight = `${box.height}px`
     preview.style.left = `${Math.max(0, Math.min(box.right + 16, window.innerWidth - preview.offsetWidth - 8))}px`
-    preview.style.top = `${shown.getBoundingClientRect().top}px`
+    preview.style.top = `${Math.max(box.top, Math.min(row.top, box.bottom - preview.offsetHeight))}px`
   }
 
   function hidePreview() {
@@ -144,7 +156,6 @@ export function openAddModal({ container, arranged, onPick, onClose, core: { cre
       select(next.dataset.type)
       return
     }
-    rove(list, next)
     next.focus()
   }
 
@@ -174,10 +185,7 @@ export function openAddModal({ container, arranged, onPick, onClose, core: { cre
     renderTypes()
     if (row >= 0) {
       const again = templateList.children[Math.min(row, templateList.children.length - 1)]
-      if (again) {
-        rove(templateList, again)
-        again.focus()
-      }
+      again?.focus()
     } else if (onType) {
       typeList.querySelector('[aria-selected="true"]')?.focus()
     }
@@ -200,6 +208,13 @@ export function openAddModal({ container, arranged, onPick, onClose, core: { cre
 
   search.addEventListener('input', renderTypes)
   closeButton.addEventListener('click', () => close(true))
+  mask.addEventListener('mousedown', (event) => { downOnMask = event.target === mask })
+  mask.addEventListener('click', (event) => {
+    if (downOnMask && event.target === mask) {
+      close(true)
+    }
+    downOnMask = false
+  })
   mask.addEventListener('keydown', onKey)
   // The card follows its row as the list scrolls and the dialog as the window resizes.
   right.addEventListener('scroll', place)

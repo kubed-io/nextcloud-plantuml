@@ -1697,6 +1697,21 @@ describe('a linked file', () => {
     expect(q('.plantuml-editor__add-type').getAttribute('aria-expanded')).toBe('false')
   })
 
+  it('closes an open Add diagram modal when a linked file opens', async () => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ files: [] }), { status: 200 }))
+    await open()
+    view().dispatch({ selection: { anchor: MAIN.indexOf('<style') } })
+    await settle()
+    q('.plantuml-editor__add-new').click()
+    await vi.waitFor(() => expect(q('.plantuml-add__dialog')).not.toBeNull())
+
+    await pressChip('UML_Fun.css')
+
+    await vi.waitFor(() => expect(q('.plantuml-add')).toBeNull())
+    expect(source()).toBe(STYLE)
+    expect(q('.plantuml-editor')).not.toBeNull()
+  })
+
   it('keeps the main file whole: text, unsaved edit, selection and undo', async () => {
     await open()
     view().dispatch({ changes: { from: 0, insert: "' mine\n" }, selection: { anchor: 3 } })
@@ -2279,6 +2294,84 @@ describe('Add diagram', () => {
     await settle()
     expect(q('.plantuml-add__menu')).toBeNull()
     expect(q('.plantuml-editor')).not.toBeNull()
+  })
+
+  describe('from its modal', () => {
+    const templates = () => [...document.querySelectorAll('.plantuml-add__template')]
+    const openModal = async () => {
+      addButton().click()
+      await vi.waitFor(() => expect(q('.plantuml-add__dialog')).not.toBeNull())
+    }
+
+    beforeEach(() => {
+      vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ files: [] }), { status: 200 }))
+    })
+
+    it('adds the template picked in the modal, under its name', async () => {
+      await open()
+      await openModal()
+      templates().find((r) => r.textContent.startsWith('Class')).click()
+      expect(source()).toContain('\n\n@startuml class-diagram\nclass Customer\n')
+      expect(q('.plantuml-editor__tab[aria-selected="true"]').textContent).toBe('class-diagram')
+      expect(q('.plantuml-add')).toBeNull()
+    })
+
+    it('changes nothing when the modal is closed', async () => {
+      await open()
+      await openModal()
+      q('.plantuml-add__close').click()
+      expect(source()).toBe('@startuml\nA -> B\n@enduml\n')
+      expect(q('.plantuml-editor')).not.toBeNull()
+      expect(document.activeElement).toBe(addButton())
+    })
+
+    it('leaves the editor open when Escape closes the modal, the focus back on +', async () => {
+      await open()
+      await openModal()
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await settle()
+      expect(q('.plantuml-add')).toBeNull()
+      expect(q('.plantuml-editor')).not.toBeNull()
+      expect(document.activeElement).toBe(addButton())
+    })
+
+    it('takes one undo to remove', async () => {
+      await open()
+      await openModal()
+      templates().find((r) => r.textContent.startsWith('Sequence')).click()
+      undo(view())
+      expect(source()).toBe('@startuml\nA -> B\n@enduml\n')
+    })
+
+    it('leaves the focus on the new diagram\'s tab with the source hidden, as B4 does', async () => {
+      await open()
+      toggle().click()
+      await openModal()
+      templates()[0].focus()
+      templates()[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+      expect(document.activeElement).toBe(q('.plantuml-editor__tab[aria-selected="true"]'))
+      expect(document.activeElement.textContent).toBe('uml-2')
+    })
+
+    it('opens on the built-ins alone when the route fails, and adds from them', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.mocked(fetch).mockImplementation(async () => new Response('{}', { status: 500 }))
+      await open()
+      await openModal()
+      await vi.waitFor(() => expect(error).toHaveBeenCalledWith('[plantuml] could not list the templates', 500))
+      expect(templates().map((r) => r.querySelector('.plantuml-add__template-title').textContent).slice(0, 3)).toEqual(['Empty', 'Example', 'Sequence'])
+      templates()[0].click()
+      expect(source()).toContain('\n\n@startuml uml-2\n')
+    })
+
+    it('takes in the user\'s own templates when the route answers', async () => {
+      vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ files: [{ source: 'yours', path: 'Templates/retro.puml', text: '@startuml retro\nA -> B\n@enduml' }] }), { status: 200 }))
+      await open()
+      await openModal()
+      await vi.waitFor(() => expect(templates().at(-1).textContent).toContain('Yours · Templates/retro.puml'))
+      templates().at(-1).click()
+      expect(source()).toContain('\n\n@startuml retro\nA -> B\n@enduml\n')
+    })
   })
 
   // Last in the file: it loads a new editor whose add chunk fails once.

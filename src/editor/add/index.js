@@ -19,10 +19,14 @@
  * @property {typeof import('../blocks.js').blocksOf} blocksOf the blocks of a scan
  * @property {typeof import('../blocks.js').scan} scan a text's `@start`/`@end` lines
  * @property {typeof import('../completion/directives.js').BRACED} BRACED the types whose body is braced
+ * @property {typeof import('../docs/hover.js').DOC_HOVER} DOC_HOVER the doc card's wait, which the modal's card keeps
+ * @property {string} closeIcon the bar's close icon, an SVG
  */
 import own from '../data/docs/own.json'
-import { builtins } from './catalog.js'
+import { arrange, builtins, fromFiles } from './catalog.js'
 import { openTypeMenu } from './menu.js'
+import { openAddModal } from './modal.js'
+import { fetchTemplates } from './route.js'
 import { TYPES } from './types.js'
 
 /**
@@ -32,6 +36,7 @@ import { TYPES } from './types.js'
 export function createAdd(core, { container, onAdd }) {
   const builtIn = builtins(own, core)
   let menu = null
+  let modal = null
 
   /** The menu adds a type's Empty, which is built in, so it does not ask the route. */
   function openMenu(anchor, onClose) {
@@ -52,10 +57,23 @@ export function createAdd(core, { container, onAdd }) {
     })
   }
 
-  function openModal() {}
+  /** Open at once on the built-ins; the files' templates join when the route answers (A5), asked at each open. */
+  function openModal(opener) {
+    if (modal) {
+      return
+    }
+    const opened = openAddModal({ container, arranged: arrange(builtIn, []), onPick: onAdd, onClose: () => { modal = null }, core, opener })
+    modal = opened
+    fetchTemplates().then((files) => {
+      if (modal === opened && files.length) {
+        opened.update(arrange(builtIn, fromFiles(files, core)))
+      }
+    })
+  }
 
   function destroy() {
     menu?.close()
+    modal?.close()
   }
 
   return { openMenu, openModal, destroy }

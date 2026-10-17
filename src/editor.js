@@ -22,6 +22,7 @@ import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from './files-helpers.js'
 import { blocksOf, diagramAt, diagramsOf, scan } from './editor/blocks.js'
 import { BRACED } from './editor/completion/directives.js'
+import { DOC_HOVER } from './editor/docs/hover.js'
 import { resetProfiles } from './editor/profiles/index.js'
 import { sourceExtensions } from './editor/extensions.js'
 import { createBreadcrumb } from './editor/breadcrumb.js'
@@ -76,7 +77,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   // A1: the add chunk (menu, modal, template data) is loaded on the first click.
   let adding = null
   const addButton = createAddButton({
-    onAdd: () => withAdd((add) => add.openModal()),
+    onAdd: (anchor) => withAdd((add) => add.openModal(anchor)),
     onMenu: (anchor) => withAdd((add) => {
       addButton.setMenuOpen(true)
       add.openMenu(anchor, () => addButton.setMenuOpen(false))
@@ -151,7 +152,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   function withAdd(use) {
     adding ??= import('./editor/add/index.js').then(
       // add/index.js's Core: the chunk imports none of the editor's modules.
-      ({ createAdd }) => createAdd({ crelt, t, MOVES, blocksOf, scan, BRACED }, { container: overlay, onAdd: addTemplate }),
+      ({ createAdd }) => createAdd({ crelt, t, MOVES, blocksOf, scan, BRACED, DOC_HOVER, closeIcon }, { container: overlay, onAdd: addTemplate }),
       (e) => {
         adding = null
         throw e

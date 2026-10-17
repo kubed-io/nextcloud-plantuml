@@ -542,6 +542,262 @@
 	margin-right: 6px;
 }
 
+/* A3: the Add diagram modal (boards screens / add-modal-*, library / add diagram). */
+.plantuml-add {
+	position: fixed;
+	inset: 0;
+	z-index: 10000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+/* They take the focus only to keep a click's off the page (modal.js). */
+.plantuml-add:focus,
+.plantuml-add__dialog:focus {
+	outline: none;
+}
+
+.plantuml-add__dialog {
+	display: flex;
+	flex-direction: column;
+	width: 880px;
+	max-width: calc(100vw - 32px);
+	height: 600px;
+	max-height: calc(100vh - 32px);
+	border-radius: var(--border-radius-large, 8px);
+	background: var(--color-main-background);
+	box-shadow: 0 2px 12px var(--color-box-shadow);
+	color: var(--color-main-text);
+}
+
+.plantuml-add__header {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	height: 58px;
+	box-sizing: border-box;
+	padding: 12px 24px;
+}
+
+.plantuml-add__title {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+/* button.* outranks core's button pill, as in the bar. */
+.plantuml-add button.plantuml-add__close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--default-clickable-area, 34px);
+	height: var(--default-clickable-area, 34px);
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	border: none;
+	border-radius: var(--border-radius-pill, 100px);
+	background: transparent;
+	color: var(--color-main-text);
+	cursor: pointer;
+}
+
+.plantuml-add button.plantuml-add__close:hover {
+	background: var(--color-background-hover);
+}
+
+.plantuml-add__close svg {
+	width: 24px;
+	height: 24px;
+}
+
+.plantuml-add__body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+}
+
+.plantuml-add__left,
+.plantuml-add__right {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	box-sizing: border-box;
+	padding: 0 16px 16px;
+	overflow-y: auto;
+}
+
+.plantuml-add__left {
+	flex: none;
+	width: 288px;
+	gap: 8px;
+}
+
+.plantuml-add__right {
+	flex: 1;
+	min-width: 0;
+	gap: 4px;
+}
+
+.plantuml-add__divider {
+	flex: none;
+	width: 1px;
+	background: var(--color-border);
+}
+
+.plantuml-add input.plantuml-add__search {
+	flex: none;
+	width: 100%;
+	height: 44px;
+	box-sizing: border-box;
+	margin: 0;
+	border: 1px solid var(--color-border-maxcontrast);
+	border-radius: var(--border-radius-element, 8px);
+	background: var(--color-main-background);
+	font-size: 15px;
+}
+
+.plantuml-add__search::placeholder {
+	color: var(--color-text-maxcontrast);
+	font-size: 15px;
+}
+
+.plantuml-add__types,
+.plantuml-add__templates {
+	display: flex;
+	flex-direction: column;
+}
+
+.plantuml-add__templates {
+	gap: 4px;
+}
+
+.plantuml-add button.plantuml-add__type,
+.plantuml-add button.plantuml-add__template {
+	display: flex;
+	flex: none;
+	min-height: 0;
+	margin: 0;
+	border: none;
+	border-radius: var(--border-radius-element, 8px);
+	background: transparent;
+	color: var(--color-main-text);
+	font-weight: normal;
+	text-align: start;
+	cursor: pointer;
+}
+
+.plantuml-add button.plantuml-add__type {
+	align-items: center;
+	gap: 12px;
+	height: 40px;
+	padding: 0 12px;
+	font-size: 14px;
+}
+
+.plantuml-add__type svg {
+	flex: none;
+}
+
+.plantuml-add__type-name {
+	flex: 1;
+}
+
+.plantuml-add__count {
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+}
+
+.plantuml-add button.plantuml-add__type[aria-selected="true"] {
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+	font-weight: 600;
+}
+
+.plantuml-add__type[aria-selected="true"] .plantuml-add__count {
+	color: var(--color-primary-element-light-text);
+}
+
+.plantuml-add button.plantuml-add__template {
+	align-items: flex-start;
+	gap: 16px;
+	height: 64px;
+	padding: 12px;
+}
+
+.plantuml-add button.plantuml-add__type:hover:not([aria-selected="true"]),
+.plantuml-add button.plantuml-add__template:hover {
+	background: var(--color-background-hover);
+}
+
+/* Core's button:not(…):not(…):focus-visible ring is !important at (0,3,1), and
+ * its :hover/:focus outline: none is (0,4,1); these are (0,5,1), as the split button's. */
+.plantuml-add .plantuml-add__dialog button.plantuml-add__close:not(:disabled):focus-visible,
+.plantuml-add .plantuml-add__dialog button.plantuml-add__type:not(:disabled):focus-visible,
+.plantuml-add .plantuml-add__dialog button.plantuml-add__template:not(:disabled):focus-visible,
+.plantuml-add .plantuml-add__dialog input.plantuml-add__search:not(:disabled):focus-visible {
+	outline: 2px solid var(--color-primary-element) !important;
+	outline-offset: -2px;
+	box-shadow: none !important;
+}
+
+.plantuml-add__tile {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border-radius: var(--border-radius-element, 8px);
+	background: var(--color-background-dark);
+}
+
+.plantuml-add__text {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+}
+
+.plantuml-add__template-title {
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.plantuml-add__description {
+	overflow: hidden;
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.plantuml-add__preview {
+	position: fixed;
+	min-width: 220px;
+	max-width: 360px;
+	max-height: 60vh;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 12px;
+	overflow: auto;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-element, 8px);
+	background: var(--color-main-background);
+	box-shadow: 0 2px 12px var(--color-box-shadow);
+	color: var(--color-main-text);
+	font-family: var(--font-face-monospace, monospace);
+	font-size: 13px;
+	white-space: pre;
+}
+
+.plantuml-add__preview[hidden] {
+	display: none;
+}
+
 /* button.* outranks core's button pill, as in the bar. */
 .plantuml-editor__tabs button.plantuml-editor__tab {
 	flex-shrink: 0;

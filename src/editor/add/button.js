@@ -12,7 +12,8 @@ import plusIcon from '../../../img/icons/plus.svg?raw'
 import chevronIcon from '../../../img/icons/chevron-down.svg?raw'
 
 /**
- * @param {{ onAdd: () => void, onMenu: (anchor: HTMLElement) => void }} handlers
+ * @param {{ onAdd: (anchor: HTMLElement) => void, onMenu: (anchor: HTMLElement) => void }} handlers
+ *   each given its half, where the focus goes back to
  * @returns {{ element: HTMLElement, menuButton: HTMLButtonElement, setMenuOpen: (open: boolean) => void }}
  */
 export function createAddButton({ onAdd, onMenu }) {
@@ -21,7 +22,7 @@ export function createAddButton({ onAdd, onMenu }) {
   const menuButton = crelt('button', { class: 'plantuml-editor__add-type', type: 'button', 'aria-label': t(APP_ID, 'Add a diagram of a type'), 'aria-haspopup': 'menu', 'aria-expanded': 'false' })
   menuButton.innerHTML = chevronIcon
   const element = crelt('span', { class: 'plantuml-editor__add', hidden: '' }, add, crelt('span', { class: 'plantuml-editor__add-divider', 'aria-hidden': 'true' }), menuButton)
-  add.addEventListener('click', onAdd)
+  add.addEventListener('click', () => onAdd(add))
   menuButton.addEventListener('click', () => onMenu(menuButton))
   return {
     element,

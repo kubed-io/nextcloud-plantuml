@@ -559,7 +559,7 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
     const [width, height] = sizes[index] ?? [40, 20]
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><text>${['nodes', 'login', 'p3'][index]}</text></svg>`
   }
-  const repacked = () => new Promise((resolve) => setTimeout(resolve, WALL_SETTLE + 20))
+  const repacked = () => new Promise((resolve) => setTimeout(resolve, WALL_SETTLE + 100))
   const stage = () => root.querySelector('.plantuml-viewer__stage')
   const placeOf = (card) => [card.style.gridColumn, card.style.gridRow]
   const byName = (name) => cards().find((card) => card.querySelector('label').textContent === name)

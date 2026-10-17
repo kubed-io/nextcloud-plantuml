@@ -5,6 +5,9 @@ import keywords from '../unit/fixtures/help-keywords.txt?raw'
 import library from '../../lib/Service/TemplateLibrary.php?raw'
 import { ICONS, iconSvg } from '../../src/editor/data/template-icons.js'
 import templates from '../../src/editor/data/templates.json'
+import own from '../../src/editor/data/docs/own.json'
+import { builtins } from '../../src/editor/add/catalog.js'
+import { BRACED } from '../../src/editor/completion/directives.js'
 import { TYPES } from '../../src/editor/add/types.js'
 import { blocksOf, scan } from '../../src/editor/blocks.js'
 
@@ -60,5 +63,51 @@ describe('the built-in templates', () => {
 
   it('never use skinparam', () => {
     for (const { text } of templates.uml) expect(text).not.toMatch(/^\s*skinparam\b/mi)
+  })
+})
+
+describe('the built-ins\' descriptions (A8)', () => {
+  it('describe every built-in in words, never its code (A8)', () => {
+    const all = builtins(own, { BRACED })
+    expect(all).toHaveLength(27 * 2 + 9)
+    for (const { type, title, description } of all) {
+      const words = description.split(/\s+/)
+      expect(words.length, `${type} ${title}`).toBeGreaterThanOrEqual(3)
+      expect(words.length, `${type} ${title}`).toBeLessThanOrEqual(8)
+      expect(description, `${type} ${title}`).toMatch(/^[A-Z]/)
+      expect(description, `${type} ${title}`).not.toMatch(/[{}[\]();=*:/<>@$#^]/)
+    }
+  })
+
+  it('describe each type as the spec\'s table does', () => {
+    expect(Object.fromEntries(TYPES.map((t) => [t.type, t.description]))).toEqual({
+    uml: 'Classes, sequences, states and more',
+    bpm: 'Business process steps and branches',
+    board: 'Cards under column headings',
+    chart: 'Bar, line and area charts',
+    chen: 'Entities, attributes and relationships, Chen style',
+    creole: 'Formatted text, lists and tables',
+    dot: 'Graphviz graph of nodes and edges',
+    ditaa: 'ASCII art drawn as boxes',
+    ebnf: 'Grammar rules as railroad diagrams',
+    files: 'Folders and files as a tree',
+    flow: 'Boxes and the links between them',
+    gantt: 'Tasks and milestones on a timeline',
+    git: 'Commits and branches of a history',
+    hcl: 'HCL configuration drawn as a tree',
+    json: 'JSON data drawn as a tree',
+    latex: 'A formula typeset with LaTeX',
+    math: 'A formula written in AsciiMath',
+    mindmap: 'Ideas branching from one topic',
+    project: "A project's tasks on a timeline",
+    regex: 'A regular expression as a railroad diagram',
+    salt: 'Wireframe of windows, buttons and fields',
+    sprites: 'Small pictures drawn pixel by pixel',
+    wbs: 'Work broken down into a tree',
+    wire: 'Components wired together on a grid',
+    yaml: 'YAML data drawn as a tree',
+    nwdiag: 'Networks and the servers on them',
+    packetdiag: "A packet's fields, bit by bit",
+    })
   })
 })

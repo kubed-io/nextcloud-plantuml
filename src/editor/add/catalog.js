@@ -34,22 +34,17 @@ export function emptyText(type, { BRACED }) {
   return `@start${type}\n${BRACED.includes(type) ? '{\n\t\n}' : ''}\n@end${type}`
 }
 
-/** The first line of a block's body with text on it. */
-function firstLine(text) {
-  return text.split('\n').slice(1, -1).find((line) => line.trim())?.trim() ?? ''
-}
-
 /**
  * @param {Record<string, { summary?: string, example?: string }>} own own.json
  * @param {Pick<import('./index.js').Core, 'BRACED'>} core
  * @returns {Template[]}
  */
 export function builtins(own, core) {
-  return TYPES.flatMap(({ type, icon }) => {
-    const list = [{ type, title: 'Empty', name: type, description: `@start${type} and @end${type}, nothing between`, text: emptyText(type, core), icon, source: 'builtin' }]
+  return TYPES.flatMap(({ type, icon, description }) => {
+    const list = [{ type, title: 'Empty', name: type, description: 'Just the start and end lines', text: emptyText(type, core), icon, source: 'builtin' }]
     const example = own[`diagram:${type}`]?.example
     if (example?.startsWith(`@start${type}`)) {
-      list.push({ type, title: 'Example', name: type, description: firstLine(example), text: example, icon, source: 'builtin' })
+      list.push({ type, title: 'Example', name: type, description, text: example, icon, source: 'builtin' })
     }
     for (const t of templates[type] ?? []) {
       list.push({ type, title: t.title, name: t.name, description: t.description, text: t.text, icon: t.icon, source: 'builtin' })

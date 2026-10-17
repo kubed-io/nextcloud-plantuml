@@ -126,6 +126,8 @@ export function openAddModal({ container, arranged, onPick, onClose, core: { cre
       return
     }
     preview.style.maxHeight = `${box.height}px`
+    const room = window.innerWidth - box.right - 16 - 8
+    preview.style.maxWidth = room >= 220 ? `${room}px` : ''
     preview.style.left = `${Math.max(0, Math.min(box.right + 16, window.innerWidth - preview.offsetWidth - 8))}px`
     preview.style.top = `${Math.max(box.top, Math.min(row.top, box.bottom - preview.offsetHeight))}px`
   }

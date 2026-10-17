@@ -142,6 +142,19 @@ describe('the Add diagram modal', () => {
     expect(q('.plantuml-add__preview').textContent).not.toBe(OWN['diagram:uml'].example)
   })
 
+  it('narrows the card to the room right of the dialog rather than lie over it (A3)', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1432)
+    const dialog = vi.spyOn(q('.plantuml-add__dialog'), 'getBoundingClientRect').mockReturnValue({ top: 84, bottom: 684, left: 276, right: 1156, width: 880, height: 600 })
+    vi.spyOn(q('.plantuml-add__right'), 'getBoundingClientRect').mockReturnValue({ top: 142, bottom: 684, left: 565, right: 1156, width: 591, height: 542 })
+    vi.spyOn(rows()[1], 'getBoundingClientRect').mockReturnValue({ top: 210, bottom: 274, left: 600, right: 1140, width: 540, height: 64 })
+    rows()[1].focus()
+    expect(q('.plantuml-add__preview').style.maxWidth).toBe('252px')
+    expect(q('.plantuml-add__preview').style.left).toBe('1172px')
+    dialog.mockReturnValue({ top: 84, bottom: 684, left: 420, right: 1300, width: 880, height: 600 })
+    window.dispatchEvent(new Event('resize'))
+    expect(q('.plantuml-add__preview').style.maxWidth).toBe('')
+  })
+
   it('keeps the card within the dialog\'s height, level with its row where it fits', () => {
     vi.spyOn(q('.plantuml-add__dialog'), 'getBoundingClientRect').mockReturnValue({ top: 84, bottom: 684, left: 72, right: 952, width: 880, height: 600 })
     vi.spyOn(q('.plantuml-add__right'), 'getBoundingClientRect').mockReturnValue({ top: 142, bottom: 684, left: 361, right: 952, width: 591, height: 542 })

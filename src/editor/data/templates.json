@@ -1,6 +1,6 @@
 {
   "uml": [
-    { "title": "Sequence", "name": "sequence-diagram", "icon": "message-arrow-right-outline", "description": "Messages between participants, in order",
+    { "title": "Sequence", "name": "sequence-diagram", "icon": "message-arrow-right-outline", "description": "Messages between participants over time",
       "text": "@startuml\nactor User\nparticipant App\ndatabase Store\nUser -> App : sign in\nApp -> Store : find user\nStore --> App : user\nApp --> User : welcome\n@enduml" },
     { "title": "Class", "name": "class-diagram", "icon": "card-bulleted-outline", "description": "Classes, their fields and how they relate",
       "text": "@startuml\nclass Customer\nclass Order {\n  id : int\n  total()\n}\nCustomer \"1\" -- \"*\" Order\n@enduml" },
@@ -12,11 +12,11 @@
       "text": "@startuml\ncomponent Web\ncomponent API\ninterface REST\ndatabase DB\nWeb --> REST\nREST - API\nAPI --> DB\n@enduml" },
     { "title": "State", "name": "state-diagram", "icon": "state-machine", "description": "States and the transitions between them",
       "text": "@startuml\n[*] --> Draft\nDraft --> Review : submit\nReview --> Draft : changes\nReview --> Published : approve\nPublished --> [*]\n@enduml" },
-    { "title": "Deployment", "name": "deployment-diagram", "icon": "server-outline", "description": "Nodes and what runs on them",
+    { "title": "Deployment", "name": "deployment-diagram", "icon": "server-outline", "description": "Machines and what runs on them",
       "text": "@startuml\nnode \"Web server\" {\n  artifact \"app.war\" as App\n}\nnode \"Database server\" {\n  database Orders\n}\nApp --> Orders\n@enduml" },
-    { "title": "Object", "name": "object-diagram", "icon": "cube-outline", "description": "Instances and their links at one moment",
+    { "title": "Object", "name": "object-diagram", "icon": "cube-outline", "description": "Objects and their links at one moment",
       "text": "@startuml\nobject alice {\n  name = \"Alice\"\n}\nobject order1 {\n  total = 42\n}\nalice --> order1 : placed\n@enduml" },
-    { "title": "Timing", "name": "timing-diagram", "icon": "chart-timeline-variant", "description": "How states change over time",
+    { "title": "Timing", "name": "timing-diagram", "icon": "chart-timeline-variant", "description": "Each participant's state over time",
       "text": "@startuml\nrobust \"Door\" as D\nconcise \"User\" as U\n@0\nD is Closed\nU is Idle\n@5\nD is Opening\nU is Waiting\n@10\nD is Open\nU is Entering\n@enduml" }
   ]
 }

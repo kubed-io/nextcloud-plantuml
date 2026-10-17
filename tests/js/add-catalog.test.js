@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 kubed-io
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
+import { TYPES } from '../../src/editor/add/types.js'
 import { arrange, builtins, emptyText, fromFiles, matching } from '../../src/editor/add/catalog.js'
 import { blocksOf, scan } from '../../src/editor/blocks.js'
 import { BRACED } from '../../src/editor/completion/directives.js'
@@ -36,8 +37,8 @@ describe('builtins', () => {
 
   it('names Empty and Example by the type\'s word and describes them as the board does', () => {
     const [empty, example] = of('uml')
-    expect(empty).toMatchObject({ name: 'uml', description: '@startuml and @enduml, nothing between', text: '@startuml\n\n@enduml', icon: 'shape-outline', source: 'builtin' })
-    expect(example).toMatchObject({ name: 'uml', description: 'Alice -> Bob : hi', text: OWN['diagram:uml'].example })
+    expect(empty).toMatchObject({ name: 'uml', description: 'Just the start and end lines', text: '@startuml\n\n@enduml', icon: 'shape-outline', source: 'builtin' })
+    expect(example).toMatchObject({ name: 'uml', description: TYPES.find((t) => t.type === 'uml').description, text: OWN['diagram:uml'].example })
   })
 
   it('gives a type without an example Empty alone', () => {

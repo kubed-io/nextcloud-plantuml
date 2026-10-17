@@ -213,9 +213,17 @@ export function diagramAt(diagrams, line) {
   return last
 }
 
+/**
+ * The name a diagram's tab reads before its page number (B2): its name, else its type's word.
+ * @param {Diagram} d
+ */
+export function tabName(d) {
+  return d.name || d.type
+}
+
 /** @param {Diagram} d */
 export function label(d) {
-  const base = d.name || d.type
+  const base = tabName(d)
   return d.pages > 1 ? `${base} ${d.page}` : base
 }
 

@@ -754,20 +754,28 @@ final class IncludeResolver {
 	}
 
 	/**
-	 * A file on a share whose owner forbids download, which a picture of its
-	 * text would get around, unless the diagram is on that same share, may not
-	 * write to it and is the owner's text; decided as files_sharing's ViewOnly decides it.
+	 * A file on a share whose owner forbids download, decided as files_sharing's
+	 * ViewOnly decides it; a storage that cannot be asked is a refusal too. The
+	 * export refuses such a file outright, since an export is a download.
 	 */
-	private function viewOnly(File $file): bool {
+	public static function forbidsDownload(File $file): bool {
 		try {
 			$storage = $file->getStorage();
 			return $storage->instanceOfStorage(SharedStorage::class)
-				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false
-				&& ($this->ownShare === null || self::shareOf($file) !== $this->ownShare);
+				&& $storage->getShare()->getAttributes()?->getAttribute('permissions', 'download') === false;
 		} catch (\Throwable) {
 			// Core throws a bare Exception for a node without storage; unreadable, as a refusal is.
 			return true;
 		}
+	}
+
+	/**
+	 * A file that forbids download (above), which a picture of its text would get
+	 * around, unless the diagram is on that same share, may not write to it and is
+	 * the owner's text.
+	 */
+	private function viewOnly(File $file): bool {
+		return self::forbidsDownload($file) && ($this->ownShare === null || self::shareOf($file) !== $this->ownShare);
 	}
 
 	/**

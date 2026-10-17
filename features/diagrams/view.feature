@@ -47,27 +47,28 @@ Feature: Looking at a diagram file
     And the answer says there is no diagram named "signup"
 
     # ── RULE: a diagram file can be saved in another format ───────────────────
+    # notes: ../AGENTS.md#saving-a-diagram-file-in-another-format
 
-  @api @unbuilt
+  @api
   Scenario: Exporting one diagram of a file as a PNG
     Given "Diagrams/Screens.puml" holds the diagrams "nodes" and "login"
     When I export the diagram "login" of "Diagrams/Screens.puml" as PNG
     Then I download "Screens - login.png"
 
-  @api @unbuilt
+  @api
   Scenario: Exporting every diagram of a file
     Given "Diagrams/Screens.puml" holds the diagrams "nodes" and "login"
     When I export "Diagrams/Screens.puml" as SVG
     Then I download "Screens.zip"
     And it holds "Screens - nodes.svg" and "Screens - login.svg"
 
-  @api @unbuilt
+  @api
   Scenario: Exporting a file of one diagram
     Given "Diagrams/Order flow.puml" holds a diagram
     When I export "Diagrams/Order flow.puml" as PDF
     Then I download "Order flow.pdf"
 
-  @api @unbuilt
+  @api
   Scenario: Exporting in a format the server does not draw is refused
     Given "Diagrams/Order flow.puml" holds a diagram
     When I export "Diagrams/Order flow.puml" as LaTeX

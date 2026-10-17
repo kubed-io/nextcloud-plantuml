@@ -12,6 +12,8 @@ return [
 		['name' => 'render#byPath', 'url' => '/render', 'verb' => 'GET'],
 		// JSON {source}
 		['name' => 'render#bySource', 'url' => '/render', 'verb' => 'POST'],
+		// ?path=<path>&format=<svg|png|pdf|eps|txt>[&index[]=<0-based>…][&diagram[]=<n or name>…], a download
+		['name' => 'export#export', 'url' => '/export', 'verb' => 'GET'],
 		// {"themes": [...]}, for the editor's `!theme` completion
 		['name' => 'render#themes', 'url' => '/themes', 'verb' => 'GET'],
 		// {"icons": [...]} and {"emoji": [...]}, for `<&icon>` and `<:emoji:>`

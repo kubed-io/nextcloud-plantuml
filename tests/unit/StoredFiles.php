@@ -17,6 +17,7 @@ use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\Files\Storage\ISharedStorage;
+use OCP\Files\Storage\IStorage;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Share\IAttributes;
@@ -64,11 +65,12 @@ trait StoredFiles {
 		return [$root, $session];
 	}
 
-	/** A file in the caller's `Diagrams` folder. */
-	private function diagram(string $mimetype = 'text/x-plantuml', string $content = "@startuml\nCustomer -> Shop : place order\n@enduml\n", string $etag = 'abc123'): File {
+	/** A file in the caller's `Diagrams` folder; `$storage` puts it on a share. */
+	private function diagram(string $mimetype = 'text/x-plantuml', string $content = "@startuml\nCustomer -> Shop : place order\n@enduml\n", string $etag = 'abc123', string $name = 'Order flow.puml', ?IStorage $storage = null): File {
 		$parent = $this->createStub(Folder::class);
 		$parent->method('getPath')->willReturn('/drk/files/Diagrams');
 		$file = $this->createStub(File::class);
+		$file->method('getName')->willReturn($name);
 		$file->method('getMimetype')->willReturn($mimetype);
 		$file->method('getEtag')->willReturn($etag);
 		$file->method('fopen')->willReturnCallback(static function () use ($content) {
@@ -80,7 +82,10 @@ trait StoredFiles {
 		});
 		$file->method('getSize')->willReturn(strlen($content));
 		$file->method('getParent')->willReturn($parent);
-		$file->method('getPath')->willReturn('/drk/files/Diagrams/Order flow.puml');
+		$file->method('getPath')->willReturn("/drk/files/Diagrams/{$name}");
+		if ($storage !== null) {
+			$file->method('getStorage')->willReturn($storage);
+		}
 		return $file;
 	}
 

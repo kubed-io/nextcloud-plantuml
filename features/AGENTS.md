@@ -140,6 +140,28 @@ a `diagram`.
 
 Both scenarios are asked over HTTP as the admin.
 
+### Saving a diagram file in another format
+
+EXPORT IS A DOWNLOAD of what the Viewer shows: SVG, PNG, PDF, EPS or ASCII art,
+the formats the server draws. One diagram is one file, `<file> - <diagram>.<ext>`
+(`<file>.<ext>` when the file holds one diagram); several, or every diagram when
+none is named, are `<file>.zip`. It is a zip on every system: core's own zip
+helper sends macOS a tar. The file is read as the picture route reads it, so it
+refuses what that route refuses (404), and a file on a share whose owner forbids
+download as well, since an export is a copy of it. A diagram with a mistake
+exports with the mistake drawn in, as the server answers it in every format.
+
+A format the server does not draw is a 400, not a 404: the file is there, the
+request is wrong. "The request is refused" asserts whichever of the two the last
+request should get, so the scenario reads the same for both.
+
+The route takes `diagram[]=` for several diagrams; PHP keeps only the last of a
+repeated plain `diagram=`. The Viewer sends `index[]=` (0-based places), which
+decides when it comes; the names in the download are the diagrams' own either
+way. At most 100 diagrams and 50 MiB per export (413 beyond).
+
+All four scenarios are asked over HTTP as the admin.
+
 ## diagrams/edit
 
 `features/diagrams/edit.feature`

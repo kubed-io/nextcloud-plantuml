@@ -19,6 +19,9 @@ use Psr\Http\Message\ResponseInterface;
 trait RenderApiSteps {
 	private ?ResponseInterface $renderResponse = null;
 
+	/** The status a refusal of the last request is: 404, or 400 for an export of a format the server does not draw (ExportSteps). */
+	private int $refusal = 404;
+
 	/** @When /^I request the image of "([^"]*)"$/ */
 	public function iRequestTheImageOf(string $path): void {
 		$this->renderResponse = $this->renderByPath($path);
@@ -97,8 +100,8 @@ trait RenderApiSteps {
 	/** @Then the request is refused */
 	public function theRequestIsRefused(): void {
 		$status = $this->lastRenderResponse()->getStatusCode();
-		if ($status !== 404) {
-			throw new \RuntimeException("expected HTTP 404, got {$status}");
+		if ($status !== $this->refusal) {
+			throw new \RuntimeException("expected HTTP {$this->refusal}, got {$status}");
 		}
 	}
 

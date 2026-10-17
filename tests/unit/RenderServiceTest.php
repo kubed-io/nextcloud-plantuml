@@ -249,6 +249,31 @@ final class RenderServiceTest extends TestCase {
 		self::assertSame('image/svg+xml', $rendered->contentType);
 	}
 
+	/** @return array<string, array{string, string}> */
+	public static function mistakesInEveryFormat(): array {
+		return [
+			'pdf' => ['pdf', 'application/pdf'],
+			'eps' => ['eps', 'application/postscript'],
+			'text' => ['txt', 'text/plain;charset=utf-8'],
+		];
+	}
+
+	/** As the live server answers (2026-10-17): a 400 in the format asked, the mistake drawn in. */
+	#[DataProvider('mistakesInEveryFormat')]
+	public function testADiagramErrorIsRenderedInEveryFormat(string $format, string $answered): void {
+		$service = $this->service($this->clientAnswering($this->response(400, 'DRAWN', [
+			'Content-Type' => $answered,
+			'X-PlantUML-Diagram-Error' => 'Syntax Error? (Assumed diagram type: sequence)',
+			'X-PlantUML-Diagram-Error-Line' => '2',
+		])));
+
+		$rendered = $service->render("@startuml\nthis is not valid ((\n@enduml\n", 0, $format);
+
+		self::assertSame('DRAWN', $rendered->body);
+		self::assertSame('Syntax Error? (Assumed diagram type: sequence)', $rendered->error);
+		self::assertSame(2, $rendered->errorLine);
+	}
+
 	/** A catch-all web server answering any POST with a page is not PlantUML. */
 	public function testHtmlAnswerToSvgIsNotPlantuml(): void {
 		$service = $this->service($this->clientAnswering($this->response(200, '<html></html>', ['Content-Type' => 'text/html'])));

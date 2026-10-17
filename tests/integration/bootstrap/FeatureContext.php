@@ -15,6 +15,7 @@ use OCA\PlantUml\Tests\Integration\Steps\ConnectionSteps;
 use OCA\PlantUml\Tests\Integration\Steps\CreateSteps;
 use OCA\PlantUml\Tests\Integration\Steps\DiagramFileSteps;
 use OCA\PlantUml\Tests\Integration\Steps\EditSteps;
+use OCA\PlantUml\Tests\Integration\Steps\ExportSteps;
 use OCA\PlantUml\Tests\Integration\Steps\ReadmeSteps;
 use OCA\PlantUml\Tests\Integration\Steps\RenderApiSteps;
 use OCA\PlantUml\Tests\Integration\Steps\ServerKnowledgeSteps;
@@ -34,6 +35,7 @@ final class FeatureContext implements Context {
 	use CreateSteps;
 	use DiagramFileSteps;
 	use EditSteps;
+	use ExportSteps;
 	use OccTrait;
 	use ReadmeSteps;
 	use RenderApiSteps;

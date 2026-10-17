@@ -58,6 +58,20 @@ trait RenderApiSteps {
 		}
 	}
 
+	/** @When the diagram is drawn */
+	public function theDiagramIsDrawn(): void {
+		$this->renderResponse = $this->renderByPath($this->bigDiagramPath);
+	}
+
+	/** @Then the answer says the diagram is too large to draw */
+	public function theAnswerSaysTheDiagramIsTooLargeToDraw(): void {
+		$response = $this->lastRenderResponse();
+		$problem = json_decode((string)$response->getBody(), true)['problem'] ?? null;
+		if ($response->getStatusCode() !== 413 || $problem !== 'The diagram is too large to draw') {
+			throw new \RuntimeException("expected HTTP 413 'The diagram is too large to draw', got {$response->getStatusCode()} " . substr((string)$response->getBody(), 0, 200));
+		}
+	}
+
 	/** @Then I receive the diagram as an SVG image */
 	public function iReceiveTheDiagramAsAnSvgImage(): void {
 		$this->assertSvg($this->lastRenderResponse());

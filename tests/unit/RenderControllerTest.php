@@ -14,6 +14,7 @@ use OCA\PlantUml\Exception\RenderException;
 use OCA\PlantUml\Service\IncludeResolver;
 use OCA\PlantUml\Service\Rendered;
 use OCA\PlantUml\Service\RenderService;
+use OCP\AppFramework\Http\EmptyContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\Files\File;
@@ -26,6 +27,7 @@ use OCP\Files\NotPermittedException;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
+use OCP\Lock\LockedException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -111,6 +113,124 @@ final class RenderControllerTest extends TestCase {
 	/** getHeaders() asks the server container for the request id; read the set headers directly. */
 	private static function header(Response $response, string $name): ?string {
 		return \Closure::bind(fn () => $this->headers[$name] ?? null, $response, Response::class)();
+	}
+
+	private const TOO_LARGE = ['problem' => 'The diagram is too large to draw'];
+
+	/** A diagram whose stored size and whose stream may disagree; fopen is optional to call. */
+	private function sizedDiagram(int $storedSize, string $streamed, bool $mayOpen = true): File {
+		$file = $mayOpen ? $this->createStub(File::class) : $this->createMock(File::class);
+		$file->method('getMimetype')->willReturn('text/x-plantuml');
+		$file->method('getEtag')->willReturn('abc123');
+		$file->method('getSize')->willReturn($storedSize);
+		$file->method('getParent')->willReturn($this->createStub(Folder::class));
+		if ($mayOpen) {
+			$file->method('fopen')->willReturnCallback(static function () use ($streamed) {
+				$handle = fopen('php://memory', 'r+');
+				fwrite($handle, $streamed);
+				rewind($handle);
+				return $handle;
+			});
+		} else {
+			$file->expects(self::never())->method('fopen');
+		}
+		return $file;
+	}
+
+	public function testBySourceOverAMegabyteIs413(): void {
+		$response = $this->controller($this->renderingNothing(), new NotFoundException())->bySource(str_repeat('a', RenderController::MAX_SOURCE + 1));
+
+		self::assertSame(413, $response->getStatus());
+		self::assertInstanceOf(JSONResponse::class, $response);
+		self::assertSame(self::TOO_LARGE, $response->getData());
+	}
+
+	public function testBySourceOfExactlyAMegabyteIsRendered(): void {
+		$response = $this->controller($this->renderingSvg(), new NotFoundException())->bySource(str_repeat('a', RenderController::MAX_SOURCE));
+
+		self::assertSame(200, $response->getStatus());
+	}
+
+	public function testByPathOverTheStoredSizeIs413WithoutOpening(): void {
+		$file = $this->sizedDiagram(RenderController::MAX_SOURCE + 1, '', false);
+
+		$response = $this->controller($this->renderingNothing(), $file)->byPath('Diagrams/big.puml');
+
+		self::assertSame(413, $response->getStatus());
+		self::assertInstanceOf(JSONResponse::class, $response);
+		self::assertSame(self::TOO_LARGE, $response->getData());
+	}
+
+	/** A stored size can be wrong; the stream is what is read, and read only to the limit. */
+	public function testByPathWhoseStreamIsLargerThanItsSizeIs413(): void {
+		$file = $this->sizedDiagram(10, str_repeat('a', RenderController::MAX_SOURCE + 5));
+
+		$response = $this->controller($this->renderingNothing(), $file)->byPath('Diagrams/liar.puml');
+
+		self::assertSame(413, $response->getStatus());
+		self::assertSame(self::TOO_LARGE, $response->getData());
+	}
+
+	public function testByPathOfExactlyAMegabyteIsRendered(): void {
+		$file = $this->sizedDiagram(RenderController::MAX_SOURCE, str_repeat('a', RenderController::MAX_SOURCE));
+
+		$response = $this->controller($this->renderingSvg(), $file)->byPath('Diagrams/edge.puml');
+
+		self::assertSame(200, $response->getStatus());
+	}
+
+	public function testByPathOfAFileCoreWillNotOpenIs404(): void {
+		$file = $this->createStub(File::class);
+		$file->method('getMimetype')->willReturn('text/x-plantuml');
+		$file->method('getSize')->willReturn(10);
+		$file->method('getEtag')->willReturn('abc123');
+		$file->method('fopen')->willThrowException(new NotPermittedException('no'));
+
+		$response = $this->controller($this->renderingNothing(), $file)->byPath('Diagrams/x.puml');
+
+		self::assertSame(404, $response->getStatus());
+	}
+
+	public function testByPathOfALockedFileIs423(): void {
+		$file = $this->createStub(File::class);
+		$file->method('getMimetype')->willReturn('text/x-plantuml');
+		$file->method('getSize')->willReturn(10);
+		$file->method('getEtag')->willReturn('abc123');
+		$file->method('fopen')->willThrowException(new LockedException('/drk/files/x.puml'));
+
+		$response = $this->controller($this->renderingNothing(), $file)->byPath('Diagrams/x.puml');
+
+		self::assertSame(423, $response->getStatus());
+	}
+
+	/** @return array<string, array{string, string}> */
+	public static function imageTypes(): array {
+		return ['svg' => ['image/svg+xml', 'diagram.svg'], 'png' => ['image/png', 'diagram.png']];
+	}
+
+	#[DataProvider('imageTypes')]
+	public function testEveryImageIsDefended(string $type, string $filename): void {
+		$render = $this->createStub(RenderService::class);
+		$render->method('render')->willReturn(new Rendered('x', $type));
+
+		foreach ([
+			$this->controller($render, $this->diagram())->byPath('Diagrams/Order flow.puml'),
+			$this->controller($render, new NotFoundException())->bySource(self::SOURCE),
+		] as $response) {
+			self::assertSame('nosniff', self::header($response, 'X-Content-Type-Options'));
+			self::assertSame('inline; filename="' . $filename . '"', self::header($response, 'Content-Disposition'));
+			self::assertEquals(new EmptyContentSecurityPolicy(), $response->getContentSecurityPolicy());
+		}
+	}
+
+	/** F6: a source that names no file never reaches the resolver, which would need the file's folder. */
+	public function testBySourceWithPathButNoIncludeNeverResolves(): void {
+		$file = $this->createMock(File::class);
+		$file->expects(self::never())->method('getParent');
+
+		$response = $this->controller($this->renderingSvg(), $file)->bySource(self::SOURCE, 0, 'Diagrams/Order flow.puml');
+
+		self::assertSame(200, $response->getStatus());
 	}
 
 	public function testPathOutsideUserFolderIs404(): void {
@@ -573,7 +693,12 @@ final class RenderControllerTest extends TestCase {
 			$file = $this->createMock(File::class);
 			$file->method('getMimetype')->willReturn('text/x-plantuml');
 			$file->method('getEtag')->willReturn('abc123');
-			$file->method('getContent')->willReturn("@startuml\n' include nothing\nA -> B : <style>\n@enduml\n");
+			$file->method('fopen')->willReturnCallback(static function () {
+				$handle = fopen('php://memory', 'r+');
+				fwrite($handle, "@startuml\n' include nothing\nA -> B : <style>\n@enduml\n");
+				rewind($handle);
+				return $handle;
+			});
 			$file->expects(self::never())->method('getParent');
 
 			$response = $this->controller($this->renderingSvg(), $file, (string)$ifNoneMatch)->byPath('Diagrams/Order flow.puml');

@@ -19,9 +19,11 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataDisplayResponse;
+use OCP\AppFramework\Http\EmptyContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\Files\File;
+use OCP\Files\GenericFileException;
 use OCP\Files\Folder;
 use OCP\Files\InvalidPathException;
 use OCP\Files\IRootFolder;
@@ -29,6 +31,7 @@ use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
 use OCP\IRequest;
 use OCP\IUserSession;
+use OCP\Lock\LockedException;
 
 /**
  * The two render routes and the server's lists for the editor's completion,
@@ -45,10 +48,12 @@ use OCP\IUserSession;
  */
 final class RenderController extends Controller {
 	public const MIMETYPE = 'text/x-plantuml';
+	/** A megabyte of source is far past any diagram; more is refused before it is read or sent on. */
+	public const MAX_SOURCE = 1048576;
 	/** As RenderService cuts the server's line: an included path makes ours longer. */
 	private const ERROR_MAX = 200;
 	/** A line the resolver would act on; without one the file goes as it is. */
-	private const NAMES_A_FILE = '/^\s*(?:!(?:include|import)|<style\s+[\w-]+\s*=)/mi';
+	private const NAMES_A_FILE = '/^[ \t]*(?:!(?:include|import)|<style\s+[\w-]+\s*=)/mi';
 
 	public function __construct(
 		string $appName,
@@ -77,7 +82,19 @@ final class RenderController extends Controller {
 			return new Response(Http::STATUS_NOT_FOUND);
 		}
 
-		$content = $node->getContent();
+		if (self::storedSize($node) > self::MAX_SOURCE) {
+			return $this->tooLarge();
+		}
+		try {
+			$content = self::content($node);
+		} catch (LockedException) {
+			return new Response(Http::STATUS_LOCKED);
+		} catch (NotPermittedException|NotFoundException|InvalidPathException|GenericFileException) {
+			return new Response(Http::STATUS_NOT_FOUND);
+		}
+		if ($content === null) {
+			return $this->tooLarge();
+		}
 		$expanded = preg_match(self::NAMES_A_FILE, $content) === 1 ? $this->resolver->expand($content, $node->getParent(), $userFolder, $node) : null;
 		$etag = $expanded === null ? $node->getEtag() : self::etag($node->getEtag(), $expanded);
 		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $etag) {
@@ -103,6 +120,9 @@ final class RenderController extends Controller {
 		if (trim($source) === '' || !is_int($index) || $index < 0 || $index > 999) {
 			return new Response(Http::STATUS_BAD_REQUEST);
 		}
+		if (strlen($source) > self::MAX_SOURCE) {
+			return $this->tooLarge();
+		}
 		$expanded = null;
 		if ($path !== '') {
 			// A README is a valid base too, so the file's type is not asked.
@@ -111,7 +131,9 @@ final class RenderController extends Controller {
 			if ($userFolder === null || $node === null) {
 				return new Response(Http::STATUS_NOT_FOUND);
 			}
-			$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node);
+			if (preg_match(self::NAMES_A_FILE, $source) === 1) {
+				$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node);
+			}
 		}
 		try {
 			return $this->image($this->render->render($expanded?->source ?? $source, $index), $expanded);
@@ -206,7 +228,13 @@ final class RenderController extends Controller {
 				$headers['X-PlantUML-Diagram-Error-Line'] = (string)$line;
 			}
 		}
-		return new DataDisplayResponse($rendered->body, Http::STATUS_OK, $headers);
+		$headers['X-Content-Type-Options'] = 'nosniff';
+		$response = new DataDisplayResponse($rendered->body, Http::STATUS_OK, $headers);
+		// The response sets an empty filename of its own; this one replaces it.
+		$response->addHeader('Content-Disposition', 'inline; filename="diagram.' . ($rendered->contentType === 'image/png' ? 'png' : 'svg') . '"');
+		// Core's default, set outright: an SVG opened on its own runs no script.
+		$response->setContentSecurityPolicy(new EmptyContentSecurityPolicy());
+		return $response;
 	}
 
 	/**
@@ -250,6 +278,36 @@ final class RenderController extends Controller {
 			return $fileEtag;
 		}
 		return md5($fileEtag . ',' . implode(',', $expanded->etags) . ',' . implode(',', $expanded->missing));
+	}
+
+	/** The size core has stored; it can be wrong, so the stream is capped as well. */
+	private static function storedSize(File $file): int {
+		try {
+			return (int)$file->getSize();
+		} catch (\Throwable) {
+			return 0;
+		}
+	}
+
+	/**
+	 * At most MAX_SOURCE + 1 bytes, read through a stream; null when that
+	 * many came, which is more than may be drawn.
+	 */
+	private static function content(File $file): ?string {
+		$handle = $file->fopen('r');
+		if (!is_resource($handle)) {
+			throw new NotFoundException();
+		}
+		try {
+			$content = stream_get_contents($handle, self::MAX_SOURCE + 1);
+		} finally {
+			fclose($handle);
+		}
+		return $content === false || strlen($content) > self::MAX_SOURCE ? null : $content;
+	}
+
+	private function tooLarge(): JSONResponse {
+		return new JSONResponse(['problem' => 'The diagram is too large to draw'], Http::STATUS_REQUEST_ENTITY_TOO_LARGE);
 	}
 
 	private function userFolder(): ?Folder {

@@ -23,3 +23,9 @@ Feature: Looking at a diagram file
     Given a file "notes.txt" in "Diagrams"
     When I request the image of "Diagrams/notes.txt"
     Then the request is refused
+
+  @api
+  Scenario: A diagram too large to draw
+    Given I have a diagram file of more than a megabyte
+    When the diagram is drawn
+    Then the answer says the diagram is too large to draw

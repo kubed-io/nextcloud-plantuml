@@ -5,7 +5,8 @@
  * The side-by-side diagram editor, a full-page overlay over the Files app: the
  * source in CodeMirror on the left, the diagram redrawn from it on the right.
  * A file the source links (a style sheet, an include) takes over the source
- * pane until the breadcrumb or Escape goes back to it.
+ * pane until the breadcrumb or Escape goes back to it, as `editor/linked/mode.js`
+ * does it.
  * How the file is saved, and kept in step with changes made elsewhere, is its
  * session's business (file-session.js); the bar shows that session's state.
  *
@@ -14,20 +15,19 @@
  * it defines. Each diagram type's profile is imported only when a file holds it.
  */
 import crelt from 'crelt'
-import { EditorState, Transaction } from '@codemirror/state'
+import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from './files-helpers.js'
-import { blocksOf, diagramAt, diagramsOf, scan } from './editor/blocks.js'
-import { loadSheetProfile, resetProfiles } from './editor/profiles/index.js'
-import { SECTION } from './editor/completion/local-files.js'
-import { editorChrome, readOnlyFile, sourceExtensions } from './editor/extensions.js'
+import { diagramAt, diagramsOf } from './editor/blocks.js'
+import { resetProfiles } from './editor/profiles/index.js'
+import { sourceExtensions } from './editor/extensions.js'
 import { createBreadcrumb } from './editor/breadcrumb.js'
 import { forgetLinkedFiles, linkedChips } from './editor/linked/chips.js'
-import { sheetExtension } from './editor/linked/sheet.js'
+import { createLinkedMode } from './editor/linked/mode.js'
 import { fileName, filePath, setServerError } from './editor/lint/state.js'
-import { fileAccess, loadFile } from './editor/save.js'
-import { createFileSession, fromFile } from './editor/file-session.js'
+import { loadFile } from './editor/save.js'
+import { createFileSession, replaceWith } from './editor/file-session.js'
 import { cancel as cancelRender, debouncedRender } from './editor/preview.js'
 import { toInlineSvg } from './editor/inline-svg.js'
 import { createSplitter } from './editor/splitter.js'
@@ -52,7 +52,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
 
   const icon = crelt('span', { class: 'plantuml-editor__icon', 'aria-hidden': 'true' })
   icon.innerHTML = fileIcon
-  const crumbs = createBreadcrumb({ onBack: () => { goBack() } })
+  const crumbs = createBreadcrumb({ onBack: () => { linkedMode.goBack() } })
   crumbs.show(name, null)
   const status = crelt('span', { class: 'plantuml-editor__status', role: 'status' })
   const reloadButton = crelt('button', { class: 'plantuml-editor__reload', type: 'button', hidden: '' })
@@ -103,10 +103,6 @@ export function openEditor(node, { diagram: openAt } = {}) {
   // The main file, once read: its name and its session. Its state is parked,
   // with its scroll, while a linked file is shown in the view (R11).
   let main = null
-  let parked = null // { state, doc, scrollTop }: doc is the text it was parked with
-  let linked = null // { link, name, readOnly, session, wantProfiles } while a linked file is open
-  let opening = false // a linked file is being read
-  let goingBack = null // the way back from it, while it saves
   let closing = false
   let closed = false
   let diagrams = [] // the main file's, from blocks.js; the one drawn is diagrams[active]
@@ -114,20 +110,31 @@ export function openEditor(node, { diagram: openAt } = {}) {
   let nameConfig = null // the main file's name facets, once its state is built
   let wantProfiles = null
 
+  const linkedMode = createLinkedMode({
+    view: () => view,
+    main: () => main,
+    isClosing: () => closing,
+    isClosed: () => closed,
+    savedOrDiscarded,
+    showState,
+    redraw: () => draw(mainState().doc.toString()),
+    mainChanged: (state) => {
+      const text = state.doc.toString()
+      diagrams = diagramsOf(state.doc, text)
+      follow(state, true)
+      wantProfiles(diagrams, text)
+    },
+    onChange: () => showCrumbs(),
+  })
+
   /** The main file's state, in the view or parked. */
-  const mainState = () => parked?.state ?? view.state
+  const mainState = () => linkedMode.mainState()
 
   /** A change to the main file's state, wherever it is. */
-  function toMain(spec) {
-    if (parked) {
-      parked.state = parked.state.update(spec).state
-    } else {
-      view.dispatch(spec)
-    }
-  }
+  const toMain = (spec) => linkedMode.toMain(spec)
 
   /** The open file's session, which the bar shows and its buttons act on (R15); none before the file is read. */
-  const openSession = () => (linked ?? main)?.session
+  const openSession = () => (linkedMode.current() ?? main)?.session
 
   /** The bar shows the open file's session's state; before the file is read there is none, and the bar stays as it is. */
   function showButtons() {
@@ -136,7 +143,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
       return
     }
     // R17: a file that may only be read is never saved, so there is no state to show.
-    saveButton.hidden = Boolean(linked?.readOnly)
+    saveButton.hidden = Boolean(linkedMode.current()?.readOnly)
     saveButton.dataset.state = shown.state
     saveButton.classList.toggle('icon-loading-small', shown.state === 'saving')
     saveButton.title = shown.title
@@ -171,27 +178,12 @@ export function openEditor(node, { diagram: openAt } = {}) {
     toMain({ effects: nameConfig.reconfigure([fileName.of(copy.basename), filePath.of(copy.path)]) })
   }
 
-  /** A linked file's Save as copy carried it on in the copy (S8): the breadcrumb takes its name. */
-  function renamedLinked(record, copy) {
-    record.name = copy.basename
-    if (linked === record) {
-      showCrumbs()
-    }
-  }
-
   function showCrumbs() {
-    crumbs.show(main.name, linked && { name: linked.name, readOnly: linked.readOnly })
+    const open = linkedMode.current()
+    crumbs.show(main.name, open && { name: open.name, readOnly: open.readOnly })
   }
 
   const ticker = setInterval(showButtons, TICK_MS)
-
-  /** R13: the open linked file's text in place of its file, while it may be written and is still the file the line names. */
-  function overrides() {
-    if (!linked || linked.readOnly || linked.session.copied) {
-      return null
-    }
-    return { [linked.link.written]: view.state.doc.toString() }
-  }
 
   /** Draws the main file's diagram from `text`, its own text: the diagram is the main file's while a linked file is open too (R13). */
   function draw(text) {
@@ -230,7 +222,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
       image.replaceChildren(svg)
       image.hidden = false
       problem.hidden = true
-    }, overrides())
+    }, linkedMode.overrides())
   }
 
   /**
@@ -265,7 +257,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     if (!view || !target) {
       return
     }
-    if (linked) {
+    if (linkedMode.isOpen()) {
       active = index
       tabs.update(diagrams, active)
       draw(mainState().doc.toString())
@@ -322,7 +314,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     try {
       // R15: from a linked file, back to the main file first, which is then closed as ever.
       // A clean file closes at once, in the same task as the key or click.
-      leave = (!linked || await goBack()) && !closed && (!main?.session.isDirty() || await savedOrDiscarded(main.session))
+      leave = (!linkedMode.isOpen() || await linkedMode.goBack()) && !closed && (!main?.session.isDirty() || await savedOrDiscarded(main.session))
     } finally {
       closing = false
     }
@@ -331,7 +323,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
     closed = true
     main?.session.stop()
-    linked?.session.stop()
+    linkedMode.stop()
     clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onKeydown)
@@ -361,8 +353,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault()
       event.stopPropagation()
-      if (linked) {
-        goBack()
+      if (linkedMode.isOpen()) {
+        linkedMode.goBack()
       } else {
         close()
       }
@@ -382,163 +374,9 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   }
 
-  /**
-   * R11, R12, R16: the linked file takes over the source pane, read with the
-   * profile its link names and opened where the line points. The main file's
-   * state is parked whole, its session saving on and no longer watching. A
-   * file that cannot be read leaves the main file shown, saying so.
-   */
-  async function openLinked(link) {
-    // A close under way leaves nothing behind the overlay: no file opens while it saves.
-    if (linked || opening || closing) {
-      return
-    }
-    opening = true
-    let file
-    let access
-    let sheet
-    try {
-      ;[file, access, sheet] = await Promise.all([
-        loadFile(link.path),
-        fileAccess(link.path),
-        link.kind === 'style' ? loadSheetProfile() : null,
-      ])
-      if (!access) {
-        throw new Error(`${link.path} is not readable`)
-      }
-    } catch (e) {
-      console.error(`[${APP_ID}] could not open ${link.path}`, e)
-      // Said, not failed: the main file's own saving goes on as before.
-      if (!closed) {
-        main.session.say(t(APP_ID, 'Could not open the file'))
-      }
-      return
-    } finally {
-      opening = false
-    }
-    if (closed || closing) {
-      return
-    }
-    const name = link.path.slice(link.path.lastIndexOf('/') + 1)
-    const readOnly = !access.writable
-    const record = { link, name, readOnly, session: null, wantProfiles: null }
-    const save = () => record.session.save()
-    let extensions
-    if (link.kind === 'style') {
-      extensions = [...editorChrome({ save, onUpdate: linkedUpdate }), ...sheetExtension(sheet)]
-    } else {
-      // R14: a linked .puml has no chips of its own.
-      const built = sourceExtensions({
-        name,
-        path: link.path,
-        save,
-        onUpdate: linkedUpdate,
-        chips: [],
-        // Its state is the view's only while it is open.
-        apply: (effects) => {
-          if (linked === record && !closed) {
-            view.dispatch({ effects })
-          }
-        },
-      })
-      extensions = built.extensions
-      record.wantProfiles = built.wantProfiles
-    }
-    // As CodeMirror reads the file's line breaks, so an offset in it is one in the editor's text.
-    const text = file.content.replace(/\r\n?/g, '\n')
-    const state = EditorState.create({
-      doc: text,
-      selection: { anchor: landing(text, link) },
-      extensions: readOnly ? [...extensions, readOnlyFile] : extensions,
-    })
-    parked = { state: view.state, doc: view.state.doc, scrollTop: view.scrollDOM.scrollTop }
-    main.session.pause()
-    view.setState(state)
-    // Made once the view shows the file: a session reads its text as saved when it starts.
-    record.session = createFileSession({
-      path: link.path,
-      etag: file.etag,
-      doc: () => view.state.doc,
-      replace: (content, opts) => replaceWith(view.state, (spec) => view.dispatch(spec), content, opts),
-      onChange: showState,
-      onCopied: (copy) => renamedLinked(record, copy),
-      readOnly,
-    })
-    linked = record
-    view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head, { y: 'start', yMargin: 20 }) })
-    record.wantProfiles?.(diagramsOf(view.state.doc, text), text)
-    record.session.start()
-    showCrumbs()
-    showState()
-    view.focus()
-  }
-
-  function linkedUpdate(update) {
-    if (!update.docChanged || !linked) {
-      return
-    }
-    linked.session.edited()
-    const text = update.state.doc.toString()
-    linked.wantProfiles?.(diagramsOf(update.state.doc, text), text)
-    // R13: the main file's diagram, drawn with this text in place of the file.
-    draw(mainState().doc.toString())
-  }
-
-  /** R11, R15: back to the main file once the linked one is saved or discarded; true once there. Asked again meanwhile, it is the same way back. */
-  function goBack() {
-    if (!goingBack) {
-      const way = leaveLinked().finally(() => {
-        if (goingBack === way) {
-          goingBack = null
-        }
-      })
-      goingBack = way
-    }
-    return goingBack
-  }
-
-  /** The main file as it was left, its text, selection, folds, undo and scroll. */
-  async function leaveLinked() {
-    if (!linked) {
-      return true
-    }
-    const { session } = linked
-    if (!(await savedOrDiscarded(session))) {
-      return false
-    }
-    // R13: the drawing still carries the discarded text, waiting or on its way; the main file's own files draw it again.
-    const discarded = session.isDirty()
-    session.stop()
-    linked = null
-    const { state, doc, scrollTop } = parked
-    parked = null
-    view.setState(state)
-    // Back on the main file: a linked file opened from it while it is checked has a way back of its own.
-    goingBack = null
-    view.requestMeasure({ read: () => null, write: () => { view.scrollDOM.scrollTop = scrollTop } })
-    if (discarded) {
-      cancelRender()
-    }
-    // A change landed while parked (a check that was under way) ran no update listener: the tabs and drawing catch up.
-    if (!state.doc.eq(doc)) {
-      const text = state.doc.toString()
-      diagrams = diagramsOf(state.doc, text)
-      follow(state, true)
-      wantProfiles(diagrams, text)
-    } else if (discarded) {
-      draw(state.doc.toString())
-    }
-    showCrumbs()
-    showState()
-    view.focus()
-    // It looks at once for a change made elsewhere while it was parked.
-    await main.session.resume()
-    return true
-  }
-
   // S5, R15: the main file's session reads its parked text while a linked file is open.
   function onBeforeUnload(event) {
-    if (main?.session.isDirty() || linked?.session.isDirty()) {
+    if (main?.session.isDirty() || linkedMode.current()?.session.isDirty()) {
       event.preventDefault()
     }
   }
@@ -561,7 +399,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
       path: node.path,
       save: () => main.session.save(),
       onUpdate: mainUpdate,
-      chips: linkedChips(openLinked),
+      chips: linkedChips(linkedMode.open),
       apply: (effects) => {
         if (!closed) {
           toMain({ effects })
@@ -600,47 +438,6 @@ export function openEditor(node, { diagram: openAt } = {}) {
     // No session yet to hold the failure: the line says it directly.
     console.error(`[${APP_ID}] could not open ${node.path}`, e)
     status.textContent = t(APP_ID, 'Could not open the file')
-  })
-}
-
-/**
- * R16: where a linked file opens, as an offset in its text (`\n` lines): the
- * `!startsub` line the link's section names, or the `@start` line of its block
- * by index or id (B1), else the top.
- */
-function landing(text, { section, block }) {
-  if (section !== null) {
-    const found = [...text.matchAll(SECTION)].find((m) => m[1] === section)
-    return found ? text.lastIndexOf('\n', found.index + found[0].indexOf('!startsub')) + 1 : 0
-  }
-  if (block === null) {
-    return 0
-  }
-  const blocks = blocksOf(scan(text))
-  const found = /^\d+$/.test(block) ? blocks[Number(block)] : blocks.find((b) => b.id === block)
-  return found ? text.split('\n', found.start - 1).reduce((offset, line) => offset + line.length + 1, 0) : 0
-}
-
-/**
- * The file's text in place of `state`'s, changing only the stretch that
- * differs: CodeMirror maps the cursor, and the line at the top of the view,
- * through a change that small, so both stay where they were.
- */
-function replaceWith(state, dispatch, content, { history = true } = {}) {
-  const old = state.doc.toString()
-  const max = Math.min(old.length, content.length)
-  let from = 0
-  while (from < max && old[from] === content[from]) {
-    from++
-  }
-  let end = 0
-  while (end < max - from && old[old.length - 1 - end] === content[content.length - 1 - end]) {
-    end++
-  }
-  dispatch({
-    changes: { from, to: old.length - end, insert: content.slice(from, content.length - end) },
-    // Their version is not an edit of ours to undo (and autosave back).
-    annotations: history ? [fromFile.of(true)] : [fromFile.of(true), Transaction.addToHistory.of(false)],
   })
 }
 

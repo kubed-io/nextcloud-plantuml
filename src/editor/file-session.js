@@ -12,7 +12,7 @@
  * through `doc`, writes the file's into it through `replace`, and says through
  * `onChange` when what the bar shows of it changed.
  */
-import { Annotation } from '@codemirror/state'
+import { Annotation, Transaction } from '@codemirror/state'
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { emit } from '@nextcloud/event-bus'
 import { APP_ID } from '../files-helpers.js'
@@ -27,6 +27,29 @@ const CLOSE_WAIT_MS = 10000
 
 /** A change that came from the file (Reload, a change taken in), not the keyboard. */
 export const fromFile = Annotation.define()
+
+/**
+ * The file's text in place of `state`'s, changing only the stretch that
+ * differs: CodeMirror maps the cursor, and the line at the top of the view,
+ * through a change that small, so both stay where they were.
+ */
+export function replaceWith(state, dispatch, content, { history = true } = {}) {
+  const old = state.doc.toString()
+  const max = Math.min(old.length, content.length)
+  let from = 0
+  while (from < max && old[from] === content[from]) {
+    from++
+  }
+  let end = 0
+  while (end < max - from && old[old.length - 1 - end] === content[content.length - 1 - end]) {
+    end++
+  }
+  dispatch({
+    changes: { from, to: old.length - end, insert: content.slice(from, content.length - end) },
+    // Their version is not an edit of ours to undo (and autosave back).
+    annotations: history ? [fromFile.of(true)] : [fromFile.of(true), Transaction.addToHistory.of(false)],
+  })
+}
 
 /**
  * @param {object} options

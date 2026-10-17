@@ -514,6 +514,7 @@ describe('Stack and Wall draw what is on screen (VW10)', () => {
 
 const exportButton = () => root.querySelector('.plantuml-viewer__export')
 const exportLabel = () => exportButton().getAttribute('aria-label')
+const exportTitle = () => exportButton().title
 const menuShown = () => root.querySelector('.plantuml-viewer__menu')
 const heading = () => root.querySelector('.plantuml-viewer__menu-heading').textContent
 const pick = (format) => root.querySelector(`[role="menuitem"][data-value="${format}"]`).click()
@@ -552,6 +553,8 @@ describe('Export', () => {
     exportButton().click()
 
     expect(exportLabel()).toBe('Export')
+    expect(exportTitle()).toBe('Export')
+    expect(root.querySelector('.plantuml-viewer__label')).toBeNull()
     expect(heading()).toBe('login')
     pick('png')
     await settle()
@@ -597,6 +600,7 @@ describe('Export', () => {
     check(1)
 
     expect(exportLabel()).toBe('Export 2')
+    expect(exportTitle()).toBe('Export 2')
     exportButton().click()
     expect(heading()).toBe('2 diagrams, as .zip')
     pick('svg')
@@ -619,6 +623,7 @@ describe('Export', () => {
     mode('Wall')
 
     expect(exportLabel()).toBe('Export all')
+    expect(exportTitle()).toBe('Export all')
     exportButton().click()
     expect(heading()).toBe('3 diagrams, as .zip')
     pick('txt')

@@ -41,14 +41,15 @@ describe('the toolbar', () => {
     expect(onMode).toHaveBeenCalledWith('stack')
   })
 
-  it('shows words on its buttons, or icons alone that still have names', () => {
-    // The icons' SVG markup brings whitespace of its own, so the label span is what is read.
-    expect(createToolbar(options).exportButton.querySelector('.plantuml-viewer__label').textContent).toBe('Export')
-    const bare = createToolbar({ ...options, labelled: false })
-    expect(bare.exportButton.querySelector('.plantuml-viewer__label')).toBeNull()
-    expect(bare.exportButton.textContent.trim()).toBe('')
-    expect(bare.exportButton.getAttribute('aria-label')).toBe('Export')
-    expect(bare.exportButton.title).toBe('Export')
+  it('draws icons alone, each button\'s word its hover text and its name', () => {
+    const toolbar = createToolbar(options)
+    const buttons = [...toolbar.element.querySelectorAll('button')]
+    expect(buttons.map((b) => b.title)).toEqual(['Tabs', 'Stack', 'Wall', 'Export', 'Edit'])
+    for (const b of buttons) {
+      expect(b.querySelector('.plantuml-viewer__label')).toBeNull()
+      expect(b.textContent.trim()).toBe('')
+      expect(b.getAttribute('aria-label')).toBe(b.title)
+    }
   })
 
   it('has no Export for a file whose share forbids download', () => {
@@ -58,13 +59,11 @@ describe('the toolbar', () => {
     expect(() => toolbar.setExportLabel('Export 2')).not.toThrow()
   })
 
-  it('renames Export, words or not', () => {
-    const labelled = createToolbar(options)
-    labelled.setExportLabel('Export 2')
-    expect(labelled.exportButton.querySelector('.plantuml-viewer__label').textContent).toBe('Export 2')
-    const bare = createToolbar({ ...options, labelled: false })
-    bare.setExportLabel('Export 2')
-    expect(bare.exportButton.getAttribute('aria-label')).toBe('Export 2')
-    expect(bare.exportButton.title).toBe('Export 2')
+  it('renames Export in its hover text and name', () => {
+    const toolbar = createToolbar(options)
+    toolbar.setExportLabel('Export 2')
+    expect(toolbar.exportButton.querySelector('.plantuml-viewer__label')).toBeNull()
+    expect(toolbar.exportButton.getAttribute('aria-label')).toBe('Export 2')
+    expect(toolbar.exportButton.title).toBe('Export 2')
   })
 })

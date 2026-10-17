@@ -15,8 +15,8 @@ import exportIcon from '../../img/icons/download.svg?raw'
 import chevronIcon from '../../img/icons/chevron-down-small.svg?raw'
 import editIcon from '../../img/icons/pencil.svg?raw'
 
-/** Words on the buttons, as drawn; false leaves the icons alone (open with Dr K, spec Known limitations). */
-export const LABELLED = true
+/** Words on the buttons, as drawn; false leaves the icons alone, their words still hover text. */
+export const LABELLED = false
 
 function button(className, icon, name, labelled, after = '') {
   const node = document.createElement('button')

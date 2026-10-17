@@ -1263,7 +1263,7 @@ describe('the diagram tabs', () => {
     view().dispatch({ selection: { anchor: lineStart(8) } })
 
     expect(selected()).toEqual([false, true, false])
-    expect(seams.debouncedRender).toHaveBeenLastCalledWith(DOC, 1, '/Diagrams/Order flow.puml', expect.any(Function))
+    expect(seams.debouncedRender).toHaveBeenLastCalledWith(DOC, 1, '/Diagrams/Order flow.puml', expect.any(Function), null)
   })
 
   it('draws nothing again while the cursor stays in the same diagram', async () => {
@@ -1598,6 +1598,7 @@ describe('a linked file', () => {
     '/Diagrams/parts.css': { content: 'actor {}\n', etag: '"c1"' },
   }
   let files
+  let serverError
   const chip = (name) => q(`button.cm-plantuml-link-chip[aria-label="Open ${name}"]`)
   const pressChip = async (name) => {
     chip(name).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
@@ -1605,10 +1606,11 @@ describe('a linked file', () => {
   }
 
   // The style profile is a chunk of its own: one settle() does not cover its import.
-  // The editor in use is the one the profiles tests imported last, so its module is asked.
+  // The editor in use is the one the profiles tests imported last, so its modules are asked.
   beforeAll(async () => {
     const { loadSheetProfile } = await import('../../src/editor/profiles/index.js')
     await loadSheetProfile()
+    ;({ serverError } = await import('../../src/editor/lint/state.js'))
   })
 
   beforeEach(() => {
@@ -1788,5 +1790,52 @@ describe('a linked file', () => {
     await settle()
 
     expect(q('.plantuml-editor')).toBeNull()
+  })
+
+  const lastRender = () => seams.debouncedRender.mock.calls.at(-1)
+
+  it('draws the main file, its tab kept, with the linked file\'s unsaved text', async () => {
+    await openStyle()
+
+    view().dispatch({ changes: { from: 0, insert: "' new\n" } })
+
+    expect(q('[role="tab"][aria-selected="true"]').textContent).toBe('order-flow')
+    expect(lastRender()[0]).toBe(MAIN)
+    expect(lastRender()[1]).toBe(1)
+    expect(lastRender()[4]).toEqual({ './UML_Fun.css': "' new\n" + STYLE })
+  })
+
+  it('sends no overrides for a file that may only be read', async () => {
+    seams.fileAccess.mockImplementation(async (path) => (path === '/Diagrams/UML_Fun.css' ? { writable: false } : { writable: true }))
+    await openStyle()
+
+    window.dispatchEvent(new Event('focus'))
+
+    expect(lastRender()[4]).toBeNull()
+  })
+
+  it('keeps the tab while the cursor moves in the linked file, and a tab only redraws', async () => {
+    await openStyle()
+
+    view().dispatch({ selection: { anchor: STYLE.length - 1 } })
+    expect(q('[role="tab"][aria-selected="true"]').textContent).toBe('order-flow')
+    ;[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent === 'nodes').click()
+
+    expect(q('[role="tab"][aria-selected="true"]').textContent).toBe('nodes')
+    expect(lastRender()[1]).toBe(0)
+    expect(view().state.selection.main.head).toBe(STYLE.length - 1)
+  })
+
+  it('marks a server mistake on the main file\'s line, not the linked file\'s', async () => {
+    await openStyle()
+    seams.answer = { error: null, svg: diagram(), mistake: { message: 'In UML_Fun.css, line 2: bad', line: 5 } }
+    view().dispatch({ changes: { from: 0, insert: ' ' } })
+    await settle()
+    expect(view().state.field(serverError, false)).toBeNull()
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(view().state.field(serverError)).toEqual({ message: 'In UML_Fun.css, line 2: bad', pos: MAIN.indexOf('<style') })
   })
 })

@@ -173,18 +173,27 @@ export function openEditor(node, { diagram: openAt } = {}) {
 
   const ticker = setInterval(showButtons, TICK_MS)
 
+  /** R13: the open linked file's text in place of its file, while it may be written and is still the file the line names. */
+  function overrides() {
+    if (!linked || linked.readOnly || linked.session.copied) {
+      return null
+    }
+    return { [linked.link.written]: view.state.doc.toString() }
+  }
+
+  /** Draws the main file's diagram from `text`, its own text: the diagram is the main file's while a linked file is open too (R13). */
   function draw(text) {
     // The route answers a blank source with 400; there is nothing to draw, and
     // no mistake left. draw() runs inside an update, which a dispatch must wait out.
     if (!text.trim()) {
       image.hidden = problem.hidden = true
-      queueMicrotask(() => { if (!closed) view.dispatch({ effects: setServerError.of(null) }) })
+      queueMicrotask(() => { if (!closed) toMain({ effects: setServerError.of(null) }) })
       return
     }
     const index = active
     // PlantUML's own count, which an unclosed block can make differ from the tab's.
     debouncedRender(text, diagrams[index].render, main.session.path, (error, svgText, mistake) => {
-      if (closed || !view.state.doc.toString().trim()) {
+      if (closed || !mainState().doc.toString().trim()) {
         return
       }
       // An answer for another tab is drawn by no tab: a change of tab sent a
@@ -194,8 +203,9 @@ export function openEditor(node, { diagram: openAt } = {}) {
         return
       }
       // A server problem is no mistake in the source: the pane says what it is.
-      if (text === view.state.doc.toString()) {
-        view.dispatch({ effects: setServerError.of(error ? null : mistake) })
+      // The line is the main file's, so the mark is too, parked or not.
+      if (text === mainState().doc.toString()) {
+        toMain({ effects: setServerError.of(error ? null : mistake) })
       }
       // Built before the old one goes, so the pane never flashes empty.
       const svg = error ? null : toInlineSvg(svgText, { idPrefix: 'plantuml-diagram-' })
@@ -208,7 +218,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
       image.replaceChildren(svg)
       image.hidden = false
       problem.hidden = true
-    })
+    }, overrides())
   }
 
   /**
@@ -224,7 +234,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
     active = next
     tabs.update(diagrams, active)
-    draw(state.doc.toString())
+    draw(mainState().doc.toString())
   }
 
   /** R6: a file the diagram includes may have changed while the page was away. */
@@ -234,10 +244,19 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   }
 
-  /** The cursor follows the tab (B4): to the end of its `@start` or `newpage` line. */
+  /**
+   * The cursor follows the tab (B4): to the end of its `@start` or `newpage`
+   * line. While a linked file is open the tab only changes the drawing (R13).
+   */
   function showDiagram(index) {
     const target = diagrams[index]
     if (!view || !target) {
+      return
+    }
+    if (linked) {
+      active = index
+      tabs.update(diagrams, active)
+      draw(mainState().doc.toString())
       return
     }
     const pos = view.state.doc.line(target.from).to
@@ -443,6 +462,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
     linked.session.edited()
     const text = update.state.doc.toString()
     linked.wantProfiles?.(diagramsOf(update.state.doc, text), text)
+    // R13: the main file's diagram, drawn with this text in place of the file.
+    draw(mainState().doc.toString())
   }
 
   /** R11: back to the main file as it was left, its text, selection, folds, undo and scroll; true once there. */

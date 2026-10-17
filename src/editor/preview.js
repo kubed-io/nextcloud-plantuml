@@ -18,19 +18,20 @@ const DELAY_MS = 300
  * @param {string} source
  * @param {number} [index] which diagram of the file to draw, from 0
  * @param {string} [path] the file whose folder its includes resolve against (R4); none, they go as written
+ * @param {Object<string, string>|null} [overrides] R13: a linked file's text in place of the file, keyed by the path as its line writes it
  * @return {Promise<string>} the SVG
  */
-export async function render(source, index = 0, path = '') {
-  return (await request(source, index, path)).svg
+export async function render(source, index = 0, path = '', overrides = null) {
+  return (await request(source, index, path, overrides)).svg
 }
 
 /** @return {Promise<{svg: string, mistake: {message: string, line: number}|null}>} */
-async function request(source, index, path) {
+async function request(source, index, path, overrides) {
   const res = await fetch(OC.generateUrl(`/apps/${APP_ID}/render`), {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', requesttoken: OC.requestToken },
-    body: JSON.stringify({ source, index, path }),
+    body: JSON.stringify(overrides ? { source, index, path, overrides } : { source, index, path }),
   })
   if (res.ok && res.headers.get('Content-Type')?.startsWith('image/')) {
     return { svg: await res.text(), mistake: mistakeOf(res.headers) }
@@ -86,10 +87,11 @@ let parked = null
  * @param {number} index which diagram of the file to draw, from 0
  * @param {string} path the file whose folder its includes resolve against
  * @param {(error: Error|null, svg?: string, mistake?: {message: string, line: number}|null) => void} cb
+ * @param {Object<string, string>|null} [overrides] as render's
  */
-export function debouncedRender(source, index, path, cb) {
+export function debouncedRender(source, index, path, cb, overrides = null) {
   clearTimeout(timer)
-  timer = setTimeout(() => send(source, index, path, cb), DELAY_MS)
+  timer = setTimeout(() => send(source, index, path, cb, overrides), DELAY_MS)
 }
 
 /** Drops the waiting source and the parked one; an answer already out still arrives. */
@@ -98,20 +100,20 @@ export function cancel() {
   parked = null
 }
 
-function send(source, index, path, cb) {
+function send(source, index, path, cb, overrides) {
   if (inFlight) {
-    parked = { source, index, path, cb }
+    parked = { source, index, path, cb, overrides }
     return
   }
   inFlight = true
-  request(source, index, path)
+  request(source, index, path, overrides)
     .then(({ svg, mistake }) => [null, svg, mistake], (error) => [error])
     .then(([error, svg, mistake]) => {
       inFlight = false
       if (parked) {
         const next = parked
         parked = null
-        send(next.source, next.index, next.path, next.cb)
+        send(next.source, next.index, next.path, next.cb, next.overrides)
       } else {
         cb(error, svg, mistake)
       }

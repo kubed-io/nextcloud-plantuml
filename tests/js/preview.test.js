@@ -298,4 +298,32 @@ describe('debouncedRender', () => {
 
     expect(fetch).not.toHaveBeenCalled()
   })
+
+  it('posts the overrides only when it has them', async () => {
+    const fetch = vi.fn(async () => svg())
+    vi.stubGlobal('fetch', fetch)
+
+    await render('@startuml\n@enduml\n', 0, '/Diagrams/a.puml', { './x.css': 'b {}' })
+    await render('@startuml\n@enduml\n', 0, '/Diagrams/a.puml')
+
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ source: '@startuml\n@enduml\n', index: 0, path: '/Diagrams/a.puml', overrides: { './x.css': 'b {}' } })
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ source: '@startuml\n@enduml\n', index: 0, path: '/Diagrams/a.puml' })
+  })
+
+  it('keeps a parked render\'s own overrides', async () => {
+    let answerFirst
+    const fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => { answerFirst = resolve }))
+      .mockImplementation(async () => svg())
+    vi.stubGlobal('fetch', fetch)
+
+    debouncedRender('first', 0, '/Diagrams/a.puml', vi.fn())
+    await vi.advanceTimersByTimeAsync(300)
+    debouncedRender('second', 0, '/Diagrams/a.puml', vi.fn(), { './x.css': 'b {}' })
+    await vi.advanceTimersByTimeAsync(300)
+    answerFirst(svg())
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(JSON.parse(fetch.mock.calls[1][1].body).overrides).toEqual({ './x.css': 'b {}' })
+  })
 })

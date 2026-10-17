@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: 2026 kubed-io
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  The Add diagram button's plus, Material Design's plus
+  from @mdi/js 7.4.47 (Apache-2.0). Themed via currentColor.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
+</svg>

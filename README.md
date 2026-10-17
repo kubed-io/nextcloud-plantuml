@@ -32,6 +32,8 @@ A `.puml` file wears its own icon and opens in Nextcloud's image viewer, the sam
 
 A URL does the same. Ask the app for the image of a file by its path and you get the SVG back, for anyone who can read the file and for nobody else.
 
+A file with several diagrams shows them as tabs, a stack or a wall, and **Export** saves one, the checked ones or all as SVG, PNG, PDF, EPS or ASCII art; **Edit** opens the editor at the one in view. 🖼️
+
 👀 [`diagrams/view.feature`](features/diagrams/view.feature)
 
 ---

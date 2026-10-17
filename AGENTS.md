@@ -99,16 +99,17 @@ decides whether it goes in.
 
 | Path | What's there |
 |---|---|
-| `appinfo/info.xml`, `appinfo/routes.php` | App metadata, settings and commands registration, repair steps; the routes: test connection, the two render routes, and the server's lists (`/themes`, `/icons`, `/emoji`) |
+| `appinfo/info.xml`, `appinfo/routes.php` | App metadata, settings and commands registration, repair steps; the routes: test connection, the two render routes, `/export`, and the server's lists (`/themes`, `/icons`, `/emoji`) |
 | `lib/AppInfo/Application.php` | Bootstrap: declarative settings, event listeners |
-| `lib/Service/` | `ServerConfig`, `RenderService` (+ `Rendered`), the behaviour |
+| `lib/Service/` | `ServerConfig`, `RenderService` (+ `Rendered`), `Diagrams` (a file cut into diagrams as the editor's tabs do), `DiagramFiles` (the stored-file read the routes share), the behaviour |
 | `lib/Exception/RenderException.php` | The three problems: `not set`, `unreachable`, `not a PlantUML server` |
-| `lib/Controller/` | `RenderController` (path + source routes, the server's lists), `ConfigController` (test connection) |
+| `lib/Controller/` | `RenderController` (path + source routes, the server's lists), `ExportController` (`GET /export`: one file or a zip), `ConfigController` (test connection) |
 | `lib/Settings/`, `templates/`, `js/`, `css/` | The admin card and its test panel |
 | `lib/Command/` | `plantuml:set-url`, `plantuml:test-connection`, `plantuml:show-config` |
 | `lib/Migration/` | `RegisterMimetype` / `UnregisterMimetype` |
 | `lib/Listener/` | `LoadFilesScriptListener` (the Files bundles and their initial state), `NewDiagramListener` (a new `.puml`'s starting lines) |
-| `src/` | `files.js` (Viewer handler, actions, + New), `editor.js` (the overlay, lazily loaded), `readme.js` (workspace observer) |
+| `src/` | `files.js` (Viewer handler, actions, + New), `editor.js` (the overlay, lazily loaded), `readme.js` (workspace observer), `open-editor.js` (loads the editor bundle for Files and the Viewer) |
+| `src/viewer/` | The Viewer's parts: `diagram-view.js` (Tabs, Stack, Wall, Export, Edit), `sheets.js`, `toolbar.js`, `menu.js`; `viewer-component.js` mounts them |
 | `src/editor/` | The editor's parts: save, watch, autosave, preview, inline SVG, splitter, theme, `push.js` (notify_push, loaded by URL), `once.js`, the PlantUML mode and its helpers (`blocks`, `folding`, `tabs`, `sub-diagrams`, `regions.js`); `lexicon/` (the shared grammar rules), `docs/` (hover cards and the docs index), `profiles/` (one module per diagram type, loaded on demand), `data/` (generated JSON: vocabulary, docs, stdlib), `values/` (the registry of values the chooser, stepper and completion read), `swatches.js`; `completion/` and `lint/` hold one file per source or rule (`completion/apply.js` and `lint/actions.js` are their shared helpers) |
 | `features/` | The spec; `README.md` is the map, `AGENTS.md` the notes |
 | `tests/unit/`, `tests/js/`, `tests/integration/` | PHPUnit, vitest, Behat |

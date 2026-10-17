@@ -299,6 +299,19 @@ describe('Stack and Wall', () => {
     expect(root.querySelector('.plantuml-viewer__tabbar').hidden).toBe(true)
   })
 
+  it('draws its checkbox as the boards do, over the native one kept for the keyboard and screen readers', async () => {
+    await open(THREE)
+    mode('Stack')
+    const [first] = cards()
+    const box = first.querySelector('input[type="checkbox"]')
+
+    expect(box.nextElementSibling.classList.contains('plantuml-viewer__check')).toBe(true)
+    expect(box.nextElementSibling.getAttribute('aria-hidden')).toBe('true')
+    expect(first.querySelector('label').textContent).toBe('nodes')
+    box.click()
+    expect(box.checked).toBe(true)
+  })
+
   it('opens a Wall card in Tabs on a click outside its checkbox', async () => {
     await open(THREE)
     mode('Wall')

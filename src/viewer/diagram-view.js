@@ -195,8 +195,12 @@ export function createDiagramView(root, { path, basename, onReady }) {
   function card(index) {
     const node = element('div', 'plantuml-viewer__card')
     const caption = element('label', 'plantuml-viewer__caption')
+    // The native box takes the keys and the clicks, unseen; the mark after it is what is drawn (viewer.css).
     const box = document.createElement('input')
     box.type = 'checkbox'
+    box.className = 'plantuml-viewer__check-input'
+    const mark = element('span', 'plantuml-viewer__check')
+    mark.setAttribute('aria-hidden', 'true')
     box.checked = state.checked.has(index)
     box.addEventListener('change', () => {
       if (box.checked) {
@@ -207,7 +211,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
       node.classList.toggle('plantuml-viewer__card--checked', box.checked)
       afterCheck()
     })
-    caption.append(box, label(diagrams[index]))
+    caption.append(box, mark, label(diagrams[index]))
     positions.set(node, index + 1)
     node.classList.toggle('plantuml-viewer__card--checked', box.checked)
     node.append(caption, sheets.sheet(index + 1))

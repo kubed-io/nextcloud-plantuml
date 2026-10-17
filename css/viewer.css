@@ -43,8 +43,11 @@
 }
 
 /* tabs.js's strip, styled for the editor's pane by editor.css (which every
- * Files page loads): kept inside the pill, at the board's tab size. */
+ * Files page loads): kept inside the pill, at the board's tab size. It may
+ * shrink, as editor.css's may not, so many tabs scroll inside the pill and
+ * "All diagrams" shows at its end. */
 .plantuml-viewer__tabbar .plantuml-editor__tabbar {
+	flex-shrink: 1;
 	min-width: 0;
 	height: 100%;
 	margin: 0;
@@ -323,6 +326,7 @@
 }
 
 .plantuml-viewer__caption {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 4px;
@@ -332,15 +336,60 @@
 	font-size: 14px;
 }
 
-.plantuml-viewer__caption input[type="checkbox"] {
+/* The card's checkbox as the boards draw it: 14px, radius 4, filled with the
+ * primary colour when checked. The native box lies over it, unseen, for the
+ * keyboard, the clicks and screen readers. */
+.plantuml-viewer__caption input.plantuml-viewer__check-input {
+	position: absolute;
+	top: calc(50% - 7px);
+	left: 8px;
 	width: 14px;
 	height: 14px;
+	min-height: 0;
 	margin: 0;
-	accent-color: var(--color-primary-element);
+	opacity: 0;
+}
+
+.plantuml-viewer__check {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 14px;
+	height: 14px;
+	box-sizing: border-box;
+	border: 1px solid var(--color-border-maxcontrast);
+	border-radius: 4px;
+	background: var(--color-main-background);
+}
+
+.plantuml-viewer__check-input:checked + .plantuml-viewer__check {
+	border-color: var(--color-primary-element);
+	background: var(--color-primary-element);
+}
+
+/* The tick: img/icons/check.svg's path, as a mask the text colour shows through. */
+.plantuml-viewer__check-input:checked + .plantuml-viewer__check::after {
+	content: "";
+	width: 12px;
+	height: 12px;
+	background: var(--color-primary-element-text);
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.plantuml-viewer__check-input:focus-visible + .plantuml-viewer__check {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
 }
 
 .plantuml-viewer__card .plantuml-viewer__sheet {
 	max-width: none;
+}
+
+/* A diagram narrower than its Stack card sits in the middle of it, as the
+ * viewer-stack board draws it. */
+.plantuml-viewer__card .plantuml-viewer__sheet svg {
+	margin-inline: auto;
 }
 
 .plantuml-viewer__card .plantuml-viewer__problem {

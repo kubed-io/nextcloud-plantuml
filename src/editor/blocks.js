@@ -57,6 +57,9 @@ function startOf(line) {
  * @property {number|null} end the block's `@end` line, null when unclosed
  * @property {number} render the image PlantUML draws for it, `/svg/<render>`:
  *   its index, unless an unclosed block makes PlantUML count otherwise
+ * @property {boolean} drawn whether PlantUML draws an image for it at all: a block left open
+ *   after the last closed one has a `render` past the last image, which the server answers
+ *   with a 400 page and an export of every diagram leaves out
  */
 
 /**
@@ -107,10 +110,11 @@ export function scan(text) {
     diagrams.push({ index: 0, type: 'uml', name: '', id: null, page: 1, pages: 1, from: 1, to: lines.length, start: null, end: null })
   }
   // A diagram PlantUML dropped shows the image of the block that closed over it.
-  const drawn = images(lines)
+  const lasts = images(lines)
   for (const d of diagrams) {
-    const at = drawn.findIndex((last) => last >= d.from)
-    d.render = at === -1 ? drawn.length : at
+    const at = lasts.findIndex((last) => last >= d.from)
+    d.render = at === -1 ? lasts.length : at
+    d.drawn = at !== -1
   }
   return diagrams
 }

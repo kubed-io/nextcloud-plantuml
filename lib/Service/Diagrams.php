@@ -15,9 +15,9 @@ namespace OCA\PlantUml\Service;
  * each with the image PlantUML draws for it. tests/fixtures/diagrams/expected.json
  * holds both to the same answers.
  *
- * `drawn` is the server's own, not the editor's: whether PlantUML draws an image for the diagram at
- * all. A block left open after the last closed one has a `render` past the last image, and the
- * server answers that with a 400 page, not a picture.
+ * `drawn` is whether PlantUML draws an image for the diagram at all, the editor's too (the Viewer's
+ * "Export all" counts by it). A block left open after the last closed one has a `render` past the
+ * last image, and the server answers that with a 400 page, not a picture.
  *
  * @psalm-type Diagram = array{index: int, type: string, name: string, id: ?string, page: int, pages: int, render: int, drawn: bool}
  */

@@ -18,9 +18,13 @@ describe('scan', () => {
     })
   }
 
+  it('marks a block after a newpage, left open past the last image, as undrawn', () => {
+    expect(scan('@startuml a\n@enduml\n@startuml b\nA\nnewpage\nB\n').map((d) => d.drawn)).toEqual([true, false, false])
+  })
+
   it('gives an empty document one diagram', () => {
     expect(scan('')).toEqual([
-      { index: 0, type: 'uml', name: '', id: null, page: 1, pages: 1, from: 1, to: 1, start: null, end: null, render: 0 },
+      { index: 0, type: 'uml', name: '', id: null, page: 1, pages: 1, from: 1, to: 1, start: null, end: null, render: 0, drawn: true },
     ])
   })
 

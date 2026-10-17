@@ -24,7 +24,7 @@ final class DiagramsTest extends TestCase {
 	 */
 	public static function cases(): array {
 		$expected = json_decode((string)file_get_contents(self::FIXTURES . 'expected.json'), true, 512, JSON_THROW_ON_ERROR);
-		$keep = array_flip(['index', 'type', 'name', 'id', 'page', 'pages', 'render']);
+		$keep = array_flip(['index', 'type', 'name', 'id', 'page', 'pages', 'render', 'drawn']);
 		$cases = [];
 		foreach ($expected as $file => $rows) {
 			$cases[$file] = [
@@ -35,10 +35,9 @@ final class DiagramsTest extends TestCase {
 		return $cases;
 	}
 
-	/** `drawn` is the server's own (see testMarksWhatIsDrawn); the rest is the editor's. */
 	#[DataProvider('cases')]
 	public function testScansAsTheEditorDoes(string $text, array $diagrams): void {
-		self::assertSame($diagrams, array_map(static fn (array $d): array => array_diff_key($d, ['drawn' => true]), Diagrams::scan($text)));
+		self::assertSame($diagrams, Diagrams::scan($text));
 	}
 
 	/** Of the shared fixtures, only the block left open after the last image has none of its own. */

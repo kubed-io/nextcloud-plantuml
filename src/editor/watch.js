@@ -7,17 +7,25 @@
  * `notify_file` push when the notify_push app is there, which then leaves the
  * clock as a once-a-minute safety net. What a check does is `check`'s business.
  */
-import { listen } from '@nextcloud/notify_push'
+import { getCapabilities } from '@nextcloud/capabilities'
 import { APP_ID } from '../files-helpers.js'
+import { loadPush } from './push.js'
 
 const watchers = new Set()
 let pushed = null
 
-// listen() has no way to stop listening, so it is asked once per page and
-// fans out to whoever is watching. notify_file carries no file id: any change
-// to the user's files is a reason to look.
+// The push bundle (notify_push and the axios it brings) is only fetched when the server
+// advertises the app. listen() has no way to stop listening, so it is asked
+// once per page and fans out to whoever is watching. notify_file carries no
+// file id: any change to the user's files is a reason to look.
 function pushAvailable() {
-  pushed ??= listen('notify_file', () => watchers.forEach((run) => run()))
+  pushed ??= (async () => {
+    if (!getCapabilities()?.notify_push) {
+      return false
+    }
+    const { listen } = await loadPush()
+    return listen('notify_file', () => watchers.forEach((run) => run()))
+  })()
   return pushed
 }
 
@@ -52,11 +60,16 @@ export function watchFile({ check, intervalMs = 10000, pushIntervalMs = 60000 })
     }
   }
 
-  const push = pushAvailable()
-  if (push) {
-    watchers.add(run)
-  }
-  const timer = setInterval(run, push ? pushIntervalMs : intervalMs)
+  // Poll at once; the slower clock waits for push to be known to work. A push
+  // that cannot load leaves the faster one.
+  let timer = setInterval(run, intervalMs)
+  pushAvailable().then((push) => {
+    if (push && !stopped) {
+      watchers.add(run)
+      clearInterval(timer)
+      timer = setInterval(run, pushIntervalMs)
+    }
+  }, (e) => console.debug(`[${APP_ID}] notify_push is not available`, e))
   document.addEventListener('visibilitychange', run)
   window.addEventListener('focus', run)
 

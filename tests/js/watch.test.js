@@ -6,8 +6,17 @@
 // check is called, never what it does.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const push = vi.hoisted(() => ({ listen: vi.fn(), handlers: [] }))
-vi.mock('@nextcloud/notify_push', () => ({ listen: push.listen }))
+const push = vi.hoisted(() => ({ listen: vi.fn(), handlers: [], imported: 0, loadFails: false, capabilities: {} }))
+vi.mock('../../src/editor/push.js', () => ({
+  loadPush: async () => {
+    push.imported++
+    if (push.loadFails) {
+      throw new Error('bundle failed')
+    }
+    return { listen: push.listen }
+  },
+}))
+vi.mock('@nextcloud/capabilities', () => ({ getCapabilities: () => push.capabilities }))
 
 let visibility = 'visible'
 let watchFile
@@ -20,6 +29,13 @@ function deferred() {
   return { promise, resolve }
 }
 
+/** Lets the dynamic import of notify_push, and what follows it, finish. */
+async function settle() {
+  await vi.advanceTimersByTimeAsync(0)
+  await vi.dynamicImportSettled()
+  await vi.advanceTimersByTimeAsync(0)
+}
+
 function show(state) {
   visibility = state
   document.dispatchEvent(new Event('visibilitychange'))
@@ -30,6 +46,9 @@ beforeEach(async () => {
   vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
   visibility = 'visible'
   push.handlers = []
+  push.imported = 0
+  push.loadFails = false
+  push.capabilities = { notify_push: { endpoints: {} } }
   push.listen.mockReset().mockImplementation((_name, handler) => { push.handlers.push(handler); return false })
   // listen() is asked once per page, so each test gets a fresh module.
   vi.resetModules()
@@ -116,6 +135,7 @@ describe('watchFile', () => {
   it('polls every interval when notify_push is not there', async () => {
     const check = vi.fn(async () => {})
     watcher = watchFile({ check, intervalMs: 10000 })
+    await settle()
 
     expect(push.listen).toHaveBeenCalledWith('notify_file', expect.any(Function))
     await vi.advanceTimersByTimeAsync(30000)
@@ -126,6 +146,7 @@ describe('watchFile', () => {
     push.listen.mockImplementation((_name, handler) => { push.handlers.push(handler); return true })
     const check = vi.fn(async () => {})
     watcher = watchFile({ check, intervalMs: 10000 })
+    await settle()
 
     await vi.advanceTimersByTimeAsync(59999)
     expect(check).not.toHaveBeenCalled()
@@ -143,6 +164,7 @@ describe('watchFile', () => {
     const two = vi.fn(async () => {})
     watchFile({ check: one }).stop()
     watcher = watchFile({ check: two })
+    await settle()
 
     expect(push.listen).toHaveBeenCalledTimes(1)
     push.handlers.forEach((handler) => handler('notify_file', null))
@@ -163,5 +185,57 @@ describe('watchFile', () => {
     await vi.advanceTimersByTimeAsync(120000)
     expect(check).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('never imports notify_push, and polls every interval, when the server has no notify_push', async () => {
+    push.capabilities = {}
+    const check = vi.fn(async () => {})
+    watcher = watchFile({ check, intervalMs: 10000 })
+    await settle()
+
+    expect(push.imported).toBe(0)
+    expect(push.listen).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(check).toHaveBeenCalledTimes(1)
+  })
+
+  it('polls every interval until notify_push has loaded, then once a minute', async () => {
+    push.listen.mockImplementation((_name, handler) => { push.handlers.push(handler); return true })
+    const check = vi.fn(async () => {})
+    watcher = watchFile({ check, intervalMs: 10000 })
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(check).not.toHaveBeenCalled()
+    await settle()
+    await vi.advanceTimersByTimeAsync(59999)
+    expect(check).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(check).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves no timer behind when stopped before notify_push has loaded', async () => {
+    push.listen.mockImplementation((_name, handler) => { push.handlers.push(handler); return true })
+    const check = vi.fn(async () => {})
+    watchFile({ check, intervalMs: 10000 }).stop()
+    await settle()
+
+    expect(vi.getTimerCount()).toBe(0)
+    push.handlers.forEach((handler) => handler('notify_file', null))
+    await vi.advanceTimersByTimeAsync(120000)
+    expect(check).not.toHaveBeenCalled()
+  })
+
+  it('keeps polling every interval, unhandled-rejection free, when the push bundle fails to load', async () => {
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    push.loadFails = true
+    const check = vi.fn(async () => {})
+    watcher = watchFile({ check, intervalMs: 10000 })
+    await settle()
+    await vi.advanceTimersByTimeAsync(30000)
+    process.off('unhandledRejection', unhandled)
+
+    expect(check).toHaveBeenCalledTimes(3)
+    expect(unhandled).not.toHaveBeenCalled()
   })
 })

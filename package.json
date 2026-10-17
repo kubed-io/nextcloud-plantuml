@@ -6,8 +6,8 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "build": "ENTRY=editor vite --mode production build && ENTRY=files vite --mode production build && ENTRY=readme vite --mode production build",
-    "dev": "ENTRY=files vite --mode development build && ENTRY=editor vite --mode development build && ENTRY=readme vite --mode development build",
+    "build": "ENTRY=push vite --mode production build && ENTRY=editor vite --mode production build && ENTRY=files vite --mode production build && ENTRY=readme vite --mode production build",
+    "dev": "ENTRY=push vite --mode development build && ENTRY=files vite --mode development build && ENTRY=editor vite --mode development build && ENTRY=readme vite --mode development build",
     "watch": "ENTRY=files vite --mode development build --watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

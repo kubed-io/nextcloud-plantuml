@@ -67,6 +67,10 @@ describe('fromFiles', () => {
     expect(file('@startuml\n@enduml', 'Templates/retro.puml', 'yours')[0].description).toBe('Yours · Templates/retro.puml')
   })
 
+  it('falls back to the path for a bare comment', () => {
+    expect(file("@startuml\n'\nA -> B\n@enduml")[0].description).toBe('Shared · Templates/flows.puml')
+  })
+
   it('gives nothing for a file with no block, or a block never closed', () => {
     expect(file('A -> B')).toEqual([])
     expect(file('@startuml\nA -> B')).toEqual([])
@@ -88,11 +92,11 @@ describe('fromFiles', () => {
 describe('arrange', () => {
   it('puts the built-ins first, then shared, then yours, each by title', () => {
     const files = fromFiles([
-      { source: 'yours', path: 'Templates/b.puml', text: '@startuml Zed\n@enduml' },
+      { source: 'yours', path: 'Templates/b.puml', text: '@startuml Aaa\n@enduml' },
       { source: 'shared', path: 'Templates/a.puml', text: '@startuml Beta\n@enduml\n@startuml Alpha\n@enduml' },
     ])
     const uml = arrange(builtins(OWN), files).get('uml')
-    expect(titles(uml).slice(-3)).toEqual(['Alpha', 'Beta', 'Zed'])
+    expect(titles(uml).slice(-3)).toEqual(['Alpha', 'Beta', 'Aaa'])
     expect(uml[0].title).toBe('Empty')
   })
 

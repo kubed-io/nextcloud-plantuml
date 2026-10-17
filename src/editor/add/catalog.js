@@ -70,7 +70,7 @@ export function fromFiles(files) {
         const block = lines.slice(b.start - 1, b.end)
         const title = b.name || (++unnamed === 1 ? base : `${base} ${unnamed}`)
         const comment = block.slice(1, -1).find((line) => line.trim().startsWith("'"))
-        const note = comment ? comment.trim().replace(/^'+\s*/, '') : path
+        const note = (comment && comment.trim().replace(/^'+\s*/, '')) || path
         return { type: b.type, title, name: title, description: `${source === 'shared' ? 'Shared' : 'Yours'} · ${note}`, text: block.join('\n'), icon: BY_TYPE.get(b.type).icon, source }
       })
   })

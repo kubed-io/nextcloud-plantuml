@@ -874,6 +874,17 @@ final class RenderControllerTest extends TestCase {
 		self::assertNull(self::header($response, 'X-PlantUML-Diagram-Error'));
 	}
 
+	/** The editor sends a CRLF file's lines joined by `\n`; it is still the file as stored. */
+	public function testBySourceOfACrlfBasesOwnContentReadsItsShare(): void {
+		$files = $this->viewOnlyShare();
+		$files['Shared/Figures.puml'] = $this->onViewOnlyShare('Shared/Figures.puml', str_replace("\n", "\r\n", self::FIGURES));
+		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);
+
+		$this->controller($render, $files)->bySource(self::FIGURES, 0, 'Shared/Figures.puml');
+
+		self::assertSame("@startuml\nlegend\nTOP SECRET\nendlegend\n@enduml\n", $sent);
+	}
+
 	/** A fence of a shared README is the owner's text too, so it draws the files beside it. */
 	public function testBySourceOfAReadmesOwnFenceReadsItsShare(): void {
 		$render = $this->rendering(new Rendered(self::SVG, 'image/svg+xml'), $sent);

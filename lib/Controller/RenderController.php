@@ -294,9 +294,10 @@ final class RenderController extends Controller {
 	}
 
 	/**
-	 * Whether the text sent is the base's own, as stored, or for a README whole
-	 * lines of it (a fence): only text the share's owner wrote may read the
-	 * rest of a view-only share. The reader writes the rest.
+	 * Whether the text sent is the base's own, as stored (the editor sends a
+	 * CRLF file's lines joined by `\n`), or for a README whole lines of it (a
+	 * fence): only text the share's owner wrote may read the rest of a
+	 * view-only share. The reader writes the rest.
 	 */
 	private static function ownersText(File $base, string $source): bool {
 		if (self::storedSize($base) > self::MAX_SOURCE) {
@@ -310,9 +311,9 @@ final class RenderController extends Controller {
 		if ($content === null) {
 			return false;
 		}
-		return $content === $source
-			|| ($base->getMimetype() === 'text/markdown'
-				&& str_contains("\n" . str_replace("\r\n", "\n", $content) . "\n", "\n$source\n"));
+		$lines = str_replace("\r\n", "\n", $content);
+		return $source === $content || $source === $lines
+			|| ($base->getMimetype() === 'text/markdown' && str_contains("\n$lines\n", "\n$source\n"));
 	}
 
 	private function tooLarge(): JSONResponse {

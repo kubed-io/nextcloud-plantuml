@@ -254,7 +254,8 @@ file, so its own text and the files it names may be drawn.
 AN OPEN LINKED FILE IS DRAWN BEFORE IT IS SAVED (editor spec R13). The render
 takes the open file's text in place of the saved one, but only for a file the
 user may already read: it cannot stand in for a missing file, and it cannot turn
-a view-only share into a readable one.
+a view-only share into a readable one. The open file itself still reads, since
+the user may view it; only what its new text reaches loses the owner's rights.
 
 ## diagrams/create
 

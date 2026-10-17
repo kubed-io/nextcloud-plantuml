@@ -110,7 +110,7 @@ Feature: Editing a diagram file
   @api @unbuilt
   Scenario: Unsaved text cannot read the rest of a view-only share
     Given a colleague shared a folder with me that may be viewed but not downloaded
-    And the folder holds a diagram, its style file and a notes file
-    When the diagram is drawn with new style text that includes the notes file
+    And the folder holds a diagram, a part it includes and a notes file
+    When the diagram is drawn with new text for that part that includes the notes file
     Then the drawing names the notes file as one it cannot read
     And none of the notes file's text is in it

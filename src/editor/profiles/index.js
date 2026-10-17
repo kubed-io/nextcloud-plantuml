@@ -21,6 +21,7 @@
  * @property {typeof lex} lex the lexicon: the rules the core grammar shares,
  *   and the helpers that build a stream mode from them
  * @property {typeof subDiagramsOf} subDiagrams the `{{type … }}` regions of a text
+ * @property {typeof replaceAction} replaceAction a lint's quick fix that writes a text over its range
  *
  * @typedef {object} Profile
  * @property {string} type the word after `@start`
@@ -38,6 +39,7 @@ import { plantumlLanguage } from '../plantuml-mode.js'
 import { styleRegions } from '../regions.js'
 import { SUB_OPEN, subDiagramsOf } from '../sub-diagrams.js'
 import { profileRules } from '../lint/index.js'
+import { replaceAction } from '../lint/actions.js'
 import { valuesFacet } from '../values/index.js'
 import { withDocs } from '../completion/docs.js'
 
@@ -113,7 +115,7 @@ export function needed(diagrams, text) {
 }
 
 /** @type {Core} what every profile's factory is given */
-export const core = { diagrams: diagramsOf, styleBlocks: styleRegions, t: translate, lex, subDiagrams: subDiagramsOf }
+export const core = { diagrams: diagramsOf, styleBlocks: styleRegions, t: translate, lex, subDiagrams: subDiagramsOf, replaceAction }
 const loading = new Map() // type → Promise<Profile|null>, for the page
 const failed = new Set()
 

@@ -9,6 +9,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
 import { patterns } from '../lexicon/rules.js'
+import { replaceAction } from './actions.js'
 
 const TAG = /<(?:back|u|s|w):(#)(\w+)/g
 // A hex as the highlighter reads one: 3, 4, 6 or 8 digits.
@@ -32,12 +33,7 @@ export function creoleColour(state) {
         to: from + 1 + match[2].length,
         severity: 'error',
         message: t(APP_ID, 'PlantUML draws this tag as text: write the colour name without #'),
-        actions: [{
-          name: t(APP_ID, 'Remove #'),
-          apply(view, from) {
-            view.dispatch({ changes: { from, to: from + 1 } })
-          },
-        }],
+        actions: [replaceAction(t(APP_ID, 'Remove #'), match[2])],
       })
     }
   }

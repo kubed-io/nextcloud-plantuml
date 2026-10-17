@@ -3,25 +3,16 @@
 //
 // The packetdiag profile (T24): what its mode names inside `@startpacketdiag` blocks, read the way CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import packetdiagProfile from '../../src/editor/profiles/packetdiag.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const profile = packetdiagProfile(core)
 const language = plantumlLanguage({ packetdiag: profile.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block. */
-function tokens(...lines) {
-  const doc = Text.of(['@startpacketdiag', ...lines, '@endpacketdiag'])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (...lines) => blockTokens(language, 'packetdiag', lines)
 
 describe('the packetdiag profile', () => {
   it('is the packetdiag type with no completions or lints', () => {

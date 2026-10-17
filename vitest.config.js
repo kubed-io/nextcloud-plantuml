@@ -3,19 +3,40 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Vitest config, kept separate from vite.config.js (which is a lib/IIFE *build*
- * config, not a test config). Node environment is enough for the DOM-free
- * helpers this app's JS will need. Mirrors the nextcloud-libraries convention
- * (dedicated vitest.config) and the sibling apps' setup.
+ * config, not a test config).
  *
- * tests/js/ now holds the helper suite (files-helpers.test.js), so `npm test`
- * no longer needs `--passWithNoTests`. A suite that needs a DOM (workspace.test.js)
- * opts into jsdom with a `// @vitest-environment jsdom` pragma.
+ * Two projects. A suite that needs a DOM opts into jsdom with a
+ * `// @vitest-environment jsdom` pragma and runs isolated, in a worker of its
+ * own. The rest run in the node environment without isolation, sharing their
+ * workers (about half the wall time): the module-level caches they fill are
+ * emptied by the resets the suites call (`resetServerLists`, `resetOnce`).
  */
+import { readFileSync, readdirSync } from 'node:fs'
+import { availableParallelism } from 'node:os'
 import { defineConfig } from 'vitest/config'
+
+const DIR = 'tests/js'
+const suites = readdirSync(DIR).filter((name) => name.endsWith('.test.js')).map((name) => `${DIR}/${name}`)
+const dom = suites.filter((file) => readFileSync(file, 'utf8').includes('@vitest-environment jsdom'))
 
 export default defineConfig({
   test: {
-    environment: 'node',
-    include: ['tests/js/**/*.test.js'],
+    // Vitest leaves one CPU to the machine; on a two-CPU runner that is one worker, and the jsdom suites queue.
+    maxWorkers: Math.max(2, availableParallelism()),
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          isolate: false,
+          include: suites.filter((file) => !dom.includes(file)),
+        },
+      },
+      {
+        extends: true,
+        test: { name: 'jsdom', environment: 'node', include: dom },
+      },
+    ],
   },
 })

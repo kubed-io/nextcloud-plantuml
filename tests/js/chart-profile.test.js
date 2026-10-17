@@ -3,25 +3,16 @@
 //
 // The chart profile: what its mode names inside `@startchart` blocks, read the way CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import chartProfile from '../../src/editor/profiles/chart.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const chart = chartProfile(core)
 const language = plantumlLanguage({ chart: chart.mode })
 
 /** [text, token class] for every highlighted span of the lines in a chart block. */
-function tokens(...lines) {
-  const doc = Text.of(['@startchart', ...lines, '@endchart'])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (...lines) => blockTokens(language, 'chart', lines)
 
 describe('the chart profile', () => {
   it('is the chart type with no completions or lints', () => {

@@ -4,25 +4,16 @@
 // The sprites profile: what its mode names inside `@startsprites`, and what the
 // PlantUML mode itself names of a `sprite` definition in a uml block.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import spritesProfile from '../../src/editor/profiles/sprites.js'
+import { tokensOf, blockTokens } from './helpers/tokens.js'
 
 const sprites = spritesProfile(core)
 const language = plantumlLanguage({ sprites: sprites.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */
-function tokens(type, ...lines) {
-  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (type, ...lines) => blockTokens(language, type, lines)
 const spriteTokens = (...lines) => tokens('sprites', ...lines)
 const umlTokens = (...lines) => tokens('uml', ...lines)
 
@@ -133,9 +124,7 @@ describe('a sprite in a uml block', () => {
   })
 
   it('greys the rows of an unclosed sprite to the end of the block and reads the next block as ever', () => {
-    const doc = Text.of(['@startuml', 'sprite $a {', 'FF', '@enduml', '@startuml', 'A -> B', '@enduml'])
-    const out = []
-    plantumlLanguage({}).parser.parse(doc.toString()).iterate({ enter(n) { if (!n.type.isTop) out.push([doc.sliceString(n.from, n.to), n.type.name]) } })
+    const out = tokensOf(plantumlLanguage({}), ['@startuml', 'sprite $a {', 'FF', '@enduml', '@startuml', 'A -> B', '@enduml'])
     expect(out.slice(4, 6)).toEqual([['FF', 'SpriteData'], ['@enduml', 'keyword']])
     expect(out.slice(-3)).toEqual([['@startuml', 'keyword'], ['->', 'LinkOperator'], ['@enduml', 'keyword']])
   })

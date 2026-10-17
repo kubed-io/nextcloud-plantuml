@@ -4,25 +4,16 @@
 // The nwdiag profile (T25): what its mode names inside `@startnwdiag` blocks, read the way CodeMirror reads them.
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import nwdiagProfile from '../../src/editor/profiles/nwdiag.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const profile = nwdiagProfile(core)
 const language = plantumlLanguage({ nwdiag: profile.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block. */
-function tokens(...lines) {
-  const doc = Text.of(['@startnwdiag', ...lines, '@endnwdiag'])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (...lines) => blockTokens(language, 'nwdiag', lines)
 
 describe('the nwdiag profile', () => {
   it('is the nwdiag type with no completions or lints', () => {

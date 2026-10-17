@@ -4,38 +4,20 @@
 // The ebnf profile (T8): what its mode names inside `@startebnf` blocks, read the way
 // CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import ebnfProfile from '../../src/editor/profiles/ebnf.js'
+import { tokensOf, blockTokens } from './helpers/tokens.js'
 
 const ebnf = ebnfProfile(core)
 const language = plantumlLanguage({ ebnf: ebnf.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */
-function tokens(type, ...lines) {
-  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (type, ...lines) => blockTokens(language, type, lines)
 const read = (...lines) => tokens('ebnf', ...lines)
 
 /** [text, token class] for every highlighted span of a whole document. */
-function all(...lines) {
-  const doc = Text.of(lines)
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out
-}
+const all = (...lines) => tokensOf(language, lines)
 
 describe('the ebnf profile', () => {
   it('is the ebnf type with no completions or lints', () => {

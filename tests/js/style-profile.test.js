@@ -10,6 +10,7 @@ import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { styleRegions } from '../../src/editor/regions.js'
 import { core } from './helpers/core.js'
 import styleProfile from '../../src/editor/profiles/style.js'
+import { tokensOf } from './helpers/tokens.js'
 
 const WORD_WRAP = `<style>
 node {
@@ -48,16 +49,7 @@ arrow {
 const profile = styleProfile(core)
 
 /** [text, token class] for every highlighted span of `lines`. */
-function tokens(...lines) {
-  const doc = Text.of(lines)
-  const out = []
-  plantumlLanguage({ style: profile.mode }).parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out
-}
+const tokens = (...lines) => tokensOf(plantumlLanguage({ style: profile.mode }), lines)
 
 describe('the style profile', () => {
   it('is made from the core it is given, translator included: the style type with its mode, completion, lint and values', () => {

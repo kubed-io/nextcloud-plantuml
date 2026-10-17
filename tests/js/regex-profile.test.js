@@ -3,25 +3,16 @@
 //
 // The regex profile: what its mode names inside `@startregex` blocks, read the way CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import regexProfile from '../../src/editor/profiles/regex.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const regex = regexProfile(core)
 const language = plantumlLanguage({ regex: regex.mode })
 
 /** [text, token class] for every highlighted span of the lines in a regex block. */
-function tokens(...lines) {
-  const doc = Text.of(['@startregex', ...lines, '@endregex'])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (...lines) => blockTokens(language, 'regex', lines)
 
 describe('the regex profile', () => {
   it('is the regex type with no completions or lints', () => {

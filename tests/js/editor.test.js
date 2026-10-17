@@ -12,6 +12,7 @@ import { forceLinting } from '@codemirror/lint'
 import { undo } from '@codemirror/commands'
 import { ensureSyntaxTree, language } from '@codemirror/language'
 import swallowed from '../fixtures/diagrams/swallowed.puml?raw'
+import { serverAnswering } from './helpers/server.js'
 
 const seams = vi.hoisted(() => {
   class ConflictError extends Error {}
@@ -65,10 +66,7 @@ const COLORS = { AliceBlue: '#F0F8FF', Red: '#FF0000', Yellow: '#FFFF00', Odd: n
 
 beforeAll(async () => {
   window.OCA = {}
-  window.OC = { generateUrl: (url) => `/index.php${url}` }
-  globalThis.fetch = async (url) => (url === '/index.php/apps/plantuml/colors'
-    ? new Response(JSON.stringify({ colors: COLORS }), { status: 200, headers: { 'Content-Type': 'application/json' } })
-    : new Response('{}', { status: 404 }))
+  serverAnswering({ colors: COLORS })
   await import('../../src/editor.js')
 })
 

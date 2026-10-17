@@ -4,24 +4,15 @@
 // The YAML profile: what its mode names inside a `@startyaml` block, read the
 // way CodeMirror reads it.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const profile = yamlProfile(core)
 
 /** [text, token class] for every highlighted span of the lines in a yaml block. */
-function tokens(...lines) {
-  const doc = Text.of(['@startyaml', ...lines, '@endyaml'])
-  const out = []
-  plantumlLanguage({ yaml: profile.mode }).parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (...lines) => blockTokens(plantumlLanguage({ yaml: profile.mode }), 'yaml', lines)
 
 describe('the yaml profile', () => {
   it('is made from the core it is given: the yaml type with its lint and no completions', () => {

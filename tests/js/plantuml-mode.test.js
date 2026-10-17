@@ -4,29 +4,18 @@
 // The mode is read the way CodeMirror reads it: the language's parser runs over
 // a Text and each token is a named node in the tree.
 import { describe, expect, it } from 'vitest'
-import { EditorState, Text } from '@codemirror/state'
+import { EditorState } from '@codemirror/state'
 import { toggleComment } from '@codemirror/commands'
 import { closeBrackets, insertBracket } from '@codemirror/autocomplete'
 import { StringStream, ensureSyntaxTree } from '@codemirror/language'
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight'
 import { MAX_LINE, plantumlLanguage, plantumlMode } from '../../src/editor/plantuml-mode.js'
 import { underline } from '../../src/editor/lexicon/tags.js'
+import { tokensOf } from './helpers/tokens.js'
 
 /** [text, token class] for every highlighted span of `lines`. */
 function tokens(...lines) {
   return tokensOf(plantumlMode, lines)
-}
-
-/** The same, read by `language`. */
-function tokensOf(language, lines) {
-  const doc = Text.of(lines)
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out
 }
 
 describe('plantumlMode', () => {

@@ -13,6 +13,12 @@ const asked = new Map()
 const resolved = new Map()
 const HEX = /^#[\dA-Fa-f]{6}$/
 
+/** Forgets every answer, so the next ask goes to the server again: for tests, which share the module. */
+export function resetServerLists() {
+  asked.clear()
+  resolved.clear()
+}
+
 /** The route's answer under `name`, as `read` keeps it (given the whole body too); `empty` when there is none. */
 function ask(name, read, empty) {
   if (!asked.has(name)) {

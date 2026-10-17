@@ -14,6 +14,8 @@ vi.mock('@nextcloud/files/dav', () => ({
   resultToNode: (stat) => ({ fromStat: stat }),
 }))
 
+import { resetOnce } from '../../src/editor/once.js'
+
 const { ConflictError, currentEtag, listFolder, loadFile, saveCopy, saveFile } = await import('../../src/editor/save.js')
 
 /** webdav's handleResponseCode: an Error carrying the status. */
@@ -199,7 +201,10 @@ describe('saveCopy', () => {
 })
 
 describe('listFolder', () => {
-  beforeEach(() => vi.resetAllMocks())
+  beforeEach(() => {
+    vi.resetAllMocks()
+    resetOnce()
+  })
 
   it('lists a folder with one Depth-1 PROPFIND, without the folder itself, and keeps the answer', async () => {
     client.getDirectoryContents.mockResolvedValue([

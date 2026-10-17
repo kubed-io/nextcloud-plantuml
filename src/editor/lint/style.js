@@ -6,7 +6,8 @@
  * nearest one it does as the fix; PlantUML matches them whatever their case.
  * Selectors are never checked, as stereotype classes are free-form. A
  * `<style>` no `</style>` closes is an error. The style profile's rule, made
- * from the core it is given: importing a core module, or a library the editor
+ * from the core it is given, `replaceAction` among it (`lint/actions.js` is
+ * the blocks rule's too, so a core module): importing a core module, or a library the editor
  * also uses (@nextcloud/l10n), would make it a chunk the editor imports
  * statically. `t` is called with the app id written out, for the string
  * extractor, and without sanitizing, which would strip `</style>`.
@@ -36,8 +37,8 @@ const nearest = (name) => properties.reduce((best, candidate) => (distance(name,
 
 const AS_TEXT = { escape: false, sanitize: false }
 
-/** @param {{ t: typeof import('@nextcloud/l10n').translate, styleBlocks: typeof import('../regions.js').styleRegions }} core */
-export const styleLint = ({ t, styleBlocks }) => (state) => {
+/** @param {{ t: typeof import('@nextcloud/l10n').translate, styleBlocks: typeof import('../regions.js').styleRegions, replaceAction: typeof import('./actions.js').replaceAction }} core */
+export const styleLint = ({ t, styleBlocks, replaceAction }) => (state) => {
   const { doc } = state
   const found = []
   for (const block of styleBlocks(doc)) {
@@ -62,12 +63,7 @@ export const styleLint = ({ t, styleBlocks }) => (state) => {
         to: from + (end - start),
         severity: 'warning',
         message: t('plantuml', 'Unknown style property {name}', { name }, undefined, AS_TEXT),
-        actions: [{
-          name: fix,
-          apply(view, from, to) {
-            view.dispatch({ changes: { from, to, insert: fix } })
-          },
-        }],
+        actions: [replaceAction(fix, fix)],
       })
     })
   }

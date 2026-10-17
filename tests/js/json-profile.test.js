@@ -4,26 +4,17 @@
 // The json profile: what its mode names inside `@startjson` blocks, read the way
 // CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { StringStream } from '@codemirror/language'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import jsonProfile from '../../src/editor/profiles/json.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const json = jsonProfile(core)
 const language = plantumlLanguage({ json: json.mode })
 
 /** [text, token class] for every highlighted span of `lines`, in a block of `type`. */
-function tokens(type, ...lines) {
-  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (type, ...lines) => blockTokens(language, type, lines)
 const jsonTokens = (...lines) => tokens('json', ...lines)
 
 describe('the json profile', () => {

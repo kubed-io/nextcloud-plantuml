@@ -4,39 +4,22 @@
 // The mindmap and wbs profiles: what their modes name inside `@startmindmap`
 // and `@startwbs` blocks, read the way CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import mindmapProfile, { wbs as wbsProfile } from '../../src/editor/profiles/tree.js'
+import { tokensOf, blockTokens } from './helpers/tokens.js'
 
 const mindmap = mindmapProfile(core)
 const wbs = wbsProfile(core)
 const language = plantumlLanguage({ mindmap: mindmap.mode, wbs: wbs.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */
-function tokens(type, ...lines) {
-  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (type, ...lines) => blockTokens(language, type, lines)
 const mm = (...lines) => tokens('mindmap', ...lines)
 const wb = (...lines) => tokens('wbs', ...lines)
 
 /** [text, token class] for every highlighted span of a whole document. */
-function parse(doc) {
-  const out = []
-  language.parser.parse(doc).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.slice(node.from, node.to), node.type.name])
-    },
-  })
-  return out
-}
+const parse = (doc) => tokensOf(language, doc.split('\n'))
 
 describe('the mindmap profile', () => {
   it('is the mindmap type with no completions or lints', () => {

@@ -4,30 +4,18 @@
 // The latex profile: LaTeX inside `@startlatex`, in an inline `<latex>…</latex>`
 // and in a `<latex>` … `</latex>` block, read the way CodeMirror reads them.
 import { describe, expect, it, vi } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import { core } from './helpers/core.js'
 import { loadProfile, needed } from '../../src/editor/profiles/index.js'
 import latexProfile from '../../src/editor/profiles/latex.js'
+import { tokensOf, blockTokens } from './helpers/tokens.js'
 
 const latex = latexProfile(core)
 const language = plantumlLanguage({ latex: latex.mode })
 
-/** [text, token class] for every highlighted span of `lines`. */
-function readDoc(lines) {
-  const doc = Text.of(lines)
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out
-}
-
-/** The same, for the lines of a `@startlatex` block. */
-const read = (...lines) => readDoc(['@startlatex', ...lines, '@endlatex']).slice(1, -1)
+/** [text, token class] for every highlighted span of the lines of a `@startlatex` block. */
+const read = (...lines) => blockTokens(language, 'latex', lines)
 
 describe('the latex profile', () => {
   it('is the latex type with no completions or lints', () => {
@@ -123,21 +111,21 @@ describe('a @startlatex block', () => {
 
 describe('an inline <latex>', () => {
   it('reads its middle as LaTeX and its tags as tags, in a note and a label', () => {
-    expect(readDoc(['note: area <latex>\\alpha^2</latex>', 'actor A'])).toEqual([
+    expect(tokensOf(language, ['note: area <latex>\\alpha^2</latex>', 'actor A'])).toEqual([
       ['note', 'keyword'], ['<latex>', 'tagName'], ['\\alpha', 'FunctionName'], ['^', 'operator'], ['2', 'number'], ['</latex>', 'tagName'],
       ['actor', 'keyword'], ['A', 'typeName'],
     ])
-    expect(readDoc(['A -> B : x <latex>\\pi</latex> y'])).toEqual([
+    expect(tokensOf(language, ['A -> B : x <latex>\\pi</latex> y'])).toEqual([
       ['->', 'LinkOperator'], ['x ', 'labelName'], ['<latex>', 'tagName'], ['\\pi', 'FunctionName'], ['</latex>', 'tagName'], [' y', 'labelName'],
     ])
   })
 
   it('never reads a setting in an inline <latex>', () => {
-    expect(readDoc(['note: <latex>color red</latex>'])).toEqual([['note', 'keyword'], ['<latex>', 'tagName'], ['</latex>', 'tagName']])
+    expect(tokensOf(language, ['note: <latex>color red</latex>'])).toEqual([['note', 'keyword'], ['<latex>', 'tagName'], ['</latex>', 'tagName']])
   })
 
   it('ends at the first </latex>, and a % comment stops there too', () => {
-    expect(readDoc(['note: <latex>x % c</latex> and <latex>\\a</latex>'])).toEqual([
+    expect(tokensOf(language, ['note: <latex>x % c</latex> and <latex>\\a</latex>'])).toEqual([
       ['note', 'keyword'], ['<latex>', 'tagName'], ['% c', 'comment'], ['</latex>', 'tagName'], ['<latex>', 'tagName'],
       ['\\a', 'FunctionName'], ['</latex>', 'tagName'],
     ])
@@ -146,19 +134,19 @@ describe('an inline <latex>', () => {
 
 describe('a <latex> block', () => {
   it('reads the lines between a <latex> line and a </latex> line as LaTeX, in a note', () => {
-    expect(readDoc(['note over A', '<latex>', '\\int_0^1 x', '</latex>', 'end note', 'actor B'])).toEqual([
+    expect(tokensOf(language, ['note over A', '<latex>', '\\int_0^1 x', '</latex>', 'end note', 'actor B'])).toEqual([
       ['note', 'keyword'], ['<latex>', 'tagName'], ['\\int', 'FunctionName'], ['_', 'operator'], ['0', 'number'], ['^', 'operator'],
       ['1', 'number'], ['</latex>', 'tagName'], ['end note', 'keyword'], ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
 
   it('is exactly the <latex> line: an indented or trailing one opens nothing', () => {
-    expect(readDoc(['note left', ' <latex>', 'x', 'end note']).map(([, token]) => token)).not.toContain('FunctionName')
-    expect(readDoc(['note left', '<latex> ', '\\a', 'end note'])).not.toContainEqual(['\\a', 'FunctionName'])
+    expect(tokensOf(language, ['note left', ' <latex>', 'x', 'end note']).map(([, token]) => token)).not.toContain('FunctionName')
+    expect(tokensOf(language, ['note left', '<latex> ', '\\a', 'end note'])).not.toContainEqual(['\\a', 'FunctionName'])
   })
 
   it('ends with the note when never closed, and reads the note as ever after', () => {
-    expect(readDoc(['note left', '<latex>', '\\a', 'end note', 'actor B'])).toEqual([
+    expect(tokensOf(language, ['note left', '<latex>', '\\a', 'end note', 'actor B'])).toEqual([
       ['note', 'keyword'], ['<latex>', 'tagName'], ['\\a', 'FunctionName'], ['end note', 'keyword'], ['actor', 'keyword'], ['B', 'typeName'],
     ])
   })
@@ -166,12 +154,7 @@ describe('a <latex> block', () => {
 
 describe('without the latex profile', () => {
   const plain = plantumlLanguage({})
-  const read = (lines) => {
-    const doc = Text.of(lines)
-    const out = []
-    plain.parser.parse(doc.toString()).iterate({ enter(node) { if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name]) } })
-    return out
-  }
+  const read = (lines) => tokensOf(plain, lines)
 
   it('leaves the middle of an inline <latex> and of a block plain', () => {
     expect(read(['note: <latex>\\a^2</latex>'])).toEqual([['note', 'keyword'], ['<latex>', 'tagName'], ['</latex>', 'tagName']])

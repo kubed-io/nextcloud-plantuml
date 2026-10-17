@@ -3,20 +3,22 @@
 //
 // The gantt profile, for `@startgantt` and its alias `@startproject`: what its
 // mode names inside those blocks, read the way CodeMirror reads them.
-import { describe, expect, it, vi } from 'vitest'
-import { EditorState, Text } from '@codemirror/state'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { EditorState } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import { core } from './helpers/core.js'
 import { loadProfile, needed, profileExtension } from '../../src/editor/profiles/index.js'
 import { valuesOn } from '../../src/editor/values/index.js'
-import { serverColors } from '../../src/editor/completion/server-list.js'
+import { resetServerLists, serverColors } from '../../src/editor/completion/server-list.js'
 
-vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ colors: { lavender: '#E6E6FA' } }), { status: 200 }))
+serverAnswering({ colors: { lavender: '#E6E6FA' } })
+beforeEach(resetServerLists)
 import ganttProfile, { SEPARATOR, project as projectProfile } from '../../src/editor/profiles/gantt.js'
 import styleProfile from '../../src/editor/profiles/style.js'
 import yamlProfile from '../../src/editor/profiles/yaml.js'
+import { tokensOf, blockTokens } from './helpers/tokens.js'
+import { serverAnswering } from './helpers/server.js'
 
 const gantt = ganttProfile(core)
 const project = projectProfile(core)
@@ -28,19 +30,9 @@ const language = plantumlLanguage({
 })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */
-const tokens = (type, ...lines) => readDoc([`@start${type}`, ...lines, `@end${type}`]).slice(1, -1)
+const tokens = (type, ...lines) => blockTokens(language, type, lines)
 
 /** [text, token class] for every highlighted span of `lines`. */
-function readDoc(lines) {
-  const doc = Text.of(lines)
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out
-}
 
 describe('the gantt and project profiles', () => {
   it('are one profile under two types', () => {
@@ -65,7 +57,7 @@ describe('the gantt and project profiles', () => {
 })
 
 describe.each(['gantt', 'project'])('a @start%s block', (type) => {
-  const readAll = (...lines) => readDoc(lines)
+  const readAll = (...lines) => tokensOf(language, lines)
   const read = (...lines) => tokens(type, ...lines)
 
   it('names the project start a keyword and its date a Date (Y17)', () => {

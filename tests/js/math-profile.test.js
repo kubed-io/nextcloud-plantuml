@@ -3,36 +3,26 @@
 //
 // The math profile: AsciiMath inside `@startmath` and in an inline
 // `<math>…</math>`, read the way CodeMirror reads them.
-import { describe, expect, it, vi } from 'vitest'
-import { EditorState, Text } from '@codemirror/state'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EditorState } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import { core } from './helpers/core.js'
 import { loadProfile, needed, profileExtension } from '../../src/editor/profiles/index.js'
 import { valuesOn } from '../../src/editor/values/index.js'
-import { serverColors } from '../../src/editor/completion/server-list.js'
+import { resetServerLists, serverColors } from '../../src/editor/completion/server-list.js'
 import mathProfile from '../../src/editor/profiles/math.js'
+import { tokensOf, blockTokens } from './helpers/tokens.js'
+import { serverAnswering } from './helpers/server.js'
 
-vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ colors: { red: '#FF0000' } }), { status: 200 }))
+serverAnswering({ colors: { red: '#FF0000' } })
+beforeEach(resetServerLists)
 
 const math = mathProfile(core)
 const language = plantumlLanguage({ math: math.mode })
 
-/** [text, token class] for every highlighted span of `lines`. */
-function readDoc(lines) {
-  const doc = Text.of(lines)
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out
-}
-
-/** The same, for the lines of a `@startmath` block. */
-const read = (...lines) => readDoc(['@startmath', ...lines, '@endmath']).slice(1, -1)
+/** [text, token class] for every highlighted span of the lines of a `@startmath` block. */
+const read = (...lines) => blockTokens(language, 'math', lines)
 
 describe('the math profile', () => {
   it('is the math type with no completions or lints', () => {
@@ -121,17 +111,17 @@ describe('a @startmath block', () => {
 
 describe('an inline <math>', () => {
   it('reads its middle as AsciiMath and its tags as tags, in a note and a label', () => {
-    expect(readDoc(['note: area <math>pi r^2</math>', 'actor A'])).toEqual([
+    expect(tokensOf(language, ['note: area <math>pi r^2</math>', 'actor A'])).toEqual([
       ['note', 'keyword'], ['<math>', 'tagName'], ['pi', 'VariableName'], ['^', 'operator'], ['2', 'number'], ['</math>', 'tagName'],
       ['actor', 'keyword'], ['A', 'typeName'],
     ])
-    expect(readDoc(['A -> B : x <math>sinx</math> y'])).toEqual([
+    expect(tokensOf(language, ['A -> B : x <math>sinx</math> y'])).toEqual([
       ['->', 'LinkOperator'], ['x ', 'labelName'], ['<math>', 'tagName'], ['sin', 'FunctionName'], ['</math>', 'tagName'], [' y', 'labelName'],
     ])
   })
 
   it('ends at the first </math>, and never reads a setting', () => {
-    expect(readDoc(['note: <math>color red</math> and <math>"a</math>'])).toEqual([
+    expect(tokensOf(language, ['note: <math>color red</math> and <math>"a</math>'])).toEqual([
       ['note', 'keyword'], ['<math>', 'tagName'], ['color', 'FunctionName'], ['</math>', 'tagName'], ['<math>', 'tagName'], ['"a', 'string'],
       ['</math>', 'tagName'],
     ])

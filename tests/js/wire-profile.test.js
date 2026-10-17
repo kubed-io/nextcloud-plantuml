@@ -3,25 +3,16 @@
 //
 // The wire profile: what its mode names inside `@startwire` blocks, read the way CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import wireProfile from '../../src/editor/profiles/wire.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const wire = wireProfile(core)
 const language = plantumlLanguage({ wire: wire.mode })
 
 /** [text, token class] for every highlighted span of the lines in a wire block. */
-function tokens(...lines) {
-  const doc = Text.of(['@startwire', ...lines, '@endwire'])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (...lines) => blockTokens(language, 'wire', lines)
 
 describe('the wire profile', () => {
   it('is the wire type with no completions or lints', () => {

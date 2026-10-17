@@ -4,10 +4,11 @@
 // The docs index (I1): what each key's entry holds once the source's text,
 // our own lines and the plantuml.com links are merged, and how it loads.
 import { readFileSync } from 'node:fs'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CONNECTORS } from '../../src/editor/completion/connectors.js'
 import { buildDocs, loadDocs } from '../../src/editor/docs/index.js'
 import { HELPERS, KEYWORDS } from '../../src/editor/completion/keywords.js'
+import { resetOnce } from '../../src/editor/once.js'
 
 // The first import of own.json fails, as a chunk does offline; every later one answers.
 const own = vi.hoisted(() => ({ failures: 1 }))
@@ -178,6 +179,8 @@ describe('buildDocs', () => {
 })
 
 describe('loadDocs', () => {
+  beforeEach(resetOnce)
+
   it('forgets a failed load, so the next call tries again, and then keeps the index', async () => {
     await expect(loadDocs()).rejects.toThrow()
     const docs = await loadDocs()

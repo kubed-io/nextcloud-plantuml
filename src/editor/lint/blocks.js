@@ -9,6 +9,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import { APP_ID } from '../../files-helpers.js'
 import { blocksOf, diagramsOf } from '../blocks.js'
+import { replaceAction } from './actions.js'
 
 const END = /^(\s*)@end(\w*)\s*$/
 
@@ -52,12 +53,7 @@ export function blocksLint(state) {
         to: start + '@end'.length + written.length,
         severity: 'error',
         message: t(APP_ID, 'This closes @start{type}', { type }),
-        actions: [{
-          name: t(APP_ID, 'Change to @end{type}', { type }),
-          apply(view, from, to) {
-            view.dispatch({ changes: { from, to, insert: `@end${type}` } })
-          },
-        }],
+        actions: [replaceAction(t(APP_ID, 'Change to @end{type}', { type }), `@end${type}`)],
       })
     }
   })

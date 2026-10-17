@@ -4,27 +4,18 @@
 // The flow and bpm profiles: what their modes name inside `@startflow` and
 // `@startbpm` blocks, read the way CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { core } from './helpers/core.js'
 import flowProfile from '../../src/editor/profiles/flow.js'
 import bpmProfile from '../../src/editor/profiles/bpm.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const flow = flowProfile(core)
 const bpm = bpmProfile(core)
 const language = plantumlLanguage({ flow: flow.mode, bpm: bpm.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */
-function tokens(type, ...lines) {
-  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (type, ...lines) => blockTokens(language, type, lines)
 const flowTokens = (...lines) => tokens('flow', ...lines)
 const bpmTokens = (...lines) => tokens('bpm', ...lines)
 

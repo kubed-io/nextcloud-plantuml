@@ -6,7 +6,7 @@
 // read with its type's grammar, the body underneath it back after every way out; its shape, the
 // profiles it needs, its fold and the completion after `{{`.
 import { describe, expect, it } from 'vitest'
-import { EditorState, Text } from '@codemirror/state'
+import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { CompletionContext } from '@codemirror/autocomplete'
 import { StringStream, ensureSyntaxTree, foldable } from '@codemirror/language'
@@ -21,6 +21,8 @@ import { core } from './helpers/core.js'
 import saltProfile from '../../src/editor/profiles/salt.js'
 import jsonProfile from '../../src/editor/profiles/json.js'
 import styleProfile from '../../src/editor/profiles/style.js'
+import { blockTokens } from './helpers/tokens.js'
+import { stateAt } from './helpers/state.js'
 
 const salt = saltProfile(core).mode
 const json = jsonProfile(core).mode
@@ -30,16 +32,7 @@ const language = plantumlLanguage({ salt, json })
 function tokens(...lines) {
   return read(language, ...lines)
 }
-function read(with_, ...lines) {
-  const doc = Text.of(['@startuml', ...lines, '@enduml'])
-  const out = []
-  with_.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const read = (with_, ...lines) => blockTokens(with_, 'uml', lines)
 
 describe('subDiagramsOf', () => {
   it('finds a sub-diagram with its type and lines', () => {
@@ -387,8 +380,7 @@ describe('folding', () => {
 
 describe('completion', () => {
   const contextAt = (marked) => {
-    const pos = marked.indexOf('|')
-    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode] })
+    const { state, pos } = stateAt(marked, [plantumlMode])
     return { state, pos, context: new CompletionContext(state, pos, false) }
   }
 

@@ -4,29 +4,20 @@
 // The board and git profiles: what their modes name inside `@startboard` and
 // `@startgit` blocks, read the way CodeMirror reads them.
 import { describe, expect, it } from 'vitest'
-import { Text } from '@codemirror/state'
 import { plantumlLanguage } from '../../src/editor/plantuml-mode.js'
 import { scan } from '../../src/editor/blocks.js'
 import { core } from './helpers/core.js'
 import { needed } from '../../src/editor/profiles/index.js'
 import boardProfile from '../../src/editor/profiles/board.js'
 import gitProfile from '../../src/editor/profiles/git.js'
+import { blockTokens } from './helpers/tokens.js'
 
 const board = boardProfile(core)
 const git = gitProfile(core)
 const language = plantumlLanguage({ board: board.mode, git: git.mode })
 
 /** [text, token class] for every highlighted span of the lines in a block of `type`. */
-function tokens(type, ...lines) {
-  const doc = Text.of([`@start${type}`, ...lines, `@end${type}`])
-  const out = []
-  language.parser.parse(doc.toString()).iterate({
-    enter(node) {
-      if (!node.type.isTop) out.push([doc.sliceString(node.from, node.to), node.type.name])
-    },
-  })
-  return out.slice(1, -1)
-}
+const tokens = (type, ...lines) => blockTokens(language, type, lines)
 const boardTokens = (...lines) => tokens('board', ...lines)
 const gitTokens = (...lines) => tokens('git', ...lines)
 

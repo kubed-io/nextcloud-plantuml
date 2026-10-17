@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { syntaxTree } from '@codemirror/language'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { acceptCompletion, completionStatus, currentCompletions, setSelectedCompletion, startCompletion } from '@codemirror/autocomplete'
+import { acceptCompletion, currentCompletions, setSelectedCompletion, startCompletion } from '@codemirror/autocomplete'
 import { history, undo } from '@codemirror/commands'
 import { translate } from '@nextcloud/l10n'
 import { diagramsOf } from '../../src/editor/blocks.js'
@@ -20,30 +20,27 @@ import { stepNumber, valueAt, valuesOn } from '../../src/editor/values/index.js'
 import { serverColors, serverList } from '../../src/editor/completion/server-list.js'
 import { valueWidgets } from '../../src/editor/values/widgets.js'
 import vocabulary from '../../src/editor/data/vocabulary.json'
+import { serverAnswering, serverDown } from './helpers/server.js'
+import { stateAt, waitForCompletion } from './helpers/state.js'
 
 const THEMES = ['_none_', 'cerulean', 'cerulean-outline', 'vibrant']
 // The theme list is asked once per page, so once for this file.
-vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
 const COLORS = { red: '#FF0000', gold: '#FFD700', navy: '#000080', aqua: '#00FFFF', cyan: '#00FFFF', yellow: '#FFFF00', black: '#000000', white: '#FFFFFF', Odd: null }
-const answer = async (url) => new Response(JSON.stringify(String(url).endsWith('/colors') ? { colors: COLORS } : { themes: THEMES }), { status: 200 })
-const fetch = vi.fn(answer)
-vi.stubGlobal('fetch', fetch)
+const fetch = serverAnswering({ colors: COLORS, themes: THEMES })
+const answer = fetch.getMockImplementation()
 
 const profile = styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: translate })
 const extensions = [profileExtension([profile]), plantumlCompletion, history(), valueWidgets]
 
 const style = (...lines) => `<style>\nnode {\n${lines.map((line) => `  ${line}`).join('\n')}\n}\n</style>`
 
-function stateAt(marked) {
-  return EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([profile])] })
-}
+const stateOf = (marked) => stateAt(marked, [profileExtension([profile])]).state
 
 let view = null
 
 function open(marked) {
-  const pos = marked.indexOf('|')
   view = new EditorView({
-    state: EditorState.create({ doc: marked.replace('|', ''), selection: { anchor: pos }, extensions }),
+    state: stateAt(marked, extensions).state,
     parent: document.body,
   })
   return view
@@ -71,7 +68,7 @@ function click(target) {
 }
 
 async function shown() {
-  await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+  await waitForCompletion(view)
   return currentCompletions(view.state).map((option) => option.label)
 }
 
@@ -79,7 +76,7 @@ async function shown() {
 async function pick(label) {
   const index = (await shown()).indexOf(label)
   view.dispatch({ effects: setSelectedCompletion(index) })
-  await vi.waitFor(() => expect(acceptCompletion(view)).toBe(true))
+  await waitForCompletion(view, () => expect(acceptCompletion(view)).toBe(true))
 }
 
 afterEach(() => {
@@ -92,7 +89,7 @@ describe('valueAt', () => {
   it('finds a style value from a list, with its range', () => {
     const text = style('FontStyle bold')
     const from = text.indexOf('bold')
-    const value = valueAt(stateAt(text), from + 2)
+    const value = valueAt(stateOf(text), from + 2)
 
     expect(value).toMatchObject({ from, to: from + 4, kind: 'list' })
     expect(value.options()).toEqual(vocabulary.style.fontStyles)
@@ -103,7 +100,7 @@ describe('valueAt', () => {
     ['ShowStereotype false', 'false', ['true', 'false']],
   ])('finds %s as a list value', (line, word, list) => {
     const text = style(line)
-    const value = valueAt(stateAt(text), text.indexOf(word))
+    const value = valueAt(stateOf(text), text.indexOf(word))
     expect(value).toMatchObject({ kind: 'list', from: text.indexOf(word), to: text.indexOf(word) + word.length })
     expect(value.options()).toEqual(list)
   })
@@ -112,21 +109,21 @@ describe('valueAt', () => {
     const text = style('FontSize 22')
     const from = text.indexOf('22')
 
-    expect(valueAt(stateAt(text), from)).toMatchObject({ from, to: from + 2, kind: 'number', min: 0 })
+    expect(valueAt(stateOf(text), from)).toMatchObject({ from, to: from + 2, kind: 'number', min: 0 })
   })
 
   it('finds a number on a one-line style block', () => {
     const text = '<style>node { Padding 4 }</style>'
-    expect(valueAt(stateAt(text), text.indexOf('4'))).toMatchObject({ kind: 'number', min: 0 })
+    expect(valueAt(stateOf(text), text.indexOf('4'))).toMatchObject({ kind: 'number', min: 0 })
   })
 
   it('finds nothing on other lines, outside a style block, or in a value with no list', () => {
     const text = style('FontSize 22', 'LineColor red')
-    const state = stateAt(text)
+    const state = stateOf(text)
 
     expect(valueAt(state, text.indexOf('node'))).toBeNull()
     expect(valueAt(state, text.indexOf('FontSize'))).toBeNull()
-    expect(valueAt(stateAt('node {\n  FontSize 22\n}'), 'node {\n  FontSize 2'.length)).toBeNull()
+    expect(valueAt(stateOf('node {\n  FontSize 22\n}'), 'node {\n  FontSize 2'.length)).toBeNull()
   })
 
   it.each([
@@ -138,16 +135,16 @@ describe('valueAt', () => {
     ['title <size:18>Big</size>', '18', 'number'],
   ])('finds the core value in %j', (text, word, kind) => {
     const from = text.indexOf(word)
-    expect(valueAt(stateAt(text), from)).toMatchObject({ from, to: from + word.length, kind })
+    expect(valueAt(stateOf(text), from)).toMatchObject({ from, to: from + word.length, kind })
   })
 
   it('takes the server\'s themes for a theme\'s list', async () => {
-    expect(await valueAt(stateAt('!theme cerulean'), 8).options()).toEqual(THEMES)
+    expect(await valueAt(stateOf('!theme cerulean'), 8).options()).toEqual(THEMES)
   })
 
   it('finds each number in a style value of several, never below 0 where the property cannot be negative', () => {
     const text = style('Margin 10 20 10 20')
-    const state = stateAt(text)
+    const state = stateOf(text)
     const line = text.indexOf('Margin')
     const at = [7, 10, 13, 16].map((column) => line + column)
 
@@ -156,24 +153,24 @@ describe('valueAt', () => {
 
   it('finds the numbers in a skinparam block, and none after it closes', () => {
     const text = 'skinparam class {\n  FontSize 12\n  LineThickness 2\n  BackgroundColor red\n}\nFontSize 14'
-    const state = stateAt(text)
+    const state = stateOf(text)
 
     expect(valueAt(state, text.indexOf('12'))).toMatchObject({ from: text.indexOf('12'), to: text.indexOf('12') + 2, kind: 'number', min: 0 })
     expect(valueAt(state, text.indexOf(' 2') + 1)).toMatchObject({ kind: 'number' })
     expect(valueAt(state, text.indexOf('red'))).toBeNull()
     expect(valueAt(state, text.indexOf('14'))).toBeNull()
-    expect(valueAt(stateAt('skinparam {\n  Padding 4\n}'), 'skinparam {\n  Padding '.length)).toMatchObject({ kind: 'number' })
+    expect(valueAt(stateOf('skinparam {\n  Padding 4\n}'), 'skinparam {\n  Padding '.length)).toMatchObject({ kind: 'number' })
   })
 
   it('finds no core value where the line means something else', () => {
-    expect(valueAt(stateAt('A -> B : !theme x'), 16)).toBeNull()
-    expect(valueAt(stateAt('skinparam backgroundColor red'), 27)).toBeNull()
-    expect(valueAt(stateAt('A -> B : 12'), 10)).toBeNull()
+    expect(valueAt(stateOf('A -> B : !theme x'), 16)).toBeNull()
+    expect(valueAt(stateOf('skinparam backgroundColor red'), 27)).toBeNull()
+    expect(valueAt(stateOf('A -> B : 12'), 10)).toBeNull()
   })
 })
 
 describe('a tag\'s values (W4)', () => {
-  const on = (text) => valuesOn(stateAt(text), 1)
+  const on = (text) => valuesOn(stateOf(text), 1)
 
   it('finds valign as a list and vspace as a number in an img tag', async () => {
     const text = '<img src=x.png valign=top vspace=4>'
@@ -234,7 +231,7 @@ describe('a tag\'s values (W4)', () => {
     ['A|<font:Sans Serif', 'Sans'],
     ['<font:DejaVu Sans>x</font>|', 'DejaVu Sans'],
   ])('reads the family of %j as %j', (marked, family) => {
-    const state = EditorState.create({ doc: marked.replace('|', ''), selection: { anchor: marked.indexOf('|') } })
+    const { state } = stateAt(marked)
     const [value] = valuesOn(state, 1)
 
     expect(state.sliceDoc(value.from, value.to)).toBe(family)
@@ -255,7 +252,7 @@ describe('a tag\'s values (W4)', () => {
 
   it('resolves no fonts when the server cannot answer', async () => {
     vi.resetModules()
-    fetch.mockImplementationOnce(async () => new Response('{}', { status: 503 }))
+    fetch.mockImplementationOnce(serverDown)
     const { valuesOn: fresh } = await import('../../src/editor/values/index.js')
     const state = EditorState.create({ doc: '<font:Dialog>' })
 
@@ -264,7 +261,7 @@ describe('a tag\'s values (W4)', () => {
 
   it('draws no pencil for <font:…> once the server is known to list no fonts, and one while it is pending', async () => {
     vi.resetModules()
-    fetch.mockImplementationOnce(async () => new Response('{}', { status: 503 }))
+    fetch.mockImplementationOnce(serverDown)
     const widgets = (await import('../../src/editor/values/widgets.js')).valueWidgets
     const { serverList } = await import('../../src/editor/completion/server-list.js')
     const make = () => new EditorView({ state: EditorState.create({ doc: '<font:Dejavu>', selection: { anchor: 3 }, extensions: [widgets] }), parent: document.body })
@@ -318,7 +315,7 @@ describe('icons and emoji by name (W7)', () => {
   const listsOn = async (text) => {
     fetch.mockImplementation(lists)
     await Promise.all([serverList('icons'), serverList('emoji')])
-    return valuesOn(stateAt(text), 1).filter((value) => value.kind === 'list')
+    return valuesOn(stateOf(text), 1).filter((value) => value.kind === 'list')
   }
 
   afterEach(() => fetch.mockImplementation(answer))
@@ -361,7 +358,7 @@ describe('icons and emoji by name (W7)', () => {
     const text = 'A : <&star{scale=2}>'
     const star = text.indexOf('star')
     const two = text.indexOf('2')
-    const state = stateAt(text)
+    const state = stateOf(text)
 
     expect(valuesOn(state, 1)).toEqual([
       expect.objectContaining({ from: star, to: star + 4, kind: 'list' }),
@@ -376,13 +373,13 @@ describe('icons and emoji by name (W7)', () => {
   })
 
   it('finds none once the server is known to list none', async () => {
-    fetch.mockImplementation(async () => new Response('{}', { status: 503 }))
+    fetch.mockImplementation(serverDown)
     vi.resetModules()
     const fresh = await import('../../src/editor/values/index.js')
     const { serverList: ask } = await import('../../src/editor/completion/server-list.js')
     await Promise.all([ask('icons'), ask('emoji')])
 
-    expect(fresh.valuesOn(stateAt('<&document> <:rocket:>'), 1)).toEqual([])
+    expect(fresh.valuesOn(stateOf('<&document> <:rocket:>'), 1)).toEqual([])
   })
 })
 
@@ -755,7 +752,7 @@ describe('named colours by name (W5)', () => {
   }
 
   it('draws no pencil before or after a server that names no colours answers', async () => {
-    const serverColors = await fresh(async () => new Response('{}', { status: 503 }))
+    const serverColors = await fresh(serverDown)
     expect(choosers()).toHaveLength(0)
     await serverColors()
     await new Promise((resolve) => setTimeout(resolve))

@@ -15,6 +15,7 @@ import { blocksLint } from '../../src/editor/lint/blocks.js'
 import { serverMistake } from '../../src/editor/lint/server-error.js'
 import { yamlLint as yamlRule } from '../../src/editor/lint/yaml.js'
 import { styleLint as styleRule } from '../../src/editor/lint/style.js'
+import { replaceAction } from '../../src/editor/lint/actions.js'
 import { translate } from '@nextcloud/l10n'
 import { diagramsOf } from '../../src/editor/blocks.js'
 import { styleRegions } from '../../src/editor/regions.js'
@@ -314,7 +315,7 @@ arrow {
 
 describe('style', () => {
   // The real translator: its sanitizing would strip a `</style>` from a message.
-  const run = (doc) => styleRule({ t: translate, styleBlocks: styleRegions })(stateOf(doc))
+  const run = (doc) => styleRule({ t: translate, styleBlocks: styleRegions, replaceAction })(stateOf(doc))
   const apply = (doc, diagnostic, action = 0) => {
     const view = new EditorView({ state: stateOf(doc), parent: document.body })
     diagnostic.actions[action].apply(view, diagnostic.from, diagnostic.to)
@@ -377,7 +378,7 @@ describe('style', () => {
 
   it('translates its messages under the app id, the tag in them kept as text', () => {
     const t = vi.fn((_app, text, vars) => text.replace('{name}', vars?.name))
-    const found = styleRule({ t, styleBlocks: styleRegions })(stateOf('<style>\nnode {\n  FontSise 1\n'))
+    const found = styleRule({ t, styleBlocks: styleRegions, replaceAction })(stateOf('<style>\nnode {\n  FontSise 1\n'))
 
     expect(found.map((d) => d.message)).toEqual(['No </style> for this style block', 'Unknown style property FontSise'])
     expect(t.mock.calls).toEqual([

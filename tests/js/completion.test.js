@@ -43,6 +43,8 @@ import { filePath } from '../../src/editor/lint/state.js'
 import { listFolder, loadFile } from '../../src/editor/save.js'
 import { loadDocs } from '../../src/editor/docs/index.js'
 import { withDocs } from '../../src/editor/completion/docs.js'
+import { answering, serverAnswering, serverDown } from './helpers/server.js'
+import { stateAt, waitForCompletion } from './helpers/state.js'
 
 // jsdom has no layout; accepting a completion scrolls the cursor into view, which measures text.
 Range.prototype.getClientRects ??= () => []
@@ -59,13 +61,10 @@ vi.mock('../../src/editor/docs/index.js', async (original) => {
   return { ...real, loadDocs: vi.fn(real.loadDocs) }
 })
 
-function stateAt(marked) {
-  const pos = marked.indexOf('|')
-  return { pos, state: EditorState.create({ doc: marked.replace('|', ''), extensions: [plantumlMode, plantumlCompletion] }) }
-}
+const base = [plantumlMode, plantumlCompletion]
 
 function complete(source, marked, explicit = false) {
-  const { state, pos } = stateAt(marked)
+  const { state, pos } = stateAt(marked, base)
   return source(new CompletionContext(state, pos, explicit))
 }
 
@@ -73,7 +72,7 @@ const labels = (result) => result.options.map((option) => option.label)
 
 describe('the completion sources', () => {
   it('are each registered through the PlantUML language data, in order', () => {
-    const { state, pos } = stateAt('|')
+    const { state, pos } = stateAt('|', base)
     expect(state.languageDataAt('autocomplete', pos)).toEqual(sources.map(withDocs))
     expect(sources).toEqual([directives, keywords, names, snippets, values, connectors, styleTag, filesNote, stdlib, creole, tagAttributes, icons, emoji, colors, builtins, localFiles, protocols, subDiagrams])
   })
@@ -91,7 +90,7 @@ describe('the completion sources', () => {
 
 /** Applies `option` from `result` in a real view, as picking it in the popup does. */
 function pick(marked, source, label) {
-  const { state, pos } = stateAt(marked)
+  const { state, pos } = stateAt(marked, base)
   const view = new EditorView({ state, parent: document.body })
   const result = source(new CompletionContext(view.state, pos, false))
   const option = result.options.find((candidate) => candidate.label === label)
@@ -223,9 +222,7 @@ describe('themes', () => {
   // The list is fetched once per page, so each test loads a fresh module.
   beforeEach(async () => {
     vi.resetModules()
-    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-    fetch = vi.fn(async () => new Response(JSON.stringify({ themes: THEMES }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-    vi.stubGlobal('fetch', fetch)
+    fetch = serverAnswering({ themes: THEMES })
     themesSource = (await import('../../src/editor/completion/values.js')).values
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -266,10 +263,10 @@ describe('themes', () => {
       parent: document.body,
     })
     startCompletion(view)
-    await vi.waitFor(() => expect(currentCompletions(view.state)).toHaveLength(THEMES.length))
+    await waitForCompletion(view, () => expect(currentCompletions(view.state)).toHaveLength(THEMES.length))
 
     view.dispatch({ changes: { from: '!theme '.length, to: '!theme cerulean'.length, insert: 'v' }, selection: { anchor: '!theme v'.length }, userEvent: 'input.type' })
-    await vi.waitFor(() => expect(currentCompletions(view.state).map((option) => option.label)).toEqual(['vibrant']))
+    await waitForCompletion(view, () => expect(currentCompletions(view.state).map((option) => option.label)).toEqual(['vibrant']))
     view.destroy()
   })
 
@@ -303,11 +300,6 @@ describe('themes', () => {
   })
 })
 
-/** A server list route answering `body`, as `GET /apps/plantuml/<name>` does. */
-function answering(body) {
-  return vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-}
-
 describe('a tag\'s values', () => {
   it('offers valign\'s three on Ctrl-Space, the current one first', async () => {
     expect(labels(await complete(values, '<img valign=|>', true))).toEqual(['top', 'middle', 'bottom'])
@@ -322,9 +314,7 @@ describe('icons', () => {
 
   beforeEach(async () => {
     vi.resetModules()
-    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-    fetch = answering({ icons: ICONS })
-    vi.stubGlobal('fetch', fetch)
+    fetch = serverAnswering({ icons: ICONS })
     iconsSource = (await import('../../src/editor/completion/icons.js')).icons
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -341,7 +331,7 @@ describe('icons', () => {
   })
 
   it('closes the tag when one is picked', async () => {
-    const { state, pos } = stateAt('title <&cl|')
+    const { state, pos } = stateAt('title <&cl|', base)
     const view = new EditorView({ state, parent: document.body })
     const result = await iconsSource(new CompletionContext(view.state, pos, false))
     const clock = result.options.find((option) => option.label === 'clock')
@@ -385,9 +375,7 @@ describe('emoji', () => {
 
   beforeEach(async () => {
     vi.resetModules()
-    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-    fetch = answering({ emoji: EMOJI })
-    vi.stubGlobal('fetch', fetch)
+    fetch = serverAnswering({ emoji: EMOJI })
     emojiSource = (await import('../../src/editor/completion/emoji.js')).emoji
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -403,7 +391,7 @@ describe('emoji', () => {
   })
 
   it('closes the tag when one is picked', async () => {
-    const { state, pos } = stateAt('<:su|')
+    const { state, pos } = stateAt('<:su|', base)
     const view = new EditorView({ state, parent: document.body })
     const result = await emojiSource(new CompletionContext(view.state, pos, false))
     const sunny = result.options.find((option) => option.label === 'sunny')
@@ -436,9 +424,7 @@ describe('named colours', () => {
 
   beforeEach(async () => {
     vi.resetModules()
-    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-    fetch = answering({ colors: COLORS })
-    vi.stubGlobal('fetch', fetch)
+    fetch = serverAnswering({ colors: COLORS })
     colorsSource = (await import('../../src/editor/completion/colors.js')).colors
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -685,11 +671,11 @@ describe('style tags', () => {
 
   /** The labels the popup shows at the cursor, in its order. */
   async function popup(marked) {
-    const { state, pos } = stateAt(marked)
+    const { state, pos } = stateAt(marked, base)
     const view = new EditorView({ state, parent: document.body })
     view.dispatch({ selection: { anchor: pos } })
     startCompletion(view)
-    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    await waitForCompletion(view)
     const shown = currentCompletions(view.state).map((option) => option.label)
     view.destroy()
     return shown
@@ -809,8 +795,7 @@ describe('connectors', () => {
     ['a style property\'s value', '<style>\nnode {\n  FontStyle |bold\n}\n</style>'],
     ['a style property\'s empty value', '<style>\nnode {\n  FontStyle |\n}\n</style>'],
   ])('are not offered where %s sits', (_what, marked) => {
-    const pos = marked.indexOf('|')
-    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: (app, text) => text })])] })
+    const { state, pos } = stateAt(marked, [profileExtension([styleProfile({ diagrams: diagramsOf, styleBlocks: styleRegions, t: (app, text) => text })])])
     expect(connectors(new CompletionContext(state, pos, true))).toBeNull()
   })
 
@@ -888,7 +873,7 @@ describe('the server\'s keywords', () => {
     expect(await ask('left to right direction x|')).toBeNull()
     expect(await ask('note over A|')).toBeNull()
 
-    const { state, pos } = stateAt('left|')
+    const { state, pos } = stateAt('left|', base)
     const view = new EditorView({ state, parent: document.body })
     const result = await module.keywords(new CompletionContext(view.state, pos, false))
     const option = result.options.find((candidate) => candidate.label === 'left to right direction')
@@ -920,7 +905,7 @@ describe('the server\'s keywords', () => {
 
   it.each([
     ['the request fails', () => vi.fn(async () => { throw new TypeError('offline') })],
-    ['the server answers 503', () => vi.fn(async () => new Response('{}', { status: 503 }))],
+    ['the server answers 503', () => vi.fn(serverDown)],
     ['keywords is not a list', () => answering({ keywords: 'x' })],
   ])('offers the hand-kept words alone when %s', async (_when, make) => {
     await serving(make())
@@ -972,7 +957,7 @@ describe('built-in functions', () => {
   })
 
   it('inserts name() with the cursor between the parentheses', async () => {
-    const { state, pos } = stateAt('A: %str|')
+    const { state, pos } = stateAt('A: %str|', base)
     const view = new EditorView({ state })
     const result = await builtins(new CompletionContext(state, pos, false))
     const option = result.options.find((o) => o.label === '%strlen')
@@ -1088,7 +1073,7 @@ describe('snippets', () => {
   })
 
   it('inserts the block with its first field selected', () => {
-    const { state, pos } = stateAt('al|')
+    const { state, pos } = stateAt('al|', base)
     const view = new EditorView({ state, parent: document.body })
     const result = snippets(new CompletionContext(view.state, pos, false))
     const alt = result.options.find((option) => option.label === 'alt')
@@ -1108,8 +1093,7 @@ describe('style', () => {
 
   /** The registry's list source over a state with the style profile's values. */
   function styleValues(marked, explicit = false) {
-    const pos = marked.indexOf('|')
-    const state = EditorState.create({ doc: marked.replace('|', ''), extensions: [profileExtension([profile])] })
+    const { state, pos } = stateAt(marked, [profileExtension([profile])])
     return values(new CompletionContext(state, pos, explicit))
   }
   const { selectors, properties, fontStyles } = vocabulary.style
@@ -1126,7 +1110,7 @@ describe('style', () => {
     })
     view.dispatch({ selection: { anchor: pos } })
     startCompletion(view)
-    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    await waitForCompletion(view)
     const shown = currentCompletions(view.state).map((option) => option.label)
     view.destroy()
     return shown
@@ -1244,8 +1228,7 @@ describe('inside a style block', () => {
   // The colours are asked once per page, so each test loads fresh modules, the profile's facets with them.
   beforeEach(async () => {
     vi.resetModules()
-    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-    vi.stubGlobal('fetch', answering({ colors: COLORS }))
+    serverAnswering({ colors: COLORS })
     const { plantumlCompletion: completion } = await import('../../src/editor/completion/index.js')
     const { profileExtension: profiles } = await import('../../src/editor/profiles/index.js')
     extensions = [profiles([profile]), completion]
@@ -1263,7 +1246,7 @@ describe('inside a style block', () => {
     })
     view.dispatch({ selection })
     startCompletion(view)
-    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    await waitForCompletion(view)
     const shown = currentCompletions(view.state).map((option) => option.label)
     view.destroy()
     return shown
@@ -1315,7 +1298,7 @@ describe('inside a style block', () => {
 
 describe('inStyleBody, the core sources\' guard', () => {
   const at = (marked) => {
-    const { state, pos } = stateAt(marked)
+    const { state, pos } = stateAt(marked, base)
     return inStyleBody(state, pos)
   }
 
@@ -1478,8 +1461,7 @@ describe('local paths', () => {
 
     expect(view.state.doc.toString()).toBe('!include sub/')
     vi.mocked(listFolder).mockClear()
-    await new Promise((resolve) => setTimeout(resolve, 150))
-    expect(listFolder).toHaveBeenCalledWith('/Diagrams/sub')
+    await waitForCompletion(view, () => expect(listFolder).toHaveBeenCalledWith('/Diagrams/sub'))
     view.destroy()
   })
 })
@@ -1574,8 +1556,7 @@ describe('sections and blocks of an included file', () => {
   it('adds the ! after a file picked for !includesub and opens the names, but not for !include', async () => {
     const sub = await pickAfter('!includesub')
     expect(sub.state.doc.toString()).toBe('!includesub parts.puml!')
-    await new Promise((resolve) => setTimeout(resolve, 150))
-    expect(completionStatus(sub.state)).toBe('active')
+    await waitForCompletion(sub)
     sub.destroy()
 
     const plain = await pickAfter('!include')
@@ -1692,7 +1673,7 @@ describe('tag attributes', () => {
     const view = pick('<img |', tagAttributes, 'valign=')
 
     expect(view.state.doc.toString()).toBe('<img valign=')
-    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    await waitForCompletion(view)
     expect(currentCompletions(view.state).map((option) => option.label)).toEqual(['top', 'middle', 'bottom'])
     view.destroy()
   })
@@ -1711,9 +1692,7 @@ describe('stdlib', () => {
   // The list is asked once per page, so each test loads fresh modules.
   beforeEach(async () => {
     vi.resetModules()
-    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-    fetch = answering({ stdlib: STDLIB })
-    vi.stubGlobal('fetch', fetch)
+    fetch = serverAnswering({ stdlib: STDLIB })
     stdlibSource = (await import('../../src/editor/completion/stdlib.js')).stdlib
     fresh = await import('../../src/editor/completion/index.js')
   })
@@ -1833,7 +1812,7 @@ describe('stdlib', () => {
     const view = await pickAt(`${directive} <|`, 'c4')
 
     expect(view.state.doc.toString()).toBe(`${directive} <c4/`)
-    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    await waitForCompletion(view)
     expect(shown(view)).toContain('C4_Container')
     view.destroy()
   })
@@ -1842,7 +1821,7 @@ describe('stdlib', () => {
     const view = await pickAt('!include <c4/|', 'themes/')
 
     expect(view.state.doc.toString()).toBe('!include <c4/themes/')
-    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    await waitForCompletion(view)
     expect(shown(view)).toContain('puml-theme-C4_united')
     view.destroy()
   })
@@ -1867,7 +1846,7 @@ describe('stdlib', () => {
     lt.apply(view, lt, result.from, pos)
 
     expect(view.state.doc.toString()).toBe('!include <')
-    await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'))
+    await waitForCompletion(view)
     expect(shown(view)).toEqual(['c4', 'material7', 'nope'])
     view.destroy()
   })
@@ -1947,7 +1926,7 @@ describe('protocols', () => {
 
 describe('the docs beside the completion list', () => {
   const context = (marked, explicit = false) => {
-    const { state, pos } = stateAt(marked)
+    const { state, pos } = stateAt(marked, base)
     return new CompletionContext(state, pos, explicit)
   }
   const docd = (source, marked, explicit = false) => withDocs(source)(context(marked, explicit))
@@ -2051,7 +2030,7 @@ describe('the docs beside the completion list', () => {
 describe('one block scan per document version (F2)', () => {
   it('serves a completion request and a hover from a single scan', async () => {
     const marked = '@startuml\nalt paid\n  Alice -> Bob\nend\nco|\n@enduml'
-    const { state, pos } = stateAt(marked)
+    const { state, pos } = stateAt(marked, base)
     scan.mockClear()
     diagramsOf.mockClear()
     diagramsWithout.mockClear()
@@ -2109,8 +2088,7 @@ describe('every docKey a source offers resolves in the shipped index', () => {
 
   beforeEach(async () => {
     vi.resetModules()
-    vi.stubGlobal('OC', { generateUrl: (url) => `/index.php${url}` })
-    vi.stubGlobal('fetch', answering(server))
+    serverAnswering(server)
     fresh = await import('../../src/editor/completion/index.js')
   })
   afterEach(() => vi.unstubAllGlobals())

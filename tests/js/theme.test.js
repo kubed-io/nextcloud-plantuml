@@ -277,12 +277,16 @@ describe('the doc card', () => {
     expect(rule('.cm-doc-pinned .cm-doc-close').visibility).toBe('visible')
   })
 
-  // Core's button rules outrank a single class (spec, Traps): live, they put the × after the kind.
-  it('styles the × as button.cm-doc-close, pushed to the head row\'s right end at 20 px', () => {
-    const selector = Object.keys(surfaceRules).find((one) => one.split(', ').includes('button.cm-doc-close'))
+  // Core's `button:not(.button-vue, [class^="vs__"]):not(.app-navigation-entry-button)` is (0,2,1) and
+  // comes later, so `.ͼscope button.cm-doc-close`, also (0,2,1), lost its margin live; one class more wins.
+  it('styles the × as .cm-tooltip button.cm-doc-close, pushed to the head row\'s right end at 20 px', () => {
+    const selector = Object.keys(surfaceRules).find((one) => one.split(', ').includes('.cm-tooltip button.cm-doc-close'))
     expect(selector).toBeDefined()
-    expect(selector).toContain('button.cm-doc-close:not(:disabled):hover')
-    expect(rule(selector)).toMatchObject({ margin: '0 0 0 auto', width: '20px', height: '20px', minWidth: '0', minHeight: '0', padding: '0', border: 'none', backgroundColor: 'transparent' })
+    for (const part of selector.split(', ')) {
+      expect(part.startsWith('.cm-tooltip button.cm-doc-close'), part).toBe(true)
+    }
+    expect(selector).toContain('.cm-tooltip button.cm-doc-close:not(:disabled):hover')
+    expect(rule(selector)).toMatchObject({ margin: '0 0 0 auto', marginInlineStart: 'auto', width: '20px', height: '20px', minWidth: '0', minHeight: '0', padding: '0', border: 'none', backgroundColor: 'transparent' })
     expect(rule(selector).marginLeft).toBeUndefined()
   })
 

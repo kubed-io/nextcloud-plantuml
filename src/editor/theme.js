@@ -322,9 +322,11 @@ export const surfaceRules = {
   '.cm-doc-icon svg': { width: '16px', height: '16px' },
   '.cm-doc-name': { fontFamily: MONO, fontWeight: 'bold' },
   '.cm-doc-kind': { color: 'var(--color-text-maxcontrast)' },
-  // As button.<class>, since core's button rules outrank a class alone and put the × after the
-  // kind; the auto margin keeps it at the head's right end, hidden or shown.
-  [buttonStates('button.cm-doc-close')]: {
+  // Core's `button:not(.button-vue, [class^="vs__"]):not(.app-navigation-entry-button)` is (0,2,1),
+  // as `.ͼscope button.cm-doc-close` is, and comes later: its margin put the × after the kind. The
+  // tooltip's class makes ours (0,3,1); keep it. The auto margin, logical too as core's is, holds the
+  // × at the head's right end, hidden or shown.
+  [buttonStates('.cm-tooltip button.cm-doc-close')]: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -333,6 +335,7 @@ export const surfaceRules = {
     minWidth: '0',
     minHeight: '0',
     margin: '0 0 0 auto',
+    marginInlineStart: 'auto',
     padding: '0',
     color: 'var(--color-text-maxcontrast)',
     backgroundColor: 'transparent',

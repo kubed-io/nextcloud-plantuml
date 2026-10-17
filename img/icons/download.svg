@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: 2026 kubed-io
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  The Viewer toolbar's Export and the export menu's items (Penpot icon
+  download). Imported (?raw) by src/viewer/toolbar.js and src/viewer/menu.js.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M2,12L4,12L4,17L20,17L20,12L22,12L22,17C22,18.11,21.11,19,20,19L4,19C2.9,19,2,18.11,2,17L2,12M12,15L17.55,9.54L16.13,8.13L13,11.25L13,2L11,2L11,11.25L7.88,8.13L6.46,9.55L12,15Z"/>
+</svg>

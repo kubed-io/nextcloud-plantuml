@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: 2026 kubed-io
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  The chevron after the Viewer toolbar's Export label (Penpot icon
+  chevron-down-small). Imported (?raw) by src/viewer/toolbar.js.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor">
+  <path d="M4.94,5.72L8,8.78L11.06,5.72L12,6.67L8,10.67L4,6.67L4.94,5.72Z"/>
+</svg>

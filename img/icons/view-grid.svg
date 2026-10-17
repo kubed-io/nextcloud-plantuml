@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: 2026 kubed-io
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  The Viewer toolbar's Wall option (Penpot icon view-grid). Imported (?raw) by
+  src/viewer/toolbar.js.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M3,11L11,11L11,3L3,3M5,5L9,5L9,9L5,9M13,21L21,21L21,13L13,13M15,15L19,15L19,19L15,19M3,21L11,21L11,13L3,13M5,15L9,15L9,19L5,19M13,3L13,11L21,11L21,3M19,9L15,9L15,5L19,5Z"/>
+</svg>

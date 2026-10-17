@@ -97,3 +97,139 @@
 	color: #ffffff;
 	font-size: 16px;
 }
+
+/* The toolbar (src/viewer/toolbar.js), centred in the head over the tab bar. */
+.plantuml-viewer__toolbar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 42px;
+	padding: 4px;
+	box-sizing: border-box;
+	border: 1px solid var(--color-border-maxcontrast);
+	border-radius: 100px;
+	background: var(--color-main-background);
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.plantuml-viewer__toolbar button.plantuml-viewer__button {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: var(--default-clickable-area);
+	min-height: 0;
+	margin: 0;
+	padding: 0 12px;
+	border: none;
+	border-radius: 100px;
+	background: transparent;
+	color: var(--color-main-text);
+	font-size: 14px;
+	font-weight: 400;
+}
+
+.plantuml-viewer__toolbar button.plantuml-viewer__button:hover {
+	background: var(--color-background-hover);
+}
+
+.plantuml-viewer__toolbar button.plantuml-viewer__button:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+}
+
+.plantuml-viewer__toolbar button.plantuml-viewer__mode[aria-pressed="true"] {
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+	font-weight: 700;
+}
+
+.plantuml-viewer__icon,
+.plantuml-viewer__icon svg {
+	display: block;
+	width: 24px;
+	height: 24px;
+}
+
+.plantuml-viewer__chevron,
+.plantuml-viewer__chevron svg {
+	display: block;
+	width: 16px;
+	height: 16px;
+}
+
+.plantuml-viewer__divider {
+	width: 1px;
+	height: 20px;
+	background: var(--color-border);
+}
+
+/* Stack: the cards one under another, 32px below the toolbar (the head's 16px
+ * gap and this padding). `safe` keeps a card wider than the stage from losing
+ * its left edge. */
+.plantuml-viewer__stage--stack {
+	flex-direction: column;
+	align-items: safe center;
+	gap: 24px;
+	padding-top: 16px;
+}
+
+.plantuml-viewer__stage--stack .plantuml-viewer__card {
+	width: 720px;
+	max-width: calc(100% - 32px);
+}
+
+/* Wall: the cards wrapping in file order, each at its diagram's own size. */
+.plantuml-viewer__stage--wall {
+	flex-wrap: wrap;
+	align-items: flex-start;
+	align-content: flex-start;
+	justify-content: safe center;
+	gap: 24px;
+	padding: 16px 80px 0;
+	box-sizing: border-box;
+}
+
+.plantuml-viewer__card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 4px;
+	border: 1px solid var(--color-border-maxcontrast);
+	border-radius: 8px;
+	background: var(--color-main-background);
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+	box-sizing: border-box;
+}
+
+.plantuml-viewer__card--checked {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -1px;
+}
+
+.plantuml-viewer__stage--wall .plantuml-viewer__card {
+	cursor: pointer;
+}
+
+.plantuml-viewer__caption {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: var(--default-clickable-area);
+	padding: 0 8px;
+	color: var(--color-main-text);
+	font-size: 14px;
+}
+
+.plantuml-viewer__caption input[type="checkbox"] {
+	width: 14px;
+	height: 14px;
+	margin: 0;
+	accent-color: var(--color-primary-element);
+}
+
+.plantuml-viewer__card .plantuml-viewer__sheet {
+	max-width: none;
+}
+
+.plantuml-viewer__card .plantuml-viewer__problem {
+	color: var(--color-main-text);
+}

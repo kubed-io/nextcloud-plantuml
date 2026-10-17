@@ -8,6 +8,7 @@ vi.mock('../../../src/editor/save.js', () => ({ loadFile: seams.loadFile }))
 const { createDiagramView } = await import('../../../src/viewer/diagram-view.js')
 
 const SCREENS = '@startuml nodes\nA -> B\n@enduml\n@startuml login\nC -> D\n@enduml\n'
+const THREE = SCREENS + '@startuml p3\nE -> F\n@enduml\n'
 const svg = (label) => `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><text>${label}</text></svg>`
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 const tabs = (root) => [...root.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)
@@ -49,7 +50,8 @@ describe('the Viewer, in Tabs', () => {
     createDiagramView(root, { path: '/D/Screens.puml', basename: 'Screens.puml', onReady: vi.fn() })
     await settle()
 
-    expect([...root.children].map((child) => child.className)).toEqual(['plantuml-viewer__head', 'plantuml-viewer__stage'])
+    // The stage also carries the mode shown, as plantuml-viewer__stage--tabs.
+    expect([...root.children].map((child) => child.classList[0])).toEqual(['plantuml-viewer__head', 'plantuml-viewer__stage'])
     expect(root.querySelector('.plantuml-viewer__head [role="tablist"]')).not.toBeNull()
   })
 
@@ -215,5 +217,98 @@ describe('the Viewer, in Tabs', () => {
     } finally {
       window.removeEventListener('keydown', seen)
     }
+  })
+})
+
+describe('Stack and Wall', () => {
+  const open = async (content) => {
+    seams.loadFile.mockResolvedValue({ content, etag: '"e"' })
+    createDiagramView(root, { path: '/D/S.puml', basename: 'S.puml', onReady: vi.fn() })
+    await settle()
+  }
+  const mode = (name) => root.querySelector(`.plantuml-viewer__toolbar [aria-label="${name}"]`).click()
+  const cards = () => [...root.querySelectorAll('.plantuml-viewer__card')]
+  const caption = (card) => card.querySelector('label').textContent
+  // The 1-based place of each drawing still asked for; the route is asked by 0-based index.
+  const waiting = (pending) => pending.map(({ url }) => String(Number(new URL(url, 'https://x').searchParams.get('index')) + 1))
+
+  it('puts the toolbar in the head, above the tab bar', async () => {
+    await open(THREE)
+
+    expect([...root.querySelector('.plantuml-viewer__head').children].map((child) => child.className))
+      .toEqual(['plantuml-viewer__toolbar', 'plantuml-viewer__tabbar'])
+  })
+
+  it('stacks every diagram as a card, captioned with a checkbox', async () => {
+    await open(THREE)
+    mode('Stack')
+    await settle()
+
+    expect(cards().map(caption)).toEqual(['nodes', 'login', 'p3'])
+    expect(shown(root)).toEqual(['nodes', 'login', 'p3'])
+    expect(root.querySelector('.plantuml-viewer__tabbar').hidden).toBe(true)
+  })
+
+  it('opens a Wall card in Tabs on a click outside its checkbox', async () => {
+    await open(THREE)
+    mode('Wall')
+    await settle()
+    cards()[1].querySelector('.plantuml-viewer__sheet').click()
+    await settle()
+
+    expect(root.querySelector('[role="tab"][aria-selected="true"]').textContent).toBe('login')
+    expect(shown(root)).toEqual(['login'])
+    expect(root.querySelector('.plantuml-viewer__tabbar').hidden).toBe(false)
+    expect(root.querySelector('.plantuml-viewer__toolbar [aria-pressed="true"]').getAttribute('aria-label')).toBe('Tabs')
+  })
+
+  it('stays in the Wall when a checkbox is clicked', async () => {
+    await open(THREE)
+    mode('Wall')
+    cards()[1].querySelector('input[type="checkbox"]').click()
+
+    expect(cards()).toHaveLength(3)
+    expect(cards()[1].classList.contains('plantuml-viewer__card--checked')).toBe(true)
+  })
+
+  it('stays in the Wall when a caption is clicked', async () => {
+    await open(THREE)
+    mode('Wall')
+    cards()[2].querySelector('label').click()
+
+    expect(cards()).toHaveLength(3)
+    expect(cards()[2].querySelector('input').checked).toBe(true)
+  })
+
+  it('keeps what is checked across modes', async () => {
+    await open(THREE)
+    mode('Stack')
+    cards()[2].querySelector('input[type="checkbox"]').click()
+    mode('Tabs')
+    mode('Wall')
+
+    expect(cards().map((card) => card.querySelector('input').checked)).toEqual([false, false, true])
+  })
+
+  it('has no switch for a file of one diagram', async () => {
+    await open('@startuml\nA -> B\n@enduml\n')
+
+    expect(root.querySelector('.plantuml-viewer__toolbar')).not.toBeNull()
+    expect(root.querySelector('.plantuml-viewer__toolbar [aria-pressed]')).toBeNull()
+  })
+
+  it('has no more than three drawings asked for at once, in file order', async () => {
+    const pending = []
+    fetch.mockImplementation((url) => new Promise((resolve) => pending.push({ url, resolve })))
+    await open(Array.from({ length: 40 }, (_, i) => `@startuml d${i + 1}\n@enduml\n`).join(''))
+    pending.shift().resolve(new Response(svg('d1')))
+    await settle()
+    mode('Stack')
+    await settle()
+
+    expect(waiting(pending)).toEqual(['2', '3', '4'])
+    pending.shift().resolve(new Response(svg('d2')))
+    await settle()
+    expect(waiting(pending)).toEqual(['3', '4', '5'])
   })
 })

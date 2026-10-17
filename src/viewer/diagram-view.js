@@ -6,13 +6,17 @@
  * file is read once and split as the editor's tabs split it; every open starts
  * in Tabs on the first diagram (VW8). The head (toolbar, tab bar) sits outside
  * the scrolling stage, so neither moves when a diagram changes size (VW3).
+ * Stack and Wall (VW4, VW5) show every diagram as a card with a checkbox; what
+ * is checked lasts while the view does, across modes.
  */
 import { translate as t } from '@nextcloud/l10n'
+import { loadState } from '@nextcloud/initial-state'
 import { APP_ID } from '../files-helpers.js'
 import { loadFile } from '../editor/save.js'
 import { label, scan } from '../editor/blocks.js'
 import { createTabs } from '../editor/tabs.js'
 import { createSheets } from './sheets.js'
+import { createToolbar } from './toolbar.js'
 
 // The Viewer keeps the file before mounted, hidden, beside the one shown: each
 // view numbers its ids, so a tab's aria-controls and a diagram's url(#…) find
@@ -38,9 +42,10 @@ function element(tag, className) {
 export function createDiagramView(root, { path, basename, onReady }) {
   const prefix = `plantuml-viewer-${++views}-`
   const stageId = `${prefix}stage`
-  const state = { active: 0 }
+  const state = { mode: 'tabs', active: 0, checked: new Set() }
   let diagrams = []
   let sheets = null
+  let toolbar = null
   let destroyed = false
   let ready = false
   const settle = () => {
@@ -75,10 +80,68 @@ export function createDiagramView(root, { path, basename, onReady }) {
     }
   })
 
+  /** Task 9: the Export label follows what is checked. */
+  function afterCheck() {}
+  /** Task 9: Export's menu. */
+  function exportMenu() {}
+  /** Task 9: the editor at the diagram in view. */
+  function edit() {}
+
+  function card(index) {
+    const node = element('div', 'plantuml-viewer__card')
+    const caption = element('label', 'plantuml-viewer__caption')
+    const box = document.createElement('input')
+    box.type = 'checkbox'
+    box.checked = state.checked.has(index)
+    box.addEventListener('change', () => {
+      if (box.checked) {
+        state.checked.add(index)
+      } else {
+        state.checked.delete(index)
+      }
+      node.classList.toggle('plantuml-viewer__card--checked', box.checked)
+      afterCheck()
+    })
+    caption.append(box, label(diagrams[index]))
+    node.classList.toggle('plantuml-viewer__card--checked', box.checked)
+    node.append(caption, sheets.sheet(index + 1))
+    // The caption is a <label>: a click on its text toggles the box, so it counts as the checkbox.
+    node.addEventListener('click', (event) => {
+      if (state.mode === 'wall' && !caption.contains(event.target)) {
+        state.mode = 'tabs'
+        state.active = index
+        show()
+      }
+    })
+    return node
+  }
+
   function show() {
-    tabs.update(diagrams, state.active)
-    tabBar.hidden = diagrams.length < 2
-    stage.replaceChildren(sheets.sheet(state.active + 1))
+    toolbar?.setMode(state.mode)
+    tabBar.hidden = state.mode !== 'tabs' || diagrams.length < 2
+    stage.className = `plantuml-viewer__stage plantuml-viewer__stage--${state.mode}`
+    if (state.mode === 'tabs') {
+      tabs.update(diagrams, state.active)
+      stage.replaceChildren(sheets.sheet(state.active + 1))
+    } else {
+      stage.replaceChildren(...diagrams.map((_diagram, index) => card(index)))
+    }
+    afterCheck()
+  }
+
+  function build({ exportable }) {
+    toolbar = createToolbar({
+      single: diagrams.length < 2,
+      editable: loadState(APP_ID, 'server_configured', false),
+      exportable,
+      onMode: (mode) => {
+        state.mode = mode
+        show()
+      },
+      onExport: () => exportMenu(),
+      onEdit: () => edit(),
+    })
+    head.prepend(toolbar.element)
   }
 
   loadFile(path).then(({ content }) => {
@@ -88,6 +151,7 @@ export function createDiagramView(root, { path, basename, onReady }) {
     // CodeMirror reads any line ending for the editor; scan() splits on \n alone.
     diagrams = scan(content.replace(/\r\n?/g, '\n'))
     sheets = createSheets(path, { labelOf: (position) => label(diagrams[position - 1]), idPrefix: prefix })
+    build({ exportable: true })
     sheets.sheet(1).addEventListener('plantuml-viewer:settled', settle, { once: true })
     show()
   }, () => {

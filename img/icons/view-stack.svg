@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: 2026 kubed-io
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  The Viewer toolbar's Stack option (Penpot icon view-stack). Imported (?raw) by
+  src/viewer/toolbar.js.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M21,13L3,13C2.45,13,2,13.45,2,14L2,20C2,20.55,2.45,21,3,21L21,21C21.55,21,22,20.55,22,20L22,14C22,13.45,21.55,13,21,13M20,19L4,19L4,15L20,15M21,3L3,3C2.45,3,2,3.45,2,4L2,10C2,10.55,2.45,11,3,11L21,11C21.55,11,22,10.55,22,10L22,4C22,3.45,21.55,3,21,3M20,9L4,9L4,5L20,5Z"/>
+</svg>

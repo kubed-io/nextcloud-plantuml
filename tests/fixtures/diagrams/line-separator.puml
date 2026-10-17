@@ -1,6 +1,6 @@
 @startuml first
 A -> B
-newpage 
+newpage 
 newpage x y
 B -> A
 @enduml
@@ -9,4 +9,7 @@ C -> D
 @enduml
 @startuml third 
 E -> F
+@enduml
+ @startuml x
+G -> H
 @enduml

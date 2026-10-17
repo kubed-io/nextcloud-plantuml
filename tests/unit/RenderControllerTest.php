@@ -11,91 +11,41 @@ namespace OCA\PlantUml\Tests\Unit;
 
 use OCA\PlantUml\Controller\RenderController;
 use OCA\PlantUml\Exception\RenderException;
+use OCA\PlantUml\Service\DiagramFiles;
 use OCA\PlantUml\Service\IncludeResolver;
 use OCA\PlantUml\Service\Rendered;
 use OCA\PlantUml\Service\RenderService;
 use OCP\AppFramework\Http\EmptyContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
-use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\ForbiddenException;
 use OCP\Files\InvalidPathException;
-use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
-use OCP\Files\Storage\ISharedStorage;
 use OCP\IRequest;
-use OCP\IUser;
-use OCP\IUserSession;
 use OCP\Lock\LockedException;
-use OCP\Share\IAttributes;
-use OCP\Share\IShare;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/stream-get-contents.php';
 
 final class RenderControllerTest extends TestCase {
-	/** Whether the controller's stream_get_contents fails, see stream-get-contents.php. */
-	public static bool $unreadable = false;
+	use StoredFiles;
 
 	private const SOURCE = "@startuml\nCustomer -> Shop : place order\n@enduml\n";
 	private const SVG = '<svg xmlns="http://www.w3.org/2000/svg"><text>Customer</text></svg>';
 
-	/**
-	 * What the caller's folder answers for any path, or the caller's files by path from their root.
-	 *
-	 * @param Node|\Throwable|array<string, Node> $resolved
-	 */
+	/** @param Node|\Throwable|array<string, Node> $resolved what the caller's folder answers, see userFolderOver() */
 	private function controller(RenderService $render, Node|\Throwable|array $resolved, string $ifNoneMatch = ''): RenderController {
-		$folder = $this->createStub(Folder::class);
-		$folder->method('getPath')->willReturn('/drk/files');
-		if (is_array($resolved)) {
-			$folder->method('get')->willReturnCallback(
-				static fn (string $path): Node => $resolved[ltrim($path, '/')] ?? throw new NotFoundException($path),
-			);
-		} elseif ($resolved instanceof \Throwable) {
-			$folder->method('get')->willThrowException($resolved);
-		} else {
-			$folder->method('get')->willReturn($resolved);
-		}
-		$root = $this->createStub(IRootFolder::class);
-		$root->method('getUserFolder')->willReturnCallback(
-			static fn (string $uid): Folder => $uid === 'drk' ? $folder : throw new \LogicException("not drk's folder: $uid"),
-		);
-		$user = $this->createStub(IUser::class);
-		$user->method('getUID')->willReturn('drk');
-		$session = $this->createStub(IUserSession::class);
-		$session->method('getUser')->willReturn($user);
+		[$root, $session] = $this->signedInWith($this->userFolderOver($resolved));
 		$request = $this->createStub(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(
 			static fn (string $name): string => $name === 'If-None-Match' ? $ifNoneMatch : '',
 		);
-		return new RenderController('plantuml', $request, $render, new IncludeResolver(), $root, $session);
-	}
-
-	/** A file in the caller's `Diagrams` folder. */
-	private function diagram(string $mimetype = 'text/x-plantuml', string $content = self::SOURCE, string $etag = 'abc123'): File {
-		$parent = $this->createStub(Folder::class);
-		$parent->method('getPath')->willReturn('/drk/files/Diagrams');
-		$file = $this->createStub(File::class);
-		$file->method('getMimetype')->willReturn($mimetype);
-		$file->method('getEtag')->willReturn($etag);
-		$file->method('getContent')->willReturn($content);
-		$file->method('fopen')->willReturnCallback(static function () use ($content) {
-			$handle = fopen('php://memory', 'r+');
-			self::assertIsResource($handle);
-			fwrite($handle, $content);
-			rewind($handle);
-			return $handle;
-		});
-		$file->method('getSize')->willReturn(strlen($content));
-		$file->method('getParent')->willReturn($parent);
-		$file->method('getPath')->willReturn('/drk/files/Diagrams/Order flow.puml');
-		return $file;
+		return new RenderController('plantuml', $request, $render, new IncludeResolver(), new DiagramFiles(new IncludeResolver(), $root, $session));
 	}
 
 	/** Sends whatever it is given back as its SVG, so a test can read what was sent. */
@@ -121,35 +71,10 @@ final class RenderControllerTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
-		self::$unreadable = false;
-	}
-
-	/** getHeaders() asks the server container for the request id; read the set headers directly. */
-	private static function header(Response $response, string $name): ?string {
-		return \Closure::bind(fn () => $this->headers[$name] ?? null, $response, Response::class)();
+		Streams::$unreadable = false;
 	}
 
 	private const TOO_LARGE = ['problem' => 'The diagram is too large to draw'];
-
-	/** A diagram whose stored size and whose stream may disagree; fopen is optional to call. */
-	private function sizedDiagram(int $storedSize, string $streamed, bool $mayOpen = true): File {
-		$file = $mayOpen ? $this->createStub(File::class) : $this->createMock(File::class);
-		$file->method('getMimetype')->willReturn('text/x-plantuml');
-		$file->method('getEtag')->willReturn('abc123');
-		$file->method('getSize')->willReturn($storedSize);
-		$file->method('getParent')->willReturn($this->createStub(Folder::class));
-		if ($mayOpen) {
-			$file->method('fopen')->willReturnCallback(static function () use ($streamed) {
-				$handle = fopen('php://memory', 'r+');
-				fwrite($handle, $streamed);
-				rewind($handle);
-				return $handle;
-			});
-		} else {
-			$file->expects(self::never())->method('fopen');
-		}
-		return $file;
-	}
 
 	public function testBySourceOverAMegabyteIs413(): void {
 		$response = $this->controller($this->renderingNothing(), new NotFoundException())->bySource(str_repeat('a', RenderController::MAX_SOURCE + 1));
@@ -232,7 +157,7 @@ final class RenderControllerTest extends TestCase {
 
 	/** A stream that cannot be read is no file to draw, not one too large. */
 	public function testByPathOfAStreamThatCannotBeReadIs404(): void {
-		self::$unreadable = true;
+		Streams::$unreadable = true;
 
 		$response = $this->controller($this->renderingNothing(), $this->diagram())->byPath('Diagrams/Order flow.puml');
 
@@ -802,16 +727,7 @@ final class RenderControllerTest extends TestCase {
 	 * only read and whose owner forbids download.
 	 */
 	private function onViewOnlyShare(string $path, string $content, string $mimetype = 'text/x-plantuml'): File {
-		$attributes = $this->createStub(IAttributes::class);
-		$attributes->method('getAttribute')->willReturnCallback(static fn (string $scope, string $key): ?bool => [$scope, $key] === ['permissions', 'download'] ? false : null);
-		$share = $this->createStub(IShare::class);
-		$share->method('getAttributes')->willReturn($attributes);
-		$share->method('getPermissions')->willReturn(Constants::PERMISSION_READ);
-		$share->method('getId')->willReturn('S');
-		$storage = $this->createStub(ISharedStorage::class);
-		$storage->method('instanceOfStorage')->willReturnCallback(static fn (string $class): bool => $class === 'OCA\Files_Sharing\SharedStorage');
-		$storage->method('getShare')->willReturn($share);
-		$storage->method('getId')->willReturn('shared::/S');
+		$storage = $this->shareStorage(false);
 		$parent = $this->createStub(Folder::class);
 		$parent->method('getPath')->willReturn('/drk/files' . (str_contains($path, '/') ? '/' . dirname($path) : ''));
 		$file = $this->createStub(File::class);

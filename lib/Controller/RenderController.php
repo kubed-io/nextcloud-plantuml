@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace OCA\PlantUml\Controller;
 
 use OCA\PlantUml\AppInfo\Application;
+use OCA\PlantUml\Exception\FileRefusal;
 use OCA\PlantUml\Exception\RenderException;
+use OCA\PlantUml\Service\DiagramFiles;
 use OCA\PlantUml\Service\Expanded;
 use OCA\PlantUml\Service\IncludeResolver;
 use OCA\PlantUml\Service\Rendered;
@@ -24,16 +26,7 @@ use OCP\AppFramework\Http\EmptyContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\Files\File;
-use OCP\Files\Folder;
-use OCP\Files\ForbiddenException;
-use OCP\Files\GenericFileException;
-use OCP\Files\InvalidPathException;
-use OCP\Files\IRootFolder;
-use OCP\Files\NotFoundException;
-use OCP\Files\NotPermittedException;
 use OCP\IRequest;
-use OCP\IUserSession;
-use OCP\Lock\LockedException;
 
 /**
  * The two render routes and the server's lists for the editor's completion,
@@ -51,18 +44,14 @@ use OCP\Lock\LockedException;
  * message goes percent-encoded past ASCII (and its `%`), as a header must be.
  */
 final class RenderController extends Controller {
-	/** A megabyte of source is far past any diagram; more is refused before it is read or sent on. */
-	public const MAX_SOURCE = 1048576;
-	/** A line the resolver would act on; without one the file goes as it is. */
-	private const NAMES_A_FILE = '/^[ \t]*(?:!(?:include|import)|<style\s+[\w-]+\s*=)/mi';
+	public const MAX_SOURCE = DiagramFiles::MAX_SOURCE;
 
 	public function __construct(
 		string $appName,
 		IRequest $request,
 		private RenderService $render,
 		private IncludeResolver $resolver,
-		private IRootFolder $rootFolder,
-		private IUserSession $userSession,
+		private DiagramFiles $files,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -75,35 +64,16 @@ final class RenderController extends Controller {
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	public function byPath(string $path = ''): Response {
-		$userFolder = $this->userFolder();
-		$node = $userFolder === null ? null : self::readable($userFolder, $path);
-		// A text file would render as PlantUML's error image, and a 200 for it
-		// would tell the caller nothing.
-		if ($userFolder === null || $node === null || $node->getMimetype() !== Application::MIMETYPE) {
-			return new Response(Http::STATUS_NOT_FOUND);
+		try {
+			$file = $this->files->open($path);
+		} catch (FileRefusal $e) {
+			return $e->response;
 		}
-
-		if (self::storedSize($node) > self::MAX_SOURCE) {
-			return $this->tooLarge();
+		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $file->etag) {
+			return $this->revalidated(new Response(Http::STATUS_NOT_MODIFIED), $file->etag);
 		}
 		try {
-			$content = self::content($node);
-		} catch (LockedException) {
-			return new Response(Http::STATUS_LOCKED);
-		} catch (NotPermittedException|NotFoundException|InvalidPathException|GenericFileException|ForbiddenException) {
-			// Forbidden is an access rule's refusal (files_accesscontrol).
-			return new Response(Http::STATUS_NOT_FOUND);
-		}
-		if ($content === null) {
-			return $this->tooLarge();
-		}
-		$expanded = preg_match(self::NAMES_A_FILE, $content) === 1 ? $this->resolver->expand($content, $node->getParent(), $userFolder, $node, true) : null;
-		$etag = $expanded === null ? $node->getEtag() : self::etag($node->getEtag(), $expanded);
-		if (trim(str_replace('W/', '', $this->request->getHeader('If-None-Match')), '"') === $etag) {
-			return $this->revalidated(new Response(Http::STATUS_NOT_MODIFIED), $etag);
-		}
-		try {
-			return $this->revalidated($this->image($this->render->render($expanded?->source ?? $content), $expanded), $etag);
+			return $this->revalidated($this->image($this->render->render($file->expanded?->source ?? $file->text), $file->expanded), $file->etag);
 		} catch (RenderException $e) {
 			return $this->problem($e);
 		}
@@ -122,18 +92,18 @@ final class RenderController extends Controller {
 		if (trim($source) === '' || !is_int($index) || $index < 0 || $index > 999) {
 			return new Response(Http::STATUS_BAD_REQUEST);
 		}
-		if (strlen($source) > self::MAX_SOURCE) {
-			return $this->tooLarge();
+		if (strlen($source) > DiagramFiles::MAX_SOURCE) {
+			return DiagramFiles::tooLarge();
 		}
 		$expanded = null;
 		if ($path !== '') {
 			// A README is a valid base too, so the file's type is not asked.
-			$userFolder = $this->userFolder();
-			$node = $userFolder === null ? null : self::readable($userFolder, $path);
+			$userFolder = $this->files->userFolder();
+			$node = $userFolder === null ? null : DiagramFiles::readable($userFolder, $path);
 			if ($userFolder === null || $node === null) {
 				return new Response(Http::STATUS_NOT_FOUND);
 			}
-			if (preg_match(self::NAMES_A_FILE, $source) === 1) {
+			if (DiagramFiles::namesAFile($source)) {
 				$expanded = $this->resolver->expand($source, $node->getParent(), $userFolder, $node, self::ownersText($node, $source));
 			}
 		}
@@ -254,57 +224,17 @@ final class RenderController extends Controller {
 	}
 
 	/**
-	 * The file's own ETag when it names no file; else one that also changes
-	 * when a file found changes or a missing one appears.
-	 */
-	private static function etag(string $fileEtag, Expanded $expanded): string {
-		if ($expanded->etags === [] && $expanded->missing === []) {
-			return $fileEtag;
-		}
-		return md5($fileEtag . ',' . implode(',', $expanded->etags) . ',' . implode(',', $expanded->missing));
-	}
-
-	/** The size core has stored; it can be wrong, so the stream is capped as well. */
-	private static function storedSize(File $file): int {
-		try {
-			return (int)$file->getSize();
-		} catch (\Throwable) {
-			return 0;
-		}
-	}
-
-	/**
-	 * At most MAX_SOURCE + 1 bytes, read through a stream; null when that
-	 * many came, which is more than may be drawn.
-	 */
-	private static function content(File $file): ?string {
-		$handle = $file->fopen('r');
-		if (!is_resource($handle)) {
-			throw new NotFoundException();
-		}
-		try {
-			$content = stream_get_contents($handle, self::MAX_SOURCE + 1);
-		} finally {
-			fclose($handle);
-		}
-		if ($content === false) {
-			throw new GenericFileException('The stream could not be read');
-		}
-		return strlen($content) > self::MAX_SOURCE ? null : $content;
-	}
-
-	/**
 	 * Whether the text sent is the base's own, as stored (the editor sends a
 	 * CRLF file's lines joined by `\n`), or for a README whole lines of it (a
 	 * fence): only text the share's owner wrote may read the rest of a
 	 * view-only share. The reader writes the rest.
 	 */
 	private static function ownersText(File $base, string $source): bool {
-		if (self::storedSize($base) > self::MAX_SOURCE) {
+		if (DiagramFiles::storedSize($base) > DiagramFiles::MAX_SOURCE) {
 			return false;
 		}
 		try {
-			$content = self::content($base);
+			$content = DiagramFiles::content($base);
 		} catch (\Throwable) {
 			return false;
 		}
@@ -314,27 +244,6 @@ final class RenderController extends Controller {
 		$lines = str_replace("\r\n", "\n", $content);
 		return $source === $content || $source === $lines
 			|| ($base->getMimetype() === 'text/markdown' && str_contains("\n$lines\n", "\n$source\n"));
-	}
-
-	private function tooLarge(): JSONResponse {
-		return new JSONResponse(['problem' => 'The diagram is too large to draw'], Http::STATUS_REQUEST_ENTITY_TOO_LARGE);
-	}
-
-	private function userFolder(): ?Folder {
-		$user = $this->userSession->getUser();
-		return $user === null ? null : $this->rootFolder->getUserFolder($user->getUID());
-	}
-
-	/** The file at `path` in the caller's own folder, or null when they cannot read one there. */
-	private static function readable(Folder $userFolder, string $path): ?File {
-		try {
-			$node = $userFolder->get($path);
-		} catch (NotFoundException|NotPermittedException|InvalidPathException) {
-			// NotPermitted is how core refuses a path that climbs out with `..`,
-			// InvalidPath one too long or with characters it does not allow.
-			return null;
-		}
-		return $node instanceof File ? $node : null;
 	}
 
 	/**

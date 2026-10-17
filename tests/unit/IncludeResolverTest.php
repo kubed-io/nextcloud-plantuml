@@ -20,8 +20,6 @@ use OCP\Files\NotFoundException;
 use OCP\Files\Storage\ISharedStorage;
 use OCP\Files\Storage\IStorage;
 use OCP\Files\StorageNotAvailableException;
-use OCP\Share\IAttributes;
-use OCP\Share\IShare;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +27,8 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/register-shutdown-function.php';
 
 final class IncludeResolverTest extends TestCase {
+	use StoredFiles;
+
 	private const USER_ROOT = '/drk/files';
 
 	/** @var list<callable> what the resolver left to PHP's shutdown, see register-shutdown-function.php */
@@ -75,33 +75,6 @@ final class IncludeResolverTest extends TestCase {
 	private function ownStorage(): IStorage {
 		$storage = $this->createStub(IStorage::class);
 		$storage->method('instanceOfStorage')->willReturn(false);
-		return $storage;
-	}
-
-	/**
-	 * Share `$id` from another user, mounted at `/$id`, its `download`
-	 * attribute as given (null: the share sets none). `$broken` names the id
-	 * that throws when asked for: `share` or `storage`.
-	 */
-	private function shareStorage(?bool $download, string $id = 'S', int $permissions = Constants::PERMISSION_READ, string $broken = ''): ISharedStorage {
-		$attributes = $this->createStub(IAttributes::class);
-		$attributes->method('getAttribute')->willReturnCallback(static fn (string $scope, string $key): ?bool => [$scope, $key] === ['permissions', 'download'] ? $download : null);
-		$share = $this->createStub(IShare::class);
-		$share->method('getAttributes')->willReturn($attributes);
-		$share->method('getPermissions')->willReturn($permissions);
-		if ($broken === 'share') {
-			$share->method('getId')->willThrowException(new \RuntimeException('no id'));
-		} else {
-			$share->method('getId')->willReturn($id);
-		}
-		$storage = $this->createStub(ISharedStorage::class);
-		$storage->method('instanceOfStorage')->willReturnCallback(static fn (string $class): bool => $class === 'OCA\Files_Sharing\SharedStorage');
-		$storage->method('getShare')->willReturn($share);
-		if ($broken === 'storage') {
-			$storage->method('getId')->willThrowException(new \RuntimeException('no id'));
-		} else {
-			$storage->method('getId')->willReturn("shared::/$id");
-		}
 		return $storage;
 	}
 

@@ -103,6 +103,26 @@ describe('a file session', () => {
     expect(seams.watchFile).toHaveBeenCalledTimes(2)
   })
 
+  it('stops for good: the pending autosave is cancelled and the watcher stopped', async () => {
+    vi.useFakeTimers()
+    const stop = vi.fn()
+    seams.watchFile.mockReturnValue({ stop })
+    const { s, type } = session()
+    s.start()
+    type('a {}')
+    expect(vi.getTimerCount()).toBeGreaterThan(0) // the autosave's idle and longest waits
+
+    s.stop()
+
+    expect(vi.getTimerCount()).toBe(0)
+    expect(stop).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(31000)
+    // A look the watcher had already begun finds the session stopped.
+    await seams.watchFile.mock.calls[0][0].check()
+    expect(seams.saveFile).not.toHaveBeenCalled()
+    expect(seams.currentEtag).not.toHaveBeenCalled()
+  })
+
   it('takes no edit once stopped: nothing is scheduled and the bar is not told', () => {
     vi.useFakeTimers()
     const onChange = vi.fn()

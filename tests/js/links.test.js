@@ -12,6 +12,7 @@ describe('linkOn', () => {
     ['!includesub ./UML_Fun_parts.puml!NAME', { kind: 'include', written: './UML_Fun_parts.puml', from: 12, to: 32, section: 'NAME', block: null }],
     ['!include "./a b.puml"!2', { kind: 'include', written: './a b.puml', from: 10, to: 20, section: null, block: '2' }],
     ['!include_many ../shared/x.puml!login', { kind: 'include', written: '../shared/x.puml', from: 14, to: 30, section: null, block: 'login' }],
+    ['<style file="./x.css">', { kind: 'style', written: './x.css', from: 13, to: 20, section: null, block: null }],
   ])('reads %s', (line, link) => {
     expect(linkOn(line)).toEqual(link)
   })
@@ -20,6 +21,8 @@ describe('linkOn', () => {
     '!include /x.puml', '!include <C4/C4_Container>', '!include https://example.com/x.puml',
     '!include $DIR/x.puml', '!include %dirpath()%/x.puml', '!import ./lib.zip', '!includesub ./parts.puml',
     '<style file=/abs.css>', "' !include ./x.puml", 'participant Shop',
+    '<style file="/abs.css">', '!include "/x.puml"', '!include "<C4/x>"', '!include "$DIR/x.puml"',
+    '<style file=https://x/a.css>',
   ])('opens nothing for %s', (line) => {
     expect(linkOn(line)).toBeNull()
   })

@@ -41,8 +41,9 @@ let views = 0
 const SHARE_WAIT = 3000
 
 // The Wall packs again this long after the last size arrives, and at most WALL_MOST after the first.
-export const WALL_SETTLE = 150
-const WALL_MOST = 500
+// Drawings land 300–400 ms apart (three asks at a time), so the quiet wait outlasts that gap.
+export const WALL_SETTLE = 500
+const WALL_MOST = 1200
 
 // The Viewer (NcModal) takes ←/→ for the previous and next file and Escape for
 // closing. Keys a tab strip or an open menu of ours uses stop at the root: the

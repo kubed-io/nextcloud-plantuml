@@ -831,8 +831,8 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
     expect(recall('/D/S.puml', '"e"')).toEqual([{ width: 40, height: 20 }, { width: 600, height: 300 }, null])
   })
 
-  it('packs at most 500 ms after the first size arrived, while sizes go on arriving', async () => {
-    // Six diagrams, each answered when the test says: one every 100 ms, never 150 ms apart.
+  it('packs at most 1200 ms after the first size arrived, while sizes go on arriving', async () => {
+    // Six diagrams, each answered when the test says: one every 300 ms, never 500 ms apart.
     const answers = []
     fetch.mockImplementation((url) => new Promise((resolve) => {
       const index = Number(new URL(url, 'https://x').searchParams.get('index'))
@@ -844,12 +844,12 @@ describe('the Wall packs its cards (VW12, VW13)', () => {
     try {
       wide()
       mode('Wall')
-      for (const answer of [0, 1, 2, 3]) {
+      for (const answer of [0, 1, 2]) {
         answers[answer]()
-        await vi.advanceTimersByTimeAsync(100)
+        await vi.advanceTimersByTimeAsync(300)
       }
-      answers[4]()
-      await vi.advanceTimersByTimeAsync(99)
+      answers[3]()
+      await vi.advanceTimersByTimeAsync(299)
       expect(writes).not.toHaveBeenCalled()
 
       await vi.advanceTimersByTimeAsync(1)

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\PlantUml\Command;
 
 use OCA\PlantUml\Service\ServerConfig;
+use OCA\PlantUml\Service\TemplateLibrary;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -18,6 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 final class ShowConfig extends Command {
 	public function __construct(
 		private ServerConfig $server,
+		private TemplateLibrary $templates,
 	) {
 		parent::__construct();
 	}
@@ -31,11 +33,10 @@ final class ShowConfig extends Command {
 
 	#[\Override]
 	protected function execute(InputInterface $input, OutputInterface $output): int {
-		if (!$this->server->isSet()) {
-			$output->writeln(ServerConfig::KEY_URL . ': (not set)');
-			return 1;
-		}
-		$output->writeln(ServerConfig::KEY_URL . ': ' . $this->server->getUrl());
-		return 0;
+		$set = $this->server->isSet();
+		$output->writeln(ServerConfig::KEY_URL . ': ' . ($set ? $this->server->getUrl() : '(not set)'));
+		$output->writeln(TemplateLibrary::KEY_FOLDER . ': ' . $this->templates->folder());
+		$output->writeln(TemplateLibrary::KEY_ACTOR . ': ' . ($this->templates->actor() ?? '(none)'));
+		return $set ? 0 : 1;
 	}
 }

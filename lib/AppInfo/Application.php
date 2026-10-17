@@ -13,6 +13,7 @@ use OCA\Files\Event\LoadAdditionalScriptsEvent;
 use OCA\PlantUml\Listener\LoadFilesScriptListener;
 use OCA\PlantUml\Listener\NewDiagramListener;
 use OCA\PlantUml\Settings\InstanceSettings;
+use OCA\PlantUml\Settings\TemplateSettings;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -36,6 +37,7 @@ final class Application extends App implements IBootstrap {
 	#[\Override]
 	public function register(IRegistrationContext $context): void {
 		$context->registerDeclarativeSettings(InstanceSettings::class);
+		$context->registerDeclarativeSettings(TemplateSettings::class);
 		$context->registerEventListener(LoadAdditionalScriptsEvent::class, LoadFilesScriptListener::class);
 		$context->registerEventListener(FileCreatedFromTemplateEvent::class, NewDiagramListener::class);
 	}

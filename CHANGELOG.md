@@ -124,6 +124,7 @@ All notable changes to this project are documented here. The format follows
 - Edit opens nothing once the Viewer has moved on, and a Viewer whose editor will not load stays and says so.
 - A failed Add diagram load says so, and the line clears on a later success.
 - The editor's bar fits a phone.
+- On a phone, Add diagram lists the types above the templates, names and counts whole, and the + ▾ halves and the main file's crumb are full-size touch targets.
 
 ### Security
 

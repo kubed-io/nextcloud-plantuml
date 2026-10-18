@@ -161,6 +161,8 @@ describe('the Add diagram modal', () => {
   })
 
   it('keeps the card within the dialog\'s height, level with its row where it fits', () => {
+    // Room beside the dialog: jsdom's 1024 would put the card over it, where it keeps to the templates' pane.
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1440)
     vi.spyOn(q('.plantuml-add__dialog'), 'getBoundingClientRect').mockReturnValue({ top: 84, bottom: 684, left: 72, right: 952, width: 880, height: 600 })
     vi.spyOn(q('.plantuml-add__right'), 'getBoundingClientRect').mockReturnValue({ top: 142, bottom: 684, left: 361, right: 952, width: 591, height: 542 })
     vi.spyOn(rows()[3], 'getBoundingClientRect').mockReturnValue({ top: 610, bottom: 674, left: 377, right: 936, width: 559, height: 64 })
@@ -168,6 +170,20 @@ describe('the Add diagram modal', () => {
     rows()[3].focus()
     expect(q('.plantuml-add__preview').style.top).toBe(`${684 - 200}px`)
     expect(q('.plantuml-add__preview').style.maxHeight).toBe('600px')
+  })
+
+  it('keeps a card that must lie over a stacked dialog (a phone) below the types, within the templates\' pane (A3)', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(360)
+    vi.spyOn(q('.plantuml-add__dialog'), 'getBoundingClientRect').mockReturnValue({ top: 70, bottom: 670, left: 16, right: 344, width: 328, height: 600 })
+    // The types fill the band above 380; the templates' pane is below it.
+    vi.spyOn(q('.plantuml-add__right'), 'getBoundingClientRect').mockReturnValue({ top: 380, bottom: 670, left: 16, right: 344, width: 328, height: 290 })
+    vi.spyOn(rows()[3], 'getBoundingClientRect').mockReturnValue({ top: 590, bottom: 654, left: 32, right: 328, width: 296, height: 64 })
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function () { return this.classList.contains('plantuml-add__preview') ? 284 : 0 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function () { return this.classList.contains('plantuml-add__preview') ? 350 : 0 })
+    rows()[3].focus()
+    expect(q('.plantuml-add__preview').style.left).toBe('68px')
+    expect(q('.plantuml-add__preview').style.maxHeight).toBe('290px')
+    expect(q('.plantuml-add__preview').style.top).toBe('380px')
   })
 
   it('hides the card when its row scrolls out of view, and moves it with a row still in view', () => {

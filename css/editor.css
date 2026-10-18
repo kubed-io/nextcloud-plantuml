@@ -747,6 +747,7 @@
 }
 
 .plantuml-add__count {
+	flex: none;
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
 }
@@ -990,5 +991,32 @@
 
 	.plantuml-editor--source-only .plantuml-editor__panes {
 		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* A3: the Add modal stacks, the types full width above the templates; a 40 % column
+	 * cannot hold a type's name and count at 360. The types scroll up and down under a cap. */
+	.plantuml-add__body {
+		flex-direction: column;
+	}
+
+	.plantuml-add__left {
+		flex: none;
+		width: auto;
+		max-height: 45%;
+		padding-bottom: 8px;
+	}
+
+	.plantuml-add__types {
+		flex: 0 1 auto;
+		overflow-x: hidden;
+	}
+
+	.plantuml-add__divider {
+		width: auto;
+		height: 1px;
+	}
+
+	.plantuml-add__right {
+		padding-top: 8px;
 	}
 }

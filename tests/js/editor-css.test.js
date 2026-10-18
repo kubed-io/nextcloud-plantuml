@@ -133,3 +133,39 @@ describe('the bar\'s small targets, as big as its 34 px buttons (A1, R11)', () =
     }
   })
 })
+
+describe('the Add diagram modal at phone width (A3)', () => {
+  it('stacks the types above the templates, inside the phone block only', () => {
+    expect(has(declared(media, '.plantuml-add__body'), 'flex-direction', 'column')).toBe(true)
+    expect(has(declared(base, '.plantuml-add__body'), 'flex-direction', 'column')).toBe(false)
+    // The divider turns to lie between them.
+    const divider = declared(media, '.plantuml-add__divider')
+    expect(has(divider, 'width', 'auto')).toBe(true)
+    expect(has(divider, 'height', '1px')).toBe(true)
+  })
+
+  it('gives the types the full width, never the 40 % column a type name does not fit at 360', () => {
+    const left = declared(media, '.plantuml-add__left')
+    expect(has(left, 'width', 'auto')).toBe(true)
+    // A share of the body's height, so the templates keep the rest; the types scroll inside it.
+    expect(has(left, 'max-height', '45%')).toBe(true)
+    expect(has(left, 'flex', 'none')).toBe(true)
+  })
+
+  it('scrolls the types up and down only, sized to their rows and shrinking under the cap', () => {
+    const types = declared(media, '.plantuml-add__types')
+    expect(has(types, 'flex', '0 1 auto')).toBe(true)
+    expect(has(types, 'overflow-x', 'hidden')).toBe(true)
+    expect(has(declared(base, '.plantuml-add__types'), 'overflow-y', 'auto')).toBe(true)
+  })
+
+  it('never lets a type\'s count give way to its name', () => {
+    expect(has(declared(base, '.plantuml-add__count') + ';' + declared(media, '.plantuml-add__count'), 'flex', 'none')).toBe(true)
+  })
+
+  it('leaves the templates the rest, scrolling as before', () => {
+    expect(has(declared(base, '.plantuml-add__right'), 'overflow-y', 'auto')).toBe(true)
+    expect(has(declared(base, '.plantuml-add__right'), 'flex', '1')).toBe(true)
+    expect(declared(media, '.plantuml-add__right')).not.toMatch(/overflow|flex:/)
+  })
+})

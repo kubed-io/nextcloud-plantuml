@@ -113,16 +113,24 @@ function deferred() {
 
 /**
  * L11: the screen as matchMedia('(max-width: 600px)') answers it, a phone or not; set() crosses
- * the breakpoint, as a rotation does. Any other query answers no.
+ * the breakpoint, as a rotation does. Any other query answers no. `old` is Safari before 14,
+ * whose list has only addListener and removeListener.
  */
-function width(phone) {
+function width(phone, { old = false } = {}) {
   const listeners = new Set()
   const list = {
     media: '(max-width: 600px)',
     matches: phone,
     listeners,
-    addEventListener: (type, fn) => { if (type === 'change') listeners.add(fn) },
-    removeEventListener: (type, fn) => { if (type === 'change') listeners.delete(fn) },
+    ...(old
+      ? {
+          addListener: (fn) => { listeners.add(fn) },
+          removeListener: (fn) => { listeners.delete(fn) },
+        }
+      : {
+          addEventListener: (type, fn) => { if (type === 'change') listeners.add(fn) },
+          removeEventListener: (type, fn) => { if (type === 'change') listeners.delete(fn) },
+        }),
     set(next) {
       list.matches = next
       for (const fn of [...listeners]) fn({ matches: next, media: list.media })
@@ -1754,6 +1762,68 @@ describe('on a phone (L11)', () => {
     expect(inSource()).toBe(true)
   })
 
+  it('hands the focus to the source when narrowing hides the diagram tab that held it', async () => {
+    seams.loadFile.mockResolvedValue({ content: '@startuml one\nA -> B\n@enduml\n@startuml two\nC -> D\n@enduml\n', etag: '"get"' })
+    const screen = width(false)
+    await open()
+    q('.plantuml-editor__tab').focus()
+
+    screen.set(true)
+
+    expect(inSource()).toBe(true)
+  })
+
+  it('hands the focus to close when a crossing hides it while the file is still read', async () => {
+    seams.loadFile.mockReturnValue(new Promise(() => {}))
+    const screen = width(false)
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Order flow.puml', basename: 'Order flow.puml' })
+    q('.plantuml-editor__splitter').focus()
+
+    screen.set(true)
+
+    expect(document.activeElement).toBe(q('.plantuml-editor__close'))
+  })
+
+  it('keeps the split the splitter left across a phone and back', async () => {
+    const screen = width(false)
+    await open()
+    q('.plantuml-editor__panes').style.setProperty('--plantuml-split', '35%')
+
+    screen.set(true)
+    screen.set(false)
+
+    expect(q('.plantuml-editor__panes').style.getPropertyValue('--plantuml-split')).toBe('35%')
+    expect(sourceOnly()).toBe(false)
+    expect(diagramOnly()).toBe(false)
+  })
+
+  it('stops listening for the breakpoint on a close while the file is still read', async () => {
+    seams.loadFile.mockReturnValue(new Promise(() => {}))
+    const screen = width(true)
+    window.OCA.PlantUml.openEditor({ path: '/Diagrams/Order flow.puml', basename: 'Order flow.puml' })
+    expect(screen.listeners.size).toBe(1)
+
+    q('.plantuml-editor__close').click()
+    await settle()
+
+    expect(q('.plantuml-editor')).toBeNull()
+    expect(screen.listeners.size).toBe(0)
+  })
+
+  it('follows the width with Safari 13\'s addListener, and stops on close', async () => {
+    const screen = width(true, { old: true })
+    await open()
+    expect(screen.listeners.size).toBe(1)
+    toggle().click()
+
+    screen.set(false)
+    expect(sourceOnly()).toBe(false)
+
+    q('.plantuml-editor__close').click()
+    await settle()
+    expect(screen.listeners.size).toBe(0)
+  })
+
   it('stops listening for the breakpoint on close', async () => {
     const screen = width(true)
     await open()
@@ -2226,6 +2296,7 @@ describe('a linked file', () => {
 
     expect(toggle().getAttribute('aria-pressed')).toBe('false')
     expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(true)
+    expect(document.activeElement).toBe(saveButton())
   })
 
   it('hides Add diagram while the linked file is open, and shows it again on going back', async () => {

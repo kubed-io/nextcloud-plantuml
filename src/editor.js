@@ -431,12 +431,21 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   }
 
-  /** L11: across the phone width the toggle keeps its state; a pane hidden with the focus in it hands it to the source. */
+  /** L11: across the phone width the toggle keeps its state; a pane hidden with the focus in it hands it on (L9). */
   function onWidthChange() {
     const held = document.activeElement
     setSourceShown(sourceShown())
     if (overlay.classList.contains('plantuml-editor--source-only') && (diagram.contains(held) || held === splitter)) {
-      view?.focus()
+      focusSource()
+    }
+  }
+
+  /** L11: Safari before 14 has only the older addListener and removeListener. */
+  function followWidth(on) {
+    if (phone?.addEventListener) {
+      phone[on ? 'addEventListener' : 'removeEventListener']('change', onWidthChange)
+    } else {
+      phone?.[on ? 'addListener' : 'removeListener']?.(onWidthChange)
     }
   }
 
@@ -501,7 +510,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onOutsideKeydown)
-    phone?.removeEventListener('change', onWidthChange)
+    followWidth(false)
     document.removeEventListener('visibilitychange', drawAgain)
     window.removeEventListener('focus', drawAgain)
     window.removeEventListener('beforeunload', onBeforeUnload)
@@ -580,7 +589,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     event.stopPropagation()
   })
   document.addEventListener('keydown', onOutsideKeydown)
-  phone?.addEventListener('change', onWidthChange)
+  followWidth(true)
   window.addEventListener('beforeunload', onBeforeUnload)
 
   loadFile(node.path).then(({ content, etag: loadedEtag }) => {

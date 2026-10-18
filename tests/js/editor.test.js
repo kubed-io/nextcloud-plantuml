@@ -321,6 +321,85 @@ describe('the focus after closing (O3)', () => {
 
     expect(document.activeElement).toBe(q('#opener'))
   })
+
+  describe('an opener that is there but cannot take the focus', () => {
+    // jsdom has no checkVisibility: this one reads the computed style, as a browser's does.
+    const checkVisibility = vi.fn(function (options = {}) {
+      const style = getComputedStyle(this)
+      return !(options.visibilityProperty && style.visibility === 'hidden')
+        && !(options.opacityProperty && style.opacity === '0')
+    })
+    beforeEach(() => {
+      Element.prototype.checkVisibility = checkVisibility
+    })
+    afterEach(() => {
+      delete Element.prototype.checkVisibility
+      vi.restoreAllMocks()
+    })
+
+    it('skips a menu item hidden by visibility, as Floating Vue leaves it, for the file\'s row', async () => {
+      document.body.innerHTML = '<div id="content"><div id="popper"><button id="opener">Edit diagram</button></div><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+      await openWith({ fileid: 9 })
+      q('#popper').style.visibility = 'hidden'
+      expect(getComputedStyle(q('#opener')).visibility).toBe('hidden')
+
+      await closeNow()
+
+      expect(document.activeElement).toBe(q('#row-link'))
+    })
+
+    it('skips an opener faded out by opacity', async () => {
+      document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+      await openWith({ fileid: 9 })
+      q('#opener').style.opacity = '0'
+
+      await closeNow()
+
+      expect(document.activeElement).toBe(q('#row-link'))
+    })
+
+    it('tries the row when the opener\'s focus does not take', async () => {
+      document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+      await openWith({ fileid: 9 })
+      vi.spyOn(q('#opener'), 'focus').mockImplementation(() => {})
+
+      await closeNow()
+
+      expect(document.activeElement).toBe(q('#row-link'))
+    })
+
+    it('tries the list\'s first name link when the row\'s focus does not take either', async () => {
+      document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+      await openWith({ fileid: 9 })
+      vi.spyOn(q('#opener'), 'focus').mockImplementation(() => {})
+      vi.spyOn(q('#row-link'), 'focus').mockImplementation(() => {})
+
+      await closeNow()
+
+      expect(document.activeElement).toBe(q('#other-link'))
+    })
+
+    it('keeps a visible opener, asking for visibility and opacity both', async () => {
+      document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+      await openWith({ fileid: 9 })
+
+      await closeNow()
+
+      expect(document.activeElement).toBe(q('#opener'))
+      expect(checkVisibility).toHaveBeenCalledWith({ visibilityProperty: true, opacityProperty: true })
+    })
+  })
+
+  it('keeps today\'s check in a browser without checkVisibility', async () => {
+    expect(Element.prototype.checkVisibility).toBeUndefined()
+    document.body.innerHTML = '<div id="content"><button id="opener">Edit diagram</button><div data-cy-files-list="">' + rowsHtml + '</div></div>'
+    await openWith({ fileid: 9 })
+    q('#opener').style.visibility = 'hidden'
+
+    await closeNow()
+
+    expect(document.activeElement).toBe(q('#opener'))
+  })
 })
 
 describe('Escape', () => {

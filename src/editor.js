@@ -51,19 +51,28 @@ const PHONE = '(max-width: 600px)'
 /**
  * O3: the focus goes back to a real opener, else to the file's row in the Files list, else to
  * the list's first name link; never to the page body. The row is the `tr` (the name cell carries
- * the same attribute, empty); its name link is a button.
+ * the same attribute, empty); its name link is a button. An opener hidden by visibility or
+ * opacity (Floating Vue keeps a closed menu's item a few seconds) is passed over, and so is any
+ * target whose focus() does not take.
  */
 function returnFocus(opener, node) {
-  if (opener && opener !== document.body && opener.isConnected && opener.checkVisibility?.() !== false) {
-    opener.focus()
-    return
-  }
   const link = '[data-cy-files-list-row-name-link]'
-  const row = node.fileid
+  const row = () => (node.fileid
     ? document.querySelector(`tr[data-cy-files-list-row-fileid="${CSS.escape(String(node.fileid))}"]`)
-    : document.querySelector(`tr[data-cy-files-list-row-name="${CSS.escape(node.basename)}"]`)
-  const target = row?.querySelector(link) ?? document.querySelector(`[data-cy-files-list] ${link}`)
-  target?.focus()
+    : document.querySelector(`tr[data-cy-files-list-row-name="${CSS.escape(node.basename)}"]`))
+  const candidates = [
+    () => (opener !== document.body && opener?.isConnected
+      && opener.checkVisibility?.({ visibilityProperty: true, opacityProperty: true }) !== false ? opener : null),
+    () => row()?.querySelector(link),
+    () => document.querySelector(`[data-cy-files-list] ${link}`),
+  ]
+  for (const candidate of candidates) {
+    const target = candidate()
+    target?.focus()
+    if (target && document.activeElement === target) {
+      return
+    }
+  }
 }
 
 /** Opens the editor on a Files node, at the diagram index asked for; a second call while one is open does nothing. */

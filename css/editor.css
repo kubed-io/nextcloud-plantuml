@@ -964,4 +964,14 @@
 	.plantuml-editor__status:empty {
 		display: none;
 	}
+
+	/* L11: a phone shows one pane at a time; Source pressed is the source alone. */
+	.plantuml-editor--source-only .plantuml-editor__diagram,
+	.plantuml-editor--source-only .plantuml-editor__splitter {
+		display: none;
+	}
+
+	.plantuml-editor--source-only .plantuml-editor__panes {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }

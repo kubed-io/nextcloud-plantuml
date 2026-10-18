@@ -97,6 +97,8 @@ afterEach(async () => {
   vi.spyOn(window, 'confirm').mockReturnValue(true)
   q('.plantuml-editor__close')?.click()
   await settle()
+  // jsdom has no matchMedia: a test that gave it one (L11) takes it away again.
+  delete window.matchMedia
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -107,6 +109,27 @@ function deferred() {
   let reject
   const promise = new Promise((res, rej) => { resolve = res; reject = rej })
   return { promise, resolve, reject }
+}
+
+/**
+ * L11: the screen as matchMedia('(max-width: 600px)') answers it, a phone or not; set() crosses
+ * the breakpoint, as a rotation does. Any other query answers no.
+ */
+function width(phone) {
+  const listeners = new Set()
+  const list = {
+    media: '(max-width: 600px)',
+    matches: phone,
+    listeners,
+    addEventListener: (type, fn) => { if (type === 'change') listeners.add(fn) },
+    removeEventListener: (type, fn) => { if (type === 'change') listeners.delete(fn) },
+    set(next) {
+      list.matches = next
+      for (const fn of [...listeners]) fn({ matches: next, media: list.media })
+    },
+  }
+  window.matchMedia = vi.fn((query) => (query === list.media ? list : { matches: false, media: query, addEventListener() {}, removeEventListener() {} }))
+  return list
 }
 
 async function open() {
@@ -1618,6 +1641,143 @@ describe('the Source toggle', () => {
   })
 })
 
+describe('on a phone (L11)', () => {
+  const overlay = () => q('.plantuml-editor')
+  const sourceOnly = () => overlay().classList.contains('plantuml-editor--source-only')
+  const diagramOnly = () => overlay().classList.contains('plantuml-editor--diagram-only')
+  const inSource = () => EditorView.findFromDOM(q('.cm-editor')).contentDOM.contains(document.activeElement)
+
+  it('opens on the diagram, Source unpressed, the focus on Save', async () => {
+    width(true)
+    await open()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(diagramOnly()).toBe(true)
+    expect(sourceOnly()).toBe(false)
+    expect(image().hidden).toBe(false)
+    expect(document.activeElement).toBe(saveButton())
+  })
+
+  it('asks the editor\'s own phone width', async () => {
+    width(true)
+    await open()
+
+    expect(window.matchMedia).toHaveBeenCalledWith('(max-width: 600px)')
+  })
+
+  it('shows only the source when Source is pressed, the diagram and the splitter hidden', async () => {
+    width(true)
+    await open()
+
+    toggle().click()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(toggle().getAttribute('aria-controls')).toBe('plantuml-editor-source')
+    expect(sourceOnly()).toBe(true)
+    expect(diagramOnly()).toBe(false)
+    expect(inSource()).toBe(true)
+  })
+
+  it('shows the diagram again on a second press, the focus on the toggle', async () => {
+    width(true)
+    await open()
+    toggle().click()
+
+    toggle().click()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(sourceOnly()).toBe(false)
+    expect(diagramOnly()).toBe(true)
+    expect(document.activeElement).toBe(toggle())
+  })
+
+  it('keeps drawing while the diagram is hidden', async () => {
+    width(true)
+    await open()
+    toggle().click()
+    seams.debouncedRender.mockClear()
+
+    type("' edit\n")
+    await settle()
+
+    expect(seams.debouncedRender).toHaveBeenCalled()
+  })
+
+  it('opens pressed on a desktop, the split as ever', async () => {
+    width(false)
+    await open()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(sourceOnly()).toBe(false)
+    expect(diagramOnly()).toBe(false)
+    expect(inSource()).toBe(true)
+
+    toggle().click()
+
+    expect(diagramOnly()).toBe(true)
+    expect(sourceOnly()).toBe(false)
+  })
+
+  it('keeps Source pressed across the breakpoint, only the layout changing', async () => {
+    const screen = width(true)
+    await open()
+    toggle().click()
+
+    screen.set(false)
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(sourceOnly()).toBe(false)
+    expect(diagramOnly()).toBe(false)
+
+    screen.set(true)
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(sourceOnly()).toBe(true)
+  })
+
+  it('keeps Source unpressed across the breakpoint', async () => {
+    const screen = width(true)
+    await open()
+
+    screen.set(false)
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(diagramOnly()).toBe(true)
+    expect(sourceOnly()).toBe(false)
+  })
+
+  it('hands the focus to the source when narrowing hides the splitter that held it', async () => {
+    const screen = width(false)
+    await open()
+    q('.plantuml-editor__splitter').focus()
+
+    screen.set(true)
+
+    expect(inSource()).toBe(true)
+  })
+
+  it('stops listening for the breakpoint on close', async () => {
+    const screen = width(true)
+    await open()
+    expect(screen.listeners.size).toBe(1)
+
+    q('.plantuml-editor__close').click()
+    await settle()
+
+    expect(q('.plantuml-editor')).toBeNull()
+    expect(screen.listeners.size).toBe(0)
+  })
+
+  it('still closes on Escape with the source shown alone', async () => {
+    width(true)
+    await open()
+    toggle().click()
+
+    q('.cm-content').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await settle()
+
+    expect(q('.plantuml-editor')).toBeNull()
+  })
+})
+
 describe('the focus in the bar (L9)', () => {
   const inSource = () => EditorView.findFromDOM(q('.cm-editor')).contentDOM.contains(document.activeElement)
 
@@ -2022,6 +2182,50 @@ describe('a linked file', () => {
     expect(source()).toBe(MAIN)
     expect(q('.plantuml-editor')).not.toBeNull()
     expect(q('.plantuml-editor__name').textContent).toBe('Order flow.puml')
+  })
+
+  it('shows its source on a phone, and the diagram again on going back (L11)', async () => {
+    width(true)
+    await openStyle()
+    expect(source()).toBe(STYLE)
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--source-only')).toBe(true)
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(source()).toBe(MAIN)
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(true)
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--source-only')).toBe(false)
+    expect(document.activeElement).toBe(saveButton())
+  })
+
+  it('keeps Source pressed on going back when it was pressed before the linked file opened, on a phone (L11)', async () => {
+    width(true)
+    await open()
+    toggle().click()
+    view().dispatch({ selection: { anchor: MAIN.indexOf('<style') } })
+    await settle()
+    await pressChip('UML_Fun.css')
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--source-only')).toBe(true)
+  })
+
+  it('leaves the toggle as it was left on going back on a desktop (L11)', async () => {
+    width(false)
+    await openStyle()
+    toggle().click()
+
+    q('.plantuml-editor__back').click()
+    await settle()
+
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(true)
   })
 
   it('hides Add diagram while the linked file is open, and shows it again on going back', async () => {
@@ -2612,6 +2816,17 @@ describe('Add diagram', () => {
     await open()
     toggle().click()
     await pickType('Gantt')
+    expect(document.activeElement).toBe(q('.plantuml-editor__tab[aria-selected="true"]'))
+    expect(document.activeElement.textContent).toBe('gantt')
+  })
+
+  it('adds from the diagram on a phone, the focus on the new tab, the source left hidden (L11)', async () => {
+    width(true)
+    await open()
+    await pickType('Gantt')
+    expect(source()).toContain('@startgantt gantt\n')
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(q('.plantuml-editor').classList.contains('plantuml-editor--diagram-only')).toBe(true)
     expect(document.activeElement).toBe(q('.plantuml-editor__tab[aria-selected="true"]'))
     expect(document.activeElement.textContent).toBe('gantt')
   })

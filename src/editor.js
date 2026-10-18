@@ -45,6 +45,8 @@ import sourceIcon from '../img/icons/code-tags.svg?raw'
 
 // "Saved n min ago" counts minutes: the bar redraws twice a minute.
 const TICK_MS = 30000
+// L11: the phone width, css/editor.css's own @media block, where one pane shows at a time.
+const PHONE = '(max-width: 600px)'
 
 /**
  * O3: the focus goes back to a real opener, else to the file's row in the Files list, else to
@@ -72,6 +74,9 @@ export function openEditor(node, { diagram: openAt } = {}) {
   resetProfiles()
   forgetLinkedFiles()
   const name = node.basename
+  // L11: decided at open, a phone opening on the diagram; a change of width is followed after.
+  const phone = window.matchMedia?.(PHONE) ?? null
+  const isPhone = () => Boolean(phone?.matches)
 
   const icon = crelt('span', { class: 'plantuml-editor__icon', 'aria-hidden': 'true' })
   icon.innerHTML = fileIcon
@@ -89,7 +94,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
   refreshButton.innerHTML = refreshIcon
   const sourceToggle = crelt('button', {
     class: 'plantuml-editor__source-toggle',
-    type: 'button', 'aria-label': t(APP_ID, 'Source'), title: t(APP_ID, 'Source'), 'aria-pressed': 'true', 'aria-controls': 'plantuml-editor-source', hidden: '',
+    type: 'button', 'aria-label': t(APP_ID, 'Source'), title: t(APP_ID, 'Source'), 'aria-pressed': String(!isPhone()), 'aria-controls': 'plantuml-editor-source', hidden: '',
   })
   sourceToggle.innerHTML = sourceIcon
   // A1: the add chunk (menu, modal, template data) is loaded on the first click.
@@ -117,11 +122,13 @@ export function openEditor(node, { diagram: openAt } = {}) {
   const diagram = crelt('div', { class: 'plantuml-editor__diagram' })
   diagram.append(tabs.element, image, problem)
   const panes = crelt('div', { class: 'plantuml-editor__panes' })
-  panes.append(source, createSplitter(panes, source), diagram)
+  const splitter = createSplitter(panes, source)
+  panes.append(source, splitter, diagram)
 
   // tabindex: a press on a blank part focuses the overlay, not the body, so its keys stop here too.
   const overlay = crelt('div', { class: 'plantuml-editor', role: 'dialog', 'aria-modal': 'true', 'aria-label': name, tabindex: '-1' })
   overlay.append(bar, panes)
+  layOut()
 
   // aria-modal only tells a screen reader; inert keeps Tab and clicks out of
   // the Files page underneath too.
@@ -142,6 +149,8 @@ export function openEditor(node, { diagram: openAt } = {}) {
   let active = 0
   let nameConfig = null // the main file's name facets, once its state is built
   let wantProfiles = null
+  let linkedShown = false
+  let pressedForLinked = false // L11: Source pressed for a linked file on a phone, unpressed again on going back
 
   const linkedMode = createLinkedMode({
     view: () => view,
@@ -164,7 +173,12 @@ export function openEditor(node, { diagram: openAt } = {}) {
       if (open) {
         adding?.then((add) => add.destroy(), () => {})
       }
+      if (open !== linkedShown) {
+        linkedShown = open
+        showLinkedSource(open)
+      }
     },
+    focus: focusSource,
   })
 
   const ADD_FAILED = t(APP_ID, 'Could not open Add diagram')
@@ -206,8 +220,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     if (!leaving.includes(document.activeElement)) {
       return
     }
-    const sourceShown = sourceToggle.getAttribute('aria-pressed') === 'true'
-    if (sourceShown && view) {
+    if (sourceShown() && view) {
       view.focus()
     } else if (!saveButton.hidden && !leaving.includes(saveButton)) {
       saveButton.focus()
@@ -384,16 +397,68 @@ export function openEditor(node, { diagram: openAt } = {}) {
     }
   }
 
-  /** L8: hide or show the source; the splitter's share stays in --plantuml-split. */
+  function sourceShown() {
+    return sourceToggle.getAttribute('aria-pressed') === 'true'
+  }
+
+  /**
+   * L8, L11: the panes the toggle shows at this width. Unpressed, the diagram alone; pressed, the
+   * split on a desktop and the source alone on a phone. The splitter's share stays in --plantuml-split.
+   */
+  function layOut() {
+    overlay.classList.toggle('plantuml-editor--diagram-only', !sourceShown())
+    overlay.classList.toggle('plantuml-editor--source-only', sourceShown() && isPhone())
+  }
+
+  function setSourceShown(shown) {
+    sourceToggle.setAttribute('aria-pressed', String(shown))
+    layOut()
+    // CodeMirror measures again once its pane is back.
+    if (shown) {
+      view?.requestMeasure()
+    }
+  }
+
+  /** L8: hide or show the source. */
   function toggleSource() {
-    const hide = sourceToggle.getAttribute('aria-pressed') === 'true'
+    const hide = sourceShown()
     const inSource = source.contains(document.activeElement)
-    overlay.classList.toggle('plantuml-editor--diagram-only', hide)
-    sourceToggle.setAttribute('aria-pressed', String(!hide))
+    setSourceShown(!hide)
     if (hide && inSource) {
       sourceToggle.focus()
     } else if (!hide) {
       view?.focus()
+    }
+  }
+
+  /** L11: across the phone width the toggle keeps its state; a pane hidden with the focus in it hands it to the source. */
+  function onWidthChange() {
+    const held = document.activeElement
+    setSourceShown(sourceShown())
+    if (overlay.classList.contains('plantuml-editor--source-only') && (diagram.contains(held) || held === splitter)) {
+      view?.focus()
+    }
+  }
+
+  /** L11: a linked file on a phone opens on its source, and going back leaves the toggle as it was. */
+  function showLinkedSource(open) {
+    if (open && isPhone() && !sourceShown()) {
+      pressedForLinked = true
+      setSourceShown(true)
+    } else if (!open && pressedForLinked) {
+      pressedForLinked = false
+      setSourceShown(false)
+    }
+  }
+
+  /** L9, L11: the focus goes to the source, or to Save while the source is hidden, or to close when Save is too. */
+  function focusSource() {
+    if (sourceShown() && view) {
+      view.focus()
+    } else if (!saveButton.hidden) {
+      saveButton.focus()
+    } else {
+      closeButton.focus()
     }
   }
 
@@ -436,6 +501,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     clearInterval(ticker)
     cancelRender()
     document.removeEventListener('keydown', onOutsideKeydown)
+    phone?.removeEventListener('change', onWidthChange)
     document.removeEventListener('visibilitychange', drawAgain)
     window.removeEventListener('focus', drawAgain)
     window.removeEventListener('beforeunload', onBeforeUnload)
@@ -514,6 +580,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     event.stopPropagation()
   })
   document.addEventListener('keydown', onOutsideKeydown)
+  phone?.addEventListener('change', onWidthChange)
   window.addEventListener('beforeunload', onBeforeUnload)
 
   loadFile(node.path).then(({ content, etag: loadedEtag }) => {
@@ -552,7 +619,7 @@ export function openEditor(node, { diagram: openAt } = {}) {
     main.session.start()
     document.addEventListener('visibilitychange', drawAgain)
     window.addEventListener('focus', drawAgain)
-    view.focus()
+    focusSource()
     const text = view.state.doc.toString()
     diagrams = diagramsOf(view.state.doc, text)
     follow(view.state, true)

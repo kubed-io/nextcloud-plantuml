@@ -71,3 +71,14 @@ describe('the editor bar at phone width (L10)', () => {
     expect(has(declared(media, '.plantuml-editor__status:empty'), 'display', 'none')).toBe(true)
   })
 })
+
+describe('the panes at phone width (L11)', () => {
+  it('shows the source alone when Source is pressed, inside the phone block only', () => {
+    for (const pane of ['diagram', 'splitter']) {
+      expect(has(declared(media, `.plantuml-editor--source-only .plantuml-editor__${pane}`), 'display', 'none')).toBe(true)
+      expect(declared(base, `.plantuml-editor--source-only .plantuml-editor__${pane}`)).toBe('')
+    }
+    expect(has(declared(media, '.plantuml-editor--source-only .plantuml-editor__panes'), 'grid-template-columns', 'minmax\\(0, 1fr\\)')).toBe(true)
+    expect(declared(base, '.plantuml-editor--source-only .plantuml-editor__panes')).toBe('')
+  })
+})

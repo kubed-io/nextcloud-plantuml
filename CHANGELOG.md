@@ -80,6 +80,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- On a phone the editor shows the code or the diagram, switched by Source; it opens on the diagram.
 - Style blocks colour selectors moss and property names slate.
 - The preprocessor colours `$variables` and function names, no longer the whole line in one colour.
 - Every `@start…` and `@end…` line is coloured, whatever the diagram type.

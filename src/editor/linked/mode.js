@@ -31,6 +31,7 @@ import { sheetExtension } from './sheet.js'
  * @param {() => void} options.redraw R13: the main file's diagram drawn again (editor.js: draw(mainState().doc.toString()))
  * @param {(state: import('@codemirror/state').EditorState) => void} options.mainChanged the main file came back changed while parked: its diagrams, tab and profiles catch up
  * @param {(open: boolean) => void} options.onChange a linked file opened (true), the main file is back (false), or the open file was renamed by Save as copy (true)
+ * @param {() => void} [options.focus] where the focus goes once the view shows the other file: the source, unless it is hidden (L11)
  * @returns {{
  *   open: (link: { kind: 'style'|'include', path: string, written: string, section: string|null, block: string|null }) => Promise<void>,
  *   goBack: () => Promise<boolean>,
@@ -42,7 +43,7 @@ import { sheetExtension } from './sheet.js'
  *   stop: () => void,
  * }}
  */
-export function createLinkedMode({ view, main, isClosing, isClosed, savedOrDiscarded, showState, redraw, mainChanged, onChange }) {
+export function createLinkedMode({ view, main, isClosing, isClosed, savedOrDiscarded, showState, redraw, mainChanged, onChange, focus = () => view().focus() }) {
   let parked = null // { state, doc, scrollTop }: doc is the text it was parked with
   let linked = null // { link, name, readOnly, session, wantProfiles } while a linked file is open
   let opening = false // a linked file is being read
@@ -164,7 +165,7 @@ export function createLinkedMode({ view, main, isClosing, isClosed, savedOrDisca
     record.session.start()
     onChange(true)
     showState()
-    view().focus()
+    focus()
   }
 
   function linkedUpdate(update) {
@@ -221,7 +222,7 @@ export function createLinkedMode({ view, main, isClosing, isClosed, savedOrDisca
     }
     onChange(false)
     showState()
-    view().focus()
+    focus()
     // It looks at once for a change made elsewhere while it was parked.
     await main().session.resume()
     return true

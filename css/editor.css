@@ -70,12 +70,16 @@
 	color: var(--color-text-maxcontrast);
 }
 
+/* The main crumb gives way with an ellipsis but keeps its 34 px (F2); the linked name may shrink to nothing. */
 .plantuml-editor__bar button.plantuml-editor__crumb,
 .plantuml-editor__linked {
 	overflow: hidden;
-	min-width: 0;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+}
+
+.plantuml-editor__linked {
+	min-width: 0;
 }
 
 .plantuml-editor__bar button.plantuml-editor__crumb:hover {

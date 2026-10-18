@@ -122,6 +122,8 @@ describe('the bar\'s small targets, as big as its 34 px buttons (A1, R11)', () =
   it('makes the main file\'s crumb at least 34 × 34 px, still giving way with an ellipsis', () => {
     const body = declared(base, CRUMB)
     expect(px(valueOf(body, 'min-width'))).toBeGreaterThanOrEqual(34)
+    // No later rule of the same weight takes the width back (the cascade keeps the last).
+    expect(has(body, 'min-width', '0')).toBe(false)
     expect(px(valueOf(body, 'min-height'))).toBeGreaterThanOrEqual(34)
     expect(px(valueOf(body, 'line-height'))).toBeGreaterThanOrEqual(34)
     expect(has(body, 'text-overflow', 'ellipsis')).toBe(true)

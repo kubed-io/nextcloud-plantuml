@@ -1023,4 +1023,10 @@
 	.plantuml-add__right {
 		padding-top: 8px;
 	}
+
+	/* R11: in a linked file the back button stands for the main crumb, so the file's own name has the room. */
+	.plantuml-editor__bar button.plantuml-editor__crumb,
+	.plantuml-editor__separator {
+		display: none;
+	}
 }

@@ -130,9 +130,16 @@ describe('the bar\'s small targets, as big as its 34 px buttons (A1, R11)', () =
   })
 
   it('keeps them so at phone width', () => {
-    for (const selector of [NEW, TYPE, CRUMB, '.plantuml-editor__add']) {
+    for (const selector of [NEW, TYPE, '.plantuml-editor__add']) {
       expect(declared(media, selector)).toBe('')
     }
+  })
+
+  it('leaves a linked file\'s name the room at phone width: the back button stands for the main crumb (R11)', () => {
+    expect(has(declared(media, CRUMB), 'display', 'none')).toBe(true)
+    expect(has(declared(media, '.plantuml-editor__separator'), 'display', 'none')).toBe(true)
+    expect(declared(media, '.plantuml-editor__bar button.plantuml-editor__back')).toBe('')
+    expect(declared(media, '.plantuml-editor__linked')).toBe('')
   })
 })
 

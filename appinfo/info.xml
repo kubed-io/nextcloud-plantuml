@@ -39,7 +39,7 @@ This is a community integration and is not affiliated with or endorsed by the Pl
   <bugs>https://github.com/kubed-io/nextcloud-plantuml/issues</bugs>
   <repository type="git">https://github.com/kubed-io/nextcloud-plantuml.git</repository>
   <dependencies>
-    <nextcloud min-version="32" max-version="34"/>
+    <nextcloud min-version="32" max-version="35"/>
   </dependencies>
   <!-- No element below may be present empty: InfoParser reads an empty element
        as "" and array_key_exists() on it takes down occ app:list for every app. -->
